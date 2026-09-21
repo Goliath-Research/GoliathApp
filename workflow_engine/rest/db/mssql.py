@@ -315,6 +315,39 @@ SELECT @accepted AS accepted, @instance_status AS instance_status, @next_ready_c
             (node_execution_id, worker_id, worker_token, error_code, error_message),
         )
 
+    def ingest_event(
+        self,
+        *,
+        event_type: str,
+        source: str,
+        idempotency_key: str,
+        payload_json: Optional[dict[str, Any]] = None,
+        correlation_key: Optional[str] = None,
+        occurred_at_utc: Optional[str] = None,
+    ) -> dict[str, Any]:
+        row = self._fetch_one(
+            f"{_declare_json('payload')}"
+            f"EXEC {self._qual('sp_ingest_event')} "
+            f"@event_type=?, @source=?, @idempotency_key=?, "
+            f"@payload_json={_json_var('payload')}, @correlation_key=?, @occurred_at_utc=?",
+            (
+                _json_text(payload_json or {}),
+                event_type,
+                source,
+                idempotency_key,
+                correlation_key,
+                occurred_at_utc,
+            ),
+        )
+        if not row:
+            raise RuntimeError("wf.sp_ingest_event returned no row")
+        return {
+            "event_id": int(row["event_id"]),
+            "duplicate": bool(row["duplicate"]),
+            "applied_count": int(row["applied_count"]),
+            "ignored_count": int(row["ignored_count"]),
+        }
+
     def create_workflow_instance(
         self,
         workflow_version_id: int,

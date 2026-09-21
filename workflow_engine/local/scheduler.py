@@ -147,6 +147,12 @@ class WorkflowScheduler:
             self._execute_action(node, scope)
             return
 
+        if node.node_type == "WAIT_EVENT":
+            raise RuntimeError(
+                f"WAIT_EVENT {node_key!r} is database-engine only "
+                "(ingest via wf.sp_ingest_event / POST /v1/events)"
+            )
+
         raise RuntimeError(f"unsupported node_type {node.node_type!r} at {node_key}")
 
     def _execute_foreach(self, node: WorkflowNodeSpec, scope: ScopeFrame) -> None:

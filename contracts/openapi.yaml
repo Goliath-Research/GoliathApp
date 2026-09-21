@@ -6,9 +6,9 @@ info:
     \ from a portal-preregistered public IP (no worker_token yet; gateway mints credentials once).\n\n\
     **EpiPortal never calls this API.** Catalog seed, workflow deploy, and study lifecycle use direct\
     \ DB (`workflow_engine/ops`, `seed_action_catalog.py`, `deploy_workflow_definitions.sh`) or portal\
-    \ SQL (`portal.sp_*`). Interactive inspection uses Cursor MCP.\n\nMaps to DB objects in `workflow_engine/contract/db_objects.yaml`.\n\
+    \ SQL (`portal.sp_*`). Sensor/operator adapters POST `/events` (typed JSON ingest). Interactive inspection uses Cursor MCP.\n\nMaps to DB objects in `workflow_engine/contract/db_objects.yaml`.\n\
     Production: Python gateway on Linux (`methyl-gateway`, systemd, uvicorn)."
-  version: 1.3.0
+  version: 1.4.0
 servers:
 - url: https://api.example.com/v1
   description: Production
@@ -17,6 +17,8 @@ servers:
 tags:
 - name: workers
   description: Remote worker poll/submit protocol (worker token auth)
+- name: events
+  description: Action-agnostic event ingest (sensors, operator apps, adapters)
 paths:
   /health:
     get:
@@ -167,6 +169,32 @@ paths:
       responses:
         '204':
           description: Task failed
+  /events:
+    post:
+      tags:
+      - events
+      summary: Ingest an external event (wf.sp_ingest_event)
+      description: |
+        Adapters (MQTT, webhooks, operator apps) POST typed JSON. The engine
+        evaluates `wf.event_subscription` rows and either starts a workflow
+        instance or completes a READY `WAIT_EVENT` node. Duplicate
+        `(source, idempotency_key)` is a no-op. Not a worker claim route.
+      operationId: ingestEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventIngestRequest'
+      responses:
+        '200':
+          description: Ingest result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventIngestResponse'
+        '400':
+          description: Missing required fields
 components:
   schemas:
     WorkerEnrollRequest:
@@ -341,6 +369,47 @@ components:
         error_message:
           type: string
           nullable: true
+    EventIngestRequest:
+      type: object
+      required:
+      - event_type
+      - source
+      - idempotency_key
+      properties:
+        event_type:
+          type: string
+        source:
+          type: string
+          description: Adapter identity (gateway, portal, mqtt, …)
+        idempotency_key:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        correlation_key:
+          type: string
+          nullable: true
+        occurred_at_utc:
+          type: string
+          format: date-time
+          nullable: true
+    EventIngestResponse:
+      type: object
+      required:
+      - event_id
+      - duplicate
+      - applied_count
+      - ignored_count
+      properties:
+        event_id:
+          type: integer
+          format: int64
+        duplicate:
+          type: boolean
+        applied_count:
+          type: integer
+        ignored_count:
+          type: integer
   securitySchemes:
     WorkerToken:
       type: apiKey

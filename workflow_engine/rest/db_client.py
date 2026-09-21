@@ -124,6 +124,27 @@ def worker_fail_task(
         )
 
 
+def ingest_event(
+    db_or_dsn: Union[GatewayDb, str],
+    *,
+    event_type: str,
+    source: str,
+    idempotency_key: str,
+    payload_json: Optional[dict[str, Any]] = None,
+    correlation_key: Optional[str] = None,
+    occurred_at_utc: Optional[str] = None,
+) -> dict[str, Any]:
+    with _use_db(db_or_dsn) as db:
+        return db.ingest_event(
+            event_type=event_type,
+            source=source,
+            idempotency_key=idempotency_key,
+            payload_json=payload_json,
+            correlation_key=correlation_key,
+            occurred_at_utc=occurred_at_utc,
+        )
+
+
 def create_workflow_instance(
     db_or_dsn: Union[GatewayDb, str],
     workflow_version_id: int,

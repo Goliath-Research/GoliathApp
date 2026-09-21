@@ -596,6 +596,36 @@ BEGIN
     RETURN;
   END IF;
 
+  IF v_node_type = 'WAIT_EVENT' THEN
+    INSERT INTO wf.node_execution (
+      workflow_instance_id, workflow_node_id, status, attempt_no,
+      parent_node_execution_id, iteration_no, available_at_utc
+    ) VALUES (
+      p_workflow_instance_id, p_workflow_node_id, 'READY', 1,
+      p_parent_node_execution_id, p_iteration_no, (now() AT TIME ZONE 'utc')
+    ) RETURNING id INTO v_ne_id;
+
+    IF p_parent_node_execution_id IS NOT NULL THEN
+      SELECT wn.node_type INTO v_parent_ntype
+      FROM wf.node_execution ne
+      INNER JOIN wf.workflow_node wn ON wn.id = ne.workflow_node_id
+      WHERE ne.id = p_parent_node_execution_id;
+      IF v_parent_ntype IN ('PARALLEL', 'FOREACH') THEN
+        INSERT INTO wf.scope_variable (workflow_instance_id, scope_node_execution_id, var_name, value_json)
+        SELECT sv.workflow_instance_id, v_ne_id, sv.var_name, sv.value_json
+        FROM wf.scope_variable sv
+        WHERE sv.workflow_instance_id = p_workflow_instance_id
+          AND sv.scope_node_execution_id = p_parent_node_execution_id;
+      END IF;
+    END IF;
+
+    CALL wf.wf_seed_execution_context(
+      v_ne_id, p_workflow_instance_id, p_workflow_node_id,
+      p_parent_node_execution_id, p_iteration_no, p_sequence_index, p_parallel_index
+    );
+    RETURN;
+  END IF;
+
   INSERT INTO wf.node_execution (
     workflow_instance_id, workflow_node_id, status, attempt_no,
     parent_node_execution_id, iteration_no, started_at_utc, available_at_utc

@@ -7,7 +7,8 @@ workflow deploy, and study lifecycle use direct DB (``workflow_engine/ops``),
 portal SQL, or Cursor MCP — not this HTTP surface.
 
 The gateway is domain-agnostic: no pipeline knowledge, no catalog files on disk,
-and no config resolution at task claim.
+and no config resolution at task claim. Adapters ingest typed events via
+``POST /v1/events`` (not the worker claim surface).
 """
 
 from __future__ import annotations
@@ -30,6 +31,7 @@ from .connection import resolve_connection_config
 from .db import open_gateway_db
 from .db.base import GatewayDb
 from .db_client import (
+    ingest_event,
     worker_authenticate,
     worker_enroll,
     worker_fail_task,
@@ -152,6 +154,40 @@ class RestGateway:
                 body.get("error_message"),
             )
             return 204, None
+
+        if method == "POST" and path == "/v1/events":
+            event_type = str(body.get("event_type") or "").strip()
+            source = str(body.get("source") or "").strip()
+            idempotency_key = str(body.get("idempotency_key") or "").strip()
+            if not event_type:
+                raise KeyError("event_type")
+            if not source:
+                raise KeyError("source")
+            if not idempotency_key:
+                raise KeyError("idempotency_key")
+            payload = body.get("payload")
+            if payload is None:
+                payload = body.get("payload_json") or {}
+            if payload is not None and not isinstance(payload, dict):
+                return 400, {"error": "payload must be a JSON object"}
+            result = ingest_event(
+                self.db,
+                event_type=event_type,
+                source=source,
+                idempotency_key=idempotency_key,
+                payload_json=payload,
+                correlation_key=(
+                    str(body["correlation_key"])
+                    if body.get("correlation_key") is not None
+                    else None
+                ),
+                occurred_at_utc=(
+                    str(body["occurred_at_utc"])
+                    if body.get("occurred_at_utc")
+                    else None
+                ),
+            )
+            return 200, result
 
         return 404, {"error": "not found", "path": path}
 

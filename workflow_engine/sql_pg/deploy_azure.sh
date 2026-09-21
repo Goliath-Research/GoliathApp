@@ -121,6 +121,7 @@ SCRIPTS=(
   portal_study_ops_api.sql
   portal_guardrails_editor.sql
   cfg_study_start_request.sql
+  wf_event_plane.sql
 )
 
 echo "Target: host=$PGHOST db=$PGDATABASE user=$PGUSER sslmode=$PGSSLMODE"

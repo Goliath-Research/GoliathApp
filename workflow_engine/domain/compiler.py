@@ -25,6 +25,7 @@ from methyl_domain.program import (
     ParallelStep,
     RepeatStep,
     SwitchStep,
+    WaitStep,
     WhileStep,
 )
 
@@ -34,6 +35,7 @@ if str(_CONTRACT) not in sys.path:
 
 from workflow_definition_spec import (  # noqa: E402
     CollectionBindingSpec,
+    EventTriggerSpec as CompiledEventTriggerSpec,
     WorkflowDefinitionSpec,
     WorkflowEdgeSpec,
     WorkflowInputBindingSpec,
@@ -90,9 +92,12 @@ class _CompileCtx:
 
 def _parse_step(
     raw: Any,
-) -> Union[ActionStep, AssignStep, IfStep, SwitchStep, WhileStep, RepeatStep, ForeachStep, ParallelStep]:
+) -> Union[
+    ActionStep, AssignStep, IfStep, SwitchStep, WhileStep, RepeatStep, ForeachStep, ParallelStep, WaitStep
+]:
     if isinstance(
-        raw, (ActionStep, AssignStep, IfStep, SwitchStep, WhileStep, RepeatStep, ForeachStep, ParallelStep)
+        raw,
+        (ActionStep, AssignStep, IfStep, SwitchStep, WhileStep, RepeatStep, ForeachStep, ParallelStep, WaitStep),
     ):
         return raw
     if not isinstance(raw, dict):
@@ -111,6 +116,8 @@ def _parse_step(
         return RepeatStep.model_validate(raw)
     if "if" in raw:
         return IfStep.model_validate(raw)
+    if "wait" in raw:
+        return WaitStep.model_validate(raw)
     if "do" in raw or "action" in raw:
         return ActionStep.model_validate(raw)
     raise ValueError(f"unsupported program step keys: {list(raw)}")
@@ -592,6 +599,40 @@ def _compile_parallel(
     return par_key
 
 
+def _wait_correlation_var(expr: Optional[str]) -> Optional[str]:
+    if not expr:
+        return None
+    text = expr.strip()
+    if text.startswith("${") and text.endswith("}"):
+        text = text[2:-1]
+    for prefix in ("var.", "ctx."):
+        if text.startswith(prefix):
+            text = text[len(prefix) :]
+            break
+    return text or None
+
+
+def _compile_wait(
+    ctx: _CompileCtx,
+    step: WaitStep,
+    parent_key: str,
+    order: int,
+    *,
+    branch: str = "SEQUENCE",
+) -> str:
+    node_key = step.node_key or ctx.fresh_key("wait")
+    ctx.nodes.append(
+        WorkflowNodeSpec(
+            node_key=node_key,
+            node_type="WAIT_EVENT",
+            wait_event_type=step.wait.event,
+            wait_correlation_var=_wait_correlation_var(step.wait.correlation),
+        )
+    )
+    _link(parent_key, node_key, order, branch, ctx)
+    return node_key
+
+
 def _compile_one(
     ctx: _CompileCtx,
     step: Any,
@@ -617,6 +658,8 @@ def _compile_one(
         return _compile_foreach(ctx, step, parent_key, order, branch=branch, in_parallel=in_parallel)
     if isinstance(step, ParallelStep):
         return _compile_parallel(ctx, step, parent_key, order, branch=branch, in_parallel=in_parallel)
+    if isinstance(step, WaitStep):
+        return _compile_wait(ctx, step, parent_key, order, branch=branch)
     raise ValueError(f"unsupported step type: {type(step)!r}")
 
 
@@ -687,6 +730,15 @@ def compile_domain_program(program: DomainProgram, *, enrich_context: bool = Fal
 
     _emit_root_scope_defaults(ctx, root_key)
 
+    event_triggers = [
+        CompiledEventTriggerSpec(
+            event=trig.event,
+            mode=trig.mode,  # type: ignore[arg-type]
+            filter_json=trig.filter,
+        )
+        for trig in program.on
+    ]
+
     workflow = WorkflowDefinitionSpec(
         name=program.name,
         description=program.description,
@@ -697,6 +749,7 @@ def compile_domain_program(program: DomainProgram, *, enrich_context: bool = Fal
         scope_defaults=ctx.scope_defaults,
         input_bindings=ctx.input_bindings,
         collection_bindings=collection_bindings,
+        event_triggers=event_triggers,
         variable_schemas=variable_schemas,
     )
     return CompileResult(workflow=workflow, context_json=context_json)

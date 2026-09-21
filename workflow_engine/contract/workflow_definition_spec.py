@@ -22,7 +22,10 @@ NodeType = Literal[
     "REPEAT",
     "WHILE",
     "FOREACH",
+    "WAIT_EVENT",
 ]
+
+EventSubscriptionMode = Literal["start_instance", "signal_wait", "start_or_signal"]
 
 BranchKind = Literal[
     "SEQUENCE",
@@ -52,7 +55,20 @@ class WorkflowNodeSpec(BaseModel):
     foreach_item_var: Optional[str] = None
     foreach_index_var: Optional[str] = None
     foreach_parallel: Optional[bool] = None
+    wait_event_type: Optional[str] = None
+    wait_correlation_var: Optional[str] = None
     input_template: Optional[Dict[str, Any]] = None
+
+
+class EventTriggerSpec(BaseModel):
+    """Compiled DomainProgram ``on`` entry → ``wf.event_subscription``."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    event: str
+    mode: EventSubscriptionMode = "start_instance"
+    filter_json: Optional[Dict[str, Any]] = None
+    enabled: bool = True
 
 
 class WorkflowEdgeSpec(BaseModel):
@@ -126,6 +142,7 @@ class WorkflowDefinitionSpec(BaseModel):
     output_bindings: List[WorkflowOutputBindingSpec] = Field(default_factory=list)
     scope_defaults: List[WorkflowScopeDefaultSpec] = Field(default_factory=list)
     collection_bindings: List[CollectionBindingSpec] = Field(default_factory=list)
+    event_triggers: List[EventTriggerSpec] = Field(default_factory=list)
     # name → schemaRef string or inline JSON Schema object (from DomainProgram variable decls)
     variable_schemas: Dict[str, Any] = Field(default_factory=dict)
 

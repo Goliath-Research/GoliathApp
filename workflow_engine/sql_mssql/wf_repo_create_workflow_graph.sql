@@ -58,6 +58,8 @@ BEGIN
         foreach_item_var NVARCHAR(256),
         foreach_index_var NVARCHAR(256),
         foreach_parallel BIT,
+        wait_event_type NVARCHAR(256),
+        wait_correlation_var NVARCHAR(256),
         input_template json,
         node_id BIGINT NULL
     );
@@ -66,6 +68,7 @@ BEGIN
         node_key, node_type, action_name, repeat_count,
         condition_ref_node_key, switch_ref_node_key, condition_var, switch_var,
         foreach_collection_var, foreach_item_var, foreach_index_var, foreach_parallel,
+        wait_event_type, wait_correlation_var,
         input_template
     )
     SELECT
@@ -81,6 +84,8 @@ BEGIN
         JSON_VALUE(n.value, '$.foreach_item_var'),
         JSON_VALUE(n.value, '$.foreach_index_var'),
         COALESCE(TRY_CAST(JSON_VALUE(n.value, '$.foreach_parallel') AS BIT), 0),
+        JSON_VALUE(n.value, '$.wait_event_type'),
+        JSON_VALUE(n.value, '$.wait_correlation_var'),
         JSON_QUERY(n.value, '$.input_template')
     FROM OPENJSON(@spec, '$.nodes') n;
 
@@ -89,16 +94,18 @@ BEGIN
     DECLARE @cv NVARCHAR(256), @sv NVARCHAR(256);
     DECLARE @fcv NVARCHAR(256), @fiv NVARCHAR(256), @fidx NVARCHAR(256);
     DECLARE @fp BIT, @it json, @nid BIGINT, @aid BIGINT;
+    DECLARE @wet NVARCHAR(256), @wcv NVARCHAR(256);
 
     DECLARE node_cur CURSOR LOCAL FAST_FORWARD FOR
         SELECT node_key, node_type, action_name, repeat_count,
                condition_ref_node_key, switch_ref_node_key, condition_var, switch_var,
                foreach_collection_var, foreach_item_var, foreach_index_var, foreach_parallel,
+               wait_event_type, wait_correlation_var,
                input_template
         FROM @nodes ORDER BY ord;
 
     OPEN node_cur;
-    FETCH NEXT FROM node_cur INTO @nk, @nt, @an, @rc, @crnk, @srnk, @cv, @sv, @fcv, @fiv, @fidx, @fp, @it;
+    FETCH NEXT FROM node_cur INTO @nk, @nt, @an, @rc, @crnk, @srnk, @cv, @sv, @fcv, @fiv, @fidx, @fp, @wet, @wcv, @it;
 
     WHILE @@FETCH_STATUS = 0
     BEGIN
@@ -114,9 +121,10 @@ BEGIN
             workflow_version_id, node_type, node_key, workflow_action_id,
             repeat_count, condition_ref_node_key, switch_ref_node_key,
             condition_var, switch_var,
-            foreach_collection_var, foreach_item_var, foreach_index_var, foreach_parallel
+            foreach_collection_var, foreach_item_var, foreach_index_var, foreach_parallel,
+            wait_event_type, wait_correlation_var
         )
-        VALUES (@ver_id, @nt, @nk, @aid, @rc, @crnk, @srnk, @cv, @sv, @fcv, @fiv, @fidx, ISNULL(@fp, 0));
+        VALUES (@ver_id, @nt, @nk, @aid, @rc, @crnk, @srnk, @cv, @sv, @fcv, @fiv, @fidx, ISNULL(@fp, 0), @wet, @wcv);
         SET @nid = SCOPE_IDENTITY();
 
         UPDATE @nodes SET node_id = @nid WHERE node_key = @nk;
@@ -125,7 +133,7 @@ BEGIN
             INSERT INTO wf.workflow_input_template (workflow_node_id, template_json)
             VALUES (@nid, @it);
 
-        FETCH NEXT FROM node_cur INTO @nk, @nt, @an, @rc, @crnk, @srnk, @cv, @sv, @fcv, @fiv, @fidx, @fp, @it;
+        FETCH NEXT FROM node_cur INTO @nk, @nt, @an, @rc, @crnk, @srnk, @cv, @sv, @fcv, @fiv, @fidx, @fp, @wet, @wcv, @it;
     END
     CLOSE node_cur;
     DEALLOCATE node_cur;
@@ -183,6 +191,32 @@ BEGIN
             NULLIF(JSON_VALUE(b.value, '$.base_var'), N''),
             NULLIF(JSON_VALUE(b.value, '$.json_path'), N'')
         FROM OPENJSON(@spec, '$.collection_bindings') b;
+    END
+
+    IF OBJECT_ID(N'wf.event_subscription', N'U') IS NOT NULL
+       AND OBJECT_ID(N'wf.wf_ensure_event_type', N'P') IS NOT NULL
+    BEGIN
+        DECLARE @ev NVARCHAR(256), @emode VARCHAR(32), @efilt json, @tid BIGINT;
+        DECLARE trig_cur CURSOR LOCAL FAST_FORWARD FOR
+            SELECT
+                JSON_VALUE(t.value, '$.event'),
+                COALESCE(NULLIF(JSON_VALUE(t.value, '$.mode'), N''), N'start_instance'),
+                COALESCE(JSON_QUERY(t.value, '$.filter_json'), JSON_QUERY(t.value, '$.filter'))
+            FROM OPENJSON(@spec, '$.event_triggers') t;
+        OPEN trig_cur;
+        FETCH NEXT FROM trig_cur INTO @ev, @emode, @efilt;
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            SET @tid = NULL;
+            EXEC wf.wf_ensure_event_type @name = @ev, @id = @tid OUTPUT;
+            INSERT INTO wf.event_subscription (
+                event_type_id, workflow_version_id, mode, filter_json, enabled
+            )
+            VALUES (@tid, @ver_id, @emode, @efilt, 1);
+            FETCH NEXT FROM trig_cur INTO @ev, @emode, @efilt;
+        END
+        CLOSE trig_cur;
+        DEALLOCATE trig_cur;
     END
 
     SELECT @root_node_id = node_id FROM @nodes WHERE node_key = @root_key;

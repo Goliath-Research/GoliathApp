@@ -87,6 +87,9 @@ explicit `--capability` / `--omnibus`.
 | `wf.sp_worker_heartbeat` | procedure | Extend lease; returns `rows_updated` + `desired_state` + `command` |
 | `wf.sp_worker_fail_task` | procedure | Fail task and instance |
 | `wf.sp_start_workflow_instance` | procedure | Start instance and activate root |
+| `wf.sp_ingest_event` | procedure/function | Insert event; start instances and/or complete `WAIT_EVENT` |
+| `wf.sp_signal_wait` | procedure | Ops/test wake of matching READY wait nodes |
+| `portal.sp_ingest_event` | procedure/function | App wrapper over `wf.sp_ingest_event` |
 
 ### 2. Repository API (middle-tier persistence)
 

@@ -25,7 +25,7 @@ DECLARE
   v_name text;
   v_root_key text;
   v_allowed_node_types text[] := ARRAY[
-    'ACTION','SEQUENCE','PARALLEL','IF','SWITCH','REPEAT','WHILE','FOREACH'
+    'ACTION','SEQUENCE','PARALLEL','IF','SWITCH','REPEAT','WHILE','FOREACH','WAIT_EVENT'
   ];
   v_allowed_branch_kinds text[] := ARRAY[
     'SEQUENCE','PARALLEL','THEN','ELSE','CASE','DEFAULT','BODY'
@@ -92,7 +92,9 @@ BEGIN
       foreach_collection_var,
       foreach_item_var,
       foreach_index_var,
-      foreach_parallel
+      foreach_parallel,
+      wait_event_type,
+      wait_correlation_var
     )
     VALUES (
       v_ver_id,
@@ -110,7 +112,9 @@ BEGIN
       CASE
         WHEN v_node ? 'foreach_parallel' THEN (v_node->>'foreach_parallel')::boolean
         ELSE NULL
-      END
+      END,
+      NULLIF(v_node->>'wait_event_type', ''),
+      NULLIF(v_node->>'wait_correlation_var', '')
     )
     RETURNING id INTO v_node_id;
 
@@ -220,6 +224,27 @@ BEGIN
       NULLIF(v_binding->>'path_var', ''),
       NULLIF(v_binding->>'base_var', ''),
       NULLIF(v_binding->>'json_path', '')
+    );
+  END LOOP;
+
+  FOR v_binding IN SELECT value FROM jsonb_array_elements(COALESCE(p_spec->'event_triggers', '[]'::jsonb))
+  LOOP
+    IF NULLIF(btrim(v_binding->>'event'), '') IS NULL THEN
+      RAISE EXCEPTION 'event_triggers entry missing event';
+    END IF;
+    INSERT INTO wf.event_subscription (
+      event_type_id, workflow_version_id, mode, filter_json, enabled
+    )
+    VALUES (
+      wf.wf_ensure_event_type(v_binding->>'event'),
+      v_ver_id,
+      COALESCE(NULLIF(btrim(v_binding->>'mode'), ''), 'start_instance'),
+      CASE
+        WHEN v_binding ? 'filter_json' THEN v_binding->'filter_json'
+        WHEN v_binding ? 'filter' THEN v_binding->'filter'
+        ELSE NULL
+      END,
+      COALESCE((v_binding->>'enabled')::boolean, true)
     );
   END LOOP;
 

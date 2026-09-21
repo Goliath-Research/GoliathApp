@@ -944,6 +944,30 @@ BEGIN
         RETURN;
     END
 
+    IF @node_type = N'WAIT_EVENT'
+    BEGIN
+        DECLARE @wait_ne BIGINT;
+        INSERT INTO wf.node_execution (
+            workflow_instance_id, workflow_node_id, status, attempt_no,
+            parent_node_execution_id, iteration_no, available_at_utc
+        )
+        VALUES (
+            @workflow_instance_id, @workflow_node_id, N'READY', 1,
+            @parent_node_execution_id, @iteration_no, SYSUTCDATETIME()
+        );
+        SET @wait_ne = SCOPE_IDENTITY();
+
+        EXEC wf.wf_seed_execution_context
+            @node_execution_id = @wait_ne,
+            @workflow_instance_id = @workflow_instance_id,
+            @workflow_node_id = @workflow_node_id,
+            @parent_node_execution_id = @parent_node_execution_id,
+            @iteration_no = @iteration_no,
+            @sequence_index = @sequence_index,
+            @parallel_index = @parallel_index;
+        RETURN;
+    END
+
     DECLARE @pex BIGINT;
     INSERT INTO wf.node_execution (
         workflow_instance_id, workflow_node_id, status, attempt_no,

@@ -591,6 +591,21 @@ BEGIN
     RETURN;
   END IF;
 
+  IF v_node_type = 'WAIT_EVENT' THEN
+    INSERT INTO wf.node_execution (
+      workflow_instance_id, workflow_node_id, status, attempt_no,
+      parent_node_execution_id, iteration_no, available_at_utc
+    ) VALUES (
+      p_workflow_instance_id, p_workflow_node_id, 'READY', 1,
+      p_parent_node_execution_id, p_iteration_no, (now() AT TIME ZONE 'utc')
+    ) RETURNING id INTO v_ne_id;
+    CALL wf.wf_seed_execution_context(
+      v_ne_id, p_workflow_instance_id, p_workflow_node_id,
+      p_parent_node_execution_id, p_iteration_no, p_sequence_index, p_parallel_index
+    );
+    RETURN;
+  END IF;
+
   INSERT INTO wf.node_execution (
     workflow_instance_id, workflow_node_id, status, attempt_no,
     parent_node_execution_id, iteration_no, started_at_utc, available_at_utc
