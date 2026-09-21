@@ -3,7 +3,7 @@ name = "methyl-gateway"
 version = "1.0.0"
 description = "MethylPipeline workflow REST gateway (Azure SQL and PostgreSQL)"
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10,<3.15"
 dependencies = [
   "psycopg[binary,pool]>=3.1",
   "pyodbc>=5.0",
