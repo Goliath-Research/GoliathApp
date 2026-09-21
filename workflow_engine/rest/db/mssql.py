@@ -325,6 +325,10 @@ SELECT @accepted AS accepted, @instance_status AS instance_status, @next_ready_c
         correlation_key: Optional[str] = None,
         occurred_at_utc: Optional[str] = None,
     ) -> dict[str, Any]:
+        # DECLARE @__json_payload = CAST(? AS json) is the first `?`; EXEC then
+        # binds event_type/source/idempotency_key/correlation/occurred. Do not
+        # move payload to the fourth tuple slot — @payload_json is the declared
+        # json var, not a positional `?` (same pattern as apply_validation_plan).
         row = self._fetch_one(
             f"{_declare_json('payload')}"
             f"EXEC {self._qual('sp_ingest_event')} "
