@@ -94,7 +94,7 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
 │  GoliathApp (platform)                                      │
 │  Meta · RBAC · Meta.Objs · portal engine · wf · cfg DDL     │
 │  REST gateway · optional Delphi MT · local engine           │
-│  Worker protocol + thin reference worker                    │
+│  Shared worker (claim/submit) · /work optional              │
 │  Deploy/bootstrap for control plane                         │
 └───────────────────────────┬─────────────────────────────────┘
                             │ publishes contracts:
@@ -130,8 +130,9 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
 | `contracts/openapi.yaml` | Published HTTP contract |
 | Platform slices of `schemas/` (workflow, domain_program, storage, …) | Platform |
 | `deploy/` control-plane pieces, worker join docs (generic) | Platform |
-| `scripts/init_work_layout.sh` | `/work` layout contract |
-| `workers/WORKER_PROTOCOL.md` + reference REST claim/submit client | Platform. Not `workers/methyl_worker/`. |
+| `scripts/init_work_layout.sh` | `/work` layout contract. Storage is optional: a workflow that never calls the helpers runs with no mount. |
+| `workers/WORKER_PROTOCOL.md` | Claim/submit protocol |
+| `goliath_worker/client.py`, `goliath_worker/work_share.py` | Shared worker. Lifted from `workers/methyl_worker/` (stdlib only). Action handlers stay in Omics. |
 | Platform architecture docs (component-boundaries, distributed-runtime, config-registry — examples stripped of methylation) | Platform |
 
 ### 4.2 GoliathOmics — content and handlers
@@ -139,7 +140,8 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
 | Path / artifact | Role |
 |-----------------|------|
 | `packages/*` (all 26) | Science libraries. RNA and proteomics stay here. |
-| `workers/methyl_worker/` | Genomics action handlers + catalog |
+| `workers/methyl_worker/` handlers and runners | Specific workers that execute Omics actions. Does not own the claim protocol or `init_work_layout.sh`. |
+| Database content | Data-type rows, action catalog, analyte rows, reference-asset seeds. Engine DDL stays in App. |
 | `workers/docker/methylgrapher/` | Image bake wiring to mojo-align |
 | `workflow_engine/domain/{analytes,profiles,fixtures,checks}/` | Programs, profiles, CI cohorts |
 | `workflow_engine/domain/modality_gate.py` | Omics. It imports `methyl_utils` and lists methylation-only actions. |
@@ -168,8 +170,8 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
 
 | Repo | Contract with GoliathOmics |
 |------|----------------------------|
-| **mojo-align** | Image tag built from a declared git tag. Toolchain pin: Mojo 1.1 / Modular 26.6 (`pixi` channel), not Mojo 1.0.0b2. `MOJO_ALIGN_ROOT` → `goliath/methylgrapher:*-mojo-*`; in-image `/opt/mojo-align`. SamplePrep owns `/work/samples/...` arm dirs. |
-| **MethylExtractor** | Binary under `/work/goliath/methyl-extractor-*/`. `extraction_manifest` / QC JSON consumed by `methylextractionqc`. |
+| **mojo-align** | Image tag built from a declared git tag. Toolchain pin: Mojo 1.1 / Modular 26.6 (`pixi` channel), not Mojo 1.0.0b2. `MOJO_ALIGN_ROOT` → `goliath/methylgrapher:*-mojo-*`; in-image `/opt/mojo-align`. SamplePrep owns `/work/samples/...` arm dirs. Required features: `GoliathWorkflow/docs/contracts/omics-tool-requirements.md`. |
+| **MethylExtractor** | Binary under `/work/goliath/methyl-extractor-*/`. `extraction_manifest` / QC JSON consumed by `methylextractionqc`. Required features are in the same Omics document. A change to either tool that drops a listed feature breaks GoliathOmics. |
 
 ### 4.4 Decisions (locked)
 
@@ -185,6 +187,21 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
 | `GoliathWorkflow` name | After the split, rename the science repo to **GoliathOmics**. Do not keep three product names. |
 | History | `git filter-repo` for platform paths into GoliathApp. Science history stays in GoliathWorkflow until that rename. |
 | Database | **One database** named `goliath`. App owns engine DDL. Omics owns content seeds. No second database. |
+| Shared worker | App owns claim/submit (`goliath_worker`) and the `/work` layout. Omics owns action handlers. `/work` is optional for workflows that do not call the storage helpers. |
+| Inherited names | Omics-facing docs and the App package use the `goliath` prefix for platform pieces (`goliath-gateway`, `goliath-cfg`, `goliath-workflow-run`, `GOLIATH_WORK_ROOT`, database `goliath`). `methyl-*` remains on methylation-specific actions and as one-cycle aliases. The MethylPipeline tree is not renamed in the first extract. |
+
+### 4.5 Couplings that still block a clean boot
+
+Copying the engine does not finish Phase 1. These files still import science code, so the gateway is not yet free of `methyl*`:
+
+| File | Import |
+|------|--------|
+| `workflow_engine/domain/compiler.py` | `methyl_domain`, `methyl_worker` |
+| `workflow_engine/rest/execution_scope.py` | `methyl_worker` (lazy) |
+| `workflow_engine/local/engine.py` | `methyl_worker` handlers |
+| `workers/reference_rest_worker.py` | Shim that calls `methyl_worker` |
+
+`workers/methyl_worker/client.py` and `work_share.py` do not import science packages. The extract branch moves them to `goliath_worker/`.
 
 ---
 
@@ -208,7 +225,8 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
    - Keep the layout from `scripts/init_work_layout.sh`:  
      `samples/`, `projects/`, `cache/` writable; `genomes/`, `site/`, `goliath/` ops-controlled.  
    - App owns the layout script and the mount contract. Omics owns site/analyte content and sample-arm conventions.  
-   - Env: `METHYL_WORK_ROOT` during the alias cycle; `GOLIATH_WORK_ROOT` is the platform name.
+   - Shared storage is optional. A workflow that never calls `goliath_worker.work_share` runs with no `/work` mount.  
+   - Env: inherited platform name is `GOLIATH_WORK_ROOT`. `METHYL_WORK_ROOT` remains a one-cycle alias.
 
 5. **CLI surface**  
    - `goliath-*` entry points are born in App. `methyl-*` remains an alias shim in Omics for one major cycle, then deprecates.
@@ -244,7 +262,9 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
 - Standalone App CI: Postgres SQL deploy smoke, gateway boot, reference worker claim/submit against a fixture DB.
 - Package name `goliath-app`. Document the PostgreSQL and Azure SQL twins.
 
-**Exit:** GoliathApp contains the gateway and engine DDL. The gateway boots with zero imports from `packages/methyl*` or the other science packages. A tree that still contains `wf_split_detector_actions_seed.sql` has not met this exit.
+**First slice (`engine-extract`):** the branch contains the engine tree and `goliath_worker`, and the science SQL seeds in §4.2 are absent from the tip. That slice does **not** meet the boot exit below, because §4.5 files still import science code.
+
+**Exit:** GoliathApp contains the gateway and engine DDL. The gateway boots with zero imports from `packages/methyl*` or the other science packages, which requires cutting the imports in §4.5. A tree that still contains `wf_split_detector_actions_seed.sql` has not met this exit.
 
 ### Phase 2 — Thin GoliathWorkflow → GoliathOmics (depend on App)
 
@@ -343,6 +363,7 @@ Parking this plan is done: it lives at `GoliathApp/docs/SEPARATION_PLAN.md`.
 - `workflow_engine/domain/compiler.py`, `verify_workflow.py`, `pipeline_profiles.py`, `workflow_context.py`
 - `sql_pg/` and `sql_mssql/` engine DDL and APIs for Meta, RBAC, portal engine, wf engine, cfg schema, Contract, Onboarding
 - `contracts/`, generic `deploy/`, `workers/WORKER_PROTOCOL.md`, `scripts/init_work_layout.sh`
+- `goliath_worker/client.py`, `goliath_worker/work_share.py` (from `workers/methyl_worker/`; handlers stay in Omics)
 
 **Omics content**
 
@@ -369,8 +390,8 @@ Parking this plan is done: it lives at `GoliathApp/docs/SEPARATION_PLAN.md`.
 | Process pack | MethylPipeline term: a new omics modality (actions, programs, QC) |
 | EpiPortal | Portal UI product surface |
 | DomainProgram | Portable workflow IR executed by the local or DB engine |
-| Worker | Claim/submit agent (portal user or headless cluster node) |
+| Worker | Claim/submit agent. The protocol and `/work` helpers are GoliathApp. Action handlers are GoliathOmics. |
 
 ---
 
-*Decisions locked 2026-09-22. Code has not moved.*
+*Decisions locked 2026-09-22. First engine extract is the `engine-extract` branch. GoliathWorkflow remains the live product.*
