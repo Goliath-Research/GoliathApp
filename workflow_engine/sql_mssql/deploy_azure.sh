@@ -73,6 +73,7 @@ run_sql() {
 }
 
 SCRIPTS=(
+  wf_engine_objects.sql
   wf_scope_readpath.sql
   wf_instance_extension.sql
   wf_json_column_alignment.sql
@@ -108,10 +109,8 @@ SCRIPTS=(
   # Legacy EpiPortal stack (extracted from MethylPipeline.sql) — before cfg FKs
   meta_schema.sql
   meta_api.sql
-  portal_clinical_schema.sql
   rbac_schema.sql
   rbac_api.sql
-  portal_clinical_api.sql
   contract_schema.sql
   contract_api.sql
   onboarding_schema.sql
@@ -125,13 +124,10 @@ SCRIPTS=(
   cfg_wf_relationships.sql
   cfg_repo_api.sql
   portal_resource_profile.sql
-  cfg_reference_assets_seed.sql
-  cfg_site_reference_assets_seed.sql
   cfg_portal_api.sql
   portal_sample_extras_schema.sql
   cfg_process_pack_catalog.sql
   cfg_assay_procedure_links.sql
-  cfg_analyte_catalog.sql
   cfg_hyperparameter_search.sql
   portal_study_pipeline_api.sql
   portal_ops_recovery_api.sql

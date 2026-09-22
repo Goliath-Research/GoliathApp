@@ -89,7 +89,6 @@ SCRIPTS=(
   # Legacy EpiPortal clinical / RBAC / Meta stack (quoted PascalCase)
   meta_schema.sql
   rbac_schema.sql
-  portal_clinical_schema.sql
   contract_schema.sql
   onboarding_schema.sql
   legacy_cross_schema_fks.sql
@@ -98,18 +97,14 @@ SCRIPTS=(
   cfg_wf_relationships.sql
   cfg_repo_api.sql
   portal_resource_profile.sql
-  cfg_reference_assets_seed.sql
-  cfg_site_reference_assets_seed.sql
   cfg_portal_api.sql
   portal_sample_extras_schema.sql
   cfg_process_pack_catalog.sql
   cfg_assay_procedure_links.sql
-  cfg_analyte_catalog.sql
   cfg_hyperparameter_search.sql
   # Modern portal API parity (sp_get_site, sp_get_study, sp_list_workflow_defs, …)
   portal_modern_api_parity.sql
-  # Legacy clinical / RBAC / Meta / Contract / Onboarding API parity
-  portal_clinical_api_parity.sql
+  # RBAC / Meta / Contract / Onboarding API parity. Clinical and analyte scripts are GoliathOmics.
   rbac_api_parity.sql
   meta_api_parity.sql
   contract_api_parity.sql
