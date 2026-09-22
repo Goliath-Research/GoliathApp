@@ -1,0 +1,419 @@
+openapi: 3.0.3
+info:
+  title: MethylPipeline Workflow Gateway API
+  description: "REST contract for the workflow **gateway** (worker-only):\n\n- **Workers** \u2014 `/workers/*`\
+    \ with `worker_id` + `worker_token` (poll, submit, heartbeat, fail).\n- **Enroll** \u2014 `POST /workers/enroll`\
+    \ from a portal-preregistered public IP (no worker_token yet; gateway mints credentials once).\n\n\
+    **EpiPortal never calls this API.** Catalog seed, workflow deploy, and study lifecycle use direct\
+    \ DB (`workflow_engine/ops`, `seed_action_catalog.py`, `deploy_workflow_definitions.sh`) or portal\
+    \ SQL (`portal.sp_*`). Sensor/operator adapters POST `/events` (typed JSON ingest). Interactive inspection uses Cursor MCP.\n\nMaps to DB objects in `workflow_engine/contract/db_objects.yaml`.\n\
+    Production: Python gateway on Linux (`methyl-gateway`, systemd, uvicorn)."
+  version: 1.4.0
+servers:
+- url: https://api.example.com/v1
+  description: Production
+- url: http://localhost:8080/v1
+  description: Local Python gateway (methyl-gateway)
+tags:
+- name: workers
+  description: Remote worker poll/submit protocol (worker token auth)
+- name: events
+  description: Action-agnostic event ingest (sensors, operator apps, adapters)
+paths:
+  /health:
+    get:
+      tags:
+      - workers
+      summary: Gateway health
+      security: []
+      responses:
+        '200':
+          description: OK
+  /workers/authenticate:
+    post:
+      tags:
+      - workers
+      summary: Validate worker credentials
+      operationId: workerAuthenticate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkerAuthRequest'
+      responses:
+        '200':
+          description: Worker authenticated
+        '401':
+          description: Invalid credentials
+  /workers/enroll:
+    post:
+      tags:
+      - workers
+      summary: Enroll worker from preregistered public IP (wf.sp_worker_enroll)
+      description: |
+        Portal preregisters `(cluster_key, public_ip, external_worker_key)` via
+        `portal.sp_upsert_worker_enrollment`. The worker VM calls this endpoint from
+        that IP with matching `cluster_key` / `external_worker_key`. Gateway mints
+        `worker_id` + plaintext `worker_token` once (token hash stored in DB).
+        No `worker_id` or `worker_token` is required on the request.
+      operationId: workerEnroll
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkerEnrollRequest'
+      responses:
+        '200':
+          description: Worker enrolled; store worker_token securely (shown once)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerEnrollResponse'
+        '403':
+          description: IP/key mismatch, revoked enrollment, or unknown allowlist row
+        '400':
+          description: Missing or invalid request fields
+  /workers/tasks/request:
+    post:
+      tags:
+      - workers
+      summary: Claim one READY task (wf.sp_worker_request_task)
+      operationId: workerRequestTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkerRequestTaskRequest'
+      responses:
+        '200':
+          description: Task claim result (zero or one task)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerTaskClaimResponse'
+  /workers/tasks/{nodeExecutionId}/submit:
+    post:
+      tags:
+      - workers
+      summary: Submit task result (wf.sp_worker_submit_result)
+      operationId: workerSubmitResult
+      parameters:
+      - name: nodeExecutionId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkerSubmitResultRequest'
+      responses:
+        '200':
+          description: Submit acknowledgement row
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerSubmitResultResponse'
+  /workers/tasks/{nodeExecutionId}/heartbeat:
+    post:
+      tags:
+      - workers
+      summary: Extend task lease (wf.sp_worker_heartbeat)
+      operationId: workerHeartbeat
+      parameters:
+      - name: nodeExecutionId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkerHeartbeatRequest'
+      responses:
+        '200':
+          description: Lease renew + worker desired_state ACK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerHeartbeatResponse'
+  /workers/tasks/{nodeExecutionId}/fail:
+    post:
+      tags:
+      - workers
+      summary: Fail task (wf.sp_worker_fail_task)
+      operationId: workerFailTask
+      parameters:
+      - name: nodeExecutionId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkerFailTaskRequest'
+      responses:
+        '204':
+          description: Task failed
+  /events:
+    post:
+      tags:
+      - events
+      summary: Ingest an external event (wf.sp_ingest_event)
+      description: |
+        Adapters (MQTT, webhooks, operator apps) POST typed JSON. The engine
+        evaluates `wf.event_subscription` rows and either starts a workflow
+        instance or completes a READY `WAIT_EVENT` node. Duplicate
+        `(source, idempotency_key)` is a no-op. Not a worker claim route.
+      operationId: ingestEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventIngestRequest'
+      responses:
+        '200':
+          description: Ingest result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventIngestResponse'
+        '400':
+          description: Missing required fields
+components:
+  schemas:
+    WorkerEnrollRequest:
+      type: object
+      required:
+      - cluster_key
+      - external_worker_key
+      properties:
+        cluster_key:
+          type: string
+          description: Cluster key matching portal enrollment row
+        external_worker_key:
+          type: string
+          description: Stable worker key matching portal enrollment for this IP
+        capabilities:
+          type: array
+          items: {}
+          description: Optional capability list (JSON array); stored on wf.worker
+        arc_resource_id:
+          type: string
+          description: Optional Azure Arc connected-machine resource ID
+    WorkerEnrollResponse:
+      type: object
+      required:
+      - worker_id
+      - worker_token
+      - external_worker_key
+      - cluster_key
+      properties:
+        worker_id:
+          type: integer
+          format: int64
+        worker_token:
+          type: string
+          description: Plaintext token returned once; write to /etc/methyl/worker-token
+        external_worker_key:
+          type: string
+        cluster_key:
+          type: string
+    WorkerAuthRequest:
+      type: object
+      required:
+      - worker_id
+      - worker_token
+      properties:
+        worker_id:
+          type: integer
+          format: int64
+        worker_token:
+          type: string
+    WorkerRequestTaskRequest:
+      type: object
+      required:
+      - worker_id
+      - worker_token
+      properties:
+        worker_id:
+          type: integer
+          format: int64
+        worker_token:
+          type: string
+        capability:
+          type: string
+          nullable: true
+          description: 'Optional narrowing filter within the worker''s registered wf.worker.capabilities.
+            Dispatch only returns tasks whose capability is in that set; this field cannot widen it.
+
+            '
+        max_lease_seconds:
+          type: integer
+          default: 300
+    WorkerTaskClaimResponse:
+      type: object
+      required:
+      - has_task
+      properties:
+        has_task:
+          type: boolean
+        node_execution_id:
+          type: integer
+          format: int64
+        workflow_instance_id:
+          type: integer
+          format: int64
+        node_key:
+          type: string
+        action_name:
+          type: string
+        capability:
+          type: string
+        attempt_no:
+          type: integer
+        input_json:
+          type: object
+          additionalProperties: true
+        iteration_no:
+          type: integer
+        desired_state:
+          type: string
+          description: ACTIVE | DRAINING | STOPPING
+        command:
+          type: string
+          description: NONE | DRAIN | STOP
+    WorkerSubmitResultRequest:
+      type: object
+      required:
+      - worker_id
+      - worker_token
+      - result_code
+      properties:
+        worker_id:
+          type: integer
+          format: int64
+        worker_token:
+          type: string
+        result_code:
+          type: integer
+        output_json:
+          type: object
+          additionalProperties: true
+          nullable: true
+    WorkerSubmitResultResponse:
+      type: object
+      properties:
+        accepted:
+          type: boolean
+        instance_status:
+          type: string
+        next_ready_count:
+          type: integer
+    WorkerHeartbeatRequest:
+      type: object
+      required:
+      - worker_id
+      - worker_token
+      properties:
+        worker_id:
+          type: integer
+          format: int64
+        worker_token:
+          type: string
+        extend_seconds:
+          type: integer
+          default: 300
+    WorkerHeartbeatResponse:
+      type: object
+      required:
+      - rows_updated
+      properties:
+        rows_updated:
+          type: integer
+        desired_state:
+          type: string
+          description: ACTIVE | DRAINING | STOPPING
+        command:
+          type: string
+          description: NONE | DRAIN | STOP
+    WorkerFailTaskRequest:
+      type: object
+      required:
+      - worker_id
+      - worker_token
+      - error_code
+      properties:
+        worker_id:
+          type: integer
+          format: int64
+        worker_token:
+          type: string
+        error_code:
+          type: integer
+        error_message:
+          type: string
+          nullable: true
+    EventIngestRequest:
+      type: object
+      required:
+      - event_type
+      - source
+      - idempotency_key
+      properties:
+        event_type:
+          type: string
+        source:
+          type: string
+          description: Adapter identity (gateway, portal, mqtt, …)
+        idempotency_key:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        correlation_key:
+          type: string
+          nullable: true
+        occurred_at_utc:
+          type: string
+          format: date-time
+          nullable: true
+    EventIngestResponse:
+      type: object
+      required:
+      - event_id
+      - duplicate
+      - applied_count
+      - ignored_count
+      properties:
+        event_id:
+          type: integer
+          format: int64
+        duplicate:
+          type: boolean
+        applied_count:
+          type: integer
+        ignored_count:
+          type: integer
+  securitySchemes:
+    WorkerToken:
+      type: apiKey
+      in: header
+      name: X-Worker-Token
+      description: Worker body fields worker_id + worker_token (primary auth)
+security: []

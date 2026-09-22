@@ -1,0 +1,652 @@
+# MethylPipeline DB Object Contract (machine-readable)
+# Both Azure SQL and PostgreSQL must implement all objects in required: true sections.
+
+version: "1.0"
+schema: wf
+
+conventions:
+  identity_return: single_column_result_set  # column: id
+  submit_result_return: single_row_result_set  # accepted, instance_status, next_ready_count
+  json_type:
+    mssql: json
+    postgres: jsonb
+
+objects:
+  worker_api:
+    - name: wf.wf_worker_authenticate
+      kind: procedure
+      required: true
+      parameters:
+        - { name: worker_id, type: bigint, direction: in }
+        - { name: worker_token, type: text, direction: in }
+    - name: wf.sp_worker_request_task
+      kind: procedure
+      required: true
+      parameters:
+        - { name: worker_id, type: bigint, direction: in }
+        - { name: worker_token, type: text, direction: in }
+        - { name: capability, type: text, direction: in, nullable: true }
+        - { name: max_lease_seconds, type: int, direction: in, default: 300 }
+      result_set:
+        columns:
+          - { name: node_execution_id, type: bigint }
+          - { name: workflow_instance_id, type: bigint }
+          - { name: node_key, type: text }
+          - { name: action_name, type: text }
+          - { name: capability, type: text }
+          - { name: attempt_no, type: int }
+          - { name: input_json, type: json }
+          - { name: iteration_no, type: int }
+          - { name: desired_state, type: text }
+          - { name: command, type: text }
+        cardinality: exactly_one
+    - name: wf.sp_worker_submit_result
+      kind: procedure
+      required: true
+      parameters:
+        - { name: node_execution_id, type: bigint, direction: in }
+        - { name: worker_id, type: bigint, direction: in }
+        - { name: worker_token, type: text, direction: in }
+        - { name: result_code, type: int, direction: in }
+        - { name: output_json, type: json, direction: in, nullable: true }
+      result_set:
+        columns:
+          - { name: accepted, type: boolean }
+          - { name: instance_status, type: text }
+          - { name: next_ready_count, type: int }
+        cardinality: exactly_one
+    - name: wf.sp_worker_heartbeat
+      kind: procedure
+      required: true
+      parameters:
+        - { name: node_execution_id, type: bigint, direction: in }
+        - { name: worker_id, type: bigint, direction: in }
+        - { name: worker_token, type: text, direction: in }
+        - { name: extend_seconds, type: int, direction: in, default: 300 }
+      result_set:
+        columns:
+          - { name: rows_updated, type: int }
+          - { name: desired_state, type: text }
+          - { name: command, type: text }
+        cardinality: exactly_one
+    - name: wf.sp_worker_fail_task
+      kind: procedure
+      required: true
+      parameters:
+        - { name: node_execution_id, type: bigint, direction: in }
+        - { name: worker_id, type: bigint, direction: in }
+        - { name: worker_token, type: text, direction: in }
+        - { name: error_code, type: int, direction: in }
+        - { name: error_message, type: text, direction: in, nullable: true }
+    - name: wf.sp_start_workflow_instance
+      kind: procedure
+      required: true
+      parameters:
+        - { name: workflow_instance_id, type: bigint, direction: in }
+
+  event_api:
+    - name: wf.sp_ingest_event
+      kind: procedure
+      required: true
+      parameters:
+        - { name: event_type, type: text, direction: in }
+        - { name: source, type: text, direction: in }
+        - { name: idempotency_key, type: text, direction: in }
+        - { name: payload_json, type: json, direction: in, nullable: true }
+        - { name: correlation_key, type: text, direction: in, nullable: true }
+        - { name: occurred_at_utc, type: timestamptz, direction: in, nullable: true }
+      result_set:
+        columns:
+          - { name: event_id, type: bigint }
+          - { name: duplicate, type: boolean }
+          - { name: applied_count, type: int }
+          - { name: ignored_count, type: int }
+        cardinality: exactly_one
+    - name: wf.sp_signal_wait
+      kind: procedure
+      required: true
+      parameters:
+        - { name: event_type, type: text, direction: in }
+        - { name: correlation_key, type: text, direction: in, nullable: true }
+        - { name: payload_json, type: json, direction: in, nullable: true }
+        - { name: workflow_instance_id, type: bigint, direction: in, nullable: true }
+    - name: portal.sp_ingest_event
+      kind: procedure
+      required: true
+      notes: Portal/apps wrapper over wf.sp_ingest_event; never call wf.* from UI code.
+
+  repository_api:
+    - name: wf.wf_repo_set_instance_status
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_create_workflow_instance
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_insert_node_execution
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_update_node_execution_status
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_insert_loop_state
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_get_running_instances
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_get_workflow_instance
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_try_latest_task_result_code
+      kind: function
+      required: true
+    - name: wf.wf_repo_upsert_instance_extension
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_get_instance_extension
+      kind: function
+      required: true
+    - name: wf.wf_apply_execution_scope
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_upsert_execution_scope_action_entry
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_get_action_submit_context
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_set_scope_variable
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_upsert_action_schema
+      kind: procedure
+      required: true
+    - name: wf.wf_repo_get_action_schema
+      kind: function
+      required: true
+      notes: Returns JSON Schema for action I/O from wf.data_type.schema_json (legacy workflow_action_schema blob is fallback).
+    - name: wf.wf_repo_list_actions
+      kind: function
+      required: true
+      # After wf_action_dispatch_metadata.sql: also returns execution_mode, cli_tool,
+      # in_process_handler, argv_map alongside schema availability flags.
+    - name: wf.wf_repo_upsert_workflow_action
+      kind: procedure
+      required: true
+      # Canonical signature after wf_action_dispatch_metadata.sql (deployed after the
+      # 3-arg bootstrap in wf_repo_upsert_workflow_action.sql).
+      parameters:
+        - { name: action_name, type: text, direction: in }
+        - { name: capability, type: text, direction: in, nullable: true }
+        - { name: payload_schema_ref, type: text, direction: in, nullable: true }
+        - { name: execution_mode, type: text, direction: in, nullable: true }
+        - { name: cli_tool, type: text, direction: in, nullable: true }
+        - { name: in_process_handler, type: text, direction: in, nullable: true }
+        - { name: argv_map, type: json, direction: in, nullable: true }
+    - name: wf.wf_repo_create_workflow_graph
+      kind: function
+      required: true
+      parameters:
+        - { name: spec, type: json, direction: in }
+      result_set:
+        columns:
+          - { name: workflow_def_id, type: bigint }
+          - { name: workflow_version_id, type: bigint }
+          - { name: root_node_id, type: bigint }
+          - { name: name, type: text }
+        cardinality: exactly_one
+
+  engine_runtime:
+    - name: wf.wf_json_fragment_from_string
+      kind: function
+      required: true
+    - name: wf.wf_try_task_result_code
+      kind: function
+      required: true
+    - name: wf.wf_try_task_output_json
+      kind: function
+      required: true
+    - name: wf.wf_get_scope_variable_json
+      kind: function
+      required: true
+    - name: wf.wf_get_scope_variable_int
+      kind: function
+      required: true
+    - name: wf.wf_engine_activate
+      kind: procedure
+      required: true
+    - name: wf.wf_engine_on_action_complete
+      kind: procedure
+      required: true
+    - name: wf.wf_engine_continue_parent
+      kind: procedure
+      required: true
+    - name: wf.wf_resolve_token
+      kind: procedure
+      required: true
+    - name: wf.wf_init_instance_scope_from_context
+      kind: procedure
+      required: true
+    - name: wf.wf_set_scope_variable
+      kind: procedure
+      required: true
+    - name: wf.wf_sequence_continue
+      kind: procedure
+      required: true
+    - name: wf.wf_parallel_continue
+      kind: procedure
+      required: true
+    - name: wf.wf_repeat_continue
+      kind: procedure
+      required: true
+    - name: wf.wf_while_continue
+      kind: procedure
+      required: true
+    - name: wf.wf_foreach_continue
+      kind: procedure
+      required: true
+    - name: wf.wf_foreach_parallel_continue
+      kind: procedure
+      required: true
+    - name: wf.wf_foreach_route_continue
+      kind: procedure
+      required: true
+
+  admin:
+    - name: wf.sp_delete_workflow_def
+      kind: procedure
+      required: true
+
+  portal_api:
+    - name: portal.sp_list_workflow_actions
+      kind: procedure
+      required: true
+    - name: portal.sp_get_action_schema
+      kind: procedure
+      required: true
+      parameters:
+        - { name: action_name, type: text, direction: in }
+        - { name: direction, type: text, direction: in }
+    - name: portal.sp_list_workflow_definitions
+      kind: procedure
+      required: true
+      parameters:
+        - { name: source_filter, type: text, direction: in, nullable: true }
+        - { name: scope_id, type: int, direction: in, nullable: true }
+      notes: Optional scope_id filters to contract-entitled process packs; NULL = unfiltered
+    - name: portal.sp_create_workflow_graph
+      kind: procedure
+      required: true
+      parameters:
+        - { name: spec, type: json, direction: in }
+      notes: Rejects unknown action_name; sets workflow_def.source = portal
+    - name: portal.sp_create_and_start_instance
+      kind: procedure
+      required: true
+      parameters:
+        - { name: workflow_version_id, type: bigint, direction: in }
+        - { name: context_json, type: json, direction: in, nullable: true }
+        - { name: scope_id, type: int, direction: in, nullable: true }
+        - { name: study_row_id, type: bigint, direction: in, nullable: true }
+      notes: Daemon last step after Python finalize. Portal Delphi queues a study_start_request instead. Optional scope_id pack check; optional study_row_id links via cfg.study_instance_link.
+    - name: portal.sp_get_instance_tasks
+      kind: procedure
+      required: true
+      parameters:
+        - { name: workflow_instance_id, type: bigint, direction: in }
+      notes: Includes engine_error_*, affinity_key, lease worker, source_uri
+    - name: portal.sp_list_study_instances
+      kind: procedure
+      required: true
+      parameters:
+        - { name: study_row_id, type: bigint, direction: in }
+      notes: Filter wf.workflow_instance via cfg.study_instance_link
+    - name: portal.sp_get_study_pipeline_progress
+      kind: procedure
+      required: true
+      parameters:
+        - { name: study_row_id, type: bigint, direction: in }
+      notes: Stage rollup from wf.pipeline_stage_map
+    - name: portal.sp_get_node_execution_detail
+      kind: procedure
+      required: true
+      parameters:
+        - { name: node_execution_id, type: bigint, direction: in }
+    - name: portal.sp_retry_failed_node
+      kind: procedure
+      required: true
+      parameters:
+        - { name: node_execution_id, type: bigint, direction: in }
+      notes: FAILED → READY only; bump attempt_no; reopen FAILED instance to RUNNING
+    - name: portal.sp_link_study_instance
+      kind: procedure
+      required: true
+      parameters:
+        - { name: study_row_id, type: bigint, direction: in }
+        - { name: workflow_instance_id, type: bigint, direction: in }
+      notes: Façade over cfg.cfg_repo_link_study_instance
+    - name: portal.sp_get_study_storage
+      kind: procedure
+      required: true
+      parameters:
+        - { name: study_row_id, type: bigint, direction: in }
+    - name: portal.sp_set_study_storage
+      kind: procedure
+      required: true
+      parameters:
+        - { name: study_row_id, type: bigint, direction: in }
+      notes: Persist published fastqSource + sampleDestination endpoint ids on cfg.study.document_json
+    - name: portal.sp_get_study_action_config_overlay
+      kind: procedure
+      required: true
+      parameters:
+        - { name: study_row_id, type: bigint, direction: in }
+    - name: portal.sp_set_study_action_config_overlay
+      kind: procedure
+      required: true
+      parameters:
+        - { name: study_row_id, type: bigint, direction: in }
+      notes: Next-run actionConfig overlay only; does not rebake running input_json
+    - name: portal.sp_preview_study_start
+      kind: procedure
+      required: true
+      parameters:
+        - { name: study_row_id, type: bigint, direction: in }
+        - { name: stage, type: text, direction: in }
+      notes: Assemble start intent JSON; does not insert. Does not bake resolvedConfig.
+    - name: portal.sp_request_study_start
+      kind: procedure
+      required: true
+      parameters:
+        - { name: study_row_id, type: bigint, direction: in }
+        - { name: stage, type: text, direction: in }
+        - { name: workflow_version_id, type: bigint, direction: in }
+        - { name: request_json, type: json, direction: in }
+      notes: Insert cfg.study_start_request queued. Portal only.
+    - name: portal.sp_claim_study_start_request
+      kind: procedure
+      required: true
+      parameters:
+        - { name: claimed_by, type: text, direction: in }
+      notes: Daemon lease claim
+    - name: portal.sp_complete_study_start_request
+      kind: procedure
+      required: true
+      parameters:
+        - { name: request_id, type: bigint, direction: in }
+        - { name: workflow_instance_id, type: bigint, direction: in }
+    - name: portal.sp_fail_study_start_request
+      kind: procedure
+      required: true
+      parameters:
+        - { name: request_id, type: bigint, direction: in }
+        - { name: error_message, type: text, direction: in }
+    - name: portal.sp_get_study_start_request
+      kind: procedure
+      required: true
+      parameters:
+        - { name: request_id, type: bigint, direction: in }
+      notes: Portal poll
+    - name: portal.sp_list_study_start_stages
+      kind: procedure
+      required: true
+      parameters:
+        - { name: study_row_id, type: bigint, direction: in }
+    - name: portal.sp_get_study_guardrails_editor
+      kind: procedure
+      required: true
+      parameters:
+        - { name: study_row_id, type: bigint, direction: in }
+      notes: Effective next-run guardrails (site→profile→procedure→overlay) plus schema_id study_action_config_overlay
+    - name: portal.sp_set_study_guardrails_editor
+      kind: procedure
+      required: true
+      parameters:
+        - { name: study_row_id, type: bigint, direction: in }
+      notes: Accepts edited effective document; persists sparse diff; preserves non-guardrail actionConfig keys
+    - name: portal.sp_get_site_guardrails_editor
+      kind: procedure
+      required: true
+      parameters:
+        - { name: site_row_id, type: bigint, direction: in }
+      notes: Full site QC slice; schema_id sample_prep_guardrails
+    - name: portal.sp_set_site_guardrails_editor
+      kind: procedure
+      required: true
+      parameters:
+        - { name: site_row_id, type: bigint, direction: in }
+      notes: Persist full published window; reject partial core/extraction keys
+    - name: portal.sp_get_profile_guardrails_editor
+      kind: procedure
+      required: true
+      parameters:
+        - { name: pipeline_profile_id, type: bigint, direction: in }
+      notes: Effective vs site; schema_id sample_prep_guardrails_overlay
+    - name: portal.sp_set_profile_guardrails_editor
+      kind: procedure
+      required: true
+      parameters:
+        - { name: pipeline_profile_id, type: bigint, direction: in }
+      notes: Sparse overlay vs site; upserts a draft version (does not mutate published in place)
+    - name: portal.sp_get_assay_procedure_guardrails_editor
+      kind: procedure
+      required: true
+      parameters:
+        - { name: assay_procedure_id, type: bigint, direction: in }
+      notes: Effective vs site+profile; schema_id sample_prep_guardrails_overlay
+    - name: portal.sp_set_assay_procedure_guardrails_editor
+      kind: procedure
+      required: true
+      parameters:
+        - { name: assay_procedure_id, type: bigint, direction: in }
+      notes: Sparse overlay vs site+profile; upserts a draft version
+    - name: portal.sp_upsert_pipeline_profile
+      kind: procedure
+      required: true
+      parameters:
+        - { name: name, type: text, direction: in }
+      notes: cfg.cfg_repo_upsert pipeline_profile
+    - name: portal.sp_publish_pipeline_profile
+      kind: procedure
+      required: true
+      parameters:
+        - { name: name, type: text, direction: in }
+    - name: portal.sp_upsert_assay_procedure
+      kind: procedure
+      required: true
+      parameters:
+        - { name: name, type: text, direction: in }
+    - name: portal.sp_publish_assay_procedure
+      kind: procedure
+      required: true
+      parameters:
+        - { name: name, type: text, direction: in }
+    - name: portal.sp_get_workflow_instance_header
+      kind: procedure
+      required: true
+      parameters:
+        - { name: workflow_instance_id, type: bigint, direction: in }
+    - name: portal.sp_get_instance_config
+      kind: procedure
+      required: true
+      parameters:
+        - { name: workflow_instance_id, type: bigint, direction: in }
+      notes: Redacted context_json + resolvedConfig snapshot
+    - name: portal.sp_get_instance_sample_progress
+      kind: procedure
+      required: true
+      parameters:
+        - { name: workflow_instance_id, type: bigint, direction: in }
+    - name: portal.sp_fail_node
+      kind: procedure
+      required: true
+      parameters:
+        - { name: node_execution_id, type: bigint, direction: in }
+      notes: READY/PENDING → FAILED (OPERATOR_FAILED 4098)
+    - name: portal.sp_stop_node
+      kind: procedure
+      required: true
+      parameters:
+        - { name: node_execution_id, type: bigint, direction: in }
+      notes: RUNNING + can_stop → stop_requested; heartbeat returns command=STOP
+    - name: portal.sp_cancel_instance
+      kind: procedure
+      required: true
+      parameters:
+        - { name: workflow_instance_id, type: bigint, direction: in }
+      notes: Drain READY/PENDING to CANCELLED; optional in-flight stop
+    - name: portal.sp_fail_instance
+      kind: procedure
+      required: true
+      parameters:
+        - { name: workflow_instance_id, type: bigint, direction: in }
+    - name: portal.sp_list_bypass_scope_approvals
+      kind: procedure
+      required: true
+    - name: portal.sp_create_bypass_scope_approval
+      kind: procedure
+      required: true
+    - name: portal.sp_decide_bypass_scope_approval
+      kind: procedure
+      required: true
+    - name: portal.sp_revoke_user_session
+      kind: procedure
+      required: true
+    - name: portal.sp_set_contract_scopes
+      kind: procedure
+      required: true
+    - name: portal.sp_set_contract_limits
+      kind: procedure
+      required: true
+    - name: portal.sp_set_contract_role_policies
+      kind: procedure
+      required: true
+    - name: portal.fn_apply_dotted_action_config
+      kind: function
+      required: true
+      notes: Merge dotted trial overrides (validation.stability_dmp_freq) into nested actionConfig; JSON null deletes the leaf
+    - name: portal.sp_promote_hyperparam_winner
+      kind: procedure
+      required: true
+      notes: Deep-merges winning dotted trial overrides onto the existing study actionConfig overlay; never writes a published profile
+    - name: portal.sp_list_data_type_fields
+      kind: procedure
+      required: true
+    - name: portal.sp_list_users
+      kind: procedure
+      required: true
+    - name: portal.sp_upsert_user
+      kind: procedure
+      required: true
+    - name: portal.sp_grant_user_role
+      kind: procedure
+      required: true
+    - name: portal.sp_revoke_user_role
+      kind: procedure
+      required: true
+    - name: portal.sp_list_contracts
+      kind: procedure
+      required: true
+    - name: portal.sp_upsert_contract
+      kind: procedure
+      required: true
+    - name: portal.sp_set_contract_process_packs
+      kind: procedure
+      required: true
+    - name: portal.sp_contract_entitled_modalities
+      kind: procedure
+      required: true
+      parameters:
+        - { name: scope_id, type: int, direction: in }
+    - name: portal.sp_list_domain_programs
+      kind: procedure
+      required: true
+      notes: Lists cfg.domain_program rows for portal tree editor
+    - name: portal.sp_get_domain_program
+      kind: procedure
+      required: true
+      parameters:
+        - { name: name, type: text, direction: in }
+        - { name: version, type: text, direction: in, nullable: true }
+    - name: portal.sp_upsert_domain_program
+      kind: procedure
+      required: true
+      parameters:
+        - { name: name, type: text, direction: in }
+        - { name: version, type: text, direction: in }
+        - { name: status, type: text, direction: in }
+        - { name: document_json, type: json, direction: in }
+    - name: portal.sp_list_cfg_actions
+      kind: procedure
+      required: true
+    - name: portal.sp_get_cfg_action
+      kind: procedure
+      required: true
+      parameters:
+        - { name: name, type: text, direction: in }
+        - { name: version, type: text, direction: in, nullable: true }
+
+  cfg_registry:
+    - name: cfg.cfg_repo_upsert
+      kind: procedure
+      required: true
+      notes: Upsert versioned cfg object (site, profile, program, study, credential, storage_*, reference_asset, action_definition)
+    - name: cfg.cfg_repo_publish
+      kind: procedure
+      required: true
+    - name: cfg.cfg_repo_set_compiled_version
+      kind: procedure
+      required: true
+      notes: Link published DomainProgram to wf.workflow_version + wf.workflow_def; inserts cfg.program_publish
+    - name: cfg.cfg_repo_link_action
+      kind: procedure
+      required: true
+      notes: Set cfg.action_definition.workflow_action_id from wf.workflow_action by action_name
+    - name: cfg.cfg_repo_link_study_instance
+      kind: procedure
+      required: true
+      notes: Upsert cfg.study_instance_link (study/profile/program/site → wf.workflow_instance)
+    - name: cfg.cfg_repo_link_reference_asset
+      kind: procedure
+      required: true
+      notes: Set cfg.reference_asset.storage_endpoint_id / asset_type
+    - name: cfg.cfg_repo_link_site_asset
+      kind: procedure
+      required: true
+      notes: Upsert cfg.site_reference_asset (site role → reference_asset)
+    - name: cfg.cfg_repo_set_study_group
+      kind: procedure
+      required: true
+    - name: cfg.cfg_repo_set_study_group_members
+      kind: procedure
+      required: true
+    - name: cfg.cfg_repo_materialize_study_lists
+      kind: procedure
+      required: true
+
+  clinical_portal_api:
+    - name: portal.sp_list_samples_for_study_enrollment
+      kind: procedure
+      required: true
+      notes: Enrollment picker over portal.Samples + LabSamples
+    - name: portal.sp_set_sample_analyte
+      kind: procedure
+      required: true
+    - name: portal.sp_list_sites
+      kind: procedure
+      required: true
+    - name: portal.sp_list_studies
+      kind: procedure
+      required: true
+
+  rbac_api:
+    - name: rbac.spgetuseridbyemail
+      kind: procedure
+      required: true
+      notes: MSSQL RBAC.spGetUserIdByEmail; PG "RBAC".spgetuseridbyemail (contract names are lowercased)
+
+  domain:
+    - name: dbo.spMapDMP2Genes
+      kind: procedure
+      required: false
+      notes: Azure SQL only until domain schema ported

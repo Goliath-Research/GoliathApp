@@ -1,0 +1,216 @@
+-- cfg ↔ wf relationships (additive; safe to re-run).
+
+ALTER TABLE cfg.domain_program
+  ADD COLUMN IF NOT EXISTS workflow_def_id bigint NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'fk_cfg_dp_workflow_def'
+  ) THEN
+    ALTER TABLE cfg.domain_program
+      ADD CONSTRAINT fk_cfg_dp_workflow_def
+      FOREIGN KEY (workflow_def_id) REFERENCES wf.workflow_def(id);
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'fk_cfg_dp_compiled_version'
+  ) THEN
+    ALTER TABLE cfg.domain_program
+      ADD CONSTRAINT fk_cfg_dp_compiled_version
+      FOREIGN KEY (compiled_workflow_version_id) REFERENCES wf.workflow_version(id);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS ix_cfg_dp_compiled_version
+  ON cfg.domain_program (compiled_workflow_version_id);
+CREATE INDEX IF NOT EXISTS ix_cfg_dp_workflow_def
+  ON cfg.domain_program (workflow_def_id);
+
+ALTER TABLE cfg.action_definition
+  ADD COLUMN IF NOT EXISTS workflow_action_id bigint NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'fk_cfg_ad_workflow_action'
+  ) THEN
+    ALTER TABLE cfg.action_definition
+      ADD CONSTRAINT fk_cfg_ad_workflow_action
+      FOREIGN KEY (workflow_action_id) REFERENCES wf.workflow_action(id);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS ix_cfg_ad_workflow_action
+  ON cfg.action_definition (workflow_action_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cfg_ad_workflow_action
+  ON cfg.action_definition (workflow_action_id)
+  WHERE workflow_action_id IS NOT NULL;
+
+ALTER TABLE cfg.storage_endpoint
+  ADD COLUMN IF NOT EXISTS credential_id bigint NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'fk_cfg_se_credential'
+  ) THEN
+    ALTER TABLE cfg.storage_endpoint
+      ADD CONSTRAINT fk_cfg_se_credential
+      FOREIGN KEY (credential_id) REFERENCES cfg.credential(id);
+  END IF;
+END $$;
+
+ALTER TABLE cfg.reference_asset
+  ADD COLUMN IF NOT EXISTS storage_endpoint_id bigint NULL;
+ALTER TABLE cfg.reference_asset
+  ADD COLUMN IF NOT EXISTS asset_type text NULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'fk_cfg_ra_storage_endpoint'
+  ) THEN
+    ALTER TABLE cfg.reference_asset
+      ADD CONSTRAINT fk_cfg_ra_storage_endpoint
+      FOREIGN KEY (storage_endpoint_id) REFERENCES cfg.storage_endpoint(id);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS ix_cfg_ra_storage_endpoint
+  ON cfg.reference_asset (storage_endpoint_id);
+
+CREATE TABLE IF NOT EXISTS cfg.site_reference_asset (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  site_id bigint NOT NULL REFERENCES cfg.site(id) ON DELETE CASCADE,
+  reference_asset_id bigint NOT NULL REFERENCES cfg.reference_asset(id),
+  asset_role text NOT NULL,
+  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  CONSTRAINT uq_cfg_sra_site_role UNIQUE (site_id, asset_role),
+  CONSTRAINT uq_cfg_sra_site_asset UNIQUE (site_id, reference_asset_id),
+  -- No pangenome_wgbs_bundle: one pangenome_bundle per site. Dual Giraffe+WGBS is a model change.
+  CONSTRAINT ck_cfg_sra_role CHECK (asset_role IN (
+    'reference_genome', 'annotation_gtf', 'pangenome_bundle',
+    'mapper_cache',
+    'houseman_seed_basis', 'hitimed_hierarchy_basis',
+    'other'
+  ))
+);
+
+CREATE INDEX IF NOT EXISTS ix_cfg_sra_asset ON cfg.site_reference_asset (reference_asset_id);
+
+CREATE TABLE IF NOT EXISTS cfg.study_instance_link (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  study_row_id bigint NOT NULL REFERENCES cfg.study(id),
+  workflow_instance_id bigint NOT NULL REFERENCES wf.workflow_instance(id) ON DELETE CASCADE,
+  domain_program_id bigint NULL REFERENCES cfg.domain_program(id),
+  pipeline_profile_id bigint NULL REFERENCES cfg.pipeline_profile(id),
+  site_id bigint NULL REFERENCES cfg.site(id),
+  storage_profile_id bigint NULL REFERENCES cfg.storage_profile(id),
+  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  CONSTRAINT uq_cfg_sil_instance UNIQUE (workflow_instance_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_cfg_sil_study ON cfg.study_instance_link (study_row_id);
+CREATE INDEX IF NOT EXISTS ix_cfg_sil_program ON cfg.study_instance_link (domain_program_id);
+
+CREATE TABLE IF NOT EXISTS cfg.program_publish (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  domain_program_id bigint NOT NULL REFERENCES cfg.domain_program(id),
+  workflow_def_id bigint NOT NULL REFERENCES wf.workflow_def(id),
+  workflow_version_id bigint NOT NULL REFERENCES wf.workflow_version(id),
+  content_hash text NOT NULL,
+  published_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  CONSTRAINT uq_cfg_ppub_program_version UNIQUE (domain_program_id, workflow_version_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_cfg_ppub_version ON cfg.program_publish (workflow_version_id);
+
+CREATE OR REPLACE VIEW cfg.v_domain_program_wf AS
+SELECT
+  p.id AS domain_program_id,
+  p.name AS program_name,
+  p.version AS program_version,
+  p.status,
+  p.content_hash,
+  p.workflow_def_id,
+  d.name AS workflow_def_name,
+  p.compiled_workflow_version_id,
+  v.version_major,
+  v.version_minor,
+  v.is_active
+FROM cfg.domain_program p
+LEFT JOIN wf.workflow_def d ON d.id = p.workflow_def_id
+LEFT JOIN wf.workflow_version v ON v.id = p.compiled_workflow_version_id;
+
+/* Retired cfg.action_definition view — browse wf actions + explicit data types. */
+DROP VIEW IF EXISTS cfg.v_action_definition_wf;
+CREATE OR REPLACE VIEW cfg.v_action_definition_wf AS
+SELECT
+  wa.id AS workflow_action_id,
+  wa.action_name,
+  wa.capability,
+  wa.implementation_status,
+  wa.input_type_id,
+  tin.name AS input_type_name,
+  wa.output_type_id,
+  tout.name AS output_type_name,
+  wa.can_pause,
+  wa.can_continue,
+  wa.can_stop
+FROM wf.workflow_action wa
+LEFT JOIN wf.data_type tin ON tin.id = wa.input_type_id
+LEFT JOIN wf.data_type tout ON tout.id = wa.output_type_id;
+
+CREATE OR REPLACE VIEW cfg.v_reference_asset AS
+SELECT
+  ra.id AS reference_asset_id,
+  ra.name AS asset_name,
+  ra.version AS asset_version,
+  ra.status,
+  ra.asset_type,
+  ra.storage_endpoint_id,
+  se.name AS storage_endpoint_name,
+  se.provider AS storage_provider,
+  se.credential_id
+FROM cfg.reference_asset ra
+LEFT JOIN cfg.storage_endpoint se ON se.id = ra.storage_endpoint_id;
+
+CREATE OR REPLACE VIEW cfg.v_site_reference_asset AS
+SELECT
+  sra.id AS link_id,
+  sra.site_id,
+  s.name AS site_name,
+  sra.reference_asset_id,
+  ra.name AS asset_name,
+  sra.asset_role,
+  ra.storage_endpoint_id,
+  ra.status AS asset_status
+FROM cfg.site_reference_asset sra
+INNER JOIN cfg.site s ON s.id = sra.site_id
+INNER JOIN cfg.reference_asset ra ON ra.id = sra.reference_asset_id;
+
+CREATE OR REPLACE VIEW cfg.v_study_instance AS
+SELECT
+  l.id AS link_id,
+  l.study_row_id,
+  s.name AS study_name,
+  s.study_id,
+  l.workflow_instance_id,
+  i.status AS instance_status,
+  i.workflow_version_id,
+  l.domain_program_id,
+  p.name AS program_name,
+  l.pipeline_profile_id,
+  pr.name AS profile_name,
+  l.site_id,
+  l.created_at_utc
+FROM cfg.study_instance_link l
+INNER JOIN cfg.study s ON s.id = l.study_row_id
+INNER JOIN wf.workflow_instance i ON i.id = l.workflow_instance_id
+LEFT JOIN cfg.domain_program p ON p.id = l.domain_program_id
+LEFT JOIN cfg.pipeline_profile pr ON pr.id = l.pipeline_profile_id;

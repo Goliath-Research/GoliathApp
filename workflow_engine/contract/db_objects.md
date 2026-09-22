@@ -1,0 +1,217 @@
+# MethylPipeline DB Object Contract
+
+Canonical contract for middle-tier-to-database access. Both **Azure SQL (T-SQL)** and **PostgreSQL (PL/pgSQL)** must implement every object listed in [`db_objects.yaml`](db_objects.yaml) with identical semantics.
+
+## Schema
+
+All workflow-engine objects live in schema **`wf`**. Domain/portal objects may use `dbo`, `Meta`, `RBAC`, `portal`, etc. (Azure SQL only until ported). **Do not add process-specific config tables to `wf`** — use `portal.resource_profile` or pass fully materialized JSON in `context_json`.
+
+## Portability conventions
+
+### Identity columns
+
+| Azure SQL | PostgreSQL |
+|-----------|------------|
+| `BIGINT IDENTITY(1,1)` | `BIGINT GENERATED ALWAYS AS IDENTITY` |
+| `OUTPUT INSERTED.id` | `RETURNING id` into result set |
+
+Repository and worker procs that insert rows **return the new id as a single-column result set** named `id`.
+
+### Timestamps
+
+| Azure SQL | PostgreSQL |
+|-----------|------------|
+| `SYSUTCDATETIME()` | `(now() AT TIME ZONE 'utc')` or `now()` with `timestamptz` |
+| `DATETIME2(7)` | `timestamptz` |
+
+### JSON
+
+| Azure SQL | PostgreSQL |
+|-----------|------------|
+| `json` | `jsonb` |
+| `OPENJSON` / `FOR JSON` | `jsonb_each`, `jsonb_array_elements`, `jsonb_path_query` |
+| `JSON_VALUE` / `JSON_QUERY` | PG17+ standard `JSON_VALUE` / `JSON_QUERY` where applicable |
+
+**Policy:** JSON **storage** columns use native `json` (MSSQL) / `jsonb` (PostgreSQL) only — never `NVARCHAR(MAX)` or plain `text` for payload columns. Procs may use string variables at the wire boundary; writes cast to native JSON types.
+
+### Procedure results (not OUTPUT parameters)
+
+Legacy T-SQL uses `@accepted BIT OUTPUT` on `sp_worker_submit_result`. The contract uses a **single-row result set** instead:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `accepted` | boolean | Task accepted |
+| `instance_status` | varchar(32) | Instance status after submit |
+| `next_ready_count` | int | Count of READY tasks remaining |
+
+Both dialects implement `wf.sp_worker_submit_result` returning this row. T-SQL may retain OUTPUT params for backward compatibility but middle-tier reads the result set.
+
+### Worker authentication
+
+Token verification: `SHA2_256` hash of bearer token compared to `wf.worker_token.token_hash`.
+
+- Azure SQL: `HASHBYTES('SHA2_256', @worker_token)`
+- PostgreSQL: `encode(digest(@worker_token, 'sha256'), 'hex')` (pgcrypto)
+
+### Error codes
+
+Engine errors use integer codes documented in worker API scripts (e.g. `10001` missing binding, `50001` no root node).
+
+## Object categories
+
+### Worker capability dispatch
+
+`wf.sp_worker_request_task` enforces **registered capabilities** on `wf.worker.capabilities`:
+
+| `capabilities` value | Behavior |
+|---------------------|----------|
+| `NULL`, `[]`, or contains `"*"` | Omnibus — may claim any task capability (legacy) |
+| Concrete JSON array | Only tasks whose `wa.capability` is in the array |
+
+The optional request parameter `capability` **narrows** polling within the registered set; it cannot widen it.
+Helpers: `wf.wf_worker_is_omnibus`, `wf.wf_worker_capability_allowed` (both dialects).
+
+Workers register capabilities at provisioning via `scripts/register_worker.py --auto-detect` (default) or
+explicit `--capability` / `--omnibus`.
+
+### 1. Worker API (required for remote execution)
+
+| Object | Kind | Purpose |
+|--------|------|---------|
+| `wf.wf_worker_authenticate` | procedure | Validate worker id + token |
+| `wf.sp_worker_request_task` | procedure | Claim one READY action (or empty task fields); quietly reclaims expired leases; always returns `desired_state` + `command` |
+| `wf.sp_reclaim_expired_leases` | procedure | Reset expired/`RUNNING`-without-lease nodes to `READY` (`@quiet` for claim path) |
+| `portal.sp_reclaim_expired_leases` | procedure | Portal/ops wrapper for reclaim |
+| `portal.sp_set_worker_desired_state` | procedure | Set `wf.worker.desired_state` (`ACTIVE`/`DRAINING`/`STOPPING`) for one worker or cluster |
+| `wf.sp_worker_submit_result` | procedure | Complete action; returns ack row |
+| `wf.sp_worker_heartbeat` | procedure | Extend lease; returns `rows_updated` + `desired_state` + `command` |
+| `wf.sp_worker_fail_task` | procedure | Fail task and instance |
+| `wf.sp_start_workflow_instance` | procedure | Start instance and activate root |
+| `wf.sp_ingest_event` | procedure/function | Insert event; start instances and/or complete `WAIT_EVENT` |
+| `wf.sp_signal_wait` | procedure | Ops/test wake of matching READY wait nodes |
+| `portal.sp_ingest_event` | procedure/function | App wrapper over `wf.sp_ingest_event` |
+
+### 2. Repository API (middle-tier persistence)
+
+Dialect-neutral wrappers used by the REST gateway — see `db_objects.yaml` `repository` section.
+
+| Object | Purpose |
+|--------|---------|
+| `wf.wf_repo_upsert_action_schema` | Upsert input/output JSON Schema for a workflow action |
+| `wf.wf_repo_get_action_schema` | JSON Schema for an action I/O: `wf.data_type.schema_json`, else legacy blob |
+| `wf.wf_repo_list_actions` | List actions with schema availability + dispatch metadata (`execution_mode`, `cli_tool`, `in_process_handler`, `argv_map`, `max_per_worker`, `exclusive_worker`, affinity flags) |
+| `wf.wf_repo_upsert_workflow_action` | Upsert `wf.workflow_action` row from action catalog (12-arg after `wf_action_dispatch_affinity.sql`) |
+| `wf.wf_repo_create_workflow_graph` | Create workflow def/version/nodes/edges from JSON spec |
+| `wf.wf_repo_get_workflow_instance` | Fetch instance id, version, and status by instance id |
+| `wf.wf_repo_create_workflow_instance` | Insert instance row; returns `id` |
+
+Action schemas are generated from worker Pydantic models (`methyl-export-task-schemas` → `schemas/tasks/`) and seeded via [`../sql_mssql/seed_action_catalog.py`](../sql_mssql/seed_action_catalog.py) using **direct DB**. Runtime validation is enforced in workers; portal graph create rejects unknown actions in SQL.
+
+### 2a. Portal repository API (EpiPortal — database only)
+
+Deploy [`../sql/portal_workflow_api.sql`](../sql/portal_workflow_api.sql) (Azure SQL) or [`../sql_pg/portal_workflow_api.sql`](../sql_pg/portal_workflow_api.sql) (PostgreSQL). The portal **never** calls the REST gateway.
+
+| Object | Purpose |
+|--------|---------|
+| `portal.sp_list_workflow_actions` | Action picker for workflow builder |
+| `portal.sp_get_action_schema` | Schema-driven parameter forms |
+| `portal.sp_list_workflow_definitions` | List defs (filter `source` = `portal` or `system`) |
+| `portal.sp_create_workflow_graph` | Create portal-owned workflow graph; validates actions exist |
+| `portal.sp_create_and_start_instance` | Create instance + `sp_start_workflow_instance`; optional `scope_id` pack check + `study_row_id` link |
+| `portal.sp_link_study_instance` | Attach a run to `cfg.study` |
+| `portal.sp_get/set_study_storage` | Persist published FASTQ/archive endpoints on the study |
+| `portal.sp_get/set_study_action_config_overlay` | Next-run `actionConfig` overlay (no mid-run rebake) |
+| `portal.sp_get/set_study_guardrails_editor` | Study overlay grid (`study_action_config_overlay`) |
+| `portal.sp_get/set_site_guardrails_editor` | Site full QC window (`sample_prep_guardrails`) |
+| `portal.sp_get/set_profile_guardrails_editor` | Profile sparse overlay vs site; SET upserts a draft |
+| `portal.sp_get/set_assay_procedure_guardrails_editor` | Procedure sparse overlay vs site+profile; SET upserts a draft |
+| `portal.sp_upsert/publish_pipeline_profile` | Platform pack authoring |
+| `portal.sp_upsert/publish_assay_procedure` | Platform procedure authoring |
+| `portal.sp_get_workflow_instance_header` | Instance header (study, profile, counts) |
+| `portal.sp_get_instance_config` | Redacted context + `resolvedConfig` snapshot |
+| `portal.sp_get_instance_sample_progress` | Sample × stage matrix |
+| `portal.sp_get_instance_tasks` | Monitor node executions (`engine_error_*`, lease, source URI) |
+| `portal.sp_list_study_instances` | Instances linked to a study |
+| `portal.sp_get_study_pipeline_progress` | Stage rollup for Study Overview |
+| `portal.sp_get_node_execution_detail` | Failed/stuck task detail |
+| `portal.sp_retry_failed_node` | Operator `FAILED` → `READY` |
+| `portal.sp_fail_node` / `sp_stop_node` | Operator fail queued / stop in-flight |
+| `portal.sp_cancel_instance` / `sp_fail_instance` | Drain queued work; cancel or fail the run |
+| `portal.sp_list/upsert_user`, `sp_grant_user_role` | Admin RBAC façade |
+| `portal.sp_list/create/decide_bypass_scope_approval` | Bypass-scope approvals |
+| `portal.sp_revoke_user_session` | End a session |
+| `portal.sp_list/upsert_contract`, `sp_set_contract_process_packs` | Contract + process-pack entitlements |
+| `portal.sp_set_contract_scopes` / `limits` / `role_policies` | Contract admin writes |
+| `portal.fn_apply_dotted_action_config` | Merge dotted trial overrides into nested `actionConfig` |
+| `portal.sp_promote_hyperparam_winner` | Winner → study overlay (dotted merge; never a published profile) |
+| `portal.sp_list_data_type_fields` | DataType Registry fields |
+
+Portal principals must not execute `wf.wf_repo_upsert_workflow_action` or admin delete procs. Catalog seed and system pipeline deploy use **direct-DB scripts** (`seed_action_catalog.py`, `deploy_workflow_definitions.sh`, `workflow_engine/ops`) from CI/release automation.
+
+### 3. Engine runtime (SQL-only activation path)
+
+Used when middle-tier delegates graph expansion to SQL (`wf_engine_activate` path):
+
+| Object | Purpose |
+|--------|---------|
+| `wf.wf_engine_activate` | Expand node into executions |
+| `wf.wf_engine_on_action_complete` | Apply result and continue parent |
+| `wf.wf_engine_continue_parent` | Parent composite continuation |
+| `wf.wf_resolve_token` | Resolve `${...}` placeholder |
+| `wf.wf_init_instance_scope_from_context` | Seed scope from `context_json` |
+| `wf.wf_set_scope_variable` | Write scope variable |
+| `wf.wf_get_scope_variable_json` | Read scope variable |
+| `wf.wf_get_scope_variable_int` | Read scope variable as int |
+
+Control-flow helpers: `wf_sequence_continue`, `wf_parallel_continue`, `wf_repeat_continue`, `wf_while_continue`, `wf_foreach_continue`, `wf_foreach_parallel_continue`.
+
+FOREACH continuation is dispatched through `wf.wf_foreach_route_continue`, which is the only object that reads `wf.workflow_node.foreach_parallel`. Base schema scripts predate FOREACH, so they route through it rather than duplicating the sequential/parallel branch — re-running a base script must never leave a FOREACH parent `PENDING` while its BODY children are `SUCCEEDED`.
+
+### 4. Admin
+
+| Object | Purpose |
+|--------|---------|
+| `wf.sp_delete_workflow_def` | Remove definition (+ optional instances) |
+
+### 5. Domain (optional, Azure SQL today)
+
+| Object | Purpose |
+|--------|---------|
+| `dbo.spMapDMP2Genes` | Map DMPs to genes (methyl-mapper) |
+
+### 6. Workflow action catalog (SamplePrepPipeline)
+
+Registered by DomainProgram deploy ([`sample_prep.program.json`](../domain/fixtures/sample_prep.program.json) via `scripts/deploy_workflow_definitions.sh`). Legacy SQL seed: [`../sql/deprecated/wf_sample_prep_pipeline_seed.sql`](../sql/deprecated/wf_sample_prep_pipeline_seed.sql). Full I/O contract: [`sample_prep_capabilities.md`](sample_prep_capabilities.md).
+
+| action_name | capability |
+|-------------|------------|
+| `sample.download_fastq` | `sample.download-fastq` |
+| `sample.parabricks_fq2bam` | `parabricks.fq2bam` |
+| `sample.delete_fastqs` | `sample.delete-fastqs` |
+| `sample.methyl_qc` | `methyl-qc` |
+| `sample.fragmentomics` | `methyl-fragmentomics` |
+| `sample.methyl_extract` | `methyl-extract` |
+| `sample.delete_bam` | `sample.delete-bam` |
+| `sample.qc_failed` | `sample.mark-failed` |
+
+DataDrivenPipeline actions (`pipeline.centroid`, `pipeline.detector`, …) are registered in [`../sql/wf_data_driven_pipeline_seed.sql`](../sql/wf_data_driven_pipeline_seed.sql).
+
+## Deployment order
+
+### Azure SQL
+
+See [`../README.md`](../README.md).
+
+### PostgreSQL
+
+See [`../sql_pg/README.md`](../sql_pg/README.md).
+
+## Contract validation
+
+Run from repo root:
+
+```bash
+python workflow_engine/contract/validate_contract.py
+```
+
+Fails if an object in `db_objects.yaml` is missing from either `sql_mssql/` or `sql_pg/` deploy scripts.
