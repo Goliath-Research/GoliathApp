@@ -1,0 +1,86 @@
+name: DB parity
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "workflow_engine/**"
+      - "contracts/**"
+      - "scripts/check_sql_deploy_twins.py"
+      - ".github/workflows/db-parity.yml"
+  pull_request:
+    paths:
+      - "workflow_engine/**"
+      - "contracts/**"
+      - "scripts/check_sql_deploy_twins.py"
+      - ".github/workflows/db-parity.yml"
+
+jobs:
+  contract-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install PyYAML
+        run: python -m pip install pyyaml
+      - name: Validate DB object contract lockstep
+        run: python workflow_engine/contract/validate_contract.py
+      - name: SQL deploy_azure.sh twins (mssql and pg)
+        run: python scripts/check_sql_deploy_twins.py
+      - name: Inventory script smoke
+        run: python scripts/db_schema_inventory.py --help
+
+  gateway-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install gateway package and pytest
+        run: python -m pip install -U pip pytest httpx && python -m pip install -e workflow_engine/
+      - name: Gateway unit tests
+        run: |
+          python -m pytest \
+            workflow_engine/tests/test_mssql_json_binding_policy.py \
+            workflow_engine/tests/test_mssql_batches.py \
+            workflow_engine/tests/test_connection.py \
+            workflow_engine/tests/test_asgi.py \
+            workflow_engine/tests/test_gateway_auth.py \
+            -q
+
+  postgres-parity:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: methyl
+          POSTGRES_DB: methylpipeline_parity
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install gateway package
+        run: python -m pip install -e workflow_engine/
+      - name: Run PostgreSQL parity harness
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: methyl
+          POSTGRES_DB: methylpipeline_parity
+        run: python workflow_engine/tests/parity/run_parity.py

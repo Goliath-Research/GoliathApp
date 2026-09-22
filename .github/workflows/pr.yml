@@ -1,0 +1,38 @@
+name: PR
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install contract and test dependencies
+        run: python -m pip install -U pip pyyaml pytest httpx
+
+      - name: Validate DB object contract
+        run: python workflow_engine/contract/validate_contract.py
+
+      - name: SQL deploy_azure.sh twins
+        run: python scripts/check_sql_deploy_twins.py
+
+      - name: Install the Python gateway
+        run: python -m pip install -e workflow_engine/
+
+      - name: Gateway unit tests
+        run: |
+          python -m pytest \
+            workflow_engine/tests/test_mssql_json_binding_policy.py \
+            workflow_engine/tests/test_mssql_batches.py \
+            workflow_engine/tests/test_connection.py \
+            workflow_engine/tests/test_asgi.py \
+            workflow_engine/tests/test_gateway_auth.py \
+            -q
