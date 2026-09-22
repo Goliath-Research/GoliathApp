@@ -55,8 +55,9 @@ Since ~1986, GoliathApp has abstracted what every application repeats:
 
 | Repo | State | Role today |
 |------|-------|------------|
-| `Goliath-Research/GoliathWorkflow` | Public monorepo | Engine + MethylPipeline science + workers + docs. **All platform code still lives here.** |
-| `Goliath-Research/GoliathApp` | Private, **plan only** | `main` `9b30a57` (PR #1): `README.md` and this file. No gateway, SQL, or worker source yet. |
+| `Goliath-Research/GoliathWorkflow` | Public monorepo | **Working** product. Still contains both layers. Do not delete it while GoliathOmics is brought up. |
+| `Goliath-Research/GoliathApp` | Platform repo | Python gateway (`goliath-gateway`), engine DDL, shared worker. Portal UI is still Delphi and is migrating to Node.js and React; it is not in GoliathOmics. The Delphi gateway is deprecated. |
+| `Goliath-Research/GoliathOmics` | Product repo | Genomics copy from GoliathWorkflow: packages, domain content, methyl worker handlers, and database seeds including `cfg.analyte`. |
 | `Goliath-Research/mojo-align` | Separate | GPU alignment / methylgrapher family. Toolchain is Mojo 1.1 (Modular 26.6), not the 1.0 beta. |
 | `Goliath-Research/MethylExtractor` | Separate | BAM→HDF5 MethylDackel fork |
 
