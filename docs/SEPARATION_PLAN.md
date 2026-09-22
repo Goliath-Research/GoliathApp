@@ -163,8 +163,16 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
 | `cfg_reference_assets_seed.sql` | Genome / reference-asset rows |
 | `cfg_site_reference_assets_seed.sql` | Site-to-asset links |
 | `portal_clinical_schema.sql` | Clinical/disease columns. Portal *engine* APIs stay in App. Column review in Phase 3. |
+| `portal_clinical_api.sql`, `portal_clinical_api_parity.sql` | Procedures over those clinical tables |
+| `seed_action_catalog.py`, `seed_action_schemas.py`, `seed_data_types.py` | Load Omics action and data-type documents. `wf_data_type.sql` (the table) stays in App. |
+| `wf_data_driven_pipeline_seed.sql`, `wf_validation_pipeline_seed.sql` | Product workflow graphs |
+| `sql_mssql/deprecated/*`, `PCaOvrFlow.md`, `PCaTwoGroupFlow.md`, `SamplePrepFlow.md`, `DataDrivenPipeline.md` | Historical PCa, SamplePrep, and methylvalidation seeds |
+| `wf_worker_contracts_pca_*.md` | Study-specific worker contracts |
+| `instance_context_examples/` | Buffy, PCa, SamplePrep, and Monte Carlo instance payloads |
+| `migrations/20260721_site_reference_asset_deconv_roles.sql` | Deconvolution reference-asset roles |
+| `MethylPipeline.sql`, `MethylPipelineDB_Script.sql` | Product database dumps, not the engine source |
 
-`cfg_analyte_catalog.sql` is a platform table. Analyte *rows* (methylation, RNA, proteomics) are Omics seeds.
+`cfg_analyte_catalog.sql` stays in App: it creates `cfg.analyte`. Analyte *rows* (methylation, RNA, proteomics) are Omics seeds. `workflow_seed_examples.sql` stays: it inserts the generic `DemoFlow`, not a study.
 
 ### 4.3 Leave independent
 
