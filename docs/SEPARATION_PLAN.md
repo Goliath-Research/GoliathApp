@@ -162,6 +162,7 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
 | `migrate_work_paths_prostate_cancer.sql` | Disease-specific path migration |
 | `cfg_reference_assets_seed.sql` | Genome / reference-asset rows |
 | `cfg_site_reference_assets_seed.sql` | Site-to-asset links |
+| `cfg_analyte_catalog.sql` | `cfg.analyte` table and catalog. Not created by App `cfg_registry_tables.sql`. |
 | `portal_clinical_schema.sql` | Clinical/disease columns. Portal *engine* APIs stay in App. Column review in Phase 3. |
 | `portal_clinical_api.sql`, `portal_clinical_api_parity.sql` | Procedures over those clinical tables |
 | `seed_action_catalog.py`, `seed_action_schemas.py`, `seed_data_types.py` | Load Omics action and data-type documents. `wf_data_type.sql` (the table) stays in App. |
@@ -172,7 +173,9 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
 | `migrations/20260721_site_reference_asset_deconv_roles.sql` | Deconvolution reference-asset roles |
 | `MethylPipeline.sql`, `MethylPipelineDB_Script.sql` | Product database dumps, not the engine source |
 
-`cfg_analyte_catalog.sql` stays in App: it creates `cfg.analyte`. Analyte *rows* (methylation, RNA, proteomics) are Omics seeds. `workflow_seed_examples.sql` stays: it inserts the generic `DemoFlow`, not a study.
+`cfg.analyte` and `cfg_analyte_catalog.sql` belong to GoliathOmics (specimen and matrix documents such as cfdna and buffy coat). App registry scripts do not create that table. Some App queries still join it and run only after the Omics catalog migration.
+
+`workflow_seed_examples.sql` stays in App. DemoFlow uses only `demo.echo`, `demo.branch`, `demo.parallel`, and `demo.repeat`. `workflow_tree_seed_example.sql` stays for the same reason: its actions are `delphi.*`, not GoliathOmics actions.
 
 ### 4.3 Leave independent
 
