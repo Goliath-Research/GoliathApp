@@ -1,5 +1,8 @@
 """Make ``/work`` artifacts usable across fleet hosts with different numeric UIDs.
 
+``/work`` is optional. A workflow that never calls these helpers runs with no
+shared-storage mount.
+
 Sisters mount the same NFS tree as local users all named ``ubuntu`` but with
 distinct numeric uids. Docker-as-root (Clara often ignores ``--user``) leaves
 ``root:root`` ``0644`` / ``0755`` objects. A later writer on another host then

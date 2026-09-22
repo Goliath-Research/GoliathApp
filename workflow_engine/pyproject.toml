@@ -18,6 +18,9 @@ dependencies = [
 dev = ["pytest>=7.0"]
 
 [project.scripts]
+goliath-gateway = "rest.gateway:main"
+goliath-workflow-run = "local.runner:main"
+goliath-cfg = "cfg.cli:main"
 methyl-gateway = "rest.gateway:main"
 methyl-workflow-run = "local.runner:main"
 methyl-study-start = "admin.study_start:main"
