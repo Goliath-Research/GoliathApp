@@ -80,7 +80,7 @@ This plan is already parked in GoliathApp. The next step is Phase 0 (contract fr
 
 Inside `GoliathWorkflow` today:
 
-- **Platform-shaped:** `workflow_engine/rest/` (gateway), `sql_pg` / `sql_mssql` engine DDL (wf/cfg/portal/Meta/RBAC/Contract/Onboarding), `cfg/` CLI, `local/` runner, `delphi/` middle-tier, worker protocol, OpenAPI, DomainProgram compiler/IR, `/work` materialization contract.
+- **Platform-shaped:** `workflow_engine/rest/` (the Python gateway, `goliath-gateway`), `sql_pg` / `sql_mssql` engine DDL (wf/cfg/portal/Meta/RBAC/Contract/Onboarding), `cfg/` CLI, `local/` runner, worker protocol, OpenAPI, DomainProgram compiler/IR, `/work` materialization contract. `workflow_engine/delphi/` is a deprecated Windows gateway kept only as a frozen reference.
 - **Genomics-shaped:** 26 packages under `packages/` (21 `methyl*`, `omicsfeatures`, `rnaexpress`, `rnaalignmentqc`, `proteomicsfeatures`, `proteomicsqc`), `workers/methyl_worker/`, domain analytes/profiles/fixtures/checks, science SQL seeds, methylgrapher Docker bake of mojo-align, science docs.
 
 Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, study, and reference-asset seeds live in that tree.
@@ -93,7 +93,7 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
 ┌─────────────────────────────────────────────────────────────┐
 │  GoliathApp (platform)                                      │
 │  Meta · RBAC · Meta.Objs · portal engine · wf · cfg DDL     │
-│  REST gateway · optional Delphi MT · local engine           │
+│  Python REST gateway (goliath-gateway) · local engine       │
 │  Shared worker (claim/submit) · /work optional              │
 │  Deploy/bootstrap for control plane                         │
 └───────────────────────────┬─────────────────────────────────┘
@@ -121,11 +121,12 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
 
 | Path / artifact | Role |
 |-----------------|------|
-| `workflow_engine/rest/` | Agnostic gateway (`goliath-gateway`; alias `methyl-gateway` for one cycle) |
+| `workflow_engine/rest/` | Production gateway (`goliath-gateway`; alias `methyl-gateway` for one cycle). This replaces the Delphi gateway. |
 | `workflow_engine/sql_pg/`, `sql_mssql/` **engine files only** | DDL/APIs for Meta, RBAC, portal engine, wf engine, cfg schema, Contract, Onboarding. See §4.2 for seeds that stay out. |
 | `workflow_engine/cfg/` | Config registry CLI (`goliath-cfg` / alias `methyl-cfg`) |
 | `workflow_engine/local/` | In-process DomainProgram runner |
-| `workflow_engine/contract/`, `delphi/`, thin `portal/` helpers | Platform |
+| `workflow_engine/contract/`, thin `portal/` helpers | Platform |
+| `workflow_engine/delphi/` | Deprecated. Frozen Windows reference (`WfEngineSrv`). Not deployed. No new routes. |
 | `workflow_engine/domain/compiler.py`, `verify_workflow.py`, `pipeline_profiles.py`, `workflow_context.py` | DomainProgram compiler, IR check, profile resolution, instance-context contract |
 | `contracts/openapi.yaml` | Published HTTP contract |
 | Platform slices of `schemas/` (workflow, domain_program, storage, …) | Platform |
@@ -200,6 +201,7 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
 | Database | **One database** named `goliath`. App owns engine DDL. Omics owns content seeds. No second database. |
 | Shared worker | App owns claim/submit (`goliath_worker`) and the `/work` layout. Omics owns action handlers. `/work` is optional for workflows that do not call the storage helpers. |
 | Inherited names | Omics-facing docs and the App package use the `goliath` prefix for platform pieces (`goliath-gateway`, `goliath-cfg`, `goliath-workflow-run`, `GOLIATH_WORK_ROOT`, database `goliath`). `methyl-*` remains on methylation-specific actions and as one-cycle aliases. The MethylPipeline tree is not renamed in the first extract. |
+| Gateway | Production middle tier is the Python gateway in `workflow_engine/rest/`. The Delphi gateway is deprecated. |
 
 ### 4.5 Couplings that still block a clean boot
 
@@ -311,7 +313,7 @@ Copying the engine does not finish Phase 1. These files still import science cod
 
 ### Phase 5 — Optional future (out of scope for the first cut)
 
-- Extract Delphi / config editor into App-facing tooling.
+- Leave the Delphi gateway deprecated. Do not add routes or deploy `WfEngineSrv`. A generic config editor can still be extracted later.
 - Multi-tenant SaaS packaging of GoliathApp.
 - Separate RNA or proteomics repos only if those product lines diverge.
 
@@ -370,7 +372,8 @@ Parking this plan is done: it lives at `GoliathApp/docs/SEPARATION_PLAN.md`.
 
 **App engine**
 
-- `workflow_engine/rest/`, `local/`, `cfg/`, `contract/`, `delphi/`
+- `workflow_engine/rest/` (production gateway), `local/`, `cfg/`, `contract/`
+- `workflow_engine/delphi/` (deprecated reference only)
 - `workflow_engine/domain/compiler.py`, `verify_workflow.py`, `pipeline_profiles.py`, `workflow_context.py`
 - `sql_pg/` and `sql_mssql/` engine DDL and APIs for Meta, RBAC, portal engine, wf engine, cfg schema, Contract, Onboarding
 - `contracts/`, generic `deploy/`, `workers/WORKER_PROTOCOL.md`, `scripts/init_work_layout.sh`
@@ -401,6 +404,8 @@ Parking this plan is done: it lives at `GoliathApp/docs/SEPARATION_PLAN.md`.
 | Process pack | MethylPipeline term: a new omics modality (actions, programs, QC) |
 | EpiPortal | Portal UI product surface |
 | DomainProgram | Portable workflow IR executed by the local or DB engine |
+| Python gateway | Production middle tier: `goliath-gateway` in `workflow_engine/rest/` |
+| Delphi gateway | Deprecated Windows service `WfEngineSrv`. Frozen reference under `workflow_engine/delphi/`. |
 | Worker | Claim/submit agent. The protocol and `/work` helpers are GoliathApp. Action handlers are GoliathOmics. |
 
 ---

@@ -1,8 +1,8 @@
 # Delphi `WfEngineSrv` gateway status
 
-**Status:** Frozen reference (June 2026)
+**Status:** Deprecated. The production middle tier is the Python gateway.
 
-The Delphi HTTP gateway (`WfEngineSrv` / `MethylWfGateway` Windows service) is **no longer the production middle tier**. The supported gateway is **Python `methyl-gateway`** on a dedicated Linux VM (systemd), documented in [`deploy/systemd/methyl-gateway.service`](../../deploy/systemd/methyl-gateway.service) and [`docs/deployment/production_runbook.md`](../../docs/deployment/production_runbook.md).
+The Delphi HTTP gateway (`WfEngineSrv` / `MethylWfGateway` Windows service) is not deployed. The supported gateway is Python `goliath-gateway` (`methyl-gateway` remains a one-cycle alias), implemented in [`../rest/gateway.py`](../rest/gateway.py). Do not add routes, OpenAPI parity work, or production installs for `WfEngineSrv`.
 
 ## Scope when frozen
 

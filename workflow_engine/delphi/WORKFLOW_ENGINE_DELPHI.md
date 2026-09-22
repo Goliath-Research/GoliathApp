@@ -1,6 +1,6 @@
 # Workflow Engine Delphi REST Gateway (frozen reference)
 
-> **Frozen (June 2026):** This Delphi HTTP host is kept for historical reference and optional Windows debugging only. See [`DELPHI_GATEWAY_STATUS.md`](DELPHI_GATEWAY_STATUS.md). **Production gateway:** Python `methyl-gateway` on Linux — [`../rest/gateway.py`](../rest/gateway.py), [`deploy/systemd/methyl-gateway.service`](../../deploy/systemd/methyl-gateway.service). No new routes or OpenAPI parity work is expected on `WfEngineSrv`.
+> **Deprecated.** This Delphi HTTP host is a frozen reference only. See [`DELPHI_GATEWAY_STATUS.md`](DELPHI_GATEWAY_STATUS.md). **Production gateway:** Python `goliath-gateway` in [`../rest/gateway.py`](../rest/gateway.py) (`methyl-gateway` is a one-cycle alias). No new routes or OpenAPI parity work on `WfEngineSrv`.
 
 The Delphi middle-tier in `workflow_engine/delphi/src` is a **thin REST gateway** between workers (and other clients) and the `wf` SQL contract. It mirrors the Python production gateway in [`workflow_engine/rest/gateway.py`](../rest/gateway.py).
 
