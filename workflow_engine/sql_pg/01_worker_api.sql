@@ -13,8 +13,23 @@ RETURNS text
 LANGUAGE plpgsql
 IMMUTABLE
 AS $$
+DECLARE
+  v text := coalesce(p_s, '');
+  i int;
 BEGIN
-  RETURN '"' || replace(replace(replace(coalesce(p_s, ''), '\', '\\'), '"', '\"'), E'\n', '\n') || '"';
+  -- Escape '\' and '"' before inserting control escapes, so those backslashes stay single.
+  v := replace(replace(v, '\', '\\'), '"', '\"');
+  v := replace(v, chr(8), '\b');
+  v := replace(v, chr(9), '\t');
+  v := replace(v, chr(10), '\n');
+  v := replace(v, chr(12), '\f');
+  v := replace(v, chr(13), '\r');
+  FOR i IN 0..31 LOOP
+    IF i NOT IN (8, 9, 10, 12, 13) THEN
+      v := replace(v, chr(i), '\u' || lpad(to_hex(i), 4, '0'));
+    END IF;
+  END LOOP;
+  RETURN '"' || v || '"';
 END;
 $$;
 
