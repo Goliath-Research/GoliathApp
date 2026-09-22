@@ -24,7 +24,8 @@ BEGIN
   v := replace(v, chr(10), '\n');
   v := replace(v, chr(12), '\f');
   v := replace(v, chr(13), '\r');
-  FOR i IN 0..31 LOOP
+  -- text cannot hold U+0000, and chr(0) raises "null character not permitted".
+  FOR i IN 1..31 LOOP
     IF i NOT IN (8, 9, 10, 12, 13) THEN
       v := replace(v, chr(i), '\u' || lpad(to_hex(i), 4, '0'));
     END IF;
