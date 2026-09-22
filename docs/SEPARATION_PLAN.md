@@ -1,22 +1,24 @@
 # Plan: Separate GoliathApp from GoliathOmics
 
-**Status:** Draft plan (2026-09-22)  
+**Status:** Decisions locked (2026-09-22). Platform source still lives in `GoliathWorkflow`.  
 **Author context:** David Izada Rodriguez / Goliath Research  
-**Source of truth for current code:** `Goliath-Research/GoliathWorkflow` (product identity in-repo: **MethylPipeline**)  
-**Reserved empty platform repo:** `Goliath-Research/GoliathApp` (private, empty)  
+**Source of truth for current code:** `Goliath-Research/GoliathWorkflow` (in-repo package: **methylpipeline**)  
+**Platform repo:** `Goliath-Research/GoliathApp` (`main` at `9b30a57`, plan and README only)  
 **Independent tool repos (keep separate):** `mojo-align`, `MethylExtractor`
 
 ---
 
 ## 1. Purpose
 
-Split the long-lived **generic application platform** (Goliath / GoliathApp) from its **genomics specialization** (GoliathOmics), so that:
+Split the long-lived **generic application platform** (GoliathApp) from its **genomics specialization** (GoliathOmics), so that:
 
 1. **GoliathApp** remains a reusable builder: database-governed Meta model, RBAC, object store, portal UI, workflow engine, middle-tier REST, and remote workers — without methylation semantics.
-2. **GoliathOmics** (today mostly branded MethylPipeline inside `GoliathWorkflow`) becomes the genomics product: science packages, DomainPrograms/profiles/analytes, genomics worker handlers, and docs — depending on GoliathApp as a library/service.
+2. **GoliathOmics** (today the MethylPipeline package inside `GoliathWorkflow`) becomes the genomics product: science packages, DomainPrograms/profiles/analytes, genomics worker handlers, and docs — depending on GoliathApp as a library/service.
 3. **mojo-align** and **MethylExtractor** stay independent tool projects consumed by GoliathOmics (image/binary contracts only).
 
 This document is an executable separation plan: target boundaries, move map, coupling cuts, phased sequence, naming, and success criteria.
+
+**Do not call the platform an “application pack.”** Inside MethylPipeline that phrase already means a config overlay on a process pack (Alzheimer cfDNA, plant abiotic stress). See `GoliathWorkflow/docs/plans/generic-application-pack-pattern.plan.md`.
 
 ---
 
@@ -36,10 +38,10 @@ Since ~1986, GoliathApp has abstracted what every application repeats:
 |----------------------|-----------------------------------|-------|
 | **Meta** — OOP model of application information | SQL schema `Meta` (`meta_schema.sql`, …); object identity in **`Meta.Objs`** | There is no separate top-level `obj` schema; instances live under Meta. |
 | **RBAC** — roles over Meta classes and concrete objects | SQL schema `RBAC` | Platform. |
-| **obj** — instances of Meta classes | **`Meta.Objs`** (+ related Meta tables) | Rename/document as “obj layer” in GoliathApp docs; avoid inventing a parallel schema unless migrating. |
-| **portal** — UI objects | SQL schema `portal` (+ `portal_*_api.sql`, EpiPortal) | Platform shell; some clinical/disease columns are domain content. |
-| **wf** — event-driven workflows → actions for portal users or remote workers | SQL schema `wf` + gateway + worker protocol | Platform; action *names/handlers* for genomics are app data + GoliathOmics worker. |
-| **cfg** (evolution) | SQL schema `cfg` — sites, profiles, programs, storage, assets | Platform registry; science rows are GoliathOmics content. |
+| **obj** — instances of Meta classes | **`Meta.Objs`** (+ related Meta tables) | Document as the “obj layer” in GoliathApp docs; do not invent a parallel schema. |
+| **portal** — UI objects | SQL schema `portal` (+ `portal_*_api.sql`, EpiPortal) | Platform shell. Clinical/disease columns are Omics content (`portal_clinical_schema.sql`). |
+| **wf** — event-driven workflows → actions for portal users or remote workers | SQL schema `wf` + gateway + worker protocol | Platform. Genomics action *names and handlers* are Omics seeds plus `methyl_worker`. |
+| **cfg** (evolution) | SQL schema `cfg` — sites, profiles, programs, storage, assets | Platform registry tables. Science rows and reference-asset seeds are GoliathOmics content. |
 
 **Additional platform schemas today:** `Contract`, `Onboarding` (keep with GoliathApp).
 
@@ -47,36 +49,41 @@ Since ~1986, GoliathApp has abstracted what every application repeats:
 
 ---
 
-## 3. Current state (as of inventory)
+## 3. Current state (as of 2026-09-22)
 
 ### 3.1 Repositories
 
 | Repo | State | Role today |
 |------|-------|------------|
-| `Goliath-Research/GoliathWorkflow` | Public monorepo | Engine + MethylPipeline science + workers + docs |
-| `Goliath-Research/GoliathApp` | Private, **empty** | Intended platform destination |
-| `Goliath-Research/mojo-align` | Separate | GPU alignment / methylgrapher family |
+| `Goliath-Research/GoliathWorkflow` | Public monorepo | Engine + MethylPipeline science + workers + docs. **All platform code still lives here.** |
+| `Goliath-Research/GoliathApp` | Private, **plan only** | `main` `9b30a57` (PR #1): `README.md` and this file. No gateway, SQL, or worker source yet. |
+| `Goliath-Research/mojo-align` | Separate | GPU alignment / methylgrapher family. Toolchain is Mojo 1.1 (Modular 26.6), not the 1.0 beta. |
 | `Goliath-Research/MethylExtractor` | Separate | BAM→HDF5 MethylDackel fork |
 
-### 3.2 Naming mismatch (must be planned)
+This plan is already parked in GoliathApp. The next step is Phase 0 (contract freeze), not another home for the document.
+
+### 3.2 Naming (locked)
 
 | Name | Where | Meaning |
 |------|-------|---------|
-| GoliathWorkflow | GitHub repo + description | Monorepo host |
-| MethylPipeline | `pyproject` name `methylpipeline`, docs, CLIs `methyl-*`, Docker | Current product identity |
-| GoliathOmics | Outreach / business language; **not** in-repo branding | Proposed genomics product name |
-| GoliathApp | Empty repo | Proposed platform name |
+| GoliathWorkflow | GitHub repo | Monorepo host until the split. Science history stays here, then the repo is renamed. |
+| methylpipeline / `methyl-*` | `pyproject`, CLIs, Docker | Transitional package and CLI aliases for one release cycle |
+| GoliathOmics | Product and future repo name | Genomics product |
+| GoliathApp | This repo | Platform |
+| `goliath-*` | Born in GoliathApp | Platform entry points (`goliath-gateway`, `goliath-cfg`, …) |
 | EpiPortal | Portal UI docs | Company portal over `portal.sp_*` |
 | `goliath` (infra) | DB name, `/work/goliath/`, image org | Namespace |
-
-**Decision required:** Rename genomics product to **GoliathOmics** with long-lived `methyl-*` aliases, or keep MethylPipeline as the package brand under a GoliathOmics umbrella. This plan assumes **GoliathOmics** as the product/repo name and **MethylPipeline** as a transitional package/CLI alias set.
+| Application pack | MethylPipeline docs only | Config overlay on an existing process pack. Not a name for this platform. |
+| Process pack | MethylPipeline docs | New omics modality (actions, programs, QC) |
 
 ### 3.3 What already matches the platform vision
 
 Inside `GoliathWorkflow` today:
 
-- **Platform-shaped:** `workflow_engine/rest/` (gateway), `sql_pg` / `sql_mssql` (wf/cfg/portal/Meta/RBAC/…), `cfg/` CLI, `local/` runner, `delphi/` middle-tier, worker protocol, OpenAPI, DomainProgram **compiler/IR**, `/work` materialization contract.
-- **Genomics-shaped:** `packages/methyl*` (+ rna/proteomics/omicsfeatures), `workers/methyl_worker/`, domain analytes/profiles/fixtures, science schemas, methylgrapher Docker bake of mojo-align, science docs.
+- **Platform-shaped:** `workflow_engine/rest/` (gateway), `sql_pg` / `sql_mssql` engine DDL (wf/cfg/portal/Meta/RBAC/Contract/Onboarding), `cfg/` CLI, `local/` runner, `delphi/` middle-tier, worker protocol, OpenAPI, DomainProgram compiler/IR, `/work` materialization contract.
+- **Genomics-shaped:** 26 packages under `packages/` (21 `methyl*`, `omicsfeatures`, `rnaexpress`, `rnaalignmentqc`, `proteomicsfeatures`, `proteomicsqc`), `workers/methyl_worker/`, domain analytes/profiles/fixtures/checks, science SQL seeds, methylgrapher Docker bake of mojo-align, science docs.
+
+Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, study, and reference-asset seeds live in that tree.
 
 ---
 
@@ -85,7 +92,7 @@ Inside `GoliathWorkflow` today:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │  GoliathApp (platform)                                      │
-│  Meta · RBAC · Meta.Objs · portal · wf · cfg · Contract     │
+│  Meta · RBAC · Meta.Objs · portal engine · wf · cfg DDL     │
 │  REST gateway · optional Delphi MT · local engine           │
 │  Worker protocol + thin reference worker                    │
 │  Deploy/bootstrap for control plane                         │
@@ -106,58 +113,78 @@ Inside `GoliathWorkflow` today:
         ┌───────────────┐         ┌──────────────────┐
         │  mojo-align   │         │ MethylExtractor  │
         │  (image bake) │         │ (binary under    │
-        │               │         │  /work/goliath/) │
+        │  Mojo 1.1     │         │  /work/goliath/) │
         └───────────────┘         └──────────────────┘
 ```
 
-### 4.1 GoliathApp — take / keep
+### 4.1 GoliathApp — engine, no science rows
 
 | Path / artifact | Role |
 |-----------------|------|
-| `workflow_engine/rest/` | Agnostic gateway (`goliath-gateway`; alias `methyl-gateway`) |
-| `workflow_engine/sql_pg/`, `sql_mssql/` | Platform DDL/APIs for Meta, RBAC, portal, wf, cfg, Contract, Onboarding |
+| `workflow_engine/rest/` | Agnostic gateway (`goliath-gateway`; alias `methyl-gateway` for one cycle) |
+| `workflow_engine/sql_pg/`, `sql_mssql/` **engine files only** | DDL/APIs for Meta, RBAC, portal engine, wf engine, cfg schema, Contract, Onboarding. See §4.2 for seeds that stay out. |
 | `workflow_engine/cfg/` | Config registry CLI (`goliath-cfg` / alias `methyl-cfg`) |
 | `workflow_engine/local/` | In-process DomainProgram runner |
 | `workflow_engine/contract/`, `delphi/`, thin `portal/` helpers | Platform |
-| Domain **compiler** + JSON Schema for DomainProgram IR | Platform |
+| `workflow_engine/domain/compiler.py`, `verify_workflow.py`, `pipeline_profiles.py`, `workflow_context.py` | DomainProgram compiler, IR check, profile resolution, instance-context contract |
 | `contracts/openapi.yaml` | Published HTTP contract |
 | Platform slices of `schemas/` (workflow, domain_program, storage, …) | Platform |
 | `deploy/` control-plane pieces, worker join docs (generic) | Platform |
-| `workers/WORKER_PROTOCOL.md` + reference REST worker stub | Platform |
-| Platform architecture docs (component-boundaries, distributed-runtime, config-registry — demethylated examples) | Platform |
+| `scripts/init_work_layout.sh` | `/work` layout contract |
+| `workers/WORKER_PROTOCOL.md` + reference REST claim/submit client | Platform. Not `workers/methyl_worker/`. |
+| Platform architecture docs (component-boundaries, distributed-runtime, config-registry — examples stripped of methylation) | Platform |
 
-### 4.2 GoliathOmics — take / keep
+### 4.2 GoliathOmics — content and handlers
 
 | Path / artifact | Role |
 |-----------------|------|
-| `packages/*` (methyl*, rna*, proteomics*, omicsfeatures) | Science libraries |
+| `packages/*` (all 26) | Science libraries. RNA and proteomics stay here. |
 | `workers/methyl_worker/` | Genomics action handlers + catalog |
 | `workers/docker/methylgrapher/` | Image bake wiring to mojo-align |
-| `workflow_engine/domain/{analytes,profiles,fixtures}/` | App content (programs/profiles) |
-| Science `schemas/actions`, `schemas/tasks`, methyl_* domain schemas | App contracts |
+| `workflow_engine/domain/{analytes,profiles,fixtures,checks}/` | Programs, profiles, CI cohorts |
+| `workflow_engine/domain/modality_gate.py` | Omics. It imports `methyl_utils` and lists methylation-only actions. |
+| `workflow_engine/ops/` (`sample_prep_*`, `study_lifecycle*`) | Omics, or thin generic hooks in App plus science plugins |
+| `workflow_engine/admin/` methylation finalize/bake helpers | Omics. Generic instance APIs stay in App. File-level pass in Phase 1; do not move the whole `admin/` directory. |
+| Science `schemas/actions`, `schemas/tasks`, methyl_* domain schemas | App contracts owned by the product |
 | Science docs (theory, usage SamplePrep, regulatory) | Product docs |
 | Science scripts (genome provision content, analyte compares, …) | Ops content |
-| Root packaging renamed toward GoliathOmics / keep `methylpipeline` alias | Product surface |
+| Root packaging | Product surface stays `methylpipeline`, with `methyl-*` aliases |
+
+**Science SQL that must not ship as App engine** (same names in `sql_pg` and the `sql_mssql` twin where one exists):
+
+| File | Why it stays in Omics |
+|------|------------------------|
+| `wf_split_detector_actions_seed.sql` | Methylation detector action catalog |
+| `wf_two_group_test_seed.sql` | Study/test seed |
+| `wf_mc_two_group_test_seed.sql` | Monte Carlo study seed |
+| `migrate_work_paths_prostate_cancer.sql` | Disease-specific path migration |
+| `cfg_reference_assets_seed.sql` | Genome / reference-asset rows |
+| `cfg_site_reference_assets_seed.sql` | Site-to-asset links |
+| `portal_clinical_schema.sql` | Clinical/disease columns. Portal *engine* APIs stay in App. Column review in Phase 3. |
+
+`cfg_analyte_catalog.sql` is a platform table. Analyte *rows* (methylation, RNA, proteomics) are Omics seeds.
 
 ### 4.3 Leave independent
 
 | Repo | Contract with GoliathOmics |
 |------|----------------------------|
-| **mojo-align** | `MOJO_ALIGN_ROOT` → build `goliath/methylgrapher:*-mojo-*`; in-image `/opt/mojo-align`; SamplePrep owns `/work/samples/...` arm dirs |
-| **MethylExtractor** | Binary under `/work/goliath/methyl-extractor-*/`; extraction_manifest / QC JSON consumed by `methylextractionqc` |
+| **mojo-align** | Image tag built from a declared git tag. Toolchain pin: Mojo 1.1 / Modular 26.6 (`pixi` channel), not Mojo 1.0.0b2. `MOJO_ALIGN_ROOT` → `goliath/methylgrapher:*-mojo-*`; in-image `/opt/mojo-align`. SamplePrep owns `/work/samples/...` arm dirs. |
+| **MethylExtractor** | Binary under `/work/goliath/methyl-extractor-*/`. `extraction_manifest` / QC JSON consumed by `methylextractionqc`. |
 
-### 4.4 Ambiguous items — explicit decisions
+### 4.4 Decisions (locked)
 
-| Item | Recommendation |
-|------|----------------|
-| `workflow_engine/domain/` tree | **Split:** compiler/IR → GoliathApp; analytes/profiles/fixtures → GoliathOmics |
-| `workflow_engine/ops/sample_prep_*`, `study_lifecycle*` | **GoliathOmics** (or thin generic hooks in App + science plugins) |
-| `workflow_engine/admin/study_*` | Generic instance APIs → App; methylation finalize/bake helpers → Omics |
-| RNA / proteomics packages | **Stay in GoliathOmics** as modality packs (same product family), not separate repos yet |
-| Portal clinical / disease-specific columns | Keep portal **engine** in App; migrate disease-specific DDL/seeds to Omics migrations or cfg content |
-| `tools/methyl-config-editor` | Omics-named tooling → rename under App as generic config editor later, or keep in Omics until Delphi MT is extracted |
-| Empty `GoliathApp` repo | **Primary destination** for platform move (prefer over renaming GoliathWorkflow in place) |
-| Current `GoliathWorkflow` name | After split: either **rename to GoliathOmics** or archive as redirect; do not keep three names long-term |
+| Item | Decision |
+|------|----------|
+| `workflow_engine/domain/` tree | **Split.** Compiler, verify, profile resolver, and `workflow_context.py` → GoliathApp. `analytes/`, `profiles/`, `fixtures/`, `checks/`, and `modality_gate.py` → GoliathOmics. |
+| `workflow_engine/ops/sample_prep_*`, `study_lifecycle*` | **GoliathOmics** (or thin generic hooks in App + science plugins). |
+| `workflow_engine/admin/study_*` | Generic instance APIs → App. Methylation finalize/bake helpers → Omics, after a file-level pass. |
+| RNA / proteomics packages | **Stay in GoliathOmics** (`rnaexpress`, `rnaalignmentqc`, `proteomicsfeatures`, `proteomicsqc`). Not separate repos. |
+| Portal clinical / disease-specific columns | Portal engine in App. `portal_clinical_schema.sql` is Omics content until Phase 3 reclassifies individual columns. |
+| `tools/methyl-config-editor` | Stays with Omics until a generic config editor is extracted into App. |
+| `GoliathApp` repo | **Primary destination** for the platform move. Do not rename GoliathWorkflow in place and call that the platform. |
+| `GoliathWorkflow` name | After the split, rename the science repo to **GoliathOmics**. Do not keep three product names. |
+| History | `git filter-repo` for platform paths into GoliathApp. Science history stays in GoliathWorkflow until that rename. |
+| Database | **One database** named `goliath`. App owns engine DDL. Omics owns content seeds. No second database. |
 
 ---
 
@@ -165,27 +192,29 @@ Inside `GoliathWorkflow` today:
 
 1. **Python packaging**  
    - Today: one venv via `scripts/packages.list` (science + engine).  
-   - Target: GoliathOmics depends on published `goliath-app` (or path/git dep); workers depend on science packages + App client libs only.
+   - Target: GoliathOmics depends on published `goliath-app` (path or git dep until a release). Workers depend on science packages plus the App client only.  
+   - Phase 0 designs the banned-import check: GoliathApp CI fails if it imports `methyl*`, `omicsfeatures`, `rnaexpress`, `rnaalignmentqc`, `proteomicsfeatures`, or `proteomicsqc`.
 
 2. **Database**  
    - Single DB `goliath` with cross-schema FKs (`cfg` ↔ `wf` ↔ `portal`).  
-   - Target: **same logical DB allowed**, owned/versioned by GoliathApp migrations; Omics contributes **content migrations/seeds** (actions, analytes, process packs) without forking engine DDL.  
-   - Action catalog: git → `wf.workflow_action` via sync (`methyl-cfg sync-actions` → `goliath-cfg sync-actions`).
+   - GoliathApp migrations own engine DDL. Omics contributes content migrations and seeds (actions, analytes, process packs, reference assets) and does not fork engine DDL.  
+   - Action catalog: git → `wf.workflow_action` via sync (`methyl-cfg sync-actions`, later `goliath-cfg sync-actions`).
 
 3. **Deploy / images**  
-   - Cut hard-coded sibling `../mojo-align` into documented build args / CI checkout.  
-   - Document `METHYL_EXTRACTOR_BIN`, Parabricks image, methylgrapher image as **Omics worker env**, not App.
+   - Replace the hard-coded sibling `../mojo-align` with a documented build arg / CI checkout of a pinned tag.  
+   - `METHYL_EXTRACTOR_BIN`, the Parabricks image, and the methylgrapher image are **Omics worker env**, not App.
 
-4. **`/work` shared storage** (Backblaze B2 shared `/work` in current ops plan)  
-   - Keep layout contract stable (see `init_work_layout.sh`):  
+4. **`/work` shared storage**  
+   - Keep the layout from `scripts/init_work_layout.sh`:  
      `samples/`, `projects/`, `cache/` writable; `genomes/`, `site/`, `goliath/` ops-controlled.  
-   - App owns the layout script + mount contract; Omics owns site/analyte content and sample arm conventions.
+   - App owns the layout script and the mount contract. Omics owns site/analyte content and sample-arm conventions.  
+   - Env: `METHYL_WORK_ROOT` during the alias cycle; `GOLIATH_WORK_ROOT` is the platform name.
 
 5. **CLI surface**  
-   - Introduce `goliath-*` entrypoints in App; keep `methyl-*` as aliases in Omics (or shim package) for ≥1 major cycle.
+   - `goliath-*` entry points are born in App. `methyl-*` remains an alias shim in Omics for one major cycle, then deprecates.
 
 6. **Credentials**  
-   - Remain in `cfg.credential` / Neon secrets — never under `/work` (unchanged).
+   - Remain in `cfg.credential`. They never materialize under `/work`.
 
 ---
 
@@ -195,76 +224,79 @@ Inside `GoliathWorkflow` today:
 
 **Deliverables**
 
-- Published contract pack (tag or `contracts/` release):
+- Published contract pack (tag or `contracts/` release) from current `GoliathWorkflow` main:
   - OpenAPI (`contracts/openapi.yaml`)
   - DomainProgram IR schema
   - Worker protocol MD
-  - `/work` layout + env vars (`METHYL_WORK_ROOT` / future `GOLIATH_WORK_ROOT`)
+  - `/work` layout + env vars (`METHYL_WORK_ROOT`, future `GOLIATH_WORK_ROOT`)
   - Action I/O schema versioning rules
-- ADR: repo names (GoliathApp / GoliathOmics) + alias policy for `methyl-*`
-- Inventory spreadsheet: every path → App / Omics / Tool / Delete
+- ADR recording the locked names in §3.2 and §4.4 (this document is that record until a shorter ADR is split out).
+- Path inventory: every top-level path → App engine / Omics content / Tool / Delete. SQL files classified with the seed list in §4.2, not by directory.
+- Banned-import check designed (and wired as soon as App has a package): App cannot import the science packages listed in §5.1.
 
-**Exit:** Both future repos can depend on a versioned contract without reading each other’s source trees ad hoc.
+**Exit:** Both future repos can depend on a versioned contract without reading each other’s source trees ad hoc. The import ban is specified before code moves, not deferred to Phase 3.
 
-### Phase 1 — Populate GoliathApp from empty repo (mechanical extract)
+### Phase 1 — Populate GoliathApp (engine extract)
 
 **Deliverables**
 
-- Copy/move platform trees into `GoliathApp` on a branch (history: `git filter-repo` preferred if history matters; otherwise clean import + ATTRIBUTION).
-- Standalone App CI: SQL deploy smoke (Postgres), gateway boot, reference worker claim/submit against fixture DB.
-- Package rename: `goliath-app` (or `goliathapp`); document dual SQL backends.
+- Move platform trees into `GoliathApp` with `git filter-repo` on the engine paths in §4.1. Do not copy `sql_pg/` or `sql_mssql/` wholesale: detector, study, prostate-path, and reference-asset seeds stay behind for Omics.
+- Standalone App CI: Postgres SQL deploy smoke, gateway boot, reference worker claim/submit against a fixture DB.
+- Package name `goliath-app`. Document the PostgreSQL and Azure SQL twins.
 
-**Exit:** Empty App is no longer empty; gateway boots without importing `packages/methyl*`.
+**Exit:** GoliathApp contains the gateway and engine DDL. The gateway boots with zero imports from `packages/methyl*` or the other science packages. A tree that still contains `wf_split_detector_actions_seed.sql` has not met this exit.
 
 ### Phase 2 — Thin GoliathWorkflow → GoliathOmics (depend on App)
 
 **Deliverables**
 
-- Replace in-tree engine with dependency on GoliathApp.
-- Keep science packages + `methyl_worker` + domain content in this repo.
-- Rename GitHub repo / docs brand to **GoliathOmics** (or dual-title “GoliathOmics (MethylPipeline)” during transition).
-- Update bootstrap scripts to install App then Omics.
+- Replace the in-tree engine with a dependency on GoliathApp.
+- Keep science packages, `methyl_worker`, domain content, and the seeds in §4.2 in this repo.
+- Rename the GitHub repo and docs brand to **GoliathOmics**. During the alias cycle, docs may say “GoliathOmics (methylpipeline)”.
+- Bootstrap installs App, then Omics.
 
-**Exit:** Omics CI green using App as external package; no duplicated gateway source.
+**Exit:** Omics CI is green using App as an external package. Gateway source is not duplicated.
 
-### Phase 3 — Content & CLI cleanup
+### Phase 3 — Content and CLI cleanup
 
 **Deliverables**
 
-- Move analytes/profiles/fixtures fully under Omics; App ships only empty/example domain fixtures.
-- Demethylate App docs; Omics docs own SamplePrep / Clara / mojo / extractor narrative.
-- Alias matrix: `methyl-gateway` → `goliath-gateway`, etc.
-- Portal disease-specific seeds classified as Omics content migrations.
+- Analytes, profiles, fixtures, and checks live only under Omics. App ships an empty or hello-workflow fixture, not a methylation program.
+- App docs have no SamplePrep / Clara / mojo / extractor narrative. Omics docs own that.
+- Alias matrix: `methyl-gateway` → `goliath-gateway`, `methyl-cfg` → `goliath-cfg`, and the rest of the `methyl-*` set.
+- `portal_clinical_schema.sql` columns classified: engine columns stay in App; disease-specific columns become Omics content migrations.
 
-**Exit:** Contributor can build a non-genomics demo app on GoliathApp alone (even a trivial “hello workflow”).
+**Exit:** A contributor can build a non-genomics demo on GoliathApp alone (a trivial hello workflow is enough).
 
 ### Phase 4 — Tooling contracts only
 
 **Deliverables**
 
-- Documented pins: mojo-align tag → methylgrapher image tag; MethylExtractor release → `/work/goliath/...` layout.
-- No source vendoring; CI builds images from declared tags.
-- Optional: small `goliath-omics-tools` meta-repo or just Omics docs “Tools” chapter.
+- Pinned tags: mojo-align tag (Mojo 1.1 / Modular 26.6) → methylgrapher image tag; MethylExtractor release → `/work/goliath/...` layout.
+- No source vendoring. CI builds images from those tags.
+- Tool chapter in Omics docs. No meta-repo required for the first cut.
 
-**Exit:** Omics can bump tools without App release (unless OpenAPI/worker protocol changes).
+**Exit:** Omics can bump tools without an App release, unless OpenAPI or the worker protocol changes.
 
-### Phase 5 — Optional future (out of scope for first cut)
+### Phase 5 — Optional future (out of scope for the first cut)
 
-- Extract Delphi / config editor into App-facing tooling package.
+- Extract Delphi / config editor into App-facing tooling.
 - Multi-tenant SaaS packaging of GoliathApp.
-- Separate RNA/proteomics repos if product lines diverge.
+- Separate RNA or proteomics repos only if those product lines diverge.
 
 ---
 
-## 7. Suggested first milestone checklist
+## 7. Milestone checklist
 
-- [ ] Approve naming: **GoliathApp** + **GoliathOmics** (+ `methyl-*` aliases Y/N)
-- [ ] Approve RNA/proteomics stay inside GoliathOmics
-- [ ] Tag contract freeze from current `GoliathWorkflow` main
-- [ ] Seed `GoliathApp` with Phase 1 tree (no science packages)
-- [ ] Add Omics → App dependency and prove gateway-less science unit tests still pass
-- [ ] One smoke: Neon + middle-tier + B2 `/work` + one GPU worker (48GB) claiming a SamplePrep task via App gateway + Omics worker
-- [ ] Update partner-facing one-pager: platform vs omics vs tools
+- [x] Naming: **GoliathApp** + **GoliathOmics**, with `methyl-*` aliases for one release cycle and `goliath-*` born in App
+- [x] RNA/proteomics stay inside GoliathOmics
+- [x] One database `goliath`; App owns DDL; Omics owns seeds
+- [x] History via `git filter-repo` for platform paths
+- [ ] Tag the contract pack from current `GoliathWorkflow` main (Phase 0)
+- [ ] Seed `GoliathApp` with the Phase 1 engine tree (no science packages, no science SQL seeds)
+- [ ] Add the Omics → App dependency and prove gateway-less science unit tests still pass
+- [ ] One smoke: gateway + DB + one worker claiming a SamplePrep task (App gateway, Omics worker, mojo-align image, MethylExtractor binary)
+- [ ] Partner one-pager: platform vs omics vs tools, and “application pack” kept as the MethylPipeline overlay term
 
 ---
 
@@ -272,58 +304,73 @@ Inside `GoliathWorkflow` today:
 
 | Risk | Mitigation |
 |------|------------|
-| Cross-schema FKs break if schemas split across DBs | Keep **one DB**, two migration owners (App owns DDL; Omics owns seeds) |
-| History loss / blame | Prefer `git filter-repo` into App; keep GoliathWorkflow history for science |
-| Rename thrash (`methyl-*`) | Alias shims for one release cycle; document deprecation |
-| Portal clinical tables look “domain” | Engine in App; content classification review in Phase 3 |
-| Accidental methylation imports in App | CI import-linter / banned-module check for `methyl*` |
-| Empty App stays empty | Phase 1 timeboxed; do not wait for perfect purity |
-| Partner docs still say MethylPipeline / GoliathWorkflow | Explicit rename ADR + outreach glossary |
+| Cross-schema FKs break if schemas split across DBs | One DB. App owns DDL. Omics owns seeds. |
+| Copying `sql_pg/` wholesale drags methylation seeds into App | Seed denylist in §4.2 is part of the Phase 1 exit. |
+| History loss / blame | `git filter-repo` into App. Science history stays in GoliathWorkflow. |
+| Rename thrash (`methyl-*`) | Alias shims for one release cycle, then deprecate. |
+| Portal clinical tables look like engine | Engine APIs in App. `portal_clinical_schema.sql` reviewed in Phase 3. |
+| Accidental methylation imports in App | Banned-import check designed in Phase 0 and enforced in Phase 1 CI. |
+| “Application pack” used for the platform | Glossary in §3.2 and §Appendix B. That phrase stays a MethylPipeline overlay. |
+| Partner docs still say MethylPipeline / GoliathWorkflow | This naming lock, plus the partner one-pager in the checklist. |
 
 ---
 
 ## 9. Success criteria
 
-1. **GoliathApp** builds and runs gateway + DB + reference worker with **zero** imports from genomics packages.
-2. **GoliathOmics** runs MethylPipeline-equivalent SamplePrep / validation paths using App as dependency.
-3. **mojo-align** and **MethylExtractor** remain separate; consumed only via documented image/binary contracts.
-4. A new non-genomics vertical could start from GoliathApp + new DomainPrograms without forking Omics.
-5. Naming in GitHub, docs, and partner materials consistently map to: Platform = GoliathApp, Product = GoliathOmics, Tools = mojo-align + MethylExtractor.
+1. **GoliathApp** builds and runs gateway + DB + reference worker with **zero** imports from genomics packages, and without the science SQL seeds in §4.2.
+2. **GoliathOmics** runs the current SamplePrep / validation paths using App as a dependency.
+3. **mojo-align** (Mojo 1.1) and **MethylExtractor** remain separate, consumed only via documented image and binary pins.
+4. A new non-genomics vertical can start from GoliathApp plus new DomainPrograms without forking Omics.
+5. GitHub, docs, and partner materials use: Platform = GoliathApp, Product = GoliathOmics, Tools = mojo-align + MethylExtractor. “Application pack” remains the MethylPipeline config-overlay term.
 
 ---
 
-## 10. Immediate next actions (proposed)
+## 10. Immediate next actions
 
-1. **Decide naming** (confirm GoliathApp / GoliathOmics / alias policy).  
-2. **Park this plan** in one of:  
-   - `Goliath-Research/GoliathApp` as `docs/SEPARATION_PLAN.md` (preferred — bootstraps the empty repo), or  
-   - `GoliathWorkflow/docs/architecture/goliathapp-separation-plan.md`, or  
-   - internal Notion/Drive only.  
-3. **Phase 0:** extract and tag the contract pack from current main.  
-4. **Phase 1:** populate `GoliathApp` with platform trees (cloud agent / PR).
+1. **Phase 0:** tag the contract pack from current `GoliathWorkflow` main (OpenAPI, DomainProgram IR, worker protocol, `/work` layout, action I/O versioning) and write the path inventory, including the SQL seed denylist.
+2. **Phase 0:** specify the banned-import check before any tree is copied.
+3. **Phase 1:** populate `GoliathApp` with the engine-only tree (`git filter-repo`), excluding science packages and the seeds in §4.2.
+
+Parking this plan is done: it lives at `GoliathApp/docs/SEPARATION_PLAN.md`.
 
 ---
 
-## Appendix A — Current path cheat sheet (GoliathWorkflow)
+## Appendix A — Path cheat sheet (GoliathWorkflow)
 
-**Platform-leaning:** `workflow_engine/rest|sql_*|cfg|local|contract|delphi|portal/`, `contracts/`, `deploy/`, `workers/WORKER_PROTOCOL.md`
+**App engine**
 
-**Omics-leaning:** `packages/`, `workers/methyl_worker/`, `workers/docker/methylgrapher/`, `workflow_engine/domain/{analytes,profiles,fixtures}`, science schemas & docs
+- `workflow_engine/rest/`, `local/`, `cfg/`, `contract/`, `delphi/`
+- `workflow_engine/domain/compiler.py`, `verify_workflow.py`, `pipeline_profiles.py`, `workflow_context.py`
+- `sql_pg/` and `sql_mssql/` engine DDL and APIs for Meta, RBAC, portal engine, wf engine, cfg schema, Contract, Onboarding
+- `contracts/`, generic `deploy/`, `workers/WORKER_PROTOCOL.md`, `scripts/init_work_layout.sh`
 
-**Init `/work`:** `scripts/init_work_layout.sh` — writable: `samples`, `projects`, `cache`; readable: `genomes`, `site`, `goliath`
+**Omics content**
+
+- `packages/` (26 packages)
+- `workers/methyl_worker/`, `workers/docker/methylgrapher/`
+- `workflow_engine/domain/{analytes,profiles,fixtures,checks}/`, `domain/modality_gate.py`
+- `workflow_engine/ops/`
+- Methylation finalize/bake helpers under `workflow_engine/admin/` (not the whole directory)
+- Science schemas and docs
+- SQL seeds: `wf_split_detector_actions_seed.sql`, `wf_two_group_test_seed.sql`, `wf_mc_two_group_test_seed.sql`, `migrate_work_paths_prostate_cancer.sql`, `cfg_reference_assets_seed.sql`, `cfg_site_reference_assets_seed.sql`, `portal_clinical_schema.sql`
+
+**`/work`:** `scripts/init_work_layout.sh` — writable: `samples`, `projects`, `cache`; readable: `genomes`, `site`, `goliath`
 
 ## Appendix B — Glossary
 
 | Term | Meaning |
 |------|---------|
-| GoliathApp | Generic platform (this split’s platform repo) |
-| GoliathOmics | Genomics application product (specialization) |
-| MethylPipeline | Current in-repo product name / package |
-| GoliathWorkflow | Current GitHub monorepo name hosting both |
+| GoliathApp | Generic platform (this repo, once the engine is extracted) |
+| GoliathOmics | Genomics product. Future name of the science repo. |
+| methylpipeline / `methyl-*` | Current package and CLI aliases, kept for one release cycle |
+| `goliath-*` | Platform CLIs introduced in GoliathApp |
+| GoliathWorkflow | Current GitHub monorepo hosting both layers |
+| Application pack | MethylPipeline term only: config overlay on an existing process pack. Not this platform. |
+| Process pack | MethylPipeline term: a new omics modality (actions, programs, QC) |
 | EpiPortal | Portal UI product surface |
-| DomainProgram | Portable workflow IR executed by local or DB engine |
-| Worker | Claim/submit agent (human via portal or headless cluster node) |
+| DomainProgram | Portable workflow IR executed by the local or DB engine |
+| Worker | Claim/submit agent (portal user or headless cluster node) |
 
 ---
 
-*End of draft plan.*
+*Decisions locked 2026-09-22. Code has not moved.*
