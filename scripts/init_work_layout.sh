@@ -8,7 +8,7 @@
 #
 # Worker-readable (0755, not other-writable):
 #   genomes/   — reference inventory (ops / provision-assets write)
-#   site/      — materialized site manifest
+#   site/      — methyl_site.json (default written once; an existing file is kept)
 #   goliath/ — releases, venvs, env, docker data-root (promote host writes)
 #
 # Creates missing roots only. Does not recurse into existing trees.
@@ -109,6 +109,21 @@ done
 for name in "${READONLY_DIRS[@]}"; do
   ensure_dir "$WORK/$name" "$READONLY_MODE"
 done
+
+SITE_JSON="$WORK/site/methyl_site.json"
+DEFAULT_SITE="$(cd "$(dirname "$0")" && pwd)/default_methyl_site.json"
+if [[ ! -f "$DEFAULT_SITE" ]]; then
+  die "Default site manifest missing: $DEFAULT_SITE"
+fi
+if [[ -f "$SITE_JSON" ]]; then
+  info "Site manifest already present, left unchanged: $SITE_JSON"
+elif [[ "$DRY_RUN" -eq 1 ]]; then
+  echo "[DRY-RUN] write default $SITE_JSON from $DEFAULT_SITE"
+else
+  sed "s|__WORK__|$WORK|g" "$DEFAULT_SITE" > "$SITE_JSON"
+  chmod 0644 "$SITE_JSON"
+  info "Wrote default site manifest $SITE_JSON (edit pins before provisioning genomes)"
+fi
 
 if [[ "$DRY_RUN" -eq 0 ]]; then
   for name in "${WRITABLE_DIRS[@]}"; do
