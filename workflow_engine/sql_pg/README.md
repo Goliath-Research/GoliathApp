@@ -1,6 +1,6 @@
-# PostgreSQL deploy scripts (`sql_pg/`)
+# PostgreSQL engine (`sql_pg/`)
 
-Parallel implementation of the MethylPipeline **wf** schema contract for PostgreSQL 15+ (17+ recommended for SQL/JSON).
+PostgreSQL 15+ twin of the Goliath workflow engine (17+ recommended for SQL/JSON). The database name is `goliath`. This tree is engine DDL. Science seeds belong to GoliathOmics.
 
 Deploy **in order**:
 
@@ -175,7 +175,7 @@ pip install -e workflow_engine/
 ```bash
 export BACKEND_DB=mssql
 export AZURE_SQL_SERVER=your-server.database.windows.net
-export AZURE_SQL_DB=MethylPipeline
+export AZURE_SQL_DB=goliath
 export AZURE_SQL_USER=...
 export AZURE_SQL_PASSWORD=...
 methyl-gateway --host 0.0.0.0 --port 8080

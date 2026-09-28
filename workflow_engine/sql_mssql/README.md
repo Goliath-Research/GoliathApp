@@ -1,12 +1,12 @@
-# Azure SQL deploy scripts (`sql_mssql/`)
+# Azure SQL engine (`sql_mssql/`)
 
-Incremental **wf** schema parity scripts for Azure SQL. Use after the bundled base schema (`MethylPipeline.sql` or `MethylPipelineDB_Script.sql`).
+Azure SQL twin of the Goliath workflow engine. The database name is `goliath`. Apply these scripts after the base engine schema. Historical dump filenames `MethylPipeline.sql` and `MethylPipelineDB_Script.sql` are product snapshots, not this engine tree.
 
 ## Automated deploy
 
 ```bash
 export AZURE_SQL_SERVER=your-server.database.windows.net
-export AZURE_SQL_DB=MethylPipeline
+export AZURE_SQL_DB=goliath
 export AZURE_SQL_USER=sql-admin
 export AZURE_SQL_PASSWORD='...'
 export SQLCMD_TRUST_SERVER_CERTIFICATE=1   # optional

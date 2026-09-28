@@ -1,7 +1,7 @@
 # Goliath Research org hub — wireframe & DNS cutover
 
-**Status:** Draft (2026-09-22)  
-**Repo:** `Goliath-Research/GoliathApp` (org/platform docs home until a dedicated website repo exists)  
+**Status:** Draft (2026-09-22), updated 2026-09-28  
+**Repo:** `Goliath-Research/GoliathWeb` is the public hub. This wireframe stays in GoliathApp next to the [workspace index](workspace-index.md).  
 **Related:** [`SEPARATION_PLAN.md`](./SEPARATION_PLAN.md)
 
 ## Intent
@@ -56,7 +56,7 @@ Self-paced courses with e-books and Jupyter notebooks — not video lectures. Ho
 → Platform overview
 
 **Specialize**  
-**GoliathOmics** — methylation and liquid-biopsy workflows (open MIT components), with tools such as mojo-align and MethylExtractor, and an optional NVIDIA Clara Parabricks path.  
+**GoliathOmics** — methylation and liquid-biopsy workflows (open MIT components), with tools such as GoliathAlign and MethylExtractor, and an optional NVIDIA Clara Parabricks path.  
 → Omics overview · Open portal
 
 ### How the pieces connect
@@ -64,15 +64,15 @@ Self-paced courses with e-books and Jupyter notebooks — not video lectures. Ho
 Academy (LearnWorlds) teaches the foundations.  
 GoliathApp is the reusable engine.  
 GoliathOmics is the genomics product and portal.  
-mojo-align and MethylExtractor are utilities the portal’s workers can call.
+GoliathAlign and MethylExtractor are utilities the portal’s workers can call.
 
 *(Diagram: Learn → GoliathApp → GoliathOmics → Tools)*
 
 ### Open source
 
-Cards with links: GoliathApp · GoliathOmics · mojo-align · MethylExtractor  
+Cards with links: GoliathApp · GoliathOmics · GoliathAlign · MethylExtractor  
 
-Status chips: Live / In progress / Planned (match reality — App extraction in progress, Omics migrating, tools public).
+Status chips: Live / In progress / Planned (match reality — tools public, portal not yet on `omics.`).
 
 ### Collaborate
 
@@ -92,7 +92,7 @@ Same two CTAs: **Academy** · **GoliathOmics**
 | `/learn` | Academy URL | **Enter Academy** |
 | `/platforms/goliath-app` | GitHub GoliathApp (+ docs later) | **View on GitHub** |
 | `/platforms/goliath-omics` | Portal URL when ready | **Open GoliathOmics portal** |
-| `/platforms/tools` | Sibling repos | **mojo-align** / **MethylExtractor** |
+| `/platforms/tools` | Sibling repos | **GoliathAlign** / **MethylExtractor** |
 | `/open-source` | `github.com/Goliath-Research` | **Browse the organization** |
 | `/about` | Contact | **Contact us** |
 
@@ -153,7 +153,7 @@ Use these labels everywhere for consistency:
 
 ## Out of scope for this doc
 
-- Implementing the static hub site (separate repo or Pages project).
+- Implementing the static hub site (that site is GoliathWeb).
 - Changing LearnWorlds course content.
 - Migrating the GoliathOmics portal hostname (tracked with the App/Omics separation work).
 

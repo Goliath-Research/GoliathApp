@@ -1,6 +1,8 @@
 # Plan: Separate GoliathApp from GoliathOmics
 
-**Status:** Decisions locked (2026-09-22). Platform source still lives in `GoliathWorkflow`.  
+> **Historical decision record (locked 2026-09-22).** The live map is [workspace-index.md](workspace-index.md). Names `mojo-align` and `MOJO_ALIGN_*` in the phase log below are the former aligner names; the repository is **GoliathAlign**. GoliathWorkflow is deprecated and is not a documented run path.
+
+**Status:** Split recorded here. Day-to-day docs use the workspace index, not this phase log.  
 **Author context:** David Izada Rodriguez / Goliath Research  
 **Source of truth for current code:** `Goliath-Research/GoliathWorkflow` (in-repo package: **methylpipeline**)  
 **Platform repo:** `Goliath-Research/GoliathApp` (`main` at `9b30a57`, plan and README only)  
@@ -112,9 +114,9 @@ Copying all of `sql_pg/` into GoliathApp would fail the Phase 1 exit. Detector, 
                 │                         │
                 ▼                         ▼
         ┌───────────────┐         ┌──────────────────┐
-        │  mojo-align   │         │ MethylExtractor  │
-        │  (image bake) │         │ (binary under    │
-        │  Mojo 1.1     │         │  /work/goliath/) │
+        │ GoliathAlign  │         │ MethylExtractor  │
+        │ (formerly     │         │ (binary under    │
+        │  mojo-align)  │         │  /work/goliath/) │
         └───────────────┘         └──────────────────┘
 ```
 
@@ -353,9 +355,9 @@ Copying the engine does not finish Phase 1. These files still import science cod
 
 1. **GoliathApp** builds and runs gateway + DB + reference worker with **zero** imports from genomics packages, and without the science SQL seeds in §4.2.
 2. **GoliathOmics** runs the current SamplePrep / validation paths using App as a dependency.
-3. **mojo-align** (Mojo 1.1) and **MethylExtractor** remain separate, consumed only via documented image and binary pins.
+3. **GoliathAlign** (formerly mojo-align; Mojo 1.1) and **MethylExtractor** remain separate, consumed only via documented image and binary pins.
 4. A new non-genomics vertical can start from GoliathApp plus new DomainPrograms without forking Omics.
-5. GitHub, docs, and partner materials use: Platform = GoliathApp, Product = GoliathOmics, Tools = mojo-align + MethylExtractor. “Application pack” remains the MethylPipeline config-overlay term.
+5. GitHub, docs, and partner materials use: Platform = GoliathApp, Product = GoliathOmics, Tools = GoliathAlign + MethylExtractor. “Application pack” remains the MethylPipeline config-overlay term.
 
 ---
 
