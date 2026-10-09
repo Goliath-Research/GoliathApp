@@ -9,7 +9,7 @@ import subprocess
 import tempfile
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from .reference_selection import apply_reference_selection, selected_asset_names
 from .store import ConfigStore
@@ -183,7 +183,7 @@ def provision_asset(
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(src, dest)
                 elif loc.get("type") == "https":
-                    base = loc.get("baseUrl") or loc.get("url")
+                    base = cast(str, loc.get("baseUrl") or loc.get("url"))
                     _download_https(f"{base.rstrip('/')}/{key}", dest)
                 elif loc.get("type") == "s3":
                     _download_s3_object(loc, key, dest, dry_run=False)

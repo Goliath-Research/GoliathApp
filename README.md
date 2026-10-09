@@ -31,3 +31,12 @@ Science rows (analytes, action catalogs, disease columns) are GoliathOmics conte
 - Public hub wireframe: [docs/SITE_HUB_WIREFRAME.md](docs/SITE_HUB_WIREFRAME.md)
 
 Platform entry points use the `goliath` prefix (`goliath-gateway`, `goliath-cfg`). The database name is `goliath`.
+
+## Type checking
+
+[Pyrefly](https://pyrefly.org) type-checks `workflow_engine/`, `scripts/`, and `goliath_worker/` as Python 3.12 (the version CI runs; the package allows 3.10–3.14).
+
+```bash
+python -m pip install -e "workflow_engine/[dev]"
+pyrefly check
+```

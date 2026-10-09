@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from .materialize import materialize_store
 from .store import ConfigStore
@@ -69,16 +69,20 @@ def publish_program(
         from ops.workflow_deploy import deploy_workflow_definition
         from rest import db_client
 
-        deploy_result = deploy_workflow_definition(
-            db,
-            {"spec": spec, "replace": replace},
-            create_workflow_definition=db_client.create_workflow_definition,
-            delete_workflow_definition=db_client.delete_workflow_definition,
+        deployed = cast(
+            Dict[str, Any],
+            deploy_workflow_definition(
+                db,
+                {"spec": spec, "replace": replace},
+                create_workflow_definition=db_client.create_workflow_definition,
+                delete_workflow_definition=db_client.delete_workflow_definition,
+            ),
         )
+        deploy_result = deployed
         wf_version_id = (
-            deploy_result.get("workflow_version_id")
-            or deploy_result.get("workflowVersionId")
-            or deploy_result.get("id")
+            deployed.get("workflow_version_id")
+            or deployed.get("workflowVersionId")
+            or deployed.get("id")
         )
         if wf_version_id is not None:
             store.set_extra(

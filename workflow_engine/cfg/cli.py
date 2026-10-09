@@ -141,7 +141,7 @@ def _cmd_publish_program(args: argparse.Namespace) -> int:
     if args.deploy_db:
         from rest import db_client
 
-        db = db_client.connect()
+        db = db_client.connect()  # pyrefly: ignore[missing-attribute]
     result = publish_program(
         store,
         args.name,

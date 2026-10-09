@@ -6,7 +6,7 @@ import json
 import queue
 import threading
 from contextlib import contextmanager
-from typing import Any, Generator, Optional
+from typing import Any, Generator, Optional, cast
 
 import psycopg
 from psycopg.rows import dict_row
@@ -30,18 +30,18 @@ class _PgPool:
         self._conninfo = conninfo
         self._use_managed_identity = use_managed_identity
         self._max_size = max_size
-        self._pool: queue.Queue[psycopg.Connection] = queue.Queue(maxsize=max_size)
+        self._pool: queue.Queue[psycopg.Connection[Any]] = queue.Queue(maxsize=max_size)
         self._lock = threading.Lock()
         self._created = 0
 
-    def _new_connection(self) -> psycopg.Connection:
+    def _new_connection(self) -> psycopg.Connection[Any]:
         if self._use_managed_identity:
             token = get_database_access_token(DatabaseBackend.POSTGRES)
             return psycopg.connect(self._conninfo, password=token, row_factory=dict_row)
         return psycopg.connect(self._conninfo, row_factory=dict_row)
 
     @contextmanager
-    def connection(self) -> Generator[psycopg.Connection, None, None]:
+    def connection(self) -> Generator[psycopg.Connection[Any], None, None]:
         conn: Optional[psycopg.Connection] = None
         try:
             conn = self._pool.get_nowait()
@@ -107,9 +107,10 @@ class PostgresGatewayDb(GatewayDbBase):
             )
 
     @contextmanager
-    def _connection(self) -> Generator[psycopg.Connection, None, None]:
+    def _connection(self) -> Generator[psycopg.Connection[dict[str, Any]], None, None]:
         with self._pool.connection() as conn:
-            yield conn
+            # Both pools set row_factory=dict_row; the pool types do not say so.
+            yield cast(psycopg.Connection[dict[str, Any]], conn)
 
     def close(self) -> None:
         self._pool.close()
@@ -118,7 +119,7 @@ class PostgresGatewayDb(GatewayDbBase):
         try:
             with self._connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute(sql, params)
+                    cur.execute(sql, params)  # pyrefly: ignore[bad-argument-type]
                 conn.commit()
         except psycopg.Error as exc:
             if self._is_auth_error(exc):
@@ -129,7 +130,7 @@ class PostgresGatewayDb(GatewayDbBase):
         try:
             with self._connection() as conn:
                 with conn.cursor() as cur:
-                    cur.execute(sql, params)
+                    cur.execute(sql, params)  # pyrefly: ignore[bad-argument-type]
                     rows = cur.fetchall()
                 conn.commit()
                 return list(rows)

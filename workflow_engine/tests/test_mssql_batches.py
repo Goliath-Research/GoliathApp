@@ -8,10 +8,13 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+class _PyodbcModule(types.ModuleType):
+    Error = Exception
+
+
 # MssqlGatewayDb imports pyodbc at module load; stub when ODBC is unavailable.
 if "pyodbc" not in sys.modules:
-    sys.modules["pyodbc"] = types.ModuleType("pyodbc")
-    sys.modules["pyodbc"].Error = Exception
+    sys.modules["pyodbc"] = _PyodbcModule("pyodbc")
 
 REST_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REST_DIR))

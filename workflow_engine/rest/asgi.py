@@ -113,4 +113,10 @@ def create_app(
 
 
 def create_app_from_db(db: GatewayDb, *, catalog_path: Optional[Any] = None) -> Callable[..., Any]:
-    return create_app(RestGateway(db, catalog_path=catalog_path))
+    """Build an ASGI app around ``db``.
+
+    ``catalog_path`` is accepted so older callers keep a stable signature.
+    RestGateway does not load a catalog file.
+    """
+    del catalog_path
+    return create_app(RestGateway(db))
