@@ -7,6 +7,10 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional, Protocol, runtime_checkable
 
 
+class _IndexableRow(Protocol):
+    def __getitem__(self, key: int, /) -> Any: ...
+
+
 class WorkerAuthError(Exception):
     """Raised when wf.wf_worker_authenticate rejects credentials."""
 
@@ -42,7 +46,7 @@ def parse_json_value(value: Any) -> Any:
     return value
 
 
-def row_to_dict(columns: list[str], row: tuple[Any, ...]) -> dict[str, Any]:
+def row_to_dict(columns: list[str], row: _IndexableRow) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for idx, name in enumerate(columns):
         value = row[idx]

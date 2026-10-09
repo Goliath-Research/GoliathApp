@@ -13,7 +13,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Set
+from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -185,15 +185,17 @@ def enrich_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
 
     procedure_name = out.get("pipelineProcedure")
     procedure_file = out.get("procedurePath")
-    if procedure_file or procedure_name:
-        procedure = load_procedure(procedure_file or procedure_name)
+    procedure_ref = procedure_file or procedure_name
+    if procedure_ref:
+        procedure = load_procedure(cast(str | Path, procedure_ref))
         out = apply_pipeline_procedure(out, procedure)
 
     profile_name = out.get("pipelineProfile")
     profile_file = out.get("profilePath")
-    if profile_file or profile_name:
+    profile_ref = profile_file or profile_name
+    if profile_ref:
         # Prefer procedure/instance researchMode when loading samd_research modes.
-        profile = load_profile(profile_file or profile_name)
+        profile = load_profile(cast(str | Path, profile_ref))
         out = apply_pipeline_profile(out, profile)
     elif out.get("actionConfig"):
         out = seed_pipeline_scope_flags(out, action_config=out.get("actionConfig"))

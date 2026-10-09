@@ -224,7 +224,7 @@ def inventory_postgres() -> Inventory:
     ) + ", " + ", ".join(f"'{s.lower()}'" for s in CONTROLLED_SCHEMAS)
     try:
         with conn.cursor() as cur:
-            cur.execute(
+            cur.execute(  # pyrefly: ignore[no-matching-overload]
                 f"""
                 SELECT n.nspname, c.relname
                 FROM pg_class c
@@ -237,7 +237,7 @@ def inventory_postgres() -> Inventory:
             for schema, name in cur.fetchall():
                 inv.tables.setdefault(schema, []).append(name)
 
-            cur.execute(
+            cur.execute(  # pyrefly: ignore[no-matching-overload]
                 f"""
                 SELECT n.nspname, c.relname
                 FROM pg_class c
@@ -250,7 +250,7 @@ def inventory_postgres() -> Inventory:
             for schema, name in cur.fetchall():
                 inv.views.setdefault(schema, []).append(name)
 
-            cur.execute(
+            cur.execute(  # pyrefly: ignore[no-matching-overload]
                 f"""
                 SELECT n.nspname, p.proname
                 FROM pg_proc p
@@ -263,7 +263,7 @@ def inventory_postgres() -> Inventory:
             for schema, name in cur.fetchall():
                 inv.routines.setdefault(schema, []).append(name)
 
-            cur.execute(
+            cur.execute(  # pyrefly: ignore[no-matching-overload]
                 f"""
                 SELECT tc.constraint_name,
                        tc.table_schema, tc.table_name,

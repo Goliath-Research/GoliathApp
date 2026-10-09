@@ -1,0 +1,40 @@
+# Static type checking for GoliathApp. From the repository root:
+#   python -m pip install -e "workflow_engine/[dev]"
+#   pyrefly check
+
+project-includes = [
+  "workflow_engine",
+  "scripts",
+  "goliath_worker",
+]
+
+# CI and local development run on 3.12. The package allows >=3.10,<3.15.
+python-version = "3.12"
+
+# rest, local, and cfg are importable from workflow_engine/ (the install root).
+# domain and contract are inserted onto sys.path at runtime and imported as
+# top-level modules. tests/test_connection.py does the same for rest/.
+search-path = [
+  "workflow_engine",
+  "workflow_engine/domain",
+  "workflow_engine/contract",
+  "workflow_engine/rest",
+  # local/runner.py inserts this directory so `import foreach_caas` resolves.
+  "workflow_engine/local",
+  ".",
+]
+
+# Owned by sibling repositories, or not present in this tree (ops was referenced
+# by the package metadata but has no sources here).
+ignore-missing-imports = [
+  "methyl_domain",
+  "methyl_domain.*",
+  "methyl_worker",
+  "methyl_worker.*",
+  "methyl_utils",
+  "methyl_utils.*",
+  "methyl_enricher",
+  "methyl_enricher.*",
+  "ops",
+  "ops.*",
+]

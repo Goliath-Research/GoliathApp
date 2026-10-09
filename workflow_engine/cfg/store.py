@@ -105,7 +105,7 @@ class FileConfigStore(ConfigStore):
 
     def _save(self, rec: ConfigRecord) -> ConfigRecord:
         path = self._path(rec.kind, rec.name, rec.version)
-        payload = {
+        payload: Dict[str, Any] = {
             "kind": rec.kind,
             "name": rec.name,
             "version": rec.version,

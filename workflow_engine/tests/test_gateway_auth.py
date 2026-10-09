@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
 import httpx
@@ -21,7 +22,12 @@ from rest.auth import (  # noqa: E402
     classify_route,
     extract_client_ip,
 )
+from rest.db.base import GatewayDb  # noqa: E402
 from rest.gateway import RestGateway  # noqa: E402
+
+
+def _stub_db() -> GatewayDb:
+    return cast(GatewayDb, _StubDb())
 
 
 class _StubDb:
@@ -69,7 +75,7 @@ class AuthorizeRequestTests(unittest.TestCase):
         headers = [(b"x-forwarded-for", b"203.0.113.9")]
         with self.assertRaises(AuthForbidden):
             authorize_request(
-                _StubDb(),
+                _stub_db(),
                 config,
                 "POST",
                 "/v1/workers/tasks/request",
@@ -84,7 +90,7 @@ class AuthorizeRequestTests(unittest.TestCase):
         headers = [(b"x-real-ip", b"198.51.100.10")]
         # No worker_id yet — enroll IP check lives in wf.sp_worker_enroll.
         authorize_request(
-            _StubDb(),
+            _stub_db(),
             config,
             "POST",
             "/v1/workers/enroll",
@@ -99,7 +105,7 @@ class AuthorizeRequestTests(unittest.TestCase):
 
 class AsgiEnrollTests(unittest.IsolatedAsyncioTestCase):
     async def test_enroll_success_returns_token(self) -> None:
-        gateway = RestGateway(_StubDb())
+        gateway = RestGateway(_stub_db())
         captured: dict[str, object] = {}
 
         def _enroll(*args: object, **kwargs: object) -> int:
@@ -128,7 +134,7 @@ class AsgiEnrollTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_enroll_ignores_body_client_ip_spoof(self) -> None:
         """Body client_ip must never override proxy-derived extract_client_ip."""
-        gateway = RestGateway(_StubDb())
+        gateway = RestGateway(_stub_db())
         captured: dict[str, object] = {}
 
         def _enroll(*args: object, **kwargs: object) -> int:
@@ -155,7 +161,7 @@ class AsgiEnrollTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(captured.get("client_ip"), "203.0.113.9")
 
     async def test_enroll_rejects_missing_client_ip_on_dispatch(self) -> None:
-        gateway = RestGateway(_StubDb())
+        gateway = RestGateway(_stub_db())
         # Call dispatch without client_ip — must not fall back to body.
         status, payload = gateway.dispatch(
             "POST",
@@ -168,7 +174,7 @@ class AsgiEnrollTests(unittest.IsolatedAsyncioTestCase):
     async def test_enroll_forbidden_maps_403(self) -> None:
         from rest.db.base import WorkerEnrollError
 
-        gateway = RestGateway(_StubDb())
+        gateway = RestGateway(_stub_db())
 
         def _boom(*args: object, **kwargs: object) -> int:
             raise WorkerEnrollError("client IP does not match preregistered enrollment IP.")
@@ -192,7 +198,7 @@ class AsgiEnrollTests(unittest.IsolatedAsyncioTestCase):
 class AsgiEntraMiddlewareTests(unittest.IsolatedAsyncioTestCase):
     async def test_admin_route_404_without_handler(self) -> None:
         config = GatewayAuthConfig(require_entra=True, tenant_id="t", audience="api://test")
-        app = create_app(RestGateway(_StubDb()), auth_config=config)
+        app = create_app(RestGateway(_stub_db()), auth_config=config)
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post("/v1/admin/catalog/seed", json={"catalog": {"actions": []}})
@@ -200,7 +206,7 @@ class AsgiEntraMiddlewareTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_worker_route_allowed_without_jwt(self) -> None:
         config = GatewayAuthConfig(require_entra=True, tenant_id="t", audience="api://test")
-        gateway = RestGateway(_StubDb())
+        gateway = RestGateway(_stub_db())
 
         def _noop(*args: object, **kwargs: object) -> None:
             return None
