@@ -8,20 +8,12 @@ CREATE SCHEMA IF NOT EXISTS portal;
 ALTER TABLE wf.workflow_def
   ADD COLUMN IF NOT EXISTS source varchar(32) NOT NULL DEFAULT 'system';
 
--- Explicit columns: wf.wf_repo_list_actions also returns dispatch metadata.
-CREATE OR REPLACE FUNCTION portal.sp_list_workflow_actions()
-RETURNS TABLE (
-  action_name text,
-  capability text,
-  has_input_schema boolean,
-  has_output_schema boolean
-)
-LANGUAGE sql
-STABLE
-AS $$
-  SELECT action_name, capability, has_input_schema, has_output_schema
-  FROM wf.wf_repo_list_actions();
-$$;
+-- portal.sp_list_workflow_actions is owned by wf_data_type.sql (applied
+-- earlier by deploy_azure.sh): it returns the typed action catalog (id,
+-- dispatch metadata, input/output data types). Do not redefine it here. The
+-- older four-column definition that used to live here could not replace the
+-- wider one ("cannot change return type of existing function", 42P13), so a
+-- full ordered apply failed on every database where wf_data_type.sql ran.
 
 -- OUT column order must match wf.wf_repo_get_action_schema; DROP if a prior
 -- deploy declared schema_json before schema_id (CREATE OR REPLACE cannot swap).
@@ -143,6 +135,9 @@ BEGIN
 END;
 $$;
 
+-- portal_ops_recovery_api.sql (applied later) widens the result. On a re-run
+-- CREATE OR REPLACE cannot narrow it back (42P13), so drop it first.
+DROP FUNCTION IF EXISTS portal.sp_get_instance_tasks(bigint);
 CREATE OR REPLACE FUNCTION portal.sp_get_instance_tasks(p_workflow_instance_id bigint)
 RETURNS TABLE (
   node_execution_id bigint,

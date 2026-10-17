@@ -19,17 +19,12 @@ BEGIN
 END
 GO
 
-IF OBJECT_ID(N'portal.sp_list_workflow_actions', N'P') IS NOT NULL
-    DROP PROCEDURE portal.sp_list_workflow_actions;
-GO
-CREATE PROCEDURE portal.sp_list_workflow_actions
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SELECT action_name, capability, has_input_schema, has_output_schema
-    FROM wf.wf_repo_list_actions();
-END
-GO
+-- portal.sp_list_workflow_actions is owned by wf_data_type.sql (applied
+-- earlier by deploy_azure.sh): the typed action catalog with id, dispatch
+-- metadata and input/output data types that
+-- smoke_data_type_portal_contract.sql checks. Do not drop and recreate the
+-- older four-column procedure here; it silently replaced the typed one.
+-- Same rule as sql_pg/portal_workflow_api.sql.
 
 IF OBJECT_ID(N'portal.sp_get_action_schema', N'P') IS NOT NULL
     DROP PROCEDURE portal.sp_get_action_schema;
