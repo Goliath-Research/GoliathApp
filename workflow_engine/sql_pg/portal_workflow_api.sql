@@ -130,6 +130,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 DECLARE
   v_instance_id bigint;
 BEGIN

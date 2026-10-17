@@ -356,6 +356,49 @@ def test_scope_resolver_postgres(dsn: str) -> None:
     assert "hello-scope" in input_json, f"expected resolved greeting in input_json: {input_json}"
 
 
+def test_worker_enrollment_postgres(dsn: str) -> None:
+    """Portal preregistration + worker enroll (SQLSTATE 42702 regression).
+
+    portal.sp_upsert_cluster / portal.sp_upsert_worker_enrollment / wf.sp_worker_enroll
+    return TABLE columns named like the columns they upsert; without
+    ``#variable_conflict use_column`` PL/pgSQL raises "column reference ... is
+    ambiguous" on the first call even though the scripts deploy cleanly.
+    """
+    _run_psql(dsn, SQL_PG / "portal_worker_enrollment_api.sql")
+    cluster = _psql_query(dsn, "SELECT cluster_key FROM portal.sp_upsert_cluster('parity-enroll');")
+    assert cluster == "parity-enroll", cluster
+    renamed = _psql_query(dsn, "SELECT name FROM portal.sp_upsert_cluster('parity-enroll', 'Parity');")
+    assert renamed == "Parity", renamed
+    first = _psql_query(
+        dsn,
+        "SELECT external_worker_key || '|' || public_ip || '|' || status "
+        "FROM portal.sp_upsert_worker_enrollment('parity-enroll', '203.0.113.7', 'parity-key');",
+    )
+    assert first == "parity-key|203.0.113.7|PENDING", first
+    # Second call hits ON CONFLICT (cluster_id, external_worker_key) DO UPDATE.
+    again = _psql_query(
+        dsn,
+        "SELECT public_ip FROM portal.sp_upsert_worker_enrollment('parity-enroll', '203.0.113.8', 'parity-key');",
+    )
+    assert again == "203.0.113.8", again
+    cidrs = _psql_query(dsn, "SELECT allowed_source_cidrs::text FROM wf.cluster WHERE cluster_key = 'parity-enroll';")
+    assert "203.0.113.8/32" in cidrs, cidrs
+    token_hash = hashlib.sha256(b"parity-enroll-token").hexdigest()
+    enroll_sql = (
+        "SELECT worker_id FROM wf.sp_worker_enroll("
+        f"'parity-enroll', 'parity-key', '203.0.113.8', '{token_hash}', '[\"test-cap\"]'::jsonb);"
+    )
+    worker_id = int(_psql_query(dsn, enroll_sql))
+    # Re-enroll (token rotation) must reuse the worker and replace its token.
+    assert int(_psql_query(dsn, enroll_sql)) == worker_id
+    status = _psql_query(
+        dsn,
+        "SELECT e.status || '|' || e.enrolled_worker_id FROM wf.worker_enrollment e "
+        "JOIN wf.cluster c ON c.id = e.cluster_id WHERE c.cluster_key = 'parity-enroll';",
+    )
+    assert status == f"ENROLLED|{worker_id}", status
+
+
 def _run_rest_gateway_smoke(
     *,
     env_overrides: dict[str, str],
@@ -506,6 +549,8 @@ def main() -> int:
     test_repository_postgres(dsn)
     print("Running scope resolver parity...")
     test_scope_resolver_postgres(dsn)
+    print("Running worker enrollment parity...")
+    test_worker_enrollment_postgres(dsn)
     print("Running REST gateway smoke test...")
     test_rest_gateway_postgres(dsn)
     test_rest_gateway_mssql_optional()

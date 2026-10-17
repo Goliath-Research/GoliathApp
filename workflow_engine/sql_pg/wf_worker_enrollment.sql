@@ -27,6 +27,7 @@ CREATE OR REPLACE FUNCTION wf.sp_worker_enroll(
 RETURNS TABLE(worker_id bigint)
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 DECLARE
   v_cluster_id bigint;
   v_enroll_id bigint;

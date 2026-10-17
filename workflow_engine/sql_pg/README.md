@@ -208,5 +208,6 @@ python workflow_engine/contract/validate_contract.py
 ## Notes
 
 - Result-returning worker APIs are implemented as **functions** returning `TABLE` (PostgreSQL procedures cannot `RETURN QUERY`).
+- In PL/pgSQL, `RETURNS TABLE (...)` columns and `OUT` parameters are variables. If one shares a name with a column used unqualified in the body (`ON CONFLICT (col)`, `WHERE col = ...`, `SELECT col ...`), PostgreSQL fails at call time with SQLSTATE 42702 ("column reference ... is ambiguous"). Put `#variable_conflict use_column` on the first line after `AS $$`, or qualify the column. [`tests/test_pg_plpgsql_variable_conflict.py`](../tests/test_pg_plpgsql_variable_conflict.py) checks this.
 - Object names match the Azure SQL contract in [`../contract/db_objects.yaml`](../contract/db_objects.yaml).
 - FOREACH control flow requires SQL runtime parity (`wf_sql_runtime_parity.sql` / `sql_pg` equivalents); the Delphi middle-tier is gateway-only.

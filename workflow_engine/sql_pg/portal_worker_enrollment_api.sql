@@ -24,6 +24,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 DECLARE
   v_name text := COALESCE(NULLIF(btrim(p_name), ''), p_cluster_key);
 BEGIN
@@ -88,6 +89,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 DECLARE
   v_cluster_id bigint;
   v_host text;

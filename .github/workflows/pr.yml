@@ -38,4 +38,5 @@ jobs:
             workflow_engine/tests/test_connection.py \
             workflow_engine/tests/test_asgi.py \
             workflow_engine/tests/test_gateway_auth.py \
+            workflow_engine/tests/test_pg_plpgsql_variable_conflict.py \
             -q
