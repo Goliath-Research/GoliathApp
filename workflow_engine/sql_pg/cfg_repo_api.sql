@@ -713,6 +713,7 @@ CREATE OR REPLACE FUNCTION cfg.cfg_repo_set_study_group(
 RETURNS TABLE(id bigint, study_row_id bigint, role text, label text, list_filename text)
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 DECLARE v_id bigint;
 BEGIN
   IF p_role NOT IN ('control', 'disease') THEN
@@ -763,6 +764,7 @@ RETURNS TABLE(
 )
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 DECLARE
   elem jsonb;
   v_portal int;

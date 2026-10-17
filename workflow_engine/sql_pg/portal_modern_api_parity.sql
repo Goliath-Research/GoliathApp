@@ -512,6 +512,7 @@ RETURNS TABLE(
   version_major int, version_minor int, is_active boolean
 )
 LANGUAGE plpgsql AS $$
+#variable_conflict use_column
 DECLARE
   v_def_id bigint;
 BEGIN
@@ -628,6 +629,7 @@ CREATE OR REPLACE FUNCTION portal.sp_save_node_template(
 )
 RETURNS TABLE(id bigint, workflow_node_id bigint, saved_at_utc timestamptz)
 LANGUAGE plpgsql AS $$
+#variable_conflict use_column
 DECLARE v_id bigint;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM wf.workflow_node WHERE id = p_workflow_node_id) THEN
@@ -662,6 +664,7 @@ CREATE OR REPLACE FUNCTION portal.sp_publish_domain_program(
 )
 RETURNS TABLE(id bigint, name text, version text, status text, workflow_version_id bigint)
 LANGUAGE plpgsql AS $$
+#variable_conflict use_column
 DECLARE
   v_dp_id bigint;
   v_wv_id bigint := p_workflow_version_id;
@@ -766,6 +769,7 @@ CREATE OR REPLACE FUNCTION portal.sp_project_save(
 )
 RETURNS TABLE(id bigint, study_row_id bigint, workflow_instance_id bigint)
 LANGUAGE plpgsql AS $$
+#variable_conflict use_column
 DECLARE v_id bigint;
 BEGIN
   INSERT INTO cfg.study_instance_link (

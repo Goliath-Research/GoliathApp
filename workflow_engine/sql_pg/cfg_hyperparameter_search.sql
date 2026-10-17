@@ -288,6 +288,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 DECLARE
   v_study bigint;
   v_overrides jsonb;

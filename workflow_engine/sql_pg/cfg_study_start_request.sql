@@ -556,6 +556,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 BEGIN
   IF p_request_id IS NULL OR p_request_id <= 0 THEN
     RAISE EXCEPTION 'request_id is required';
@@ -607,6 +608,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 BEGIN
   IF p_request_id IS NULL OR p_request_id <= 0 THEN
     RAISE EXCEPTION 'request_id is required';

@@ -844,6 +844,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 DECLARE
   v_status text;
   v_instance_id bigint;
@@ -948,6 +949,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 DECLARE
   v_status text;
   v_reason text := COALESCE(NULLIF(btrim(p_error_message), ''), 'OPERATOR_CANCELLED');
@@ -1033,6 +1035,7 @@ RETURNS TABLE (
 )
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 DECLARE
   v_status text;
   v_reason text := COALESCE(NULLIF(btrim(p_error_message), ''), 'OPERATOR_FAILED');
