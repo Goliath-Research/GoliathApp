@@ -194,6 +194,9 @@ FROM cfg.site_reference_asset sra
 INNER JOIN cfg.site s ON s.id = sra.site_id
 INNER JOIN cfg.reference_asset ra ON ra.id = sra.reference_asset_id;
 
+-- cfg_assay_procedure_links.sql (applied later) widens this view. On a re-run
+-- CREATE OR REPLACE cannot drop those columns again, so drop the view first.
+DROP VIEW IF EXISTS cfg.v_study_instance;
 CREATE OR REPLACE VIEW cfg.v_study_instance AS
 SELECT
   l.id AS link_id,
