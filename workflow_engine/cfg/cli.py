@@ -76,6 +76,8 @@ def _cmd_link_site_assets(args: argparse.Namespace) -> int:
 def _cmd_upsert(args: argparse.Namespace) -> int:
     store = _open_store(args.store_dir)
     doc = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    # Resolve the name before a credential document is reduced to its public shape.
+    doc_name = doc.get("name") or doc.get("pipelineProfile")
     secret = None
     extra = {}
     if args.kind == "credential":
@@ -92,7 +94,7 @@ def _cmd_upsert(args: argparse.Namespace) -> int:
         extra["provider"] = args.provider or doc.get("type") or "unknown"
     if args.kind == "study" and args.study_id:
         extra["studyId"] = args.study_id
-    name = args.name or doc.get("name") or doc.get("pipelineProfile") or Path(args.file).stem
+    name = args.name or doc_name or Path(args.file).stem
     rec = store.upsert(
         args.kind,
         name,

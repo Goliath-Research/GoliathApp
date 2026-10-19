@@ -26,13 +26,18 @@ def import_filesystem(
     include_reference_assets: bool = True,
 ) -> Dict[str, Any]:
     repo_root = Path(repo_root)
+    # Repo checkouts keep fixtures under workflow_engine/domain; promoted release
+    # runtime-bundles (build_release.sh) flatten that to <bundle>/domain.
+    domain_root = repo_root / "workflow_engine" / "domain"
+    if not domain_root.is_dir() and (repo_root / "domain").is_dir():
+        domain_root = repo_root / "domain"
     work_root_p = Path(work_root) if work_root else None
     imported: List[str] = []
     status = "published" if publish else "draft"
 
     if include_reference_assets:
         endpoints_dir = (
-            repo_root / "workflow_engine" / "domain" / "fixtures" / "storage_endpoints"
+            domain_root / "fixtures" / "storage_endpoints"
         )
         if endpoints_dir.is_dir():
             for path in sorted(endpoints_dir.glob("*.json")):
@@ -58,7 +63,7 @@ def import_filesystem(
                 imported.append(f"storage_endpoint:{name}@{version}")
 
         profiles_dir = (
-            repo_root / "workflow_engine" / "domain" / "fixtures" / "storage_profiles"
+            domain_root / "fixtures" / "storage_profiles"
         )
         if profiles_dir.is_dir():
             for path in sorted(profiles_dir.glob("*.json")):
@@ -80,7 +85,7 @@ def import_filesystem(
                 imported.append(f"storage_profile:{name}@{version}")
 
         assets_dir = (
-            repo_root / "workflow_engine" / "domain" / "fixtures" / "reference_assets"
+            domain_root / "fixtures" / "reference_assets"
         )
         if assets_dir.is_dir():
             for path in sorted(assets_dir.glob("*.json")):
@@ -105,7 +110,7 @@ def import_filesystem(
     if include_profiles:
         from cfg.process_pack_catalog import cfg_status_for_catalog
 
-        profiles_dir = repo_root / "workflow_engine" / "domain" / "profiles"
+        profiles_dir = domain_root / "profiles"
         if profiles_dir.is_dir():
             for path in sorted(profiles_dir.glob("*.profile.json")):
                 doc = _load_json(path)
@@ -130,7 +135,7 @@ def import_filesystem(
                     store.upsert("assay_procedure", name, doc, status=row_status)
                     imported.append(f"assay_procedure:{name}")
 
-        analytes_dir = repo_root / "workflow_engine" / "domain" / "analytes"
+        analytes_dir = domain_root / "analytes"
         if analytes_dir.is_dir():
             for path in sorted(analytes_dir.glob("*.analyte.json")):
                 doc = _load_json(path)
@@ -145,7 +150,7 @@ def import_filesystem(
                 imported.append(f"analyte:{name}@{version}")
 
     if include_programs:
-        fixtures = repo_root / "workflow_engine" / "domain" / "fixtures"
+        fixtures = domain_root / "fixtures"
         if fixtures.is_dir():
             for path in sorted(fixtures.glob("*.program.json")):
                 doc = _load_json(path)
