@@ -5,6 +5,11 @@
     - affinity_key_field     name of an input_json field (opaque); NULL = no affinity
     - prefer_previous_worker soft stickiness to last completer of the same key
     - prefer_continue_group  prefer READY rows whose key already has SUCCEEDED work
+    - require_previous_worker hard pin: once another pinned action of the key
+      has SUCCEEDED, a pinned action is claimable only by the worker that
+      completed the most recent one. An exclusive pinned producer (Align) is
+      not constrained, and a new run of the same action is not pinned to its
+      own prior success, so restarting Align can move the pin.
 
   Runtime columns on wf.node_execution:
     - affinity_key             stamped at ACTION activation from input_json
@@ -19,7 +24,8 @@
 ALTER TABLE wf.workflow_action
   ADD COLUMN IF NOT EXISTS affinity_key_field text NULL,
   ADD COLUMN IF NOT EXISTS prefer_previous_worker boolean NOT NULL DEFAULT false,
-  ADD COLUMN IF NOT EXISTS prefer_continue_group boolean NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS prefer_continue_group boolean NOT NULL DEFAULT false,
+  ADD COLUMN IF NOT EXISTS require_previous_worker boolean NOT NULL DEFAULT false;
 
 ALTER TABLE wf.node_execution
   ADD COLUMN IF NOT EXISTS affinity_key text NULL,
@@ -41,7 +47,10 @@ CREATE INDEX IF NOT EXISTS ix_ne_instance_affinity_status
   INCLUDE (completed_by_worker_id, ended_at_utc)
   WHERE affinity_key IS NOT NULL;
 
--- Drop prior overloads so the 12-arg signature is unambiguous.
+-- Drop prior overloads so the 13-arg signature is unambiguous.
+DROP PROCEDURE IF EXISTS wf.wf_repo_upsert_workflow_action(
+  text, text, text, text, text, text, jsonb, integer, boolean, text, boolean, boolean
+);
 DROP PROCEDURE IF EXISTS wf.wf_repo_upsert_workflow_action(
   text, text, text, text, text, text, jsonb, integer, boolean
 );
@@ -62,7 +71,8 @@ CREATE OR REPLACE PROCEDURE wf.wf_repo_upsert_workflow_action(
   IN p_exclusive_worker boolean DEFAULT NULL,
   IN p_affinity_key_field text DEFAULT NULL,
   IN p_prefer_previous_worker boolean DEFAULT NULL,
-  IN p_prefer_continue_group boolean DEFAULT NULL
+  IN p_prefer_continue_group boolean DEFAULT NULL,
+  IN p_require_previous_worker boolean DEFAULT NULL
 )
 LANGUAGE plpgsql
 AS $$
@@ -83,7 +93,8 @@ BEGIN
     exclusive_worker,
     affinity_key_field,
     prefer_previous_worker,
-    prefer_continue_group
+    prefer_continue_group,
+    require_previous_worker
   )
   VALUES (
     p_action_name,
@@ -97,7 +108,8 @@ BEGIN
     coalesce(p_exclusive_worker, false),
     p_affinity_key_field,
     coalesce(p_prefer_previous_worker, false),
-    coalesce(p_prefer_continue_group, false)
+    coalesce(p_prefer_continue_group, false),
+    coalesce(p_require_previous_worker, false)
   )
   ON CONFLICT (action_name) DO UPDATE SET
     capability = EXCLUDED.capability,
@@ -110,7 +122,8 @@ BEGIN
     exclusive_worker = coalesce(EXCLUDED.exclusive_worker, false),
     affinity_key_field = EXCLUDED.affinity_key_field,
     prefer_previous_worker = coalesce(EXCLUDED.prefer_previous_worker, false),
-    prefer_continue_group = coalesce(EXCLUDED.prefer_continue_group, false);
+    prefer_continue_group = coalesce(EXCLUDED.prefer_continue_group, false),
+    require_previous_worker = coalesce(EXCLUDED.require_previous_worker, false);
 END;
 $$;
 

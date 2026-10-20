@@ -594,6 +594,7 @@ SELECT @deleted_instance_count AS deleted_instance_count,
         affinity_key_field: Optional[str] = None,
         prefer_previous_worker: bool = False,
         prefer_continue_group: bool = False,
+        require_previous_worker: bool = False,
     ) -> None:
         self._exec_proc(
             f"{_declare_json('argv')}"
@@ -602,7 +603,8 @@ SELECT @deleted_instance_count AS deleted_instance_count,
             "@execution_mode=?, @cli_tool=?, @in_process_handler=?, "
             f"@argv_map={_json_var('argv')}, "
             "@max_per_worker=?, @exclusive_worker=?, "
-            "@affinity_key_field=?, @prefer_previous_worker=?, @prefer_continue_group=?",
+            "@affinity_key_field=?, @prefer_previous_worker=?, @prefer_continue_group=?, "
+            "@require_previous_worker=?",
             (
                 _json_text(argv_map),
                 action_name,
@@ -616,6 +618,7 @@ SELECT @deleted_instance_count AS deleted_instance_count,
                 affinity_key_field,
                 1 if prefer_previous_worker else 0,
                 1 if prefer_continue_group else 0,
+                1 if require_previous_worker else 0,
             ),
         )
 

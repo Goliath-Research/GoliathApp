@@ -140,11 +140,13 @@ Production SamplePrep binds **`sampleRoot`** to `/work/samples/{sampleId}/` and 
 | Artifact | Path |
 |----------|------|
 | FASTQ | `{sampleRoot}/{sampleId}_1.fastq.gz` (hardlinked into `sampleDir`) |
-| BAM | `{sampleDir}/{sampleId}.bam` |
+| BAM + `.bai` | worker-local `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/{sampleId}.bam` (never `/work`; see below) |
 | QC metrics archive | `{sampleDir}/{sampleId}.qc-metrics.tar` |
 | Duplicate metrics | `{sampleDir}/{sampleId}.deduplicate_metrics.txt` |
 | Alignment log | `{sampleDir}/{sampleId}.fq2bam_meth.log` |
 | CAAS store | `{sampleRoot}/.caas/` |
+
+The BAM exists only on the align worker. `sample.methyl_qc`, `sample.fragmentomics`, `sample.methyl_extract`, `sample.extraction_qc` and `sample.delete_bam` are catalog-pinned (`dispatch.require_previous_worker`) to that worker. Align is never CAAS-harvested. If the pinned worker is lost, restart the sample from Align.
 
 FASTQ inputs: prefer `{sampleId}_1.fastq.gz` + `{sampleId}_2.fastq.gz` at `sampleRoot`; otherwise exactly two `**/*.fastq.gz` under `sampleDir`.
 
@@ -181,7 +183,7 @@ Task `input_json` keys: `parabricksImage`, `bwaThreads`, `gpuFlags`, `extraDocke
 ```json
 {
   "sampleId": "DPLST-051425-111148",
-  "bamPath": "/work/samples/DPLST-051425-111148/DPLST-051425-111148.bam",
+  "bamPath": "/tmp/methyl-pb/bam/DPLST-051425-111148-3f9a1c2b7e/DPLST-051425-111148.bam",
   "metricsJson": "/work/samples/DPLST-051425-111148/DPLST-051425-111148.json",
   "qcMetricsTar": "/work/samples/DPLST-051425-111148/DPLST-051425-111148.qc-metrics.tar"
 }
@@ -526,6 +528,8 @@ Path binding: `sampleArchived` → scope variable **`sampleArchived`**.
 ## `sample.delete-bam`
 
 **action_name:** `sample.delete_bam`
+
+Runs on the align worker (`require_previous_worker`). Deletes the worker-local BAM, `.bai` and align directory, plus any `{sampleId}.bam` a non-linear aligner wrote to `sampleDir`.
 
 ### input_json
 

@@ -11,9 +11,12 @@ Every domain value is a JSON object with a **`"$type"`** discriminator:
   "$type": "MethylSampleRef",
   "sampleId": "DPLST-001",
   "sampleDir": "/work/samples/DPLST-001",
-  "bamPath": "/work/samples/DPLST-001/DPLST-001.bam"
+  "bamPath": "/tmp/methyl-pb/bam/DPLST-001-3f9a1c2b7e/DPLST-001.bam"
 }
 ```
+
+`bamPath` is a worker-local path on the align worker (`METHYL_LOCAL_TMP`), never on `/work`.
+Only actions pinned to that worker (`dispatch.require_previous_worker`) may read it.
 
 - Pydantic models use `Field(alias="$type")` for serialization.
 - Use `parse_domain_value()` / `to_tagged_json()` from `methyl_domain.types`.

@@ -505,10 +505,11 @@ class PostgresGatewayDb(GatewayDbBase):
         affinity_key_field: Optional[str] = None,
         prefer_previous_worker: bool = False,
         prefer_continue_group: bool = False,
+        require_previous_worker: bool = False,
     ) -> None:
         self._exec_proc(
             f"CALL {self._qual('wf_repo_upsert_workflow_action')}"
-            "(%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)",
+            "(%s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s)",
             (
                 action_name,
                 capability,
@@ -522,6 +523,7 @@ class PostgresGatewayDb(GatewayDbBase):
                 affinity_key_field,
                 prefer_previous_worker,
                 prefer_continue_group,
+                require_previous_worker,
             ),
         )
 

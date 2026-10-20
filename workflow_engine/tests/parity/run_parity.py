@@ -267,6 +267,120 @@ def test_worker_capability_dispatch_postgres(dsn: str) -> None:
     assert not narrow, "poll capability must not widen beyond registration"
 
 
+def _pin_worker(dsn: str, cluster_id: int, key: str) -> tuple[int, str]:
+    worker_id = _psql_query(
+        dsn,
+        f"SELECT id FROM wf.worker WHERE cluster_id={cluster_id} AND external_worker_key='{key}' LIMIT 1;",
+    )
+    if not worker_id:
+        worker_id = _psql_query(
+            dsn,
+            f"INSERT INTO wf.worker (cluster_id, external_worker_key) VALUES ({cluster_id}, '{key}') RETURNING id;",
+        )
+    wid = int(worker_id)
+    _psql_query(dsn, f"UPDATE wf.worker SET capabilities = '[\"pin-cap\"]'::jsonb WHERE id={wid};")
+    token = f"parity-{key}-token"
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    _psql_query(
+        dsn,
+        f"DELETE FROM wf.worker_token WHERE worker_id={wid}; "
+        f"INSERT INTO wf.worker_token (worker_id, token_hash) VALUES ({wid}, decode('{token_hash}','hex'));",
+    )
+    return wid, token
+
+
+def test_require_previous_worker_postgres(dsn: str) -> None:
+    """require_previous_worker pins later actions of a key to the pinned completer.
+
+    Re-running the action that first established the pin stays open so a lost
+    worker can be replaced by restarting Align in the same instance.
+    """
+    version_id, _w1, _t1 = seed_minimal_workflow(dsn)
+    cluster_id = int(_psql_query(dsn, "SELECT id FROM wf.cluster WHERE cluster_key='parity' LIMIT 1;"))
+    wa_id, wa_token = _pin_worker(dsn, cluster_id, "pin-a")
+    wb_id, wb_token = _pin_worker(dsn, cluster_id, "pin-b")
+    wc_id, wc_token = _pin_worker(dsn, cluster_id, "pin-c")
+    for name, excl, pinned in (
+        ("PinAlign", "false", "true"),
+        ("PinExtract", "false", "true"),
+        ("PinSoft", "false", "false"),
+        ("PinProducer", "true", "true"),
+    ):
+        _psql_query(
+            dsn,
+            f"CALL wf.wf_repo_upsert_workflow_action('{name}', 'pin-cap', NULL, NULL, NULL, NULL, NULL, "
+            f"NULL, {excl}, 'sampleId', true, true, {pinned});",
+        )
+    nodes: dict[str, int] = {}
+    for name in ("PinAlign", "PinExtract", "PinSoft", "PinProducer"):
+        nodes[name] = int(
+            _psql_query(
+                dsn,
+                f"INSERT INTO wf.workflow_node (workflow_version_id, node_type, node_key, workflow_action_id) "
+                f"SELECT {version_id}, 'ACTION', lower('{name}'), id FROM wf.workflow_action "
+                f"WHERE action_name='{name}' RETURNING id;",
+            )
+        )
+    instance_id = int(
+        _psql_query(dsn, f"SELECT id FROM wf.wf_repo_create_workflow_instance({version_id}, '{{}}'::jsonb);")
+    )
+    _psql_query(dsn, f"UPDATE wf.workflow_instance SET status='RUNNING' WHERE id={instance_id};")
+
+    def _row(node: str, status: str, worker: Optional[int], key: str) -> int:
+        completed = "NULL" if worker is None else str(worker)
+        ended = "now()" if status == "SUCCEEDED" else "NULL"
+        return int(
+            _psql_query(
+                dsn,
+                "INSERT INTO wf.node_execution (workflow_instance_id, workflow_node_id, status, input_json, "
+                "affinity_key, completed_by_worker_id, ended_at_utc) "
+                f"VALUES ({instance_id}, {nodes[node]}, '{status}', '{{\"sampleId\":\"{key}\"}}'::jsonb, "
+                f"'{key}', {completed}, {ended}) RETURNING id;",
+            )
+        )
+
+    def _claim(wid: int, token: str) -> Optional[int]:
+        out = _psql_query(
+            dsn,
+            f"SELECT node_execution_id FROM wf.sp_worker_request_task({wid}, '{token}', 'pin-cap', 60);",
+        )
+        return int(out.split("|")[0]) if out and out.split("|")[0] else None
+
+    # Pinned align for S1 succeeded on worker A; a soft action ran later on B.
+    _row("PinAlign", "SUCCEEDED", wa_id, "S1")
+    _row("PinSoft", "SUCCEEDED", wb_id, "S1")
+    extract = _row("PinExtract", "READY", None, "S1")
+    assert _claim(wb_id, wb_token) is None, "pinned extract must not go to a different worker"
+    assert _claim(wa_id, wa_token) == extract, "pinned extract must go to the align worker"
+
+    # First pinned action of a key (no pinned predecessor) is open to any worker.
+    first = _row("PinAlign", "READY", None, "S2")
+    assert _claim(wb_id, wb_token) == first, "first pinned action of a key is unpinned"
+
+    # An exclusive pinned producer (re-Align after the pinned worker is lost)
+    # starts a new pin; it is not stuck on worker A.
+    realign = _row("PinProducer", "READY", None, "S1")
+    assert _claim(wc_id, wc_token) == realign, "exclusive pinned producer is not pinned"
+
+    # Restart the same pinned Align while a consumer of the old pin is still
+    # READY. History is kept. The replacement may take Align; it may not take
+    # the consumer until that new Align has succeeded.
+    _row("PinAlign", "SUCCEEDED", wa_id, "S3")
+    pending = _row("PinExtract", "READY", None, "S3")
+    restarted = _row("PinAlign", "READY", None, "S3")
+    assert _claim(wb_id, wb_token) == restarted, "restarted align must be claimable by a replacement worker"
+    assert _claim(wb_id, wb_token) is None, "pinned consumer stays on the previous align worker"
+    assert _claim(wa_id, wa_token) == pending, "previous align worker still owns the pinned consumer"
+    _psql_query(
+        dsn,
+        f"UPDATE wf.node_execution SET status='SUCCEEDED', ended_at_utc=now(), "
+        f"completed_by_worker_id={wb_id} WHERE id={restarted};",
+    )
+    moved = _row("PinExtract", "READY", None, "S3")
+    assert _claim(wa_id, wa_token) is None, "consumers follow the worker that completed the restarted align"
+    assert _claim(wb_id, wb_token) == moved, "pin moves to the replacement that finished the restarted align"
+
+
 def test_worker_api_postgres(dsn: str) -> None:
     version_id, worker_id, token = seed_minimal_workflow(dsn)
     instance_id = int(
@@ -584,6 +698,7 @@ def main() -> int:
     print("Running worker API parity...")
     test_worker_api_postgres(dsn)
     test_worker_capability_dispatch_postgres(dsn)
+    test_require_previous_worker_postgres(dsn)
     print("Running repository parity...")
     test_repository_postgres(dsn)
     print("Running scope resolver parity...")
