@@ -252,7 +252,7 @@ Gate production promotion with [`workers/tests/test_methylgrapher_wgbs_canary.md
 
 | Artifact | Path |
 |----------|------|
-| QC BAM | `{sampleId}.bam` (surjected, original read sequences restored) |
+| QC BAM + `.bai` | worker-local `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/{sampleId}.bam` (surjected, original read sequences restored; never `/work`, never CAAS-harvested; QC BAM intermediates live in the same directory) |
 | Merged GAF | `{sampleId}.alignment.gaf` |
 | Duplicate metrics | `{sampleId}.deduplicate_metrics.txt` |
 | QC metrics archive | `{sampleId}.qc-metrics.tar` (optional; when Picard collectmultiplemetrics succeeds) |
@@ -383,11 +383,13 @@ Production defaults (not env vars):
 
 | Artifact | Path |
 |----------|------|
-| Input BAM | `{sampleId}.bam` |
+| Input BAM | worker-local `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/{sampleId}.bam` (not on `/work`) |
 | Per-chrom HDF5 | `{chrom}-{ctx}.h5` (e.g. `1-CG.h5`, `1-CHG.h5`, `1-CHH.h5`) |
 | Log | `{sampleId}.methyl_extract.log` |
 | Extraction manifest | `{sampleId}.extraction_manifest.json` |
 | Per-context QC sidecar | `{chrom}-{ctx}.json` (e.g. `1-CG.json`) |
+
+MethylExtractor writes to worker-local `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`. On success only `*.h5` and `*.json` are copied into `sampleDir` (bytes to a sibling `.tmp-*` file, then one rename; no `utime`, `chmod` or hardlink). The local directory is removed on success and failure, so partial HDF5s never reach `/work`.
 
 ### input_json example
 
