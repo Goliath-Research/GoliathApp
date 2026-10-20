@@ -150,6 +150,8 @@ The BAM exists only on the align worker. `sample.methyl_qc`, `sample.fragmentomi
 
 FASTQ inputs: prefer `{sampleId}_1.fastq.gz` + `{sampleId}_2.fastq.gz` at `sampleRoot`; otherwise exactly two `**/*.fastq.gz` under `sampleDir`.
 
+**`stageFastqs: "local"` (optional; all Align actions: `sample.parabricks_fq2bam` incl. GoliathAlign/Mojo engine, `sample.parabricks_giraffe`, `sample.methylgrapher_wgbs_align`, `sample.docker_align`).** After the FASTQ pair (trimmed when present) is resolved on `/work`, the Align task copies it to `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/fastq/` (read-only `copyfile` from `/work`, `.part` + rename on local disk; geesefs-safe) and the aligner reads it there. The copies share the BAM directory, so `sample.delete_bam` and failed-task / remediation cleanup remove them. The `/work` FASTQs are untouched: `sample.archive_sample` uploads them from `/work` (unpinned, no GPU capability) and `sample.delete_fastqs` then removes them. A remediation re-Align re-stages from `/work`. Omit the key (or `null`) to align straight from `/work`. SamplePrepPipeline sets it on every Align node.
+
 ### input_json
 
 ```json
@@ -271,6 +273,8 @@ Implementation: [`workers/methyl_worker/methylgrapher_wgbs_runner.py`](../../wor
 **Extraction manifest:** canonical `metadata` / `summary` / `per_chromosome` shape for `methyl-extraction-qc` (read-filtering block omitted when unavailable — discard-fraction guardrail reports skipped). Graph provenance retained in manifest sidecars.
 
 **Storage contract:** same HDF5 naming as MethylExtractor (`{chrom}-{ctx}.h5`, `{chrom}-{ctx}.patterns.h5`, `{sampleId}.extraction_manifest.json`).
+
+**`workDirMode: "local"` (optional).** MethylCall / MergeCpG scratch and every output (H5, patterns, manifest) are written under worker-local `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`; on success only `*.h5` and `*.json` are published to `sampleDir` (same single-rename copy as MethylExtractor). Manifest and `h5Files` paths name `sampleDir`. The local directory is removed on success and failure. Omit to use `{sampleDir}/methylgrapher_work`. SamplePrepPipeline sets it on both extract nodes.
 
 
 ## `methyl-qc`
