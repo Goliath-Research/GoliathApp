@@ -129,6 +129,10 @@ BEGIN
   SELECT id INTO v_instance_id
   FROM wf.wf_repo_create_workflow_instance(p_workflow_version_id, p_context_json);
 
+  IF v_instance_id IS NULL THEN
+    RAISE EXCEPTION 'workflow instance id is null after start';
+  END IF;
+
   CALL wf.sp_start_workflow_instance(v_instance_id);
 
   RETURN QUERY SELECT * FROM wf.wf_repo_get_workflow_instance(v_instance_id);

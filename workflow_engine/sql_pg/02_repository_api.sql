@@ -94,7 +94,8 @@ BEGIN
     CALL wf.wf_apply_execution_scope(v_id, v_set_key, NULL, NULL, true);
   EXCEPTION
     WHEN OTHERS THEN
-      NULL; -- optional on partially deployed schemas
+      -- optional on partially deployed schemas
+      RAISE WARNING 'wf_apply_execution_scope skipped (%): %', SQLSTATE, SQLERRM;
   END;
 
   id := v_id;
