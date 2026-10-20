@@ -5,23 +5,26 @@ from __future__ import annotations
 import json
 import logging
 import os
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
-_DOMAIN = Path(__file__).resolve().parents[1] / "domain"
-_CONTRACT = Path(__file__).resolve().parents[1] / "contract"
-if str(_DOMAIN) not in sys.path:
-    sys.path.insert(0, str(_DOMAIN))
-if str(_CONTRACT) not in sys.path:
-    sys.path.insert(0, str(_CONTRACT))
+from contract.workflow_definition_spec import WorkflowDefinitionSpec
+from domain.compiler import compile_domain_program_file
+from domain.workflow_context import finalize_instance_context
 
-from compiler import compile_domain_program, compile_domain_program_file  # noqa: E402
-from workflow_definition_spec import WorkflowDefinitionSpec  # noqa: E402
-from workflow_context import finalize_instance_context  # noqa: E402
+try:
+    from methyl_worker.handlers import execute_task as _execute_task
+    from methyl_worker.task_validation import normalize_task_input as _normalize_task_input
+    from methyl_worker.task_validation import validate_task_input as _validate_task_input
+    from methyl_worker.task_validation import validate_task_output as _validate_task_output
+except ImportError:  # product worker is optional; --stub-external does not need it
+    _execute_task = None
+    _normalize_task_input = None
+    _validate_task_input = None
+    _validate_task_output = None
 
 from .scheduler import ExecutionTrace, SchedulerConfig, WorkflowScheduler
 from .scope import ScopeFrame, resolve_collection_bindings
@@ -29,6 +32,21 @@ from .scope import ScopeFrame, resolve_collection_bindings
 logger = logging.getLogger(__name__)
 
 ActionHandler = Callable[[str, str, Dict[str, Any]], BaseModel]
+
+
+class StubActionOutput(BaseModel):
+    """Result of a locally stubbed action (``--stub-external``)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    status: str = "ok"
+    value: bool = True
+    result_code: int = 1
+
+
+def stub_action(capability: str, action_name: str, input_json: Dict[str, Any]) -> StubActionOutput:
+    """Return a successful stub payload without a product worker."""
+    return StubActionOutput(action=action_name, capability=capability, echoed=dict(input_json))
 
 
 @dataclass
@@ -52,23 +70,24 @@ class LocalWorkflowEngine:
         self._handler = handler
 
     def _default_handler(self) -> ActionHandler:
-        _workers = Path(__file__).resolve().parents[2] / "workers"
-        if str(_workers) not in sys.path:
-            sys.path.insert(0, str(_workers))
-        from methyl_worker.handlers import execute_task
-        from methyl_worker.task_validation import (
-            TaskValidationError,
-            validate_task_input,
-            validate_task_output,
-        )
+        if os.environ.get("WORKER_STUB_EXTERNAL") == "1":
+            return stub_action
+        if (
+            _execute_task is None
+            or _normalize_task_input is None
+            or _validate_task_input is None
+            or _validate_task_output is None
+        ):
+            raise RuntimeError(
+                "local execution needs the product worker package (methyl_worker) "
+                "or --stub-external"
+            )
 
         def _run(capability: str, action_name: str, input_json: Dict[str, Any]) -> BaseModel:
-            from methyl_worker.task_validation import normalize_task_input
-
-            input_json = normalize_task_input(action_name, capability, input_json)
-            validate_task_input(action_name, capability, input_json)
-            execution = execute_task(capability, action_name, input_json)
-            return validate_task_output(action_name, capability, execution.output)
+            normalized = _normalize_task_input(action_name, capability, input_json)
+            _validate_task_input(action_name, capability, normalized)
+            execution = _execute_task(capability, action_name, normalized)
+            return _validate_task_output(action_name, capability, execution.output)
 
         return _run
 
@@ -83,7 +102,7 @@ class LocalWorkflowEngine:
         if enrich_context:
             try:
                 context = finalize_instance_context(context)
-            except (FileNotFoundError, ValueError) as exc:
+            except (FileNotFoundError, ValueError, ImportError) as exc:
                 logger.warning("context enrichment skipped: %s", exc)
 
         scope_data = resolve_collection_bindings(spec.collection_bindings, context)

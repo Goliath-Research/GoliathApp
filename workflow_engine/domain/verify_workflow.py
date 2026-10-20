@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 import json
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set
 
-_DOMAIN_DIR = Path(__file__).resolve().parent
-if str(_DOMAIN_DIR) not in sys.path:
-    sys.path.insert(0, str(_DOMAIN_DIR))
-
-from compiler import CompileResult, compile_domain_program_file  # noqa: E402
+from .action_catalog import catalog_action_names
+from .compiler import CompileResult, compile_domain_program_file
 
 
 @dataclass
@@ -206,15 +202,9 @@ def verify_compiled_workflow(
     return report
 
 
-def load_catalog_action_names() -> Set[str]:
-    import sys
-
-    workers = Path(__file__).resolve().parents[2] / "workers"
-    if str(workers) not in sys.path:
-        sys.path.insert(0, str(workers))
-    from methyl_worker.action_catalog import ACTION_CATALOG
-
-    return {e.action_name for e in ACTION_CATALOG}
+def load_catalog_action_names() -> Optional[Set[str]]:
+    """Installed catalog names, or None when the product worker is not installed."""
+    return catalog_action_names()
 
 
 def verify_program_file(path: Path | str, *, check_catalog: bool = True) -> VerifyReport:

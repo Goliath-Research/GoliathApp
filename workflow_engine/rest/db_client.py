@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Generator, Optional, Union
@@ -154,10 +153,7 @@ def create_workflow_instance(
 
     Skip a second finalize when context already contains resolvedConfig__* slices.
     """
-    ensure_import = Path(__file__).resolve().parents[1]
-    if str(ensure_import) not in sys.path:
-        sys.path.insert(0, str(ensure_import))
-    from workflow_context import finalize_instance_context
+    from domain.workflow_context import finalize_instance_context
 
     ctx = dict(context_json or {})
     if not any(str(k).startswith("resolvedConfig") for k in ctx):

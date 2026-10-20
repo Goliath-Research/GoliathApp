@@ -2,19 +2,14 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from typing import Any, Dict, List, Mapping, MutableMapping
 
 from pydantic import BaseModel
 
-from workflow_definition_spec import WorkflowDefinitionSpec, WorkflowOutputBindingSpec
+from contract.workflow_definition_spec import WorkflowDefinitionSpec, WorkflowOutputBindingSpec
+from domain.action_catalog import find_action
 
 from .resolver import extract_json_path_value
-
-_WORKERS = Path(__file__).resolve().parents[2] / "workers"
-if str(_WORKERS) not in sys.path:
-    sys.path.insert(0, str(_WORKERS))
 
 
 def _bindings_for_node(
@@ -52,10 +47,8 @@ def apply_catalog_scope_bindings(
     output: BaseModel,
     scope: MutableMapping[str, Any],
 ) -> None:
-    """Apply domain_effects.scope_bindings from action catalog (safety net)."""
-    from methyl_worker.action_catalog import find_catalog_entry
-
-    entry = find_catalog_entry(action_name)
+    """Apply domain_effects.scope_bindings from the product catalog, when installed."""
+    entry = find_action(action_name)
     if entry is None or not entry.domain_effects:
         return
     output_fields = _output_fields(output)

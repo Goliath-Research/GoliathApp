@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, MutableMapping, Optional
 
-from workflow_definition_spec import CollectionBindingSpec, WorkflowDefinitionSpec
+from contract.workflow_definition_spec import CollectionBindingSpec, WorkflowDefinitionSpec
 
 from .resolver import json_path_get
 

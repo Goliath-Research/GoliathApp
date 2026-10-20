@@ -6,7 +6,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from workflow_definition_spec import BranchKind, WorkflowDefinitionSpec, WorkflowNodeSpec
+from contract.workflow_definition_spec import BranchKind, WorkflowDefinitionSpec, WorkflowNodeSpec
 
 
 @dataclass

@@ -7,6 +7,7 @@ so ``wf_try_bind_foreach_body`` can skip BODY fan-out without claiming leaf ACTI
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -14,6 +15,62 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 logger = logging.getLogger(__name__)
+
+try:
+    from methyl_domain.foreach_bundle import resolve_study_root_from_scope as _resolve_study_root_from_scope
+except ImportError:  # product package is optional for a platform-only local run
+    _resolve_study_root_from_scope = None
+
+# Same scope key the product bundle uses so nested FOREACH identity survives
+# a platform-only local run.
+FOREACH_ANCESTRY_SCOPE_KEY = "__foreach_ancestry__"
+
+
+def _canonical_json(obj: Any) -> str:
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def fingerprint_foreach_ancestry(ancestry: Sequence[Any] | None) -> Optional[str]:
+    """Hash parent FOREACH chain for nested iteration-bundle keys."""
+    if not ancestry:
+        return None
+    return hashlib.sha256(_canonical_json(list(ancestry)).encode("utf-8")).hexdigest()
+
+
+def foreach_ancestry_from_scope(scope_values: Mapping[str, Any] | None) -> List[Any]:
+    """Return a copy of the parent FOREACH ancestry stack from scope."""
+    if not scope_values:
+        return []
+    raw = scope_values.get(FOREACH_ANCESTRY_SCOPE_KEY)
+    if not isinstance(raw, list):
+        return []
+    return list(raw)
+
+
+def extend_foreach_ancestry(
+    parent_ancestry: Sequence[Any],
+    *,
+    foreach_node_key: str,
+    collection_var: str,
+    iteration_index: int,
+    item_payload: Any,
+) -> List[Any]:
+    """Append the current FOREACH frame for nested children to close over."""
+    return list(parent_ancestry) + [
+        {
+            "foreach_node_key": foreach_node_key,
+            "collection_var": collection_var,
+            "iteration_index": iteration_index,
+            "item": item_payload,
+        }
+    ]
+
+
+def resolve_study_root(scope_values: Mapping[str, Any]) -> Optional[Path]:
+    """Study root for iteration bundles, when the product helper is installed."""
+    if _resolve_study_root_from_scope is None:
+        return None
+    return _resolve_study_root_from_scope(scope_values)
 
 
 def foreach_caas_enabled(scope_values: Mapping[str, Any] | None = None) -> bool:

@@ -7,6 +7,9 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, Optional, cast
 
+from domain.compiler import compile_domain_program
+from domain.program import DomainProgram
+
 from .materialize import materialize_store
 from .store import ConfigStore
 
@@ -14,7 +17,7 @@ from .store import ConfigStore
 def _ensure_paths(repo_root: Path) -> None:
     root = str(repo_root)
     we = str(repo_root / "workflow_engine")
-    for p in (root, we, str(repo_root / "packages" / "methyldomain")):
+    for p in (root, we):
         if p not in sys.path:
             sys.path.insert(0, p)
 
@@ -40,14 +43,6 @@ def publish_program(
     rec = store.get("domain_program", name, version=version, include_secret=False)
     if rec is None:
         raise KeyError(f"domain_program not found: {name}@{version}")
-
-    from methyl_domain.program import DomainProgram
-
-    # domain/ must be importable as top-level for compiler
-    domain_dir = str(repo_root / "workflow_engine" / "domain")
-    if domain_dir not in sys.path:
-        sys.path.insert(0, domain_dir)
-    from compiler import compile_domain_program
 
     program = DomainProgram.model_validate(rec.document)
     compiled = compile_domain_program(program)

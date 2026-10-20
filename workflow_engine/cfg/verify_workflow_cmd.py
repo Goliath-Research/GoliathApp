@@ -4,34 +4,25 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
-def _domain_dir(repo_root: Path) -> Path:
-    return repo_root / "workflow_engine" / "domain"
+from domain.compiler import compile_domain_program_file
+from domain.verify_workflow import (
+    compare_compiled_to_db_nodes,
+    verify_methylgrapher_bake,
+    verify_program_file,
+)
 
 
 def run_verify_workflow(
     *,
     program: Path,
-    repo_root: Path,
     site_path: Optional[Path] = None,
     procedure_path: Optional[Path] = None,
     check_db: bool = False,
     workflow_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    domain = _domain_dir(repo_root)
-    if str(domain) not in sys.path:
-        sys.path.insert(0, str(domain))
-    from verify_workflow import (  # type: ignore
-        compare_compiled_to_db_nodes,
-        verify_methylgrapher_bake,
-        verify_program_file,
-    )
-    from compiler import compile_domain_program_file  # type: ignore
-
     report = verify_program_file(program)
     payload: Dict[str, Any] = report.to_dict()
 
