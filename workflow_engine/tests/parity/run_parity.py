@@ -295,14 +295,20 @@ def test_require_previous_worker_postgres(dsn: str) -> None:
     cluster_id = int(_psql_query(dsn, "SELECT id FROM wf.cluster WHERE cluster_key='parity' LIMIT 1;"))
     wa_id, wa_token = _pin_worker(dsn, cluster_id, "pin-a")
     wb_id, wb_token = _pin_worker(dsn, cluster_id, "pin-b")
-    for name, pinned in (("PinAlign", "true"), ("PinExtract", "true"), ("PinSoft", "false")):
+    wc_id, wc_token = _pin_worker(dsn, cluster_id, "pin-c")
+    for name, excl, pinned in (
+        ("PinAlign", "false", "true"),
+        ("PinExtract", "false", "true"),
+        ("PinSoft", "false", "false"),
+        ("PinProducer", "true", "true"),
+    ):
         _psql_query(
             dsn,
             f"CALL wf.wf_repo_upsert_workflow_action('{name}', 'pin-cap', NULL, NULL, NULL, NULL, NULL, "
-            f"NULL, false, 'sampleId', true, true, {pinned});",
+            f"NULL, {excl}, 'sampleId', true, true, {pinned});",
         )
     nodes: dict[str, int] = {}
-    for name in ("PinAlign", "PinExtract", "PinSoft"):
+    for name in ("PinAlign", "PinExtract", "PinSoft", "PinProducer"):
         nodes[name] = int(
             _psql_query(
                 dsn,
@@ -346,6 +352,11 @@ def test_require_previous_worker_postgres(dsn: str) -> None:
     # First pinned action of a key (no pinned predecessor) is open to any worker.
     first = _row("PinAlign", "READY", None, "S2")
     assert _claim(wb_id, wb_token) == first, "first pinned action of a key is unpinned"
+
+    # An exclusive pinned producer (re-Align after the pinned worker is lost)
+    # starts a new pin; it is not stuck on worker A.
+    realign = _row("PinProducer", "READY", None, "S1")
+    assert _claim(wc_id, wc_token) == realign, "exclusive pinned producer is not pinned"
 
 
 def test_worker_api_postgres(dsn: str) -> None:

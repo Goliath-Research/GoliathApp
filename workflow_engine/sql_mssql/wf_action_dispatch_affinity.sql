@@ -7,7 +7,9 @@
     - prefer_continue_group  prefer READY rows whose key already has SUCCEEDED work
     - require_previous_worker hard pin: once a pinned action of the key has
       SUCCEEDED, every later pinned action of that key is claimable only by
-      the worker that completed the most recent one
+      the worker that completed the most recent one. A pinned action that is
+      also exclusive_worker (the producer, e.g. Align) is not constrained and
+      starts a new pin for the key.
 
   Runtime columns on wf.node_execution:
     - affinity_key             stamped at ACTION activation from input_json
@@ -849,8 +851,11 @@ BEGIN
           -- require_previous_worker: hard pin to the worker that completed the
           -- latest SUCCEEDED pinned action of the same affinity key (worker-local
           -- products such as a BAM). No pinned predecessor yet: any capable worker.
+          -- An exclusive pinned action (the producer, e.g. Align) starts a new pin,
+          -- so a restart after the pinned worker is lost can go anywhere.
           AND (
               ISNULL(wa.require_previous_worker, 0) = 0
+              OR ISNULL(wa.exclusive_worker, 0) = 1
               OR ne.affinity_key IS NULL
               OR ISNULL((
                   SELECT TOP (1) pin.completed_by_worker_id
