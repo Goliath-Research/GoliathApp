@@ -243,6 +243,25 @@ BEGIN
             AND wn_cap.workflow_action_id = wa.id
         ) < wa.max_per_worker
       )
+      -- require_previous_worker: hard pin to the worker that completed the
+      -- latest SUCCEEDED pinned action of the same affinity key (worker-local
+      -- products such as a BAM). No pinned predecessor yet: any capable worker.
+      AND (
+        NOT coalesce(wa.require_previous_worker, false)
+        OR ne.affinity_key IS NULL
+        OR coalesce((
+          SELECT pin.completed_by_worker_id
+          FROM wf.node_execution AS pin
+          INNER JOIN wf.workflow_node AS pin_wn ON pin_wn.id = pin.workflow_node_id
+          INNER JOIN wf.workflow_action AS pin_wa ON pin_wa.id = pin_wn.workflow_action_id
+          WHERE pin.workflow_instance_id = ne.workflow_instance_id
+            AND pin.affinity_key = ne.affinity_key
+            AND pin.status = 'SUCCEEDED'
+            AND pin_wa.require_previous_worker
+          ORDER BY pin.ended_at_utc DESC NULLS LAST, pin.id DESC
+          LIMIT 1
+        ), p_worker_id) = p_worker_id
+      )
     -- Exclusive GPU actions (idle workers only; busy workers already filtered
     -- them out) outrank older trim/QC FIFO so Clara is not starved.
     -- Then soft affinity; actions without affinity flags keep FIFO afterwards.

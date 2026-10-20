@@ -238,6 +238,7 @@ def upsert_workflow_action(
     affinity_key_field: Optional[str] = None,
     prefer_previous_worker: bool = False,
     prefer_continue_group: bool = False,
+    require_previous_worker: bool = False,
 ) -> None:
     with _use_db(db_or_dsn) as db:
         db.upsert_workflow_action(
@@ -253,6 +254,7 @@ def upsert_workflow_action(
             affinity_key_field=affinity_key_field,
             prefer_previous_worker=prefer_previous_worker,
             prefer_continue_group=prefer_continue_group,
+            require_previous_worker=require_previous_worker,
         )
 
 

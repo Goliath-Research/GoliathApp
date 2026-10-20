@@ -222,6 +222,7 @@ class GatewayDb(Protocol):
         affinity_key_field: Optional[str] = None,
         prefer_previous_worker: bool = False,
         prefer_continue_group: bool = False,
+        require_previous_worker: bool = False,
     ) -> None: ...
 
     def upsert_action_schema(
@@ -396,6 +397,7 @@ class GatewayDbBase(ABC):
         affinity_key_field: Optional[str] = None,
         prefer_previous_worker: bool = False,
         prefer_continue_group: bool = False,
+        require_previous_worker: bool = False,
     ) -> None: ...
 
     @abstractmethod

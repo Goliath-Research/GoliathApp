@@ -5,6 +5,9 @@
     - affinity_key_field     name of an input_json field (opaque); NULL = no affinity
     - prefer_previous_worker soft stickiness to last completer of the same key
     - prefer_continue_group  prefer READY rows whose key already has SUCCEEDED work
+    - require_previous_worker hard pin: once a pinned action of the key has
+      SUCCEEDED, every later pinned action of that key is claimable only by
+      the worker that completed the most recent one
 
   Runtime columns on wf.node_execution:
     - affinity_key             stamped at ACTION activation from input_json
@@ -12,7 +15,7 @@
 
   Engine stays process-agnostic: it only reads these columns. Deploy after
   wf_action_dispatch_concurrency.sql and wf_worker_desired_state.sql
-  (widens upsert from 9-arg to 12-arg; replaces activate + claim SPs).
+  (widens upsert from 9-arg to 13-arg; replaces activate + claim SPs).
 */
 
 SET ANSI_NULLS ON;
@@ -29,6 +32,10 @@ GO
 IF COL_LENGTH('wf.workflow_action', 'prefer_continue_group') IS NULL
     ALTER TABLE wf.workflow_action ADD prefer_continue_group BIT NOT NULL
         CONSTRAINT DF_workflow_action_prefer_continue_group DEFAULT (0);
+GO
+IF COL_LENGTH('wf.workflow_action', 'require_previous_worker') IS NULL
+    ALTER TABLE wf.workflow_action ADD require_previous_worker BIT NOT NULL
+        CONSTRAINT DF_workflow_action_require_previous_worker DEFAULT (0);
 GO
 
 IF COL_LENGTH('wf.node_execution', 'affinity_key') IS NULL
@@ -73,7 +80,8 @@ CREATE OR ALTER PROCEDURE wf.wf_repo_upsert_workflow_action
     @exclusive_worker BIT = NULL,
     @affinity_key_field NVARCHAR(128) = NULL,
     @prefer_previous_worker BIT = NULL,
-    @prefer_continue_group BIT = NULL
+    @prefer_continue_group BIT = NULL,
+    @require_previous_worker BIT = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -93,21 +101,24 @@ BEGIN
             exclusive_worker = ISNULL(@exclusive_worker, 0),
             affinity_key_field = @affinity_key_field,
             prefer_previous_worker = ISNULL(@prefer_previous_worker, 0),
-            prefer_continue_group = ISNULL(@prefer_continue_group, 0)
+            prefer_continue_group = ISNULL(@prefer_continue_group, 0),
+            require_previous_worker = ISNULL(@require_previous_worker, 0)
         WHERE action_name = @action_name;
     ELSE
         INSERT INTO wf.workflow_action (
             action_name, capability, payload_schema_ref,
             execution_mode, cli_tool, in_process_handler, argv_map,
             max_per_worker, exclusive_worker,
-            affinity_key_field, prefer_previous_worker, prefer_continue_group
+            affinity_key_field, prefer_previous_worker, prefer_continue_group,
+            require_previous_worker
         )
         VALUES (
             @action_name, @capability, @payload_schema_ref,
             @execution_mode, @cli_tool, @in_process_handler, @argv_map,
             @max_per_worker, ISNULL(@exclusive_worker, 0),
             @affinity_key_field, ISNULL(@prefer_previous_worker, 0),
-            ISNULL(@prefer_continue_group, 0)
+            ISNULL(@prefer_continue_group, 0),
+            ISNULL(@require_previous_worker, 0)
         );
 END;
 GO
@@ -834,6 +845,24 @@ BEGIN
                     AND ne_cap.status = N'RUNNING'
                     AND wn_cap.workflow_action_id = wa.id
               ) < wa.max_per_worker
+          )
+          -- require_previous_worker: hard pin to the worker that completed the
+          -- latest SUCCEEDED pinned action of the same affinity key (worker-local
+          -- products such as a BAM). No pinned predecessor yet: any capable worker.
+          AND (
+              ISNULL(wa.require_previous_worker, 0) = 0
+              OR ne.affinity_key IS NULL
+              OR ISNULL((
+                  SELECT TOP (1) pin.completed_by_worker_id
+                  FROM wf.node_execution AS pin
+                  INNER JOIN wf.workflow_node AS pin_wn ON pin_wn.id = pin.workflow_node_id
+                  INNER JOIN wf.workflow_action AS pin_wa ON pin_wa.id = pin_wn.workflow_action_id
+                  WHERE pin.workflow_instance_id = ne.workflow_instance_id
+                    AND pin.affinity_key = ne.affinity_key
+                    AND pin.status = N'SUCCEEDED'
+                    AND pin_wa.require_previous_worker = 1
+                  ORDER BY pin.ended_at_utc DESC, pin.id DESC
+              ), @worker_id) = @worker_id
           )
         -- Exclusive GPU actions (idle workers only; busy workers already filtered
         -- them out) outrank older trim/QC FIFO so Clara is not starved.
