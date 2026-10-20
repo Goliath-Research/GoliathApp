@@ -131,6 +131,10 @@ BEGIN
 
   CALL wf.sp_start_workflow_instance(v_instance_id);
 
+  IF v_instance_id IS NULL THEN
+    RAISE EXCEPTION 'workflow instance id is null after start';
+  END IF;
+
   RETURN QUERY SELECT * FROM wf.wf_repo_get_workflow_instance(v_instance_id);
 END;
 $$;

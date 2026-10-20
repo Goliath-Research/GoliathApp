@@ -659,6 +659,10 @@ BEGIN
 
   CALL wf.sp_start_workflow_instance(v_instance_id);
 
+  IF v_instance_id IS NULL THEN
+    RAISE EXCEPTION 'workflow instance id is null after start';
+  END IF;
+
   IF p_study_row_id IS NOT NULL THEN
     PERFORM portal.sp_link_study_instance(
       p_study_row_id,

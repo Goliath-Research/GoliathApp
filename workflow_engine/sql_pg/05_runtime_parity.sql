@@ -169,6 +169,8 @@ DECLARE
   v_tf boolean;
   v_fc int;
   v_fm text;
+  v_rs int;
+  v_rl int;
 BEGIN
   p_resolved := p_text;
   p_failed := false;
@@ -196,8 +198,22 @@ BEGIN
       RETURN;
     END IF;
 
+    -- A placeholder that is an entire JSON string literal ("${var.x}") is
+    -- replaced together with its quotes by the raw JSON value (string, object,
+    -- array, number, or null). Embedded tokens keep the surrounding text.
+    v_rs := v_start;
+    v_rl := v_end - v_start + 1;
+    IF v_start > 1
+       AND substring(p_resolved from v_start - 1 for 1) = '"'
+       AND v_end < length(p_resolved)
+       AND substring(p_resolved from v_end + 1 for 1) = '"'
+    THEN
+      v_rs := v_start - 1;
+      v_rl := v_end - v_start + 3;
+    END IF;
+
     p_resolved := overlay(
-      p_resolved placing coalesce(v_frag, 'null') from v_start for v_end - v_start + 1
+      p_resolved placing coalesce(v_frag, 'null') from v_rs for v_rl
     );
   END LOOP;
 END;

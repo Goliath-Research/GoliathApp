@@ -129,7 +129,7 @@ BEGIN
         v_doc := wf.wf_get_scope_variable_json(p_workflow_instance_id, 0, v_binding.scope_var)::jsonb;
       END IF;
       IF v_doc IS NULL THEN
-        RAISE EXCEPTION 'collection binding jsonFile failed for scope var % (path var %)',
+        RAISE EXCEPTION 'collection binding jsonFile failed for scope var % (path var %). You can supply an inline ''project'' context key.',
           v_binding.scope_var, v_binding.path_var
           USING ERRCODE = '50001';
       END IF;

@@ -9,6 +9,7 @@ when METHYL_TEST_MSSQL_DSN is set.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -356,6 +357,45 @@ def test_scope_resolver_postgres(dsn: str) -> None:
     assert "hello-scope" in input_json, f"expected resolved greeting in input_json: {input_json}"
 
 
+def test_placeholder_json_literal_postgres(dsn: str) -> None:
+    """A placeholder that is an entire JSON string is replaced by the raw value.
+
+    Scope variables are stored JSON-encoded. ``"${var.s}"`` and ``"${var.o}"``
+    must drop the template quotes so the string and object keep their types.
+    ``"x-${var.n}"`` stays a string with the number spliced in.
+    """
+    version_id, _worker_id, _token = seed_minimal_workflow(dsn)
+    context = '{"s":"hello","o":{"k":1,"tags":["a"]},"n":7}'
+    instance_id = int(
+        _psql_query(
+            dsn,
+            "SELECT id FROM wf.wf_repo_create_workflow_instance("
+            f"{version_id}, $ctx${context}$ctx$::jsonb);",
+        )
+    )
+    _psql_query(dsn, f"CALL wf.sp_start_workflow_instance({instance_id});")
+
+    template = '{"a":"${var.s}","b":"${var.o}","c":"x-${var.n}"}'
+    resolved = _psql_query(
+        dsn,
+        "DROP TABLE IF EXISTS parity_placeholder_resolved; "
+        "CREATE TEMP TABLE parity_placeholder_resolved (resolved text); "
+        "DO $do$ DECLARE v_resolved text; v_failed boolean; v_fc int; v_fm text; BEGIN "
+        "CALL wf.wf_resolve_placeholders("
+        f"$tpl${template}$tpl$, 0, {instance_id}, v_resolved, v_failed, v_fc, v_fm); "
+        "IF v_failed THEN RAISE EXCEPTION 'placeholder resolution failed: % %', v_fc, v_fm; END IF; "
+        "INSERT INTO parity_placeholder_resolved(resolved) VALUES (v_resolved); "
+        "END $do$; "
+        "SELECT resolved FROM parity_placeholder_resolved;",
+    )
+    doc = json.loads(resolved)
+    assert isinstance(doc, dict), resolved
+    assert doc["a"] == "hello" and isinstance(doc["a"], str), resolved
+    assert doc["b"] == {"k": 1, "tags": ["a"]} and isinstance(doc["b"], dict), resolved
+    assert isinstance(doc["b"]["tags"], list), resolved
+    assert doc["c"] == "x-7" and isinstance(doc["c"], str), resolved
+
+
 def test_worker_enrollment_postgres(dsn: str) -> None:
     """Portal preregistration + worker enroll (SQLSTATE 42702 regression).
 
@@ -405,7 +445,6 @@ def _run_rest_gateway_smoke(
     seed_fn,
     port: int = 18080,
 ) -> None:
-    import json
     import subprocess
     import time
     import urllib.error
@@ -549,6 +588,8 @@ def main() -> int:
     test_repository_postgres(dsn)
     print("Running scope resolver parity...")
     test_scope_resolver_postgres(dsn)
+    print("Running placeholder JSON literal parity...")
+    test_placeholder_json_literal_postgres(dsn)
     print("Running worker enrollment parity...")
     test_worker_enrollment_postgres(dsn)
     print("Running REST gateway smoke test...")
