@@ -25,8 +25,6 @@ if __name__ == "__main__" and __package__ is None:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
     __package__ = "rest"
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "contract"))
-
 from .connection import resolve_connection_config
 from .db import open_gateway_db
 from .db.base import GatewayDb

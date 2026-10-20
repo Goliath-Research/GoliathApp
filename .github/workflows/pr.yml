@@ -40,4 +40,5 @@ jobs:
             workflow_engine/tests/test_gateway_auth.py \
             workflow_engine/tests/test_cfg_bundle_layout.py \
             workflow_engine/tests/test_pg_plpgsql_variable_conflict.py \
+            workflow_engine/tests/test_local_workflow.py \
             -q

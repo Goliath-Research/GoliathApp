@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -11,19 +10,30 @@ from typing import Any, Callable, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from workflow_definition_spec import WorkflowDefinitionSpec, WorkflowNodeSpec
+from contract.workflow_definition_spec import WorkflowDefinitionSpec, WorkflowNodeSpec
+from domain.action_catalog import catalog_available, find_action
+from domain.workflow_context import enrich_comparisons_from_project, materialize_action_input
 
 from .bindings import apply_catalog_scope_bindings, apply_output_bindings
 from .conditions import scope_var_int, scope_var_truthy
+from .foreach_caas import (
+    FOREACH_ANCESTRY_SCOPE_KEY,
+    canonical_item_payload,
+    child_action_revisions,
+    collect_body_action_names,
+    commit_iteration_bundle_local,
+    extend_foreach_ancestry,
+    fingerprint_foreach_ancestry,
+    foreach_ancestry_from_scope,
+    foreach_caas_enabled,
+    probe_iteration_bundle,
+    resolve_study_root,
+)
 from .graph import WorkflowGraph, build_graph, build_switch_index
 from .resolver import resolve_input_template
 from .scope import ScopeFrame, apply_scope_defaults, flatten_foreach_element
 
 logger = logging.getLogger(__name__)
-
-_WORKERS = Path(__file__).resolve().parents[2] / "workers"
-if str(_WORKERS) not in sys.path:
-    sys.path.insert(0, str(_WORKERS))
 
 ActionHandler = Callable[[str, str, Dict[str, Any]], BaseModel]
 
@@ -169,25 +179,9 @@ class WorkflowScheduler:
         index_var = node.foreach_index_var or "index"
         parallel = bool(node.foreach_parallel)
 
-        from foreach_caas import (
-            canonical_item_payload,
-            child_action_revisions,
-            collect_body_action_names,
-            commit_iteration_bundle_local,
-            foreach_caas_enabled,
-            probe_iteration_bundle,
-        )
-        from methyl_domain.foreach_bundle import (
-            FOREACH_ANCESTRY_SCOPE_KEY,
-            extend_foreach_ancestry,
-            fingerprint_foreach_ancestry,
-            foreach_ancestry_from_scope,
-            resolve_study_root_from_scope,
-        )
-
         flat = scope.as_flat_dict()
         caas_on = foreach_caas_enabled(flat) and not self.config.force_rerun
-        project_root = resolve_study_root_from_scope(flat) if caas_on else None
+        project_root = resolve_study_root(flat) if caas_on else None
         revisions = child_action_revisions(collect_body_action_names(self.graph, body))
         # Nested FOREACH bodies close over parent items (seedGroup → context → chrom).
         # Without parent identity in the bundle key, identical leaf items collide and
@@ -228,7 +222,7 @@ class WorkflowScheduler:
             if caas_on:
                 # Re-resolve root after BODY (prepare_freeze may rebind projectPath).
                 child_flat = child_scope.as_flat_dict()
-                root = resolve_study_root_from_scope(child_flat) or project_root
+                root = resolve_study_root(child_flat) or project_root
                 commit_iteration_bundle_local(
                     root,
                     foreach_node_key=node.node_key,
@@ -301,14 +295,14 @@ class WorkflowScheduler:
         if self.config.force_rerun or flat.get("forceRerun") is True:
             input_json["forceRerun"] = True
 
-        from methyl_worker.action_catalog import find_catalog_entry
-
-        entry = find_catalog_entry(action_name)
-        capability = entry.capability if entry else action_name
-
-        from workflow_context import materialize_action_input
-
-        input_json = materialize_action_input(input_json, action_name, flat)
+        entry = find_action(action_name)
+        capability = action_name
+        if entry is not None:
+            catalog_capability = getattr(entry, "capability", None)
+            if catalog_capability:
+                capability = str(catalog_capability)
+        if catalog_available():
+            input_json = materialize_action_input(input_json, action_name, flat)
 
         if self.config.dry_run:
             logger.info("dry-run ACTION %s: %s", action_name, input_json)
@@ -325,8 +319,6 @@ class WorkflowScheduler:
             prod_path = scope.get("projectPath")
             if prod_path:
                 try:
-                    from workflow_context import enrich_comparisons_from_project
-
                     scope["comparisons"] = enrich_comparisons_from_project(Path(str(prod_path)))
                     first = (scope.get("comparisons") or [None])[0]
                     if isinstance(first, dict):

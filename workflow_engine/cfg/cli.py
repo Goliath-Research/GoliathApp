@@ -218,7 +218,6 @@ def _cmd_verify_workflow(args: argparse.Namespace) -> int:
     )
     result = run_verify_workflow(
         program=program,
-        repo_root=repo,
         site_path=site if site.is_file() else None,
         procedure_path=procedure if procedure.is_file() else None,
         check_db=args.check_db,

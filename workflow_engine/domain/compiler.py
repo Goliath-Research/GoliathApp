@@ -9,12 +9,23 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
-from methyl_domain.program import (
+from contract.workflow_definition_spec import (
+    CollectionBindingSpec,
+    EventTriggerSpec as CompiledEventTriggerSpec,
+    WorkflowDefinitionSpec,
+    WorkflowEdgeSpec,
+    WorkflowInputBindingSpec,
+    WorkflowNodeSpec,
+    WorkflowOutputBindingSpec,
+    WorkflowScopeDefaultSpec,
+)
+
+from .action_catalog import catalog_available, find_action
+from .program import (
     ActionStep,
     AssignStep,
     CollectionInSpec,
@@ -28,35 +39,41 @@ from methyl_domain.program import (
     WaitStep,
     WhileStep,
 )
-
-_CONTRACT = Path(__file__).resolve().parents[1] / "contract"
-if str(_CONTRACT) not in sys.path:
-    sys.path.insert(0, str(_CONTRACT))
-
-from workflow_definition_spec import (  # noqa: E402
-    CollectionBindingSpec,
-    EventTriggerSpec as CompiledEventTriggerSpec,
-    WorkflowDefinitionSpec,
-    WorkflowEdgeSpec,
-    WorkflowInputBindingSpec,
-    WorkflowNodeSpec,
-    WorkflowOutputBindingSpec,
-    WorkflowScopeDefaultSpec,
-)
-
-_WORKERS = Path(__file__).resolve().parents[2] / "workers"
-if str(_WORKERS) not in sys.path:
-    sys.path.insert(0, str(_WORKERS))
-
-from methyl_worker.action_catalog import find_catalog_entry  # noqa: E402
-
-from workflow_context import enrich_instance_context  # noqa: E402
+from .workflow_context import enrich_instance_context
 
 
 @dataclass
 class CompileResult:
     workflow: WorkflowDefinitionSpec
     context_json: Dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _StructuralAction:
+    """Action identity used when no product catalog is installed.
+
+    Templates then come from the program step itself (``with`` / ``in`` / ``out``).
+    """
+
+    action_name: str
+    tool: str
+    action_config_key: Optional[str] = None
+    context_vars: tuple[str, ...] = ()
+    domain_effects: Any = None
+
+
+def _catalog_entry_for(action_name: str) -> Any:
+    """Catalog row, or a structural stand-in when the product catalog is absent.
+
+    A catalog that is installed and does not list the action is an authoring error.
+    A platform-only install can still compile and stub the program.
+    """
+    if catalog_available():
+        entry = find_action(action_name)
+        if entry is None:
+            raise ValueError(f"unknown action in program: {action_name!r}")
+        return entry
+    return _StructuralAction(action_name=action_name, tool=action_name)
 
 
 # Exact schemaRef strings for typed workflow.compute assign actions (MVP plug check).
@@ -334,9 +351,7 @@ def _compile_action(
     in_parallel: bool = False,
 ) -> str:
     action_name = step.action_name()
-    entry = find_catalog_entry(action_name)
-    if entry is None:
-        raise ValueError(f"unknown action in program: {action_name!r}")
+    entry = _catalog_entry_for(action_name)
     node_key = step.node_key or ctx.fresh_key(action_name.replace(".", "_"))
     ctx.nodes.append(
         WorkflowNodeSpec(
