@@ -41,4 +41,6 @@ jobs:
             workflow_engine/tests/test_cfg_bundle_layout.py \
             workflow_engine/tests/test_pg_plpgsql_variable_conflict.py \
             workflow_engine/tests/test_local_workflow.py \
+            workflow_engine/tests/test_pipeline_scope_flags.py \
+            workflow_engine/tests/test_reference_selection.py \
             -q
