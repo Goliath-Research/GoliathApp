@@ -263,6 +263,78 @@ def selected_asset_names(
     return out
 
 
+# bwa-meth index siblings of a linear FASTA. ``pbrun fq2bam_meth`` reads
+# ``{fa}.bwameth.c2t`` plus the BWA index of that converted reference. A plain
+# BWA index (``{fa}.amb`` / ``.ann`` / ``.bwt`` / ``.pac`` / ``.sa``) is not enough.
+_BWAMETH_INDEX_SUFFIXES = ("amb", "ann", "bwt", "pac", "sa")
+
+# METHYL_REQUIRE_MOJO_LINEAR=0 skips the Mojo linear pack on partial trees.
+_MOJO_LINEAR_OFF = frozenset({"0", "false", "no", "off"})
+
+
+def _record_path(path: Path, present: list[str], missing: list[str]) -> None:
+    if path.is_file():
+        present.append(str(path))
+    else:
+        missing.append(str(path))
+
+
+def selected_linear_engine(site_doc: Mapping[str, Any]) -> str:
+    """Configured linear aligner engine from site/action config.
+
+    Order: ``actionConfig.parabricks.engine``, ``actionConfig.sample_prep.engine``,
+    then top-level ``parabricks.engine``. Empty when unset — callers must not
+    assume a vendor. ``mojo`` selects the Mojo linear pack; any other value
+    (including ``parabricks``) does not.
+    """
+    candidates: list[Any] = []
+    action_config = site_doc.get("actionConfig")
+    if isinstance(action_config, Mapping):
+        for section in ("parabricks", "sample_prep"):
+            block = action_config.get(section)
+            if isinstance(block, Mapping) and block.get("engine") not in (None, ""):
+                candidates.append(block.get("engine"))
+    top = site_doc.get("parabricks")
+    if isinstance(top, Mapping) and top.get("engine") not in (None, ""):
+        candidates.append(top.get("engine"))
+    if not candidates:
+        return ""
+    return str(candidates[0]).strip().lower().replace("-", "_")
+
+
+def mojo_linear_pack_required(site_doc: Mapping[str, Any]) -> bool:
+    """True when the Mojo linear engine is selected and the pack gate is on.
+
+    ``METHYL_REQUIRE_MOJO_LINEAR`` defaults to required. ``0`` / ``false`` /
+    ``no`` / ``off`` skips ``{fa}.C2T.fa`` and the ``mojo_linear_k*`` pack even
+    if the engine is Mojo (partial trees). Other engines never require that pack.
+    """
+    flag = os.environ.get("METHYL_REQUIRE_MOJO_LINEAR", "1").strip().lower()
+    if flag in _MOJO_LINEAR_OFF:
+        return False
+    return selected_linear_engine(site_doc) == "mojo"
+
+
+def linear_reference_index_paths(fasta: Path) -> list[Path]:
+    """FASTA index and bwa-meth c2t siblings required for a linear pin."""
+    converted = Path(str(fasta) + ".bwameth.c2t")
+    paths = [Path(str(fasta) + ".fai"), converted]
+    paths.extend(Path(str(converted) + f".{suffix}") for suffix in _BWAMETH_INDEX_SUFFIXES)
+    return paths
+
+
+def mojo_linear_pack_paths(fasta: Path) -> list[Path]:
+    """``{fa}.C2T.fa`` and the dense-v1 pack next to a linear FASTA."""
+    pack = Path(str(fasta) + f".mojo_linear_k{LINEAR_MOJO_K}")
+    return [
+        Path(str(fasta) + ".C2T.fa"),
+        pack / "meta.json",
+        pack / "kmers.bin",
+        pack / "offsets.bin",
+        pack / "postings.bin",
+    ]
+
+
 def verify_selected_paths(
     site_doc: Dict[str, Any],
     *,
@@ -270,8 +342,8 @@ def verify_selected_paths(
 ) -> Dict[str, Any]:
     """Check that pinned concrete paths exist on disk."""
     resolved = apply_reference_selection(site_doc, work_root=work_root, overwrite=False)
-    missing = []
-    present = []
+    missing: list[str] = []
+    present: list[str] = []
     checks = [
         (resolved.get("reference_genome") or {}).get("fasta"),
         (resolved.get("annotation") or {}).get("gtf"),
@@ -295,33 +367,21 @@ def verify_selected_paths(
     for path_s in checks:
         if not path_s:
             continue
-        p = Path(path_s)
-        if p.is_file():
-            present.append(str(p))
-        else:
-            missing.append(str(p))
+        _record_path(Path(path_s), present, missing)
 
-    # Mojo linear dense-v1 pack (required when linear pin is set).
-    # Skip when METHYL_REQUIRE_MOJO_LINEAR=0 (legacy / partial trees).
-    require_mojo = os.environ.get("METHYL_REQUIRE_MOJO_LINEAR", "1").strip().lower()
-    if require_mojo not in ("0", "false", "no", "off"):
+    # A linear pin needs the FASTA (above), its .fai, and the bwa-meth c2t index.
+    # The Mojo converted FASTA and dense pack are separate and only apply when
+    # that engine is selected.
+    selection = site_doc.get("reference_selection") or {}
+    if selection.get("linear"):
         fasta_s = (resolved.get("reference_genome") or {}).get("fasta")
         if fasta_s:
             fasta_p = Path(fasta_s)
-            c2t = Path(str(fasta_p) + ".C2T.fa")
-            pack = Path(str(fasta_p) + f".mojo_linear_k{LINEAR_MOJO_K}")
-            for path_s in (
-                str(c2t),
-                str(pack / "meta.json"),
-                str(pack / "kmers.bin"),
-                str(pack / "offsets.bin"),
-                str(pack / "postings.bin"),
-            ):
-                p = Path(path_s)
-                if p.is_file():
-                    present.append(str(p))
-                else:
-                    missing.append(str(p))
+            for path in linear_reference_index_paths(fasta_p):
+                _record_path(path, present, missing)
+            if mojo_linear_pack_required(site_doc):
+                for path in mojo_linear_pack_paths(fasta_p):
+                    _record_path(path, present, missing)
 
     return {
         "ok": not missing,

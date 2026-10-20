@@ -17,6 +17,18 @@ from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .pipeline_profiles import (
+    PIPELINE_FLAG_DEFAULTS,
+    _deep_merge,
+    apply_pipeline_procedure,
+    apply_pipeline_profile,
+    load_procedure,
+    load_profile,
+    profile_action_config,
+    seed_pipeline_scope_flags,
+    validate_procedure_analyte,
+)
+
 _PLACEHOLDER_RE = re.compile(r"^\$\{var\.([^}]+)\}$")
 
 
@@ -131,16 +143,6 @@ def enrich_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
 
     from methyl_utils import load_project
     from methyl_utils.action_config_resolver import load_site_manifest
-    from .pipeline_profiles import (
-        PIPELINE_FLAG_DEFAULTS,
-        apply_pipeline_procedure,
-        apply_pipeline_profile,
-        load_procedure,
-        load_profile,
-        profile_action_config,
-        seed_pipeline_scope_flags,
-        validate_procedure_analyte,
-    )
 
     project = load_project(str(project_path))
 
@@ -178,8 +180,6 @@ def enrich_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
     # instance → procedure → profile/mode → analyte → site.
     # Rebuild actionConfig in that order so procedure JSON nulls can clear
     # profile keys (e.g. cell_deconvolution on cfDNA plasma).
-    from .pipeline_profiles import _deep_merge
-
     instance_action_config = dict(out.get("actionConfig") or {})
     out["actionConfig"] = {}
 

@@ -92,6 +92,32 @@ _PROCEDURE_SCOPE_BOOLS = frozenset(
     }
 )
 
+# Scope keys owned by one omics modality. seed_pipeline_scope_flags writes them
+# only for that modality and leaves them absent on methylation contexts.
+_RNA_SCOPE_KEYS = ("quantMode", "useKallisto")
+_PROTEOMICS_SCOPE_KEYS = ("ingestMode", "usePanel", "useDda", "useRescore")
+
+# regulatory.primary_modality tokens. Aliases match the live study vocabulary
+# (methylation | rnaseq | proteomics). Unknown tokens pass through so a future
+# modality does not inherit RNA or proteomics defaults.
+_MODALITY_ALIASES = {
+    "methylation": "methylation",
+    "wgbs": "methylation",
+    "methyl": "methylation",
+    "dna_methylation": "methylation",
+    "bisulfite": "methylation",
+    "rnaseq": "rnaseq",
+    "rna_seq": "rnaseq",
+    "rna": "rnaseq",
+    "transcriptomics": "rnaseq",
+    "transcriptome": "rnaseq",
+    "proteomics": "proteomics",
+    "proteome": "proteomics",
+    "protein": "proteomics",
+    "ms_proteomics": "proteomics",
+    "mass_spec": "proteomics",
+}
+
 PIPELINE_FLAG_DEFAULTS: Dict[str, bool] = {
     "usePangenome": False,
     "useWgbsPangenome": False,
@@ -591,6 +617,67 @@ def _deep_merge(base: Dict[str, Any], overlay: Mapping[str, Any]) -> Dict[str, A
     return out
 
 
+def _normalize_modality(value: Any) -> Optional[str]:
+    """Return a canonical modality token, or the cleaned value when unknown."""
+    if value is None:
+        return None
+    cleaned = "_".join(str(value).strip().lower().replace("-", " ").split())
+    if not cleaned:
+        return None
+    return _MODALITY_ALIASES.get(cleaned, cleaned)
+
+
+def context_modality(context: Mapping[str, Any]) -> Optional[str]:
+    """Read ``regulatory.primary_modality`` from instance context.
+
+    Modality is config (methylation | rnaseq | proteomics). This does not infer
+    a pack from profile names or from ``primary_analyte``.
+    """
+    regulatory = context.get("regulatory")
+    if not isinstance(regulatory, Mapping):
+        return None
+    return _normalize_modality(regulatory.get("primary_modality"))
+
+
+def _drop_scope_keys(out: Dict[str, Any], keys: tuple[str, ...]) -> None:
+    for key in keys:
+        out.pop(key, None)
+
+
+def _seed_rna_quant_flags(out: Dict[str, Any], action_config: Mapping[str, Any]) -> None:
+    """quant_mode (star | kallisto) → quantMode / useKallisto."""
+    rna_align_cfg = dict(action_config.get("rna_align") or {})
+    quant_mode = out.get("quantMode")
+    if quant_mode in (None, ""):
+        quant_mode = rna_align_cfg.get("quant_mode")
+    if quant_mode in (None, ""):
+        quant_mode = "star"
+    out["quantMode"] = str(quant_mode)
+    if "useKallisto" in out:
+        out["useKallisto"] = bool(out["useKallisto"])
+    else:
+        out["useKallisto"] = str(quant_mode).strip().lower() == "kallisto"
+
+
+def _seed_proteomics_ingest_flags(out: Dict[str, Any], action_config: Mapping[str, Any]) -> None:
+    """ingest_mode (dia | panel | dda) → ingestMode / usePanel / useDda; rescore → useRescore."""
+    prot_cfg = dict(action_config.get("proteomics_quant") or {})
+    ingest_mode = out.get("ingestMode") or prot_cfg.get("ingest_mode") or "dia"
+    out["ingestMode"] = str(ingest_mode)
+    if "usePanel" in out:
+        out["usePanel"] = bool(out["usePanel"])
+    else:
+        out["usePanel"] = str(ingest_mode).strip().lower() == "panel"
+    if "useDda" in out:
+        out["useDda"] = bool(out["useDda"])
+    else:
+        out["useDda"] = str(ingest_mode).strip().lower() == "dda"
+    if "useRescore" in out:
+        out["useRescore"] = bool(out["useRescore"])
+    else:
+        out["useRescore"] = bool(prot_cfg.get("rescore", False))
+
+
 def seed_pipeline_scope_flags(
     context: Dict[str, Any],
     *,
@@ -747,40 +834,20 @@ def seed_pipeline_scope_flags(
         # Shared lifecycle semantics for both stock Giraffe and WGBS pangenome.
         out.setdefault("usePangenome", is_any_pangenome or bool(out.get("useWgbsPangenome")))
 
-    # RNA-Seq quantifier selection, parallel to alignment_mode/usePangenome.
-    rna_align_cfg = dict(ac.get("rna_align") or {})
-    quant_mode = out.get("quantMode")
-    if quant_mode in (None, ""):
-        quant_mode = rna_align_cfg.get("quant_mode")
-    if quant_mode in (None, ""):
-        quant_mode = "star"
-    out["quantMode"] = str(quant_mode)
-    if "useKallisto" in out:
-        out["useKallisto"] = bool(out["useKallisto"])
-    else:
-        out.setdefault(
-            "useKallisto",
-            str(quant_mode).strip().lower() == "kallisto",
-        )
+    # RNA quantifier and proteomics ingest flags are pack-owned. Methylation
+    # sample prep (including WGBS) must not inherit quantMode=star / ingestMode=dia.
+    modality = context_modality(out)
+    if modality == "rnaseq":
+        _seed_rna_quant_flags(out, ac)
+        _drop_scope_keys(out, _PROTEOMICS_SCOPE_KEYS)
+    elif modality == "proteomics":
+        _seed_proteomics_ingest_flags(out, ac)
+        _drop_scope_keys(out, _RNA_SCOPE_KEYS)
+    elif modality == "methylation":
+        _drop_scope_keys(out, _RNA_SCOPE_KEYS + _PROTEOMICS_SCOPE_KEYS)
+    # No declared modality: do not invent RNA or proteomics defaults. Explicit
+    # values already on the context stay; missing keys stay absent.
 
-    # Proteomics ingest selection: ingest_mode (dia | panel) -> usePanel; rescore -> useRescore.
-    prot_cfg = dict(ac.get("proteomics_quant") or {})
-    ingest_mode = out.get("ingestMode") or prot_cfg.get("ingest_mode") or "dia"
-    out["ingestMode"] = str(ingest_mode)
-    if "usePanel" in out:
-        out["usePanel"] = bool(out["usePanel"])
-    else:
-        out.setdefault("usePanel", str(ingest_mode).strip().lower() == "panel")
-    if "useDda" in out:
-        out["useDda"] = bool(out["useDda"])
-    else:
-        out.setdefault("useDda", str(ingest_mode).strip().lower() == "dda")
-    if "useRescore" in out:
-        out["useRescore"] = bool(out["useRescore"])
-    else:
-        out.setdefault("useRescore", bool(prot_cfg.get("rescore", False)))
-
-    sample_prep_cfg = dict(ac.get("sample_prep") or {})
     if "deleteFastqs" in out:
         out["deleteFastqs"] = bool(out["deleteFastqs"])
     else:
