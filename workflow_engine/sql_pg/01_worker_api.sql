@@ -245,9 +245,10 @@ BEGIN
       )
       -- require_previous_worker: hard pin to the worker that completed the
       -- latest SUCCEEDED pinned action of the same affinity key (worker-local
-      -- products such as a BAM). No pinned predecessor yet: any capable worker.
-      -- An exclusive pinned action (the producer, e.g. Align) starts a new pin,
-      -- so a restart after the pinned worker is lost can go anywhere.
+      -- products such as a BAM). An exclusive producer (Align) is not
+      -- constrained. A prior success of this same action does not pin a new
+      -- run, so restarting Align can move the pin. No other pinned
+      -- predecessor yet: any capable worker.
       AND (
         NOT coalesce(wa.require_previous_worker, false)
         OR coalesce(wa.exclusive_worker, false)
@@ -261,6 +262,7 @@ BEGIN
             AND pin.affinity_key = ne.affinity_key
             AND pin.status = 'SUCCEEDED'
             AND pin_wa.require_previous_worker
+            AND pin_wn.workflow_action_id <> wa.id
           ORDER BY pin.ended_at_utc DESC NULLS LAST, pin.id DESC
           LIMIT 1
         ), p_worker_id) = p_worker_id

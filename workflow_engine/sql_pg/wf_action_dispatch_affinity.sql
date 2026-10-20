@@ -5,11 +5,11 @@
     - affinity_key_field     name of an input_json field (opaque); NULL = no affinity
     - prefer_previous_worker soft stickiness to last completer of the same key
     - prefer_continue_group  prefer READY rows whose key already has SUCCEEDED work
-    - require_previous_worker hard pin: once a pinned action of the key has
-      SUCCEEDED, every later pinned action of that key is claimable only by
-      the worker that completed the most recent one. A pinned action that is
-      also exclusive_worker (the producer, e.g. Align) is not constrained and
-      starts a new pin for the key.
+    - require_previous_worker hard pin: once another pinned action of the key
+      has SUCCEEDED, a pinned action is claimable only by the worker that
+      completed the most recent one. An exclusive pinned producer (Align) is
+      not constrained, and a new run of the same action is not pinned to its
+      own prior success, so restarting Align can move the pin.
 
   Runtime columns on wf.node_execution:
     - affinity_key             stamped at ACTION activation from input_json

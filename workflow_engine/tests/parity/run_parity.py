@@ -290,7 +290,11 @@ def _pin_worker(dsn: str, cluster_id: int, key: str) -> tuple[int, str]:
 
 
 def test_require_previous_worker_postgres(dsn: str) -> None:
-    """require_previous_worker pins later actions of a key to the pinned completer."""
+    """require_previous_worker pins later actions of a key to the pinned completer.
+
+    Re-running the action that first established the pin stays open so a lost
+    worker can be replaced by restarting Align in the same instance.
+    """
     version_id, _w1, _t1 = seed_minimal_workflow(dsn)
     cluster_id = int(_psql_query(dsn, "SELECT id FROM wf.cluster WHERE cluster_key='parity' LIMIT 1;"))
     wa_id, wa_token = _pin_worker(dsn, cluster_id, "pin-a")
@@ -357,6 +361,24 @@ def test_require_previous_worker_postgres(dsn: str) -> None:
     # starts a new pin; it is not stuck on worker A.
     realign = _row("PinProducer", "READY", None, "S1")
     assert _claim(wc_id, wc_token) == realign, "exclusive pinned producer is not pinned"
+
+    # Restart the same pinned Align while a consumer of the old pin is still
+    # READY. History is kept. The replacement may take Align; it may not take
+    # the consumer until that new Align has succeeded.
+    _row("PinAlign", "SUCCEEDED", wa_id, "S3")
+    pending = _row("PinExtract", "READY", None, "S3")
+    restarted = _row("PinAlign", "READY", None, "S3")
+    assert _claim(wb_id, wb_token) == restarted, "restarted align must be claimable by a replacement worker"
+    assert _claim(wb_id, wb_token) is None, "pinned consumer stays on the previous align worker"
+    assert _claim(wa_id, wa_token) == pending, "previous align worker still owns the pinned consumer"
+    _psql_query(
+        dsn,
+        f"UPDATE wf.node_execution SET status='SUCCEEDED', ended_at_utc=now(), "
+        f"completed_by_worker_id={wb_id} WHERE id={restarted};",
+    )
+    moved = _row("PinExtract", "READY", None, "S3")
+    assert _claim(wa_id, wa_token) is None, "consumers follow the worker that completed the restarted align"
+    assert _claim(wb_id, wb_token) == moved, "pin moves to the replacement that finished the restarted align"
 
 
 def test_worker_api_postgres(dsn: str) -> None:
