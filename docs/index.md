@@ -16,4 +16,4 @@ Specialized applications extend it with their own actions, profiles, and worker 
 - [Schema apply](schema-apply.md) — ordered, re-runnable `sql_pg` apply
 - [Repository layout](workspace-index.md) — directories in this tree
 
-The GitHub README is the short entry point. This site is built with MkDocs Material from `docs/` and is not published by CI.
+The GitHub README is the short entry point. This site is built with MkDocs Material from `docs/` and published from `main`.

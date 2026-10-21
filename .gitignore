@@ -1,4 +1,4 @@
-# Local MkDocs build. CI builds the site and does not publish it.
+# Local MkDocs build. Pull-request CI builds the site; the Pages workflow publishes it from main.
 site/
 
 # Editable install metadata

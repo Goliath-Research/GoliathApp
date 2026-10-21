@@ -23,7 +23,7 @@ Repository layout: [docs/workspace-index.md](docs/workspace-index.md). A catalog
 | HTTP contract | [contracts/openapi.yaml](contracts/openapi.yaml) |
 | Worker protocol | [workers/WORKER_PROTOCOL.md](workers/WORKER_PROTOCOL.md) |
 
-An optional MkDocs Material site is built from `docs/` (`mkdocs.yml`). It is not published from CI.
+The MkDocs Material site is built from `docs/` (`mkdocs.yml`) and published to <https://goliath-research.github.io/GoliathApp/> on every push to `main`. Pull requests build the site and do not deploy it.
 
 ```bash
 python -m pip install -r requirements-docs.txt
