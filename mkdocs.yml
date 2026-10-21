@@ -1,5 +1,6 @@
 site_name: GoliathApp
 site_description: General-purpose enterprise platform for access control, workflows, and distributed workers.
+site_url: https://goliath-research.github.io/GoliathApp/
 repo_url: https://github.com/Goliath-Research/GoliathApp
 repo_name: Goliath-Research/GoliathApp
 docs_dir: docs
