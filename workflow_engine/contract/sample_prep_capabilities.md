@@ -49,7 +49,7 @@ BAM deletion (`sample.delete_bam`) is **not** gated by this flag. Durable copies
 
 ## Lease / retry
 
-- Default lease: **3600 s** for Parabricks and MethylExtractor; **600 s** for download/delete/QC.
+- Default lease: **3600 s** for alignment and extraction; **600 s** for download/delete/QC.
 - Transient failures (network, GPU OOM): worker returns lease via heartbeat extension or explicit fail; middle-tier may re-queue if policy allows.
 - Permanent failures (`result_code < 0`) on one sample: that sample's remaining steps are **SKIPPED**; sibling samples keep running. When every sample is terminal, the instance **COMPLETED**. Failed download/QC nodes stay `FAILED` for operators. Do not leave the instance `RUNNING` because a sample was missing, disqualified, or failed QC.
 
@@ -150,7 +150,7 @@ The BAM exists only on the align worker. `sample.methyl_qc`, `sample.fragmentomi
 
 FASTQ inputs: prefer `{sampleId}_1.fastq.gz` + `{sampleId}_2.fastq.gz` at `sampleRoot`; otherwise exactly two `**/*.fastq.gz` under `sampleDir`.
 
-**`stageFastqs: "local"` (optional; all Align actions: `sample.parabricks_fq2bam` incl. GoliathAlign/Mojo engine, `sample.parabricks_giraffe`, `sample.methylgrapher_wgbs_align`, `sample.docker_align`).** After the FASTQ pair (trimmed when present) is resolved on `/work`, the Align task copies it to `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/fastq/` (read-only `copyfile` from `/work`, `.part` + rename on local disk; geesefs-safe) and the aligner reads it there. The copies share the BAM directory, so `sample.delete_bam` and failed-task / remediation cleanup remove them. The `/work` FASTQs are untouched: `sample.archive_sample` uploads them from `/work` (unpinned, no GPU capability) and `sample.delete_fastqs` then removes them. A remediation re-Align re-stages from `/work`. Omit the key (or `null`) to align straight from `/work`. SamplePrepPipeline sets it on every Align node.
+**`stageFastqs: "local"` (optional; all Align actions: `sample.parabricks_fq2bam` including the Mojo engine, `sample.parabricks_giraffe`, `sample.methylgrapher_wgbs_align`, `sample.docker_align`).** After the FASTQ pair (trimmed when present) is resolved on `/work`, the Align task copies it to `{METHYL_LOCAL_TMP}/bam/{slug}-{digest}/fastq/` (read-only `copyfile` from `/work`, `.part` + rename on local disk; geesefs-safe) and the aligner reads it there. The copies share the BAM directory, so `sample.delete_bam` and failed-task / remediation cleanup remove them. The `/work` FASTQs are untouched: `sample.archive_sample` uploads them from `/work` (unpinned, no GPU capability) and `sample.delete_fastqs` then removes them. A remediation re-Align re-stages from `/work`. Omit the key (or `null`) to align straight from `/work`. SamplePrepPipeline sets it on every Align node.
 
 ### input_json
 
@@ -272,9 +272,9 @@ Implementation: [`workers/methyl_worker/methylgrapher_wgbs_runner.py`](../../wor
 
 **Extraction manifest:** canonical `metadata` / `summary` / `per_chromosome` shape for `methyl-extraction-qc` (read-filtering block omitted when unavailable — discard-fraction guardrail reports skipped). Graph provenance retained in manifest sidecars.
 
-**Storage contract:** same HDF5 naming as MethylExtractor (`{chrom}-{ctx}.h5`, `{chrom}-{ctx}.patterns.h5`, `{sampleId}.extraction_manifest.json`).
+**Storage contract:** HDF5 names are `{chrom}-{ctx}.h5`, `{chrom}-{ctx}.patterns.h5`, and `{sampleId}.extraction_manifest.json`.
 
-**`workDirMode: "local"` (optional).** MethylCall / MergeCpG scratch and every output (H5, patterns, manifest) are written under worker-local `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`; on success only `*.h5` and `*.json` are published to `sampleDir` (same single-rename copy as MethylExtractor). Manifest and `h5Files` paths name `sampleDir`. The local directory is removed on success and failure. Omit to use `{sampleDir}/methylgrapher_work`. SamplePrepPipeline sets it on both extract nodes.
+**`workDirMode: "local"` (optional).** MethylCall / MergeCpG scratch and every output (H5, patterns, manifest) are written under worker-local `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`; on success only `*.h5` and `*.json` are published to `sampleDir` (bytes to a sibling file, then one rename). Manifest and `h5Files` paths name `sampleDir`. The local directory is removed on success and failure. Omit to use `{sampleDir}/methylgrapher_work`. SamplePrepPipeline sets it on both extract nodes.
 
 
 ## `methyl-qc`
@@ -346,7 +346,7 @@ Hard QC failure: `result_code < 0` skips the rest of that sample (instance stays
 ## `methyl-extract`
 
 **action_name:** `sample.methyl_extract`  
-**Owner:** External [MethylExtractor](file:///home/ubuntu/MethylExtractor) (native CLI on worker PATH after `make install`)
+**Owner:** external native CLI on the worker `PATH` after that tool is installed.
 
 Production remote workers are **self-contained per task**: config comes from **`input_json`** plus **`project.json` on shared storage**. Environment variables are **not** required (dev/CLI only).
 
@@ -393,7 +393,7 @@ Production defaults (not env vars):
 | Extraction manifest | `{sampleId}.extraction_manifest.json` |
 | Per-context QC sidecar | `{chrom}-{ctx}.json` (e.g. `1-CG.json`) |
 
-MethylExtractor writes to worker-local `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`. On success only `*.h5` and `*.json` are copied into `sampleDir` (bytes to a sibling `.tmp-*` file, then one rename; no `utime`, `chmod` or hardlink). The local directory is removed on success and failure, so partial HDF5s never reach `/work`.
+Extraction writes to worker-local `{METHYL_LOCAL_TMP}/extract/{slug}-{digest}/`. On success only `*.h5` and `*.json` are copied into `sampleDir` (bytes to a sibling `.tmp-*` file, then one rename; no `utime`, `chmod` or hardlink). The local directory is removed on success and failure, so partial HDF5s never reach `/work`.
 
 ### input_json example
 
@@ -424,9 +424,7 @@ MethylExtractor writes to worker-local `{METHYL_LOCAL_TMP}/extract/{slug}-{diges
 **Owner:** In-repo — [`packages/methylextractionqc`](../../packages/methylextractionqc/)  
 **When:** After every successful `sample.methyl_extract` or `sample.methylgrapher_wgbs_extract` (both direct pass and post-remediation pass paths).
 
-Reads `{sampleId}.extraction_manifest.json` (MethylExtractor or methylGrapher canonical schema). Writes `{sampleId}.extraction_qc.json` in `sampleDir` with `guardrails.overall_pass`.
-
-Upstream contract: MethylExtractor [`docs/extraction_qc_contract.md`](file:///home/ubuntu/MethylExtractor/docs/extraction_qc_contract.md).
+Reads `{sampleId}.extraction_manifest.json` (extraction or methylGrapher canonical schema). Writes `{sampleId}.extraction_qc.json` in `sampleDir` with `guardrails.overall_pass`.
 
 ### input_json
 

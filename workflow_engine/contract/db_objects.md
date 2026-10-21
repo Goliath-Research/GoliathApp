@@ -65,14 +65,14 @@ Engine errors use integer codes documented in worker API scripts (e.g. `10001` m
 
 | `capabilities` value | Behavior |
 |---------------------|----------|
-| `NULL`, `[]`, or contains `"*"` | Omnibus — may claim any task capability (legacy) |
+| JSON array containing `"*"` | Omnibus — may claim any task capability |
+| `NULL` or `[]` | No capabilities. No task is returned |
 | Concrete JSON array | Only tasks whose `wa.capability` is in the array |
 
-The optional request parameter `capability` **narrows** polling within the registered set; it cannot widen it.
+The optional request parameter `capability` narrows polling within the registered set. It cannot widen it.
 Helpers: `wf.wf_worker_is_omnibus`, `wf.wf_worker_capability_allowed` (both dialects).
 
-Workers register capabilities at provisioning via `scripts/register_worker.py --auto-detect` (default) or
-explicit `--capability` / `--omnibus`.
+Capabilities are stored at enrollment. `portal.sp_upsert_worker_enrollment` preregisters the worker, and `POST /v1/workers/enroll` sends the `capabilities` array to `wf.sp_worker_enroll`.
 
 ### 1. Worker API (required for remote execution)
 

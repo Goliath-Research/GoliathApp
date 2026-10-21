@@ -1,215 +1,56 @@
 # PostgreSQL engine (`sql_pg/`)
 
-PostgreSQL 15+ twin of the Goliath workflow engine (17+ recommended for SQL/JSON). The database name is `goliath`. This tree is engine DDL. Science seeds belong to GoliathOmics.
+PostgreSQL 15+ scripts for the workflow engine (17+ recommended for SQL/JSON). `00_schema.sql` uses `pg_catalog.sha256` and does not require `pgcrypto`.
 
-Deploy **in order**:
-
-| # | Script | Purpose |
-|---|--------|---------|
-| 1 | [`00_schema.sql`](00_schema.sql) | Tables, indexes, worker registry |
-| 2 | [`03_engine_core.sql`](03_engine_core.sql) | Engine runtime (activate, continue, scope stubs) |
-| 3 | [`05_runtime_parity.sql`](05_runtime_parity.sql) | `${var.*}` / `${ctx.*}` resolver, input builder |
-| 4 | [`06_scope_writepath_parity.sql`](06_scope_writepath_parity.sql) | Scope open/copy, output bindings, branch vars |
-| 5 | [`07_scope_encoding_parity.sql`](07_scope_encoding_parity.sql) | Canonical JSON scalar encoding |
-| 6 | [`08_foreach_support.sql`](08_foreach_support.sql) | FOREACH control-flow (DomainProgram workflows on PostgreSQL) |
-| 7 | [`wf_reclaim_expired_leases.sql`](wf_reclaim_expired_leases.sql) | Expired-lease → READY + `portal.sp_reclaim_expired_leases` (MSSQL twin) |
-| 7a | [`01_worker_api.sql`](01_worker_api.sql) | Worker claim/submit/heartbeat (quietly calls reclaim when leases expired) |
-| 8 | [`02_repository_api.sql`](02_repository_api.sql) | Middle-tier repository wrappers |
-| 9 | [`04_admin.sql`](04_admin.sql) | Admin (`sp_delete_workflow_def`) |
-| 10 | [`wf_action_schema.sql`](wf_action_schema.sql) | Action I/O JSON Schema storage + get/upsert schema (not list_actions) |
-| 11 | [`wf_repo_upsert_workflow_action.sql`](wf_repo_upsert_workflow_action.sql) | Bootstrap 3-arg upsert (name / capability / schema ref) |
-| 11a | [`wf_action_dispatch_metadata.sql`](wf_action_dispatch_metadata.sql) | Dispatch columns + 7-arg upsert + canonical `wf_repo_list_actions` |
-| 11b | [`wf_action_dispatch_concurrency.sql`](wf_action_dispatch_concurrency.sql) | `max_per_worker` / `exclusive_worker` + 9-arg upsert (catalog `dispatch`) |
-| 11c | [`wf_action_dispatch_affinity.sql`](wf_action_dispatch_affinity.sql) | Soft affinity + `require_previous_worker` hard-pin columns, 13-arg upsert + `wf_stamp_affinity_key` |
-| 12 | [`wf_repo_create_workflow_graph.sql`](wf_repo_create_workflow_graph.sql) | Programmatic workflow definition builder |
-| 13 | [`wf_sql_collection_bindings.sql`](wf_sql_collection_bindings.sql) | Collection binding resolution at instance start |
-| 14 | [`portal_resource_profile.sql`](portal_resource_profile.sql) | Portal archive storage profiles + `goliath-genomes` endpoint |
-| 15 | [`cfg_reference_assets_seed.sql`](cfg_reference_assets_seed.sql) | Linear / GENCODE / pangenome `cfg.reference_asset` recipes |
-| 15a | [`cfg_site_reference_assets_seed.sql`](cfg_site_reference_assets_seed.sql) | Calls `cfg.cfg_repo_link_site_asset` for `default@1` (stock `pangenome_bundle` only). Re-run or `methyl-cfg link-site-assets --deploy-db` after the site exists. |
-| 16 | [`portal_workflow_api.sql`](portal_workflow_api.sql) | Portal workflow builder + instance lifecycle (`portal.sp_*`) |
-| 17 | [`wf_drop_platform_sample_storage.sql`](wf_drop_platform_sample_storage.sql) | Drop legacy wf.platform_sample_storage if present |
-
-**Re-runnable.** The `SCRIPTS` array in [`deploy_azure.sh`](deploy_azure.sh) is the apply order, and GoliathOmics bundles exactly that list into each release and applies it, once per release, to an existing database. A full ordered re-run must succeed on a database that already has every object. When a later script widens a function's `RETURNS TABLE` or a view's columns, the earlier definition needs `DROP FUNCTION IF EXISTS` / `DROP VIEW IF EXISTS` first (`CREATE OR REPLACE` cannot change a row type, 42P13). Define each function in one place; a later file must not redefine it narrower. Some `LANGUAGE sql` functions read legacy EpiPortal tables (`portal."Customers"`, `portal."Role2Node"`, `portal."Diseases"`). On a database without them, apply with `check_function_bodies = off` (`PGOPTIONS='-c check_function_bodies=off'`). GoliathOmics' deploy does that.
-
-`deploy_azure.sh` also applies the full `cfg_*` stack (schema, registry tables, relationships, repo/portal APIs) before the portal/genome seeds above. Fresh installs get wide `site_reference_asset.asset_role` values (including `houseman_seed_basis` / `hitimed_hierarchy_basis`) from [`cfg_wf_relationships.sql`](cfg_wf_relationships.sql).
-
-**Existing DB upgrade only** (not in `deploy_azure.sh`): [`migrations/20260721_site_reference_asset_deconv_roles.sql`](migrations/20260721_site_reference_asset_deconv_roles.sql) widens the CHECK; [`migrations/20260822_drop_e_portal.sql`](migrations/20260822_drop_e_portal.sql) drops leftover `e_portal` (already applied on `goliath`). MSSQL twin: [`../sql_mssql/migrations/`](../sql_mssql/migrations/).
-
-Genome inventory ops: [`docs/deployment/reference-inventory-qnap.md`](../../docs/deployment/reference-inventory-qnap.md). Note: [`scripts/populate_postgres_reference_data.py`](../../scripts/populate_postgres_reference_data.py) seeds the **action catalog** (and optional workflow defs), **not** `cfg.reference_asset` / genomes.
-
-After SQL deploy, seed the action catalog and deploy workflows:
+Apply order, defaults, and which files are re-runnable are documented in [`docs/schema-apply.md`](../../docs/schema-apply.md). The ordered list is the `SCRIPTS` array in [`deploy_azure.sh`](deploy_azure.sh). Run that script to apply every file. It is safe to run again on a database that already has the objects. One invocation always applies the whole list. There is no skip-if-applied marker.
 
 ```bash
-source .venv/bin/activate
-bash scripts/bootstrap_distributed_workers.sh --skip-schema
-```
-
-Or manually:
-
-```bash
-methyl-export-task-schemas
-methyl-export-action-catalog
-python workflow_engine/sql_mssql/seed_action_catalog.py
-bash scripts/deploy_workflow_definitions.sh
-```
-
-Split-detector actions only (lightweight; requires `wf_action_dispatch_metadata.sql`; does not seed task I/O schemas):
-
-```bash
-psql "$DSN" -f workflow_engine/sql_pg/wf_split_detector_actions_seed.sql
-```
-
-Azure SQL equivalent: [`../sql_mssql/wf_split_detector_actions_seed.sql`](../sql_mssql/wf_split_detector_actions_seed.sql).
-
-Legacy schema-only seed (requires actions already in DB):
-
-```bash
-python workflow_engine/sql_mssql/seed_action_schemas.py
-```
-
-## Azure Database for PostgreSQL
-
-Use [`deploy_azure.sh`](deploy_azure.sh) from a machine whose IP is allowed in the server firewall. The script applies scripts 1–13 from the table above **plus** portal DDL (`portal_resource_profile.sql`, `portal_workflow_api.sql`, `wf_drop_platform_sample_storage.sql`). Run [`wf_cluster_security_columns.sql`](wf_cluster_security_columns.sql) separately when enabling cluster IP binding.
-
-**Native auth (`dba`):**
-
-```bash
-export PGHOST=goliath.postgres.database.azure.com
+export PGHOST=localhost
 export PGPORT=5432
 export PGDATABASE=goliath
-export PGUSER=dba
-export PGPASSWORD='...'          # store in Key Vault / env, not in git
+export PGUSER=postgres
+export PGPASSWORD=...
 export PGSSLMODE=require
 
 ./workflow_engine/sql_pg/deploy_azure.sh
 ```
 
-Server FQDN from Azure Portal is `<server-name>.postgres.database.azure.com` (here **`goliath.postgres.database.azure.com`**). canonical parity database is **`goliath`**. The leftover Azure PG database named **`postgres`** is a stale older wf-only deploy — do not treat it as the twin.
+When `PGHOST` is unset the script defaults to `goliath.postgres.database.azure.com`. When `PGDATABASE` is unset it uses `POSTGRES_DB` and then `goliath`. When `PGPASSWORD` is unset and `az` is on `PATH`, the script requests an Entra token for `https://ossrdbms-aad.database.windows.net`.
 
-**Microsoft Entra ID:**
-
-```bash
-export PGHOST=goliath.postgres.database.azure.com
-export PGPORT=5432
-export PGDATABASE=goliath
-export PGUSER='you@goliathresearch.com'
-export PGPASSWORD="$(az account get-access-token --resource https://ossrdbms-aad.database.windows.net --query accessToken --output tsv)"
-export PGSSLMODE=require
-
-./workflow_engine/sql_pg/deploy_azure.sh
-```
-
-**Middle-tier env (Delphi / REST gateway):**
+The Python gateway is a separate process. Its PostgreSQL defaults live in `workflow_engine/rest/connection.py`: `BACKEND_DB` defaults to `mssql`, and `POSTGRES_DB` defaults to `methylpipeline` when unset. Set `BACKEND_DB=postgres` and point `POSTGRES_*` at the database this script just updated.
 
 ```bash
 export BACKEND_DB=postgres
-export POSTGRES_HOST=goliath.postgres.database.azure.com
-export POSTGRES_PORT=5432
+export POSTGRES_HOST=localhost
 export POSTGRES_DB=goliath
-export POSTGRES_USER=dba
-export POSTGRES_PASSWORD='...'
+export POSTGRES_USER=postgres
+export POSTGRES_PASSWORD=...
+goliath-gateway --host 0.0.0.0 --port 8080
 ```
 
-Live object gap report (Azure SQL vs PostgreSQL):
+`methyl-gateway` is the same entry point.
 
-```bash
-python scripts/db_schema_inventory.py
-# writes workflow_engine/contract/schema_inventory_live.{json,md}
-```
+After SQL, actions are rows in `wf.workflow_action` and types are rows in `wf.data_type`. See [`docs/actions.md`](../../docs/actions.md). This tree does not include a catalog seed script.
 
-After schema deploy, migrate **data** separately (pg_dump/pg_restore or ETL). The scripts above create objects only — use the test bed below for sample workflows.
+## Not applied by `deploy_azure.sh`
 
-## Test bed (two-group + MC stability)
+| Path | Role |
+|------|------|
+| `wf_test_bed_schema.sql`, `wf_test_bed_worker.sql`, `wf_test_bed_run.sql` | Test-bed tables and `wf.sp_test_bed_run_workflow` |
+| `deploy_test_bed.sh` | Applies the test-bed scripts plus `wf_two_group_test_seed.sql` and `wf_mc_two_group_test_seed.sql`, which are not in this repository, so the script stops at the first missing file |
+| `migrations/` | One-off upgrades. Not in `SCRIPTS` |
 
-Optional PostgreSQL scripts to seed sample workflows and simulate worker execution with task logging (no real `methyl-*` processes).
-
-| Script | Purpose |
-|--------|---------|
-| [`wf_test_bed_schema.sql`](wf_test_bed_schema.sql) | `test_bed_run`, `test_bed_task_log`, `v_test_bed_task_summary` |
-| [`wf_test_bed_worker.sql`](wf_test_bed_worker.sql) | Test worker `simulator-1`, token `test-bed-token` |
-| [`wf_two_group_test_seed.sql`](wf_two_group_test_seed.sql) | **TwoGroupTestFlow** — 2 chromosomes, 6 ACTION tasks |
-| [`wf_mc_two_group_test_seed.sql`](wf_mc_two_group_test_seed.sql) | **McTwoGroupTestFlow** — 10 MC iterations × 6 + 3 post steps |
-| [`wf_test_bed_run.sql`](wf_test_bed_run.sql) | `sp_test_bed_run_workflow`, `sp_test_bed_simulate` |
-
-```bash
-./workflow_engine/sql_pg/deploy_test_bed.sh
-./workflow_engine/sql_pg/deploy_test_bed.sh --run TwoGroupTestFlow
-./workflow_engine/sql_pg/deploy_test_bed.sh --run McTwoGroupTestFlow
-```
-
-Inspect results:
-
-```sql
-SELECT * FROM wf.v_test_bed_task_summary ORDER BY test_bed_run_id DESC;
-SELECT node_key, capability, result_code, output_json
-FROM wf.test_bed_task_log
-WHERE test_bed_run_id = (SELECT max(id) FROM wf.test_bed_run)
-ORDER BY id;
-```
-
-Example `context_json`: [`instance_context_examples/two_group_test.json`](instance_context_examples/two_group_test.json), [`mc_two_group_test.json`](instance_context_examples/mc_two_group_test.json).
-
-Production OvR at scale uses **DataDrivenPipeline** / **ValidationPipeline** with FOREACH (deploy `08_foreach_support.sql`). Static test-bed workflows use REPEAT where noted.
-
-## Local container
-
-Canonical database name is **`goliath`**. CI parity uses `methylpipeline_parity` (see `.github/workflows/db-parity.yml`). Prefer `deploy_azure.sh` over the ad-hoc loop below.
-
-```bash
-docker run -d --name methyl-pg -e POSTGRES_PASSWORD=methyl -e POSTGRES_DB=goliath -p 5432:5432 postgres:17
-export PGHOST=localhost PGDATABASE=goliath PGUSER=postgres PGPASSWORD=methyl
-./workflow_engine/sql_pg/deploy_azure.sh
-```
-
-**REST gateway (Linux production)**
-
-Use [`scripts/provision_gateway_node.sh`](../../scripts/provision_gateway_node.sh) on the gateway VM (`--root /opt/methyl-gateway`). Do not mount `/work` on that VM.
-
-Install from repo root (lab):
-
-```bash
-source .venv/bin/activate
-pip install -e workflow_engine/
-```
-
-**Azure SQL (phase 1):**
-
-```bash
-export BACKEND_DB=mssql
-export AZURE_SQL_SERVER=your-server.database.windows.net
-export AZURE_SQL_DB=goliath
-export AZURE_SQL_USER=...
-export AZURE_SQL_PASSWORD=...
-methyl-gateway --host 0.0.0.0 --port 8080
-```
-
-**PostgreSQL (phase 2 / CI):**
-
-```bash
-export BACKEND_DB=postgres
-export POSTGRES_HOST=localhost POSTGRES_DB=methylpipeline_parity POSTGRES_PASSWORD=methyl
-methyl-gateway --host 0.0.0.0 --port 8080
-```
-
-Maps [`contracts/openapi.yaml`](../contracts/openapi.yaml) to wf contract objects on either backend. The optional Delphi `MethylWfGateway` Windows service (`WfEngineSrv`) exposes a subset of the same worker/admin routes via UniDAC.
-
-## Connection string (middle-tier)
-
-```
-Provider Name=PostgreSQL;Data Source=localhost;Port=5432;Database=methylpipeline;User ID=postgres;Password=methyl;
-```
-
-Set `BACKEND_DB=postgres` and `METHYLPIPELINE_DB` (or `POSTGRES_*` env vars — see `WfEngine.Connection.pas`).
-
-## Contract validation
+## Contract check
 
 ```bash
 python workflow_engine/contract/validate_contract.py
 ```
 
+`deploy_azure.sh` runs that check at the end when `python3` is available.
+
 ## Notes
 
-- Result-returning worker APIs are implemented as **functions** returning `TABLE` (PostgreSQL procedures cannot `RETURN QUERY`).
-- In PL/pgSQL, `RETURNS TABLE (...)` columns and `OUT` parameters are variables. If one shares a name with a column used unqualified in the body (`ON CONFLICT (col)`, `WHERE col = ...`, `SELECT col ...`), PostgreSQL fails at call time with SQLSTATE 42702 ("column reference ... is ambiguous"). Put `#variable_conflict use_column` on the first line after `AS $$`, or qualify the column. [`tests/test_pg_plpgsql_variable_conflict.py`](../tests/test_pg_plpgsql_variable_conflict.py) checks this.
-- Object names match the Azure SQL contract in [`../contract/db_objects.yaml`](../contract/db_objects.yaml).
-- FOREACH control flow requires SQL runtime parity (`wf_sql_runtime_parity.sql` / `sql_pg` equivalents); the Delphi middle-tier is gateway-only.
+- Result-returning worker APIs are functions that return `TABLE`. PostgreSQL procedures cannot `RETURN QUERY`.
+- In PL/pgSQL, `RETURNS TABLE` columns are variables. `#variable_conflict use_column` on the first line of the body avoids SQLSTATE 42702 when a column has the same name. [`tests/test_pg_plpgsql_variable_conflict.py`](../tests/test_pg_plpgsql_variable_conflict.py) checks this.
+- Object names match [`../contract/db_objects.yaml`](../contract/db_objects.yaml).
+- The Azure SQL twin is [`../sql_mssql/README.md`](../sql_mssql/README.md).
