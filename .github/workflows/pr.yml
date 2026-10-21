@@ -44,3 +44,31 @@ jobs:
             workflow_engine/tests/test_pipeline_scope_flags.py \
             workflow_engine/tests/test_reference_selection.py \
             -q
+
+  product-manifest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate .goliath/product.json
+        run: |
+          python -m pip install -U pip check-jsonschema
+          check-jsonschema --schemafile .goliath/product.schema.json .goliath/product.json
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build the MkDocs site
+        run: |
+          python -m pip install -U pip -r requirements-docs.txt
+          mkdocs build --strict

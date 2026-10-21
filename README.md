@@ -1,40 +1,62 @@
 # GoliathApp
 
-**GoliathApp** is the platform. **GoliathOmics** is the genomics product. **GoliathAlign** (formerly mojo-align) aligns reads. **MethylExtractor** calls methylation from linear BAM files. **GoliathWeb** is the public hub.
+**GoliathApp** is a general-purpose enterprise platform. Specialized applications extend it. The platform does not depend on those applications.
 
-Index: [docs/workspace-index.md](docs/workspace-index.md).
+It keeps application behavior in a database: a Meta object model, RBAC, portal SQL, a workflow engine, and user-defined actions. A REST gateway enrolls distributed workers that carry out the actions. This repository ships the engine, the compiler, and the claim client.
 
-Generic application platform for Goliath Research: database-governed Meta model, RBAC, object instances, portal UI, workflow engine, middle-tier REST, and remote workers. Genomics content lives in GoliathOmics. Alignment and extraction stay independent tool repositories.
+Repository layout: [docs/workspace-index.md](docs/workspace-index.md). A catalog site can read [`.goliath/product.json`](.goliath/product.json) at build time.
 
-## Schemas
+## Read next
 
-| Schema | Role |
-|--------|------|
-| `Meta` | OOP model of application information. Instances live in `Meta.Objs`. |
-| `RBAC` | Roles over Meta classes and concrete objects |
-| `portal` | UI objects that drive the portal |
-| `wf` | Event-driven workflows and actions for portal users or remote workers |
-| `cfg` | Sites, profiles, programs, storage, and reference-asset registry tables |
-| `Contract`, `Onboarding` | Platform contracts and onboarding |
+| Topic | Page |
+|-------|------|
+| What lives in this repository | [docs/platform.md](docs/platform.md) |
+| DomainProgram compiler | [docs/workflow-compiler.md](docs/workflow-compiler.md) |
+| Database workflow engine | [docs/workflow-engine.md](docs/workflow-engine.md) |
+| User-defined actions | [docs/actions.md](docs/actions.md) |
+| Worker enrollment and dispatch | [docs/workers.md](docs/workers.md) |
+| RBAC | [docs/rbac.md](docs/rbac.md) |
+| Pipeline profiles | [docs/pipeline-profiles.md](docs/pipeline-profiles.md) |
+| Schema apply (`sql_pg`) | [docs/schema-apply.md](docs/schema-apply.md) |
+| PostgreSQL deploy script | [workflow_engine/sql_pg/README.md](workflow_engine/sql_pg/README.md) |
+| Azure SQL deploy script | [workflow_engine/sql_mssql/README.md](workflow_engine/sql_mssql/README.md) |
+| HTTP contract | [contracts/openapi.yaml](contracts/openapi.yaml) |
+| Worker protocol | [workers/WORKER_PROTOCOL.md](workers/WORKER_PROTOCOL.md) |
 
-Science rows (analytes, action catalogs, disease columns) are GoliathOmics content loaded into this engine. They are not part of the engine DDL.
+An optional MkDocs Material site is built from `docs/` (`mkdocs.yml`). It is not published from CI.
 
-## Where to read
+```bash
+python -m pip install -r requirements-docs.txt
+mkdocs serve
+```
 
-- [Platform overview](docs/platform.md)
-- [Workspace index](docs/workspace-index.md)
-- PostgreSQL engine: [workflow_engine/sql_pg/README.md](workflow_engine/sql_pg/README.md)
-- Azure SQL twin: [workflow_engine/sql_mssql/README.md](workflow_engine/sql_mssql/README.md)
-- HTTP contract: [contracts/openapi.yaml](contracts/openapi.yaml)
-- Shared worker: `goliath_worker/`
-- Historical split record: [docs/SEPARATION_PLAN.md](docs/SEPARATION_PLAN.md)
-- Public hub wireframe: [docs/SITE_HUB_WIREFRAME.md](docs/SITE_HUB_WIREFRAME.md)
+## Package
 
-Platform entry points use the `goliath` prefix (`goliath-gateway`, `goliath-cfg`). The database name is `goliath`.
+```bash
+python -m pip install -e "workflow_engine/[dev]"
+```
+
+The distribution name in `workflow_engine/pyproject.toml` is `methyl-gateway`. Python is `>=3.10,<3.15`. These console scripts point at modules in this tree:
+
+| Script | Entry |
+|--------|--------|
+| `goliath-gateway`, `methyl-gateway` | `rest.gateway:main` |
+| `goliath-workflow-run`, `methyl-workflow-run` | `local.runner:main` |
+| `goliath-cfg`, `methyl-cfg` | `cfg.cli:main` |
+
+The same file also lists `methyl-study-start`, `methyl-study-init`, `methyl-study-validate-manifest`, and `methyl-reclaim-leases`. Those entry points import `admin` and `ops`, and those packages are not in this tree.
+
+The shared worker HTTP client is `goliath_worker/` (stdlib only). It claims and submits tasks. It does not execute an action.
+
+## Databases
+
+PostgreSQL objects are applied by [`workflow_engine/sql_pg/deploy_azure.sh`](workflow_engine/sql_pg/deploy_azure.sh). The Azure SQL twin is [`workflow_engine/sql_mssql/deploy_azure.sh`](workflow_engine/sql_mssql/deploy_azure.sh). [`scripts/check_sql_deploy_twins.py`](scripts/check_sql_deploy_twins.py) fails when a SQL file that exists in both trees is listed in only one `SCRIPTS` array.
+
+The shell deploy scripts default the database name to `goliath`. The Python gateway defaults `BACKEND_DB` to `mssql` and, for PostgreSQL, defaults `POSTGRES_DB` to `methylpipeline` when that variable is unset (`workflow_engine/rest/connection.py`). CI parity uses `methylpipeline_parity`.
 
 ## Type checking
 
-[Pyrefly](https://pyrefly.org) type-checks `workflow_engine/`, `scripts/`, and `goliath_worker/` as Python 3.12 (the version CI runs; the package allows 3.10–3.14).
+[Pyrefly](https://pyrefly.org) checks `workflow_engine/`, `scripts/`, and `goliath_worker/` as Python 3.12, which is the version CI runs.
 
 ```bash
 python -m pip install -e "workflow_engine/[dev]"

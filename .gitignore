@@ -1,0 +1,5 @@
+# Local MkDocs build. CI builds the site and does not publish it.
+site/
+
+# Editable install metadata
+*.egg-info/

@@ -1,0 +1,40 @@
+site_name: GoliathApp
+site_description: General-purpose enterprise platform for access control, workflows, and distributed workers.
+repo_url: https://github.com/Goliath-Research/GoliathApp
+repo_name: Goliath-Research/GoliathApp
+docs_dir: docs
+strict: true
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - content.code.copy
+
+nav:
+  - Overview: index.md
+  - Platform: platform.md
+  - Repository layout: workspace-index.md
+  - Workflow compiler: workflow-compiler.md
+  - Workflow engine: workflow-engine.md
+  - Actions: actions.md
+  - Workers: workers.md
+  - RBAC: rbac.md
+  - Pipeline profiles: pipeline-profiles.md
+  - Schema apply: schema-apply.md
+
+markdown_extensions:
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+validation:
+  omitted_files: warn
+  absolute_links: ignore
+  unrecognized_links: warn
+  anchors: warn

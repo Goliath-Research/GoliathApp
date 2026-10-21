@@ -626,7 +626,7 @@ objects:
 
   clinical_portal_api:
     # portal.sp_list_samples_for_study_enrollment and portal.sp_set_sample_analyte
-    # are created by GoliathOmics cfg_analyte_catalog.sql, not by this engine.
+    # are created by an extending application's cfg_analyte_catalog.sql, not by this engine.
     - name: portal.sp_list_sites
       kind: procedure
       required: true

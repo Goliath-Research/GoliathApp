@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "goliathapp",
+  "name": "GoliathApp",
+  "tagline": "General-purpose enterprise platform for access control, workflows, and distributed workers.",
+  "description": "GoliathApp is a general-purpose enterprise platform meant to be extended by specialized applications. Role-based access control and a database-backed workflow engine sit at the core. Applications define actions that implement workflows, and the platform enrolls and dispatches the distributed workers that run them. It has no upstream product dependency.",
+  "category": "platform",
+  "features": [
+    {
+      "title": "Role-based access control",
+      "description": "Users, groups, roles, permissions, scopes, and sessions live in the RBAC schema. Portal procedures administer grants, invitations, and sessions."
+    },
+    {
+      "title": "Workflow engine",
+      "description": "PostgreSQL and Azure SQL run workflow graphs: sequences, branches, loops, foreach, and events. Workers lease action nodes and the engine continues from result codes."
+    },
+    {
+      "title": "User-defined actions",
+      "description": "Actions are data. Each action names a capability and input and output types. A specialized application supplies the handler that performs the action."
+    },
+    {
+      "title": "Workflow compiler",
+      "description": "A DomainProgram document lowers to a workflow graph the engine can store and run. Control flow and action steps stay in the program, not in engine code."
+    },
+    {
+      "title": "Distributed workers",
+      "description": "Workers enroll through the gateway from a preregistered address, then claim, heartbeat, and submit over REST. Capability lists, concurrency, and affinity decide which worker receives a task."
+    },
+    {
+      "title": "Pipeline profiles",
+      "description": "Profile and procedure documents flatten into scope flags that workflow branches read. An application can ship its own profiles on top of the same resolver."
+    },
+    {
+      "title": "Release-time schema apply",
+      "description": "The PostgreSQL scripts apply in a fixed order and can be applied again to a database that already has the objects. An application release runs that list once."
+    }
+  ],
+  "links": {
+    "repository": "https://github.com/Goliath-Research/GoliathApp",
+    "docs": null,
+    "website": null
+  },
+  "related": [],
+  "dependsOn": [],
+  "license": "unlicensed",
+  "status": "active"
+}
