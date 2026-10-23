@@ -14,7 +14,8 @@ CREATE SCHEMA IF NOT EXISTS portal;
 CREATE OR REPLACE FUNCTION wf.sp_reclaim_expired_leases(
   p_workflow_instance_id bigint DEFAULT NULL,
   p_grace_seconds int DEFAULT 60,
-  p_quiet boolean DEFAULT false
+  p_quiet boolean DEFAULT false,
+  p_worker_id bigint DEFAULT NULL
 )
 RETURNS TABLE (
   node_execution_id bigint,
@@ -45,6 +46,7 @@ BEGIN
          OR l.lease_expires_at_utc <= v_cutoff
       )
       AND (p_workflow_instance_id IS NULL OR ne.workflow_instance_id = p_workflow_instance_id)
+      AND (p_worker_id IS NULL OR l.worker_id = p_worker_id)
     FOR UPDATE OF ne
   ),
   updated AS (

@@ -96,7 +96,7 @@ BEGIN
       SET status = 'FAILED', updated_at_utc = v_now
       WHERE id = rec.worker_id AND status IN ('REGISTERED', 'READY');
 
-      PERFORM * FROM wf.sp_reclaim_expired_leases(NULL::bigint, 0, true);
+      PERFORM * FROM wf.sp_reclaim_expired_leases(NULL::bigint, 0, true, rec.worker_id);
     END IF;
   END LOOP;
 END;

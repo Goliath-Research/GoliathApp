@@ -178,14 +178,17 @@ BEGIN
     RETURN;
   END IF;
 
-  IF to_regclass('portal."Organizations"') IS NOT NULL THEN
+  IF to_regclass('portal."UserOrganizations"') IS NOT NULL
+     AND to_regclass('portal."Organizations"') IS NOT NULL THEN
     EXECUTE $q$
       SELECT COALESCE(jsonb_agg(jsonb_build_object(
         'organization_id', o."ID",
         'name', o."Name"
       ) ORDER BY o."Name"), '[]'::jsonb)
-      FROM portal."Organizations" o
-    $q$ INTO v_orgs;
+      FROM portal."UserOrganizations" uo
+      INNER JOIN portal."Organizations" o ON o."ID" = uo."OrganizationID"
+      WHERE uo."UserID" = $1
+    $q$ INTO v_orgs USING v_uid;
   END IF;
 
   RETURN QUERY
@@ -236,14 +239,21 @@ DECLARE
   v_hash bytea;
   v_now timestamptz := now() AT TIME ZONE 'utc';
   v_idle int := portal.fn_session_policy_idle_seconds();
+  v_abs int := portal.fn_session_policy_absolute_seconds();
   v_n int;
 BEGIN
   v_hash := wf.wf_sha256_text(btrim(p_session_token));
   UPDATE "RBAC"."SessionTokens" st
   SET "LastRefreshedAtUtc" = v_now,
-      "ExpiresAtUtc" = v_now + make_interval(secs => v_idle)
+      "ExpiresAtUtc" = LEAST(
+        v_now + make_interval(secs => v_idle),
+        st."CreatedAtUtc" + make_interval(secs => v_abs)
+      )
   WHERE st."TokenHash" = v_hash
-    AND st."RevokedAtUtc" IS NULL;
+    AND st."RevokedAtUtc" IS NULL
+    AND v_now <= st."CreatedAtUtc" + make_interval(secs => v_abs)
+    AND v_now <= st."LastRefreshedAtUtc" + make_interval(secs => v_idle)
+    AND v_now <= st."ExpiresAtUtc";
   GET DIAGNOSTICS v_n = ROW_COUNT;
   RETURN v_n > 0;
 END;
