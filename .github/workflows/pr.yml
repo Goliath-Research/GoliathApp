@@ -1,5 +1,6 @@
 name: PR
 
+# Runs on every pull_request sync against main.
 on:
   pull_request:
     branches:
