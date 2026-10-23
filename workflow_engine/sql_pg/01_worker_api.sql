@@ -34,46 +34,6 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE PROCEDURE wf.wf_worker_authenticate(
-  IN p_worker_id bigint,
-  IN p_worker_token text
-)
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  v_tok text := nullif(btrim(p_worker_token), '');
-  v_hash bytea;
-BEGIN
-  IF p_worker_id IS NULL THEN
-    RAISE EXCEPTION 'worker_id is required' USING ERRCODE = '50002';
-  END IF;
-  IF v_tok IS NULL THEN
-    RAISE EXCEPTION 'worker_token is required' USING ERRCODE = '50002';
-  END IF;
-
-  v_hash := wf.wf_sha256_text(v_tok);
-
-  IF NOT EXISTS (
-    SELECT 1
-    FROM wf.worker_token wt
-    INNER JOIN wf.worker w ON w.id = wt.worker_id
-    INNER JOIN wf.cluster c ON c.id = w.cluster_id
-    WHERE wt.worker_id = p_worker_id
-      AND wt.token_hash = v_hash
-      AND wt.status = 'ACTIVE'
-      AND (wt.expires_at_utc IS NULL OR wt.expires_at_utc > (now() AT TIME ZONE 'utc'))
-      AND w.status = 'REGISTERED'
-      AND c.status = 'ACTIVE'
-  ) THEN
-    RAISE EXCEPTION 'Invalid or unauthorized worker credentials' USING ERRCODE = '50003';
-  END IF;
-
-  UPDATE wf.worker
-  SET last_seen_at_utc = (now() AT TIME ZONE 'utc')
-  WHERE id = p_worker_id;
-END;
-$$;
-
 CREATE OR REPLACE FUNCTION wf.wf_worker_is_omnibus(p_capabilities jsonb)
 RETURNS boolean
 LANGUAGE sql
@@ -107,10 +67,13 @@ $$;
 
 -- Return shape includes desired_state/command (worker fleet control).
 DROP FUNCTION IF EXISTS wf.sp_worker_request_task(bigint, text, text, int);
+DROP FUNCTION IF EXISTS wf.sp_worker_request_task(bigint, text, text, text, text, int);
 
 CREATE OR REPLACE FUNCTION wf.sp_worker_request_task(
   p_worker_id bigint,
-  p_worker_token text,
+  p_session_token text,
+  p_identity_token text,
+  p_client_ip text,
   p_capability text DEFAULT NULL,
   p_max_lease_seconds int DEFAULT 300
 )
@@ -139,7 +102,9 @@ DECLARE
   v_desired_state text := 'ACTIVE';
   v_command text := 'NONE';
 BEGIN
-  CALL wf.wf_worker_authenticate(p_worker_id, p_worker_token);
+  CALL wf.wf_worker_authenticate(
+    p_worker_id, p_session_token, p_identity_token, p_client_ip
+  );
 
   -- Auto-unstick crashed workers: expired/missing leases → READY (quiet: discard rows).
   IF EXISTS (
@@ -343,10 +308,14 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS wf.sp_worker_submit_result(bigint, bigint, text, int, jsonb);
+
 CREATE OR REPLACE FUNCTION wf.sp_worker_submit_result(
   p_node_execution_id bigint,
   p_worker_id bigint,
-  p_worker_token text,
+  p_session_token text,
+  p_identity_token text,
+  p_client_ip text,
   p_result_code int,
   p_output_json jsonb DEFAULT NULL
 )
@@ -361,7 +330,9 @@ DECLARE
   v_next_ready int;
   v_accepted boolean := false;
 BEGIN
-  CALL wf.wf_worker_authenticate(p_worker_id, p_worker_token);
+  CALL wf.wf_worker_authenticate(
+    p_worker_id, p_session_token, p_identity_token, p_client_ip
+  );
 
   SELECT tl.worker_id INTO v_lease_worker
   FROM wf.task_lease tl
@@ -400,11 +371,14 @@ END;
 $$;
 
 DROP FUNCTION IF EXISTS wf.sp_worker_heartbeat(bigint, bigint, text, int);
+DROP FUNCTION IF EXISTS wf.sp_worker_heartbeat(bigint, bigint, text, text, text, int);
 
 CREATE OR REPLACE FUNCTION wf.sp_worker_heartbeat(
   p_node_execution_id bigint,
   p_worker_id bigint,
-  p_worker_token text,
+  p_session_token text,
+  p_identity_token text,
+  p_client_ip text,
   p_extend_seconds int DEFAULT 300
 )
 RETURNS TABLE (rows_updated int, desired_state text, command text)
@@ -416,7 +390,9 @@ DECLARE
   v_desired_state text := 'ACTIVE';
   v_command text := 'NONE';
 BEGIN
-  CALL wf.wf_worker_authenticate(p_worker_id, p_worker_token);
+  CALL wf.wf_worker_authenticate(
+    p_worker_id, p_session_token, p_identity_token, p_client_ip
+  );
 
   UPDATE wf.task_lease tl
   SET lease_expires_at_utc = v_now + make_interval(secs => p_extend_seconds),
@@ -441,10 +417,14 @@ BEGIN
 END;
 $$;
 
+DROP PROCEDURE IF EXISTS wf.sp_worker_fail_task(bigint, bigint, text, int, text);
+
 CREATE OR REPLACE PROCEDURE wf.sp_worker_fail_task(
   IN p_node_execution_id bigint,
   IN p_worker_id bigint,
-  IN p_worker_token text,
+  IN p_session_token text,
+  IN p_identity_token text,
+  IN p_client_ip text,
   IN p_error_code int,
   IN p_error_message text DEFAULT NULL
 )
@@ -453,7 +433,9 @@ AS $$
 DECLARE
   v_now timestamptz := (now() AT TIME ZONE 'utc');
 BEGIN
-  CALL wf.wf_worker_authenticate(p_worker_id, p_worker_token);
+  CALL wf.wf_worker_authenticate(
+    p_worker_id, p_session_token, p_identity_token, p_client_ip
+  );
 
   UPDATE wf.node_execution
   SET status = 'FAILED',

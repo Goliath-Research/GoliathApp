@@ -4,7 +4,16 @@ from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any, Optional, Protocol, runtime_checkable
+
+
+@dataclass(frozen=True)
+class WorkerCallAuth:
+    worker_id: int
+    session_token: str
+    identity_token: str
+    client_ip: str
 
 
 class _IndexableRow(Protocol):
@@ -63,7 +72,7 @@ class GatewayDb(Protocol):
 
     def close(self) -> None: ...
 
-    def worker_authenticate(self, worker_id: int, worker_token: str) -> None: ...
+    def worker_open_session(self, identity_token: str, client_ip: str) -> dict[str, Any]: ...
 
     def worker_enroll(
         self,
@@ -78,8 +87,7 @@ class GatewayDb(Protocol):
 
     def worker_request_task(
         self,
-        worker_id: int,
-        worker_token: str,
+        auth: WorkerCallAuth,
         capability: Optional[str],
         max_lease_seconds: int,
     ) -> dict[str, Any]: ...
@@ -87,8 +95,7 @@ class GatewayDb(Protocol):
     def worker_submit_result(
         self,
         node_execution_id: int,
-        worker_id: int,
-        worker_token: str,
+        auth: WorkerCallAuth,
         result_code: int,
         output_json: Optional[dict[str, Any]],
     ) -> dict[str, Any]: ...
@@ -96,16 +103,14 @@ class GatewayDb(Protocol):
     def worker_heartbeat(
         self,
         node_execution_id: int,
-        worker_id: int,
-        worker_token: str,
+        auth: WorkerCallAuth,
         extend_seconds: int,
     ) -> dict[str, Any]: ...
 
     def worker_fail_task(
         self,
         node_execution_id: int,
-        worker_id: int,
-        worker_token: str,
+        auth: WorkerCallAuth,
         error_code: int,
         error_message: Optional[str],
     ) -> None: ...
@@ -282,7 +287,7 @@ class GatewayDbBase(ABC):
     def close(self) -> None: ...
 
     @abstractmethod
-    def worker_authenticate(self, worker_id: int, worker_token: str) -> None: ...
+    def worker_open_session(self, identity_token: str, client_ip: str) -> dict[str, Any]: ...
 
     @abstractmethod
     def worker_enroll(
@@ -299,8 +304,7 @@ class GatewayDbBase(ABC):
     @abstractmethod
     def worker_request_task(
         self,
-        worker_id: int,
-        worker_token: str,
+        auth: WorkerCallAuth,
         capability: Optional[str],
         max_lease_seconds: int,
     ) -> dict[str, Any]: ...
@@ -309,8 +313,7 @@ class GatewayDbBase(ABC):
     def worker_submit_result(
         self,
         node_execution_id: int,
-        worker_id: int,
-        worker_token: str,
+        auth: WorkerCallAuth,
         result_code: int,
         output_json: Optional[dict[str, Any]],
     ) -> dict[str, Any]: ...
@@ -319,8 +322,7 @@ class GatewayDbBase(ABC):
     def worker_heartbeat(
         self,
         node_execution_id: int,
-        worker_id: int,
-        worker_token: str,
+        auth: WorkerCallAuth,
         extend_seconds: int,
     ) -> dict[str, Any]: ...
 
@@ -328,8 +330,7 @@ class GatewayDbBase(ABC):
     def worker_fail_task(
         self,
         node_execution_id: int,
-        worker_id: int,
-        worker_token: str,
+        auth: WorkerCallAuth,
         error_code: int,
         error_message: Optional[str],
     ) -> None: ...

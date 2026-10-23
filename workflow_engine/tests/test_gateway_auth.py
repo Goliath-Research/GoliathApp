@@ -72,7 +72,11 @@ class AuthorizeRequestTests(unittest.TestCase):
     def test_worker_ip_bind_denies_wrong_cidr(self) -> None:
         config = GatewayAuthConfig(worker_ip_bind=True, trusted_proxy_cidrs=("127.0.0.1/32",))
         scope = {"client": ("127.0.0.1", 0)}
-        headers = [(b"x-forwarded-for", b"203.0.113.9")]
+        headers = [
+            (b"x-forwarded-for", b"203.0.113.9"),
+            (b"authorization", b"Bearer session-token"),
+            (b"x-goliath-worker-token", b"identity-token"),
+        ]
         with self.assertRaises(AuthForbidden):
             authorize_request(
                 _stub_db(),
@@ -80,7 +84,9 @@ class AuthorizeRequestTests(unittest.TestCase):
                 "POST",
                 "/v1/workers/tasks/request",
                 headers,
-                {"worker_id": 42, "worker_token": "x"},
+                {
+                    "worker_id": 42,
+                },
                 scope,
             )
 
@@ -204,22 +210,17 @@ class AsgiEntraMiddlewareTests(unittest.IsolatedAsyncioTestCase):
             response = await client.post("/v1/admin/catalog/seed", json={"catalog": {"actions": []}})
         self.assertEqual(response.status_code, 404)
 
-    async def test_worker_route_allowed_without_jwt(self) -> None:
+    async def test_worker_route_requires_session_headers(self) -> None:
         config = GatewayAuthConfig(require_entra=True, tenant_id="t", audience="api://test")
         gateway = RestGateway(_stub_db())
-
-        def _noop(*args: object, **kwargs: object) -> None:
-            return None
-
-        with patch("rest.gateway.worker_authenticate", side_effect=_noop):
-            app = create_app(gateway, auth_config=config)
-            transport = httpx.ASGITransport(app=app)
-            async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-                response = await client.post(
-                    "/v1/workers/authenticate",
-                    json={"worker_id": 1, "worker_token": "tok"},
-                )
-        self.assertEqual(response.status_code, 200)
+        app = create_app(gateway, auth_config=config)
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/v1/workers/tasks/request",
+                json={"worker_id": 1},
+            )
+        self.assertEqual(response.status_code, 401)
 
 
 if __name__ == "__main__":

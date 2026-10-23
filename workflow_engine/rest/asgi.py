@@ -7,7 +7,17 @@ from typing import Any, Callable, Optional
 
 from anyio.to_thread import run_sync
 
-from .auth import AuthError, AuthForbidden, GatewayAuthConfig, authorize_request, extract_client_ip
+from .auth import (
+    AuthError,
+    AuthForbidden,
+    GatewayAuthConfig,
+    WORKER_IDENTITY_HEADER,
+    authorize_request,
+    build_worker_call_auth,
+    extract_client_ip,
+    worker_route_requires_session_headers,
+)
+from .db.base import WorkerCallAuth
 from .db.base import GatewayDb, WorkerAuthError, WorkerEnrollError
 from .gateway import RestGateway
 
@@ -61,9 +71,26 @@ def create_app(
                 scope,
             )
             client_ip = extract_client_ip(scope, headers, config.trusted_proxy_cidrs)
+            worker_auth: Optional[WorkerCallAuth] = None
+            identity_token: Optional[str] = None
+            if worker_route_requires_session_headers(method, path):
+                worker_auth = build_worker_call_auth(headers, body, client_ip)
+            elif path.rstrip("/") == "/v1/workers/session":
+                for key, value in headers:
+                    if key.decode("latin-1").lower() == WORKER_IDENTITY_HEADER:
+                        identity_token = value.decode("latin-1")
+                        break
 
             def _dispatch() -> tuple[int, Any]:
-                return gateway.dispatch(method, path, body, query, client_ip=client_ip)
+                return gateway.dispatch(
+                    method,
+                    path,
+                    body,
+                    query,
+                    client_ip=client_ip,
+                    worker_auth=worker_auth,
+                    identity_token=identity_token,
+                )
 
             status, payload = await run_sync(_dispatch)
         except AuthForbidden as exc:

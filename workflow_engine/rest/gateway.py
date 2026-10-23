@@ -27,13 +27,13 @@ if __name__ == "__main__" and __package__ is None:
 
 from .connection import resolve_connection_config
 from .db import open_gateway_db
-from .db.base import GatewayDb
+from .db.base import GatewayDb, WorkerCallAuth
 from .db_client import (
     ingest_event,
-    worker_authenticate,
     worker_enroll,
     worker_fail_task,
     worker_heartbeat,
+    worker_open_session,
     worker_request_task,
     worker_submit_result,
 )
@@ -55,6 +55,8 @@ class RestGateway:
         query: Optional[dict[str, list[str]]] = None,
         *,
         client_ip: Optional[str] = None,
+        worker_auth: Optional[WorkerCallAuth] = None,
+        identity_token: Optional[str] = None,
     ) -> tuple[int, Any]:
         _ = query  # worker routes do not use query params today
 
@@ -94,15 +96,22 @@ class RestGateway:
                 "cluster_key": str(body["cluster_key"]),
             }
 
-        if method == "POST" and path == "/v1/workers/authenticate":
-            worker_authenticate(self.db, int(body["worker_id"]), str(body["worker_token"]))
-            return 200, {}
+        if method == "POST" and path == "/v1/workers/session":
+            ip = (client_ip or "").strip()
+            if not ip:
+                return 400, {"error": "client IP unavailable; session open requires proxy-derived address"}
+            token = (identity_token or "").strip()
+            if not token:
+                return 400, {"error": "X-Goliath-Worker-Token header is required"}
+            payload = worker_open_session(self.db, token, ip)
+            return 200, payload
 
         if method == "POST" and path == "/v1/workers/tasks/request":
+            if worker_auth is None:
+                return 401, {"error": "worker session auth required"}
             result = worker_request_task(
                 self.db,
-                int(body["worker_id"]),
-                str(body["worker_token"]),
+                worker_auth,
                 body.get("capability"),
                 int(body.get("max_lease_seconds", 300)),
             )
@@ -110,11 +119,12 @@ class RestGateway:
 
         m = re.fullmatch(r"/v1/workers/tasks/(\d+)/submit", path)
         if method == "POST" and m:
+            if worker_auth is None:
+                return 401, {"error": "worker session auth required"}
             payload = worker_submit_result(
                 self.db,
                 int(m.group(1)),
-                int(body["worker_id"]),
-                str(body["worker_token"]),
+                worker_auth,
                 int(body["result_code"]),
                 body.get("output_json"),
             )
@@ -132,22 +142,24 @@ class RestGateway:
 
         m = re.fullmatch(r"/v1/workers/tasks/(\d+)/heartbeat", path)
         if method == "POST" and m:
+            if worker_auth is None:
+                return 401, {"error": "worker session auth required"}
             payload = worker_heartbeat(
                 self.db,
                 int(m.group(1)),
-                int(body["worker_id"]),
-                str(body["worker_token"]),
+                worker_auth,
                 int(body.get("extend_seconds", 300)),
             )
             return 200, payload
 
         m = re.fullmatch(r"/v1/workers/tasks/(\d+)/fail", path)
         if method == "POST" and m:
+            if worker_auth is None:
+                return 401, {"error": "worker session auth required"}
             worker_fail_task(
                 self.db,
                 int(m.group(1)),
-                int(body["worker_id"]),
-                str(body["worker_token"]),
+                worker_auth,
                 int(body["error_code"]),
                 body.get("error_message"),
             )

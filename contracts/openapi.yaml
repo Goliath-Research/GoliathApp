@@ -2,13 +2,13 @@ openapi: 3.0.3
 info:
   title: MethylPipeline Workflow Gateway API
   description: "REST contract for the workflow **gateway** (worker-only):\n\n- **Workers** \u2014 `/workers/*`\
-    \ with `worker_id` + `worker_token` (poll, submit, heartbeat, fail).\n- **Enroll** \u2014 `POST /workers/enroll`\
+    \ with `Authorization: Bearer <session>`, header `X-Goliath-Worker-Token` (enrollment identity), proxy-derived IP, and JSON `worker_id`.\n- **Session** \u2014 `POST /workers/session` opens a bearer session from the identity token.\n- **Enroll** \u2014 `POST /workers/enroll`\
     \ from a portal-preregistered public IP (no worker_token yet; gateway mints credentials once).\n\n\
     **EpiPortal never calls this API.** Catalog seed, workflow deploy, and study lifecycle use direct\
     \ DB (`workflow_engine/ops`, `seed_action_catalog.py`, `deploy_workflow_definitions.sh`) or portal\
     \ SQL (`portal.sp_*`). Sensor/operator adapters POST `/events` (typed JSON ingest). Interactive inspection uses Cursor MCP.\n\nMaps to DB objects in `workflow_engine/contract/db_objects.yaml`.\n\
     Production: Python gateway on Linux (`methyl-gateway`, systemd, uvicorn)."
-  version: 1.4.0
+  version: 1.5.0
 servers:
 - url: https://api.example.com/v1
   description: Production
@@ -16,7 +16,7 @@ servers:
   description: Local Python gateway (methyl-gateway)
 tags:
 - name: workers
-  description: Remote worker poll/submit protocol (worker token auth)
+  description: Remote worker poll/submit protocol (session + identity token auth)
 - name: events
   description: Action-agnostic event ingest (sensors, operator apps, adapters)
 paths:
@@ -29,23 +29,28 @@ paths:
       responses:
         '200':
           description: OK
-  /workers/authenticate:
+  /workers/session:
     post:
       tags:
       - workers
-      summary: Validate worker credentials
-      operationId: workerAuthenticate
-      requestBody:
+      summary: Open worker gateway session (wf.sp_worker_open_session)
+      operationId: workerOpenSession
+      security: []
+      parameters:
+      - in: header
+        name: X-Goliath-Worker-Token
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/WorkerAuthRequest'
+        schema:
+          type: string
       responses:
         '200':
-          description: Worker authenticated
+          description: Bearer session minted (returned once)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerSessionResponse'
         '401':
-          description: Invalid credentials
+          description: Invalid identity or IP lockout
   /workers/enroll:
     post:
       tags:
@@ -82,6 +87,8 @@ paths:
       - workers
       summary: Claim one READY task (wf.sp_worker_request_task)
       operationId: workerRequestTask
+      security:
+      - workerSession: []
       requestBody:
         required: true
         content:
@@ -234,28 +241,28 @@ components:
           type: string
         cluster_key:
           type: string
-    WorkerAuthRequest:
+    WorkerSessionResponse:
       type: object
       required:
+      - session_token
       - worker_id
-      - worker_token
       properties:
+        session_token:
+          type: string
         worker_id:
           type: integer
           format: int64
-        worker_token:
+        expires_at_utc:
           type: string
+          format: date-time
     WorkerRequestTaskRequest:
       type: object
       required:
       - worker_id
-      - worker_token
       properties:
         worker_id:
           type: integer
           format: int64
-        worker_token:
-          type: string
         capability:
           type: string
           nullable: true
@@ -302,14 +309,11 @@ components:
       type: object
       required:
       - worker_id
-      - worker_token
       - result_code
       properties:
         worker_id:
           type: integer
           format: int64
-        worker_token:
-          type: string
         result_code:
           type: integer
         output_json:
@@ -329,13 +333,10 @@ components:
       type: object
       required:
       - worker_id
-      - worker_token
       properties:
         worker_id:
           type: integer
           format: int64
-        worker_token:
-          type: string
         extend_seconds:
           type: integer
           default: 300
@@ -356,14 +357,11 @@ components:
       type: object
       required:
       - worker_id
-      - worker_token
       - error_code
       properties:
         worker_id:
           type: integer
           format: int64
-        worker_token:
-          type: string
         error_code:
           type: integer
         error_message:
@@ -411,9 +409,9 @@ components:
         ignored_count:
           type: integer
   securitySchemes:
-    WorkerToken:
-      type: apiKey
-      in: header
-      name: X-Worker-Token
-      description: Worker body fields worker_id + worker_token (primary auth)
+    workerSession:
+      type: http
+      scheme: bearer
+      bearerFormat: session
+      description: Gateway session from POST /workers/session; also send X-Goliath-Worker-Token (enrollment identity).
 security: []

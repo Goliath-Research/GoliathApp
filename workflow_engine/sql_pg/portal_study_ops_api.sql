@@ -1110,10 +1110,15 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS wf.sp_worker_heartbeat(bigint, bigint, text, int);
+DROP FUNCTION IF EXISTS wf.sp_worker_heartbeat(bigint, bigint, text, text, text, int);
+
 CREATE OR REPLACE FUNCTION wf.sp_worker_heartbeat(
   p_node_execution_id bigint,
   p_worker_id bigint,
-  p_worker_token text,
+  p_session_token text,
+  p_identity_token text,
+  p_client_ip text,
   p_extend_seconds int DEFAULT 300
 )
 RETURNS TABLE (rows_updated int, desired_state text, command text)
@@ -1126,7 +1131,9 @@ DECLARE
   v_command text := 'NONE';
   v_stop boolean := false;
 BEGIN
-  CALL wf.wf_worker_authenticate(p_worker_id, p_worker_token);
+  CALL wf.wf_worker_authenticate(
+    p_worker_id, p_session_token, p_identity_token, p_client_ip
+  );
 
   UPDATE wf.task_lease tl
   SET lease_expires_at_utc = v_now + make_interval(secs => p_extend_seconds),

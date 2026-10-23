@@ -9,7 +9,7 @@ from typing import Any, Generator, Optional, Union
 
 from .connection import resolve_connection_config
 from .db import open_gateway_db
-from .db.base import GatewayDb, WorkerAuthError
+from .db.base import GatewayDb, WorkerAuthError, WorkerCallAuth
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -39,9 +39,13 @@ def _use_db(db_or_dsn: Union[GatewayDb, str]) -> Generator[GatewayDb, None, None
         yield db_or_dsn
 
 
-def worker_authenticate(db_or_dsn: Union[GatewayDb, str], worker_id: int, worker_token: str) -> None:
+def worker_open_session(
+    db_or_dsn: Union[GatewayDb, str],
+    identity_token: str,
+    client_ip: str,
+) -> dict[str, Any]:
     with _use_db(db_or_dsn) as db:
-        db.worker_authenticate(worker_id, worker_token)
+        return db.worker_open_session(identity_token, client_ip)
 
 
 def worker_enroll(
@@ -67,56 +71,46 @@ def worker_enroll(
 
 def worker_request_task(
     db_or_dsn: Union[GatewayDb, str],
-    worker_id: int,
-    worker_token: str,
+    auth: WorkerCallAuth,
     capability: Optional[str],
     max_lease_seconds: int,
 ) -> dict[str, Any]:
     with _use_db(db_or_dsn) as db:
-        return db.worker_request_task(
-            worker_id, worker_token, capability, max_lease_seconds
-        )
+        return db.worker_request_task(auth, capability, max_lease_seconds)
 
 
 def worker_submit_result(
     db_or_dsn: Union[GatewayDb, str],
     node_execution_id: int,
-    worker_id: int,
-    worker_token: str,
+    auth: WorkerCallAuth,
     result_code: int,
     output_json: Optional[dict[str, Any]],
 ) -> dict[str, Any]:
     with _use_db(db_or_dsn) as db:
         return db.worker_submit_result(
-            node_execution_id, worker_id, worker_token, result_code, output_json
+            node_execution_id, auth, result_code, output_json
         )
 
 
 def worker_heartbeat(
     db_or_dsn: Union[GatewayDb, str],
     node_execution_id: int,
-    worker_id: int,
-    worker_token: str,
+    auth: WorkerCallAuth,
     extend_seconds: int,
 ) -> dict[str, Any]:
     with _use_db(db_or_dsn) as db:
-        return db.worker_heartbeat(
-            node_execution_id, worker_id, worker_token, extend_seconds
-        )
+        return db.worker_heartbeat(node_execution_id, auth, extend_seconds)
 
 
 def worker_fail_task(
     db_or_dsn: Union[GatewayDb, str],
     node_execution_id: int,
-    worker_id: int,
-    worker_token: str,
+    auth: WorkerCallAuth,
     error_code: int,
     error_message: Optional[str],
 ) -> None:
     with _use_db(db_or_dsn) as db:
-        db.worker_fail_task(
-            node_execution_id, worker_id, worker_token, error_code, error_message
-        )
+        db.worker_fail_task(node_execution_id, auth, error_code, error_message)
 
 
 def ingest_event(
@@ -273,6 +267,7 @@ def create_workflow_definition(db_or_dsn: Union[GatewayDb, str], spec: dict[str,
 __all__ = [
     "GatewayDb",
     "WorkerAuthError",
+    "WorkerCallAuth",
     "apply_validation_plan",
     "apply_execution_scope",
     "create_workflow_definition",
@@ -280,16 +275,17 @@ __all__ = [
     "delete_workflow_definition",
     "get_action_schema",
     "get_workflow_instance",
+    "ingest_event",
     "list_workflow_actions",
-    "open_gateway_db",
+    "open_db_from_dsn",
     "pg_dsn",
-    "resolve_connection_config",
     "start_workflow_instance",
     "upsert_action_schema",
     "upsert_workflow_action",
-    "worker_authenticate",
+    "worker_enroll",
     "worker_fail_task",
     "worker_heartbeat",
+    "worker_open_session",
     "worker_request_task",
     "worker_submit_result",
 ]
