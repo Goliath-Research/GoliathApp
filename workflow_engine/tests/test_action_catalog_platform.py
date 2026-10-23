@@ -64,6 +64,7 @@ def test_catalog_has_engine_and_core_actions() -> None:
 
 
 def test_normalize_strips_scheduler_injected_fields() -> None:
+    from goliath_app.engine.models import ConstBoolInput
     from goliath_app.execution.local import normalize_action_input
 
     model = normalize_action_input(
@@ -78,6 +79,7 @@ def test_normalize_strips_scheduler_injected_fields() -> None:
             "forceRerun": True,
         },
     )
+    assert isinstance(model, ConstBoolInput)
     assert model.value is False
 
 
