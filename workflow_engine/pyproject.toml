@@ -16,6 +16,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pyrefly>=1.3.2,<2"]
 
+[project.entry-points."goliath.auth_providers"]
+rbac_identity_providers = "goliath_app.auth.providers:default_rbac_identity_provider"
+
 [project.scripts]
 goliath-gateway = "rest.gateway:main"
 goliath-workflow-run = "local.runner:main"
@@ -40,7 +43,7 @@ build-backend = "setuptools.build_meta"
 # goliath_app is the repo-root package, linked at ./goliath_app so the sdist
 # and wheel include it. Searching ".." drops those files from the release tree.
 [tool.setuptools.packages.find]
-where = ["."]
+where = [".", ".."]
 include = ["rest*", "local*", "admin*", "ops*", "cfg*", "domain*", "contract*", "goliath_app*"]
 
 [tool.setuptools.package-dir]

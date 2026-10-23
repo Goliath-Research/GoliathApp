@@ -7,6 +7,7 @@ project-includes = [
   "goliath_app",
   "scripts",
   "goliath_worker",
+  "workflow_engine/goliath_app",
 ]
 
 # CI and local development run on 3.12. The package allows >=3.10,<3.15.

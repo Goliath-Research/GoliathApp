@@ -1,8 +1,7 @@
-"""Worker IP / Arc attestation helpers for the workflow REST gateway.
+"""Worker IP / Arc attestation and session header checks for the REST gateway.
 
-The gateway is worker-only; catalog seed and study lifecycle use direct DB.
-``GATEWAY_REQUIRE_ENTRA`` is retained for deployment compatibility but does not
-gate worker routes (workers authenticate via ``worker_token``).
+Workers authenticate with ``Authorization: Bearer <session>``, header
+``X-Goliath-Worker-Token`` (enrollment identity token), and proxy-derived client IP.
 """
 
 from __future__ import annotations
@@ -14,7 +13,10 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping, Optional, Sequence
 
-from .db.base import GatewayDb
+from .db.base import GatewayDb, WorkerCallAuth
+
+WORKER_IDENTITY_HEADER = "x-goliath-worker-token"
+_WORKER_SESSION_PATH = "/v1/workers/session"
 
 
 class RouteTier(Enum):
@@ -61,6 +63,50 @@ class GatewayAuthConfig:
 
 
 _PUBLIC_GET = frozenset({"/", "/v1", "/v1/health"})
+
+
+def parse_bearer_token(headers: Sequence[tuple[bytes, bytes]]) -> Optional[str]:
+    auth_header = _header_value(headers, "authorization")
+    if not auth_header:
+        return None
+    parts = auth_header.split(None, 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    token = parts[1].strip()
+    return token or None
+
+
+def build_worker_call_auth(
+    headers: Sequence[tuple[bytes, bytes]],
+    body: Mapping[str, Any],
+    client_ip: str,
+) -> WorkerCallAuth:
+    worker_raw = body.get("worker_id")
+    session_token = parse_bearer_token(headers)
+    identity_token = _header_value(headers, WORKER_IDENTITY_HEADER)
+    if worker_raw is None:
+        raise AuthError("worker_id is required in the JSON body")
+    if not session_token:
+        raise AuthError("Authorization Bearer session token is required")
+    if not identity_token:
+        raise AuthError("X-Goliath-Worker-Token identity token is required")
+    if not client_ip.strip():
+        raise AuthError("client IP unavailable for worker auth")
+    return WorkerCallAuth(
+        worker_id=int(worker_raw),
+        session_token=session_token,
+        identity_token=identity_token,
+        client_ip=client_ip.strip(),
+    )
+
+
+def worker_route_requires_session_headers(method: str, path: str) -> bool:
+    if classify_route(method, path) != RouteTier.WORKER:
+        return False
+    normalized = path.rstrip("/")
+    if normalized in ("/v1/workers/enroll", _WORKER_SESSION_PATH):
+        return False
+    return True
 
 
 def classify_route(method: str, path: str) -> RouteTier:
@@ -195,9 +241,11 @@ def authorize_request(
     client_ip = extract_client_ip(scope, headers, config.trusted_proxy_cidrs)
 
     if tier == RouteTier.WORKER:
-        # Enroll has no worker_id yet; IP allowlist is enforced inside wf.sp_worker_enroll.
-        if path.rstrip("/") == "/v1/workers/enroll":
+        normalized = path.rstrip("/")
+        if normalized in ("/v1/workers/enroll", _WORKER_SESSION_PATH):
             return None
+        if worker_route_requires_session_headers(method, path):
+            build_worker_call_auth(headers, body, client_ip)
         if body.get("worker_id") is not None:
             wid = int(body["worker_id"])
             if config.worker_ip_bind:

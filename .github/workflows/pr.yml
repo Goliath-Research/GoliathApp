@@ -1,5 +1,6 @@
 name: PR
 
+# Runs on every pull_request sync against main.
 on:
   pull_request:
     branches:
@@ -60,6 +61,7 @@ jobs:
             workflow_engine/tests/test_reference_selection.py \
             workflow_engine/tests/test_goliathapp_sql_no_omics_domain.py \
             workflow_engine/tests/test_goliathapp_pg_schema_apply.py \
+            workflow_engine/tests/test_worker_session_auth.py \
             -q
         env:
           POSTGRES_HOST: localhost

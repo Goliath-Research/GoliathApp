@@ -32,6 +32,8 @@ fi
 
 SCRIPTS=(
   00_schema.sql
+  rbac_schema.sql
+  rbac_session_tokens.sql
   wf_instance_extension.sql
   wf_json_column_alignment.sql
   03_engine_core.sql
@@ -49,6 +51,7 @@ SCRIPTS=(
   wf_action_dispatch_affinity.sql
   wf_data_type.sql
   wf_semantic_action_catalog.sql
+  wf_worker_session_api.sql
   01_worker_api.sql
   wf_cluster_security_columns.sql
   wf_worker_enrollment.sql
@@ -61,7 +64,6 @@ SCRIPTS=(
   portal_workflow_api.sql
   wf_drop_platform_sample_storage.sql
   meta_schema.sql
-  rbac_schema.sql
   contract_schema.sql
   onboarding_schema.sql
   portal_shell_schema.sql
@@ -86,11 +88,13 @@ SCRIPTS=(
   portal_study_pipeline_api.sql
   portal_ops_recovery_api.sql
   portal_rbac_api.sql
+  portal_session_api.sql
   portal_contract_api.sql
   portal_study_ops_api.sql
   portal_guardrails_editor.sql
   cfg_study_start_request.sql
   wf_event_plane.sql
+  database_gateway_roles.sql
 )
 
 echo "Target: host=$PGHOST db=$PGDATABASE user=$PGUSER sslmode=$PGSSLMODE"

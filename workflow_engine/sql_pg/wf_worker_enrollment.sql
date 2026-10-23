@@ -93,8 +93,8 @@ BEGIN
   RETURNING id INTO v_worker_id;
 
   DELETE FROM wf.worker_token WHERE worker_id = v_worker_id;
-  INSERT INTO wf.worker_token (worker_id, token_hash, status)
-  VALUES (v_worker_id, decode(p_token_hash_hex, 'hex'), 'ACTIVE');
+  INSERT INTO wf.worker_token (worker_id, token_hash, status, bound_client_ip)
+  VALUES (v_worker_id, decode(p_token_hash_hex, 'hex'), 'ACTIVE', btrim(p_client_ip));
 
   UPDATE wf.worker_enrollment
   SET status = 'ENROLLED',

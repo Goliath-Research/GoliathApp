@@ -13,7 +13,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from ..azure_auth import get_database_access_token
-from .base import GatewayDbBase, WorkerAuthError, WorkerEnrollError, parse_json_value
+from .base import GatewayDbBase, WorkerAuthError, WorkerCallAuth, WorkerEnrollError, parse_json_value
 
 
 class _PgPool:
@@ -142,11 +142,21 @@ class PostgresGatewayDb(GatewayDbBase):
         rows = self._fetch_all(sql, params)
         return rows[0] if rows else None
 
-    def worker_authenticate(self, worker_id: int, worker_token: str) -> None:
-        self._exec_proc(
-            f"CALL {self._qual('wf_worker_authenticate')}(%s, %s)",
-            (worker_id, worker_token),
+    def worker_open_session(self, identity_token: str, client_ip: str) -> dict[str, Any]:
+        row = self._fetch_one(
+            f"""
+            SELECT session_token, worker_id, expires_at_utc
+            FROM {self._qual('sp_worker_open_session')}(%s, %s)
+            """,
+            (identity_token, client_ip),
         )
+        if not row or row.get("session_token") is None:
+            raise WorkerAuthError("worker session open failed")
+        return {
+            "session_token": str(row["session_token"]),
+            "worker_id": int(row["worker_id"]),
+            "expires_at_utc": row.get("expires_at_utc"),
+        }
 
     def worker_enroll(
         self,
@@ -188,31 +198,46 @@ class PostgresGatewayDb(GatewayDbBase):
 
     def worker_request_task(
         self,
-        worker_id: int,
-        worker_token: str,
+        auth: WorkerCallAuth,
         capability: Optional[str],
         max_lease_seconds: int,
     ) -> dict[str, Any]:
         row = self._fetch_one(
-            f"SELECT * FROM {self._qual('sp_worker_request_task')}(%s, %s, %s, %s)",
-            (worker_id, worker_token, capability, max_lease_seconds),
+            f"""
+            SELECT * FROM {self._qual('sp_worker_request_task')}(
+                %s, %s, %s, %s, %s, %s
+            )
+            """,
+            (
+                auth.worker_id,
+                auth.session_token,
+                auth.identity_token,
+                auth.client_ip,
+                capability,
+                max_lease_seconds,
+            ),
         )
         return self._format_task_claim(row)
 
     def worker_submit_result(
         self,
         node_execution_id: int,
-        worker_id: int,
-        worker_token: str,
+        auth: WorkerCallAuth,
         result_code: int,
         output_json: Optional[dict[str, Any]],
     ) -> dict[str, Any]:
         row = self._fetch_one(
-            f"SELECT * FROM {self._qual('sp_worker_submit_result')}(%s, %s, %s, %s, %s)",
+            f"""
+            SELECT * FROM {self._qual('sp_worker_submit_result')}(
+                %s, %s, %s, %s, %s, %s, %s
+            )
+            """,
             (
                 node_execution_id,
-                worker_id,
-                worker_token,
+                auth.worker_id,
+                auth.session_token,
+                auth.identity_token,
+                auth.client_ip,
                 result_code,
                 json.dumps(output_json) if output_json is not None else None,
             ),
@@ -222,13 +247,23 @@ class PostgresGatewayDb(GatewayDbBase):
     def worker_heartbeat(
         self,
         node_execution_id: int,
-        worker_id: int,
-        worker_token: str,
+        auth: WorkerCallAuth,
         extend_seconds: int,
     ) -> dict[str, Any]:
         row = self._fetch_one(
-            f"SELECT * FROM {self._qual('sp_worker_heartbeat')}(%s, %s, %s, %s)",
-            (node_execution_id, worker_id, worker_token, extend_seconds),
+            f"""
+            SELECT * FROM {self._qual('sp_worker_heartbeat')}(
+                %s, %s, %s, %s, %s, %s
+            )
+            """,
+            (
+                node_execution_id,
+                auth.worker_id,
+                auth.session_token,
+                auth.identity_token,
+                auth.client_ip,
+                extend_seconds,
+            ),
         )
         if not row:
             return {"rows_updated": 0, "desired_state": "ACTIVE", "command": "NONE"}
@@ -241,14 +276,25 @@ class PostgresGatewayDb(GatewayDbBase):
     def worker_fail_task(
         self,
         node_execution_id: int,
-        worker_id: int,
-        worker_token: str,
+        auth: WorkerCallAuth,
         error_code: int,
         error_message: Optional[str],
     ) -> None:
         self._exec_proc(
-            f"CALL {self._qual('sp_worker_fail_task')}(%s, %s, %s, %s, %s)",
-            (node_execution_id, worker_id, worker_token, error_code, error_message),
+            f"""
+            CALL {self._qual('sp_worker_fail_task')}(
+                %s, %s, %s, %s, %s, %s, %s
+            )
+            """,
+            (
+                node_execution_id,
+                auth.worker_id,
+                auth.session_token,
+                auth.identity_token,
+                auth.client_ip,
+                error_code,
+                error_message,
+            ),
         )
 
     def ingest_event(

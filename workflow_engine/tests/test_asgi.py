@@ -46,16 +46,20 @@ class AsgiGatewayTests(unittest.IsolatedAsyncioTestCase):
     async def test_worker_auth_error_returns_401(self) -> None:
         gateway = RestGateway(_stub_db())
 
-        def _raise_auth(*args: object, **kwargs: object) -> None:
+        def _raise_auth(*args: object, **kwargs: object) -> dict[str, object]:
             raise WorkerAuthError("invalid token")
 
-        with patch("rest.gateway.worker_authenticate", side_effect=_raise_auth):
+        with patch("rest.gateway.worker_request_task", side_effect=_raise_auth):
             app = create_app(gateway)
             transport = httpx.ASGITransport(app=app)
             async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
                 response = await client.post(
-                    "/v1/workers/authenticate",
-                    json={"worker_id": 1, "worker_token": "bad"},
+                    "/v1/workers/tasks/request",
+                    json={"worker_id": 1},
+                    headers={
+                        "Authorization": "Bearer session",
+                        "X-Goliath-Worker-Token": "identity",
+                    },
                 )
         self.assertEqual(response.status_code, 401)
         self.assertIn("invalid token", response.json()["error"])
