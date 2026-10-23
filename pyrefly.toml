@@ -4,6 +4,7 @@
 
 project-includes = [
   "workflow_engine",
+  "goliath_app",
   "scripts",
   "goliath_worker",
 ]

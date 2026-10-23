@@ -26,7 +26,7 @@ The script checks `current_user` and `version()`, applies each file with `psql -
 The authoritative order is the `SCRIPTS` array in `apply_schema.sh`. Grouped as that array stands:
 
 1. Workflow core: `00_schema.sql`, `wf_instance_extension.sql`, `wf_json_column_alignment.sql`, `03_engine_core.sql`, `05_runtime_parity.sql`, `06_scope_writepath_parity.sql`, `07_scope_encoding_parity.sql`, `08_foreach_support.sql`, `wf_reclaim_expired_leases.sql`, `wf_worker_desired_state.sql`.
-2. Actions and repository: `02_repository_api.sql`, `wf_action_schema.sql`, `wf_repo_upsert_workflow_action.sql`, `wf_action_dispatch_metadata.sql`, `wf_action_dispatch_concurrency.sql`, `wf_action_dispatch_affinity.sql`, `wf_data_type.sql`.
+2. Actions and repository: `02_repository_api.sql`, `wf_action_schema.sql`, `wf_repo_upsert_workflow_action.sql`, `wf_action_dispatch_metadata.sql`, `wf_action_dispatch_concurrency.sql`, `wf_action_dispatch_affinity.sql`, `wf_data_type.sql`, `wf_semantic_action_catalog.sql`.
 3. Workers: `01_worker_api.sql`, `wf_cluster_security_columns.sql`, `wf_worker_enrollment.sql`, `portal_worker_enrollment_api.sql`.
 4. Graph and admin: `wf_apply_validation_plan.sql`, `wf_execution_scope.sql`, `04_admin.sql`, `wf_repo_create_workflow_graph.sql`, `wf_sql_collection_bindings.sql`, `portal_workflow_api.sql`, `wf_drop_platform_sample_storage.sql`.
 5. Meta, RBAC, contract, onboarding: `meta_schema.sql`, `rbac_schema.sql`, `contract_schema.sql`, `onboarding_schema.sql`, `legacy_cross_schema_fks.sql`.

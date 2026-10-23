@@ -27,14 +27,19 @@ methyl-study-init = "admin.study_init:main"
 methyl-study-validate-manifest = "admin.study_validate:main"
 methyl-cfg = "cfg.cli:main"
 methyl-reclaim-leases = "ops.reclaim_expired_leases:main"
+goliath-export-action-schemas = "goliath_app.actions.schema_export:main"
+
+[project.entry-points."goliath.action_catalogs"]
+engine = "goliath_app.engine.catalog:ACTION_CATALOG"
+core = "goliath_app.core.catalog:ACTION_CATALOG"
 
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["rest*", "local*", "admin*", "ops*", "cfg*", "domain*", "contract*"]
+where = [".", ".."]
+include = ["rest*", "local*", "admin*", "ops*", "cfg*", "domain*", "contract*", "goliath_app*"]
 
 [tool.setuptools.package-dir]
 "" = "."

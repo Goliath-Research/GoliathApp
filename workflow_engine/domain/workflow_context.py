@@ -294,50 +294,26 @@ def list_unresolved_placeholders(value: Any) -> List[str]:
 
 
 def action_input_spec_for(action_name: str) -> Optional[ActionInputSpec]:
-    """Load required keys from the action catalog entry."""
-    import sys
-    from pathlib import Path as _Path
+    """Load required keys from the platform action catalog entry."""
+    from goliath_app.actions.registry import find_action
 
-    workers = _Path(__file__).resolve().parents[2] / "workers"
-    if str(workers) not in sys.path:
-        sys.path.insert(0, str(workers))
-
-    from methyl_worker.action_catalog import find_catalog_entry
-
-    entry = find_catalog_entry(action_name)
+    entry = find_action(action_name)
     if entry is None:
         return None
 
-    optional = {
-        "outputDir",
-        "centroid1Dir",
-        "centroid2Dir",
-        "centroidSeedDir",
-        "residualizeCoefDir",
-        "taskConfig",
-        "phase",
-        "runId",
-        "addSamples",
-        "removeSamples",
-        "stepOverride",
-        "comparison",
-        "fixedDmpPanel",
-        # Bound when present; methyl_qc fails closed at runtime if artifacts are ambiguous.
-        "alignmentMode",
-        "primaryAnalyte",
-        # Full-archive SamplePrep has no reject reason; QC-fail nodes set it in `with`.
-        "rejectReason",
-        "sampleRoot",
-    }
-    required = ["tool"]
+    schema = entry.input_model.model_json_schema()
+    required = list(schema.get("required") or [])
+    if "tool" not in required:
+        required.append("tool")
     if entry.action_config_key:
         required.extend(["project", "projectPath"])
-    required.extend(c for c in entry.context_vars if c not in optional)
-    optional_keys = list(optional)
+    required.extend(entry.context_vars)
+    properties = set((schema.get("properties") or {}).keys())
+    optional_keys = sorted(properties.difference(required))
     return ActionInputSpec(
         action_name=action_name,
         required_keys=sorted(set(required)),
-        optional_keys=optional,
+        optional_keys=optional_keys,
     )
 
 
@@ -354,35 +330,20 @@ def build_resolved_config_scope_vars(context: Mapping[str, Any]) -> Dict[str, An
     the SQL engine can bind ``${var.resolvedConfig__*}`` in action input templates
     without gateway-side materialization at task claim.
     """
-    import sys
-    from pathlib import Path as _Path
-
-    workers = _Path(__file__).resolve().parents[2] / "workers"
-    if str(workers) not in sys.path:
-        sys.path.insert(0, str(workers))
-
-    from methyl_worker.action_catalog import ACTION_CATALOG
-    from methyl_utils.action_config_resolver import resolve_action_config
+    from goliath_app.actions.registry import load_action_catalog
 
     ac = context.get("actionConfig")
     profile_ac = dict(ac) if isinstance(ac, dict) else {}
-    site = context.get("siteConfig") if isinstance(context.get("siteConfig"), dict) else {}
     reg = context.get("regulatory") if isinstance(context.get("regulatory"), dict) else {}
 
     keys: Set[str] = set(profile_ac.keys())
-    for entry in ACTION_CATALOG:
+    for entry in load_action_catalog():
         if entry.action_config_key:
             keys.add(entry.action_config_key)
 
     out: Dict[str, Any] = {}
     for key in sorted(keys):
-        resolved = resolve_action_config(
-            key,
-            site=site,
-            profile_action_config=profile_ac,
-            program_override=None,
-            regulatory=reg,
-        )
+        resolved = dict(profile_ac.get(key) or {})
         # Study regulatory owns analyte / claim shell in the validation slice so
         # profile nests cannot disagree with context.regulatory in the UI bake.
         if key == "validation" and reg:
@@ -524,17 +485,9 @@ def materialize_action_input(
     scope: Mapping[str, Any],
 ) -> Dict[str, Any]:
     """Inject resolvedConfig for workflow ACTION nodes when catalog defines action_config_key."""
-    import sys
-    from pathlib import Path as _Path
+    from goliath_app.actions.registry import find_action
 
-    workers = _Path(__file__).resolve().parents[2] / "workers"
-    if str(workers) not in sys.path:
-        sys.path.insert(0, str(workers))
-
-    from methyl_worker.action_catalog import find_catalog_entry
-    from methyl_utils.action_config_resolver import resolve_action_config
-
-    entry = find_catalog_entry(action_name)
+    entry = find_action(action_name)
     if entry is None or not entry.action_config_key:
         return bind_resolved_project_paths(input_json, scope)
 
@@ -542,33 +495,13 @@ def materialize_action_input(
     if isinstance(out.get("resolvedConfig"), dict):
         return out
 
-    ac = scope.get("actionConfig")
-    profile_ac = dict(ac) if isinstance(ac, dict) else {}
-    site = scope.get("siteConfig") if isinstance(scope.get("siteConfig"), dict) else {}
-    override = out.get("stepOverride") if isinstance(out.get("stepOverride"), dict) else None
-    reg = scope.get("regulatory") if isinstance(scope.get("regulatory"), dict) else {}
-
-    out["resolvedConfig"] = resolve_action_config(
-        entry.action_config_key,
-        site=site,
-        profile_action_config=profile_ac,
-        program_override=override,
-        regulatory=reg,
-    )
-    if entry.action_config_key == "predictor":
-        classifier_cfg = resolve_action_config(
-            "classifier",
-            site=site,
-            profile_action_config=profile_ac,
-            program_override=None,
-            regulatory=reg,
-        )
-        if isinstance(classifier_cfg, dict) and classifier_cfg:
-            baked = dict(out["resolvedConfig"])
-            baked["classifier"] = classifier_cfg
-            if baked.get("model_path") in (None, "") and classifier_cfg.get("save_classifier_path"):
-                baked["model_path"] = classifier_cfg["save_classifier_path"]
-            out["resolvedConfig"] = baked
+    scope_key = resolved_config_scope_var_name(entry.action_config_key)
+    if scope_key in scope:
+        out["resolvedConfig"] = scope[scope_key]
+    else:
+        ac = scope.get("actionConfig")
+        profile_ac = dict(ac) if isinstance(ac, dict) else {}
+        out["resolvedConfig"] = dict(profile_ac.get(entry.action_config_key) or {})
     return out
 
 
