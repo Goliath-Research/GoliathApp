@@ -119,13 +119,26 @@ BEGIN
 
   PERFORM portal.sp_organization_add_member(p_organization_id, p_user_id);
 
-  INSERT INTO "RBAC"."UserRoleGrants" (
-    "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc"
-  )
-  VALUES (
-    p_user_id, v_role_id, 'DIRECT', v_scope_id, true, now() AT TIME ZONE 'utc'
-  )
-  RETURNING "ID" INTO v_grant_id;
+  SELECT g."ID"
+  INTO v_grant_id
+  FROM "RBAC"."UserRoleGrants" g
+  WHERE g."UserID" = p_user_id
+    AND g."RoleID" = v_role_id
+    AND g."GrantType" = 'SCOPED'
+    AND g."ScopeID" = v_scope_id
+    AND g."Active"
+  ORDER BY g."ID"
+  LIMIT 1;
+
+  IF v_grant_id IS NULL THEN
+    INSERT INTO "RBAC"."UserRoleGrants" (
+      "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc"
+    )
+    VALUES (
+      p_user_id, v_role_id, 'SCOPED', v_scope_id, true, now() AT TIME ZONE 'utc'
+    )
+    RETURNING "ID" INTO v_grant_id;
+  END IF;
 
   RETURN QUERY SELECT v_grant_id;
 END;
