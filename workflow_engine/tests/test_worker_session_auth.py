@@ -270,13 +270,14 @@ class WorkerSessionAuthIntegrationTests(unittest.TestCase):
             );
             """,
         )
-        with self.assertRaises(Exception):
-            self.db.worker_request_task(self.auth, "test-cap", 300)
+        _psql_query(self.dsn, "CALL wf.wf_worker_expire_stale_sessions();")
         status = _psql_query(
             self.dsn,
             f"SELECT status FROM wf.worker WHERE id = {self.worker_id};",
         )
         self.assertEqual(status, "FAILED")
+        with self.assertRaises(Exception):
+            self.db.worker_request_task(self.auth, "test-cap", 300)
 
     def test_resession_from_wrong_ip_fails(self) -> None:
         with self.assertRaises(Exception):
