@@ -17,8 +17,8 @@ def pg_dsn() -> str:
     host = os.environ.get("PGHOST") or os.environ.get("POSTGRES_HOST", "localhost")
     port = os.environ.get("PGPORT") or os.environ.get("POSTGRES_PORT", "5432")
     db = os.environ.get("PGDATABASE") or os.environ.get("POSTGRES_DB", "goliath")
-    user = os.environ.get("POSTGRES_USER", "postgres")
-    password = os.environ.get("POSTGRES_PASSWORD", "methyl")
+    user = os.environ.get("PGUSER") or os.environ.get("POSTGRES_USER", "postgres")
+    password = os.environ.get("PGPASSWORD") or os.environ.get("POSTGRES_PASSWORD", "")
     return f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
 
