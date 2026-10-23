@@ -10,11 +10,44 @@ from pydantic import BaseModel
 from goliath_app.actions.registry import find_action
 from goliath_app.engine.handlers import handler_for as engine_handler_for
 
+# Compiler templates and the local scheduler stamp these on every ACTION.
+# They are runtime context, not catalog I/O, unless the input model declares them.
+_RUNTIME_INPUT_KEYS = frozenset(
+    {
+        "tool",
+        "workflowNodeKey",
+        "forceRerun",
+        "projectPath",
+        "executionScopeId",
+    }
+)
+
 
 def _load_handler(dotted: str):
     module_name, func_name = dotted.split(":", 1)
     module = importlib.import_module(module_name)
     return getattr(module, func_name)
+
+
+def _model_input_names(model: Type[BaseModel]) -> set[str]:
+    names: set[str] = set()
+    for name, field in model.model_fields.items():
+        names.add(name)
+        if isinstance(field.alias, str):
+            names.add(field.alias)
+        if isinstance(field.validation_alias, str):
+            names.add(field.validation_alias)
+    return names
+
+
+def strip_runtime_input(model: Type[BaseModel], data: Mapping[str, Any]) -> dict[str, Any]:
+    """Drop injected runtime keys that are not fields of the action input model."""
+    accepted = _model_input_names(model)
+    return {
+        key: value
+        for key, value in data.items()
+        if key not in _RUNTIME_INPUT_KEYS or key in accepted
+    }
 
 
 def normalize_action_input(
@@ -25,8 +58,8 @@ def normalize_action_input(
     spec = find_action(action_name)
     if spec is None:
         raise KeyError(f"unknown action {action_name!r}")
-    data = dict(input_json)
-    if "tool" not in data:
+    data = strip_runtime_input(spec.input_model, input_json)
+    if "tool" not in data and "tool" in _model_input_names(spec.input_model):
         data["tool"] = spec.resolved_tool
     return spec.input_model.model_validate(data)
 

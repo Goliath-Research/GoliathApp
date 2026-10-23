@@ -37,6 +37,10 @@ def input_schema_compatible(base: Type[BaseModel], derived: Type[BaseModel]) -> 
     for name in base_props:
         if name not in derived_props:
             return False
+    # New properties must be optional. A required key that the base does not
+    # declare would reject callers that already omit it.
+    if not derived_req.issubset(set(base_props)):
+        return False
     return True
 
 

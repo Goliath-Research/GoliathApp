@@ -37,8 +37,10 @@ core = "goliath_app.core.catalog:ACTION_CATALOG"
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
+# goliath_app is the repo-root package, linked at ./goliath_app so the sdist
+# and wheel include it. Searching ".." drops those files from the release tree.
 [tool.setuptools.packages.find]
-where = [".", ".."]
+where = ["."]
 include = ["rest*", "local*", "admin*", "ops*", "cfg*", "domain*", "contract*", "goliath_app*"]
 
 [tool.setuptools.package-dir]
