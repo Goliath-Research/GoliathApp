@@ -178,6 +178,12 @@ BEGIN
     RETURN;
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1 FROM "RBAC"."Users" u WHERE u."ID" = v_uid AND u."Active" = 1
+  ) THEN
+    RETURN;
+  END IF;
+
   IF to_regclass('portal."UserOrganizations"') IS NOT NULL
      AND to_regclass('portal."Organizations"') IS NOT NULL THEN
     EXECUTE $q$
@@ -202,7 +208,7 @@ BEGIN
     v_exp,
     false
   FROM "RBAC"."Users" u
-  WHERE u."ID" = v_uid;
+  WHERE u."ID" = v_uid AND u."Active" = 1;
 END;
 $$;
 
@@ -249,7 +255,11 @@ BEGIN
         v_now + make_interval(secs => v_idle),
         st."CreatedAtUtc" + make_interval(secs => v_abs)
       )
-  WHERE st."TokenHash" = v_hash
+  FROM "RBAC"."Sessions" s
+  INNER JOIN "RBAC"."Users" u ON u."ID" = s."UserID"
+  WHERE st."SessionID" = s."ID"
+    AND st."TokenHash" = v_hash
+    AND u."Active" = 1
     AND st."RevokedAtUtc" IS NULL
     AND v_now <= st."CreatedAtUtc" + make_interval(secs => v_abs)
     AND v_now <= st."LastRefreshedAtUtc" + make_interval(secs => v_idle)
