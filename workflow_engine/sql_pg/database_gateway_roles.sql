@@ -26,7 +26,6 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA portal GRANT EXECUTE ON FUNCTIONS TO goliath_
 
 REVOKE USAGE ON SCHEMA cfg FROM goliath_portal;
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA cfg FROM goliath_portal;
-REVOKE EXECUTE ON ALL PROCEDURES IN SCHEMA cfg FROM goliath_portal;
 REVOKE EXECUTE ON FUNCTION cfg.cfg_repo_get_credential_secret(text, text) FROM PUBLIC;
 
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA wf FROM goliath_portal;
@@ -34,6 +33,9 @@ REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA portal FROM goliath_gateway;
 
 GRANT USAGE ON SCHEMA wf TO goliath_gateway;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA wf TO goliath_gateway;
-GRANT EXECUTE ON ALL PROCEDURES IN SCHEMA wf TO goliath_gateway;
+GRANT EXECUTE ON PROCEDURE wf.wf_worker_authenticate(bigint, text, text, text) TO goliath_gateway;
+GRANT EXECUTE ON PROCEDURE wf.wf_worker_expire_stale_sessions() TO goliath_gateway;
+GRANT EXECUTE ON PROCEDURE wf.sp_worker_fail_task(
+  bigint, bigint, text, text, text, int, text
+) TO goliath_gateway;
 ALTER DEFAULT PRIVILEGES IN SCHEMA wf GRANT EXECUTE ON FUNCTIONS TO goliath_gateway;
-ALTER DEFAULT PRIVILEGES IN SCHEMA wf GRANT EXECUTE ON PROCEDURES TO goliath_gateway;
