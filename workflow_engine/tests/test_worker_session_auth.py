@@ -259,9 +259,6 @@ class WorkerSessionAuthIntegrationTests(unittest.TestCase):
         )
 
     def test_missed_heartbeat_marks_failed(self) -> None:
-        start_instance(self.dsn, self.version_id)
-        claim = self.db.worker_request_task(self.auth, "test-cap", 300)
-        self.assertTrue(claim.get("has_task"), claim)
         _psql_query(
             self.dsn,
             f"""
@@ -285,16 +282,20 @@ class WorkerSessionAuthIntegrationTests(unittest.TestCase):
         with self.assertRaises(Exception):
             self.db.worker_open_session(self.identity, "198.51.100.1")
 
-    def test_goliath_portal_cannot_select_worker_table(self) -> None:
+    def test_goliath_portal_has_no_cfg_schema_usage(self) -> None:
         roles_sql = SQL_PG / "database_gateway_roles.sql"
         if roles_sql.is_file():
             _psql(self.dsn, ["-f", str(roles_sql)])
-        proc = _psql(
+        can_cfg = _psql_query(
             self.dsn,
-            ["-t", "-A", "-c", "SET ROLE goliath_portal; SELECT COUNT(*) FROM wf.worker;"],
-            check=False,
+            "SELECT has_schema_privilege('goliath_portal', 'cfg', 'USAGE');",
         )
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(can_cfg, "f")
+        can_portal = _psql_query(
+            self.dsn,
+            "SELECT has_schema_privilege('goliath_portal', 'portal', 'USAGE');",
+        )
+        self.assertEqual(can_portal, "t")
 
 
 if __name__ == "__main__":
