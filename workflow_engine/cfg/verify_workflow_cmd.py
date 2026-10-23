@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -60,51 +59,47 @@ def run_verify_workflow(
 
 
 def _fetch_db_action_nodes(workflow_name: str) -> List[Dict[str, Any]]:
-    """Load ACTION nodes for the active version of ``workflow_name`` from Azure SQL."""
-    import pyodbc
+    """Load ACTION nodes for the active version of ``workflow_name`` from PostgreSQL."""
+    from rest.connection import resolve_connection_config
+    from rest.db.postgres import PostgresGatewayDb
 
-    server = os.environ.get("AZURE_SQL_SERVER")
-    db = os.environ.get("AZURE_SQL_DB")
-    user = os.environ.get("AZURE_SQL_USER")
-    password = os.environ.get("AZURE_SQL_PASSWORD")
-    if not all([server, db, user, password]):
-        raise RuntimeError(
-            "check-db requires AZURE_SQL_SERVER/DB/USER/PASSWORD (e.g. gateway.env)"
+    cfg = resolve_connection_config()
+    db = PostgresGatewayDb(
+        cfg.connection_string,
+        schema_name=cfg.schema_name,
+        use_managed_identity=cfg.use_managed_identity,
+    )
+    try:
+        version_row = db._fetch_one(  # noqa: SLF001
+            """
+            SELECT wv.id
+            FROM wf.workflow_version wv
+            JOIN wf.workflow_def wd ON wd.id = wv.workflow_def_id
+            WHERE wd.name = %s AND wv.is_active = TRUE
+            ORDER BY wv.id DESC
+            LIMIT 1
+            """,
+            (workflow_name,),
         )
-    cs = (
-        f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={server};"
-        f"DATABASE={db};UID={user};PWD={password};Encrypt=yes;TrustServerCertificate=no"
-    )
-    conn = pyodbc.connect(cs, timeout=30)
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT TOP 1 wv.id
-        FROM wf.workflow_version wv
-        JOIN wf.workflow_def wd ON wd.id = wv.workflow_def_id
-        WHERE wd.name = ? AND wv.is_active = 1
-        ORDER BY wv.id DESC
-        """,
-        workflow_name,
-    )
-    row = cur.fetchone()
-    if not row:
-        return []
-    version_id = int(row[0])
-    cur.execute(
-        """
-        SELECT wn.node_key, wn.node_type, wa.action_name
-        FROM wf.workflow_node wn
-        LEFT JOIN wf.workflow_action wa ON wa.id = wn.workflow_action_id
-        WHERE wn.workflow_version_id = ?
-        """,
-        version_id,
-    )
+        if not version_row or version_row.get("id") is None:
+            return []
+        version_id = int(version_row["id"])
+        rows = db._fetch_all(  # noqa: SLF001
+            """
+            SELECT wn.node_key, wn.node_type, wa.action_name
+            FROM wf.workflow_node wn
+            LEFT JOIN wf.workflow_action wa ON wa.id = wn.workflow_action_id
+            WHERE wn.workflow_version_id = %s
+            """,
+            (version_id,),
+        )
+    finally:
+        db.close()
     return [
         {
-            "node_key": r.node_key,
-            "node_type": r.node_type,
-            "action_name": r.action_name,
+            "node_key": row["node_key"],
+            "node_type": row["node_type"],
+            "action_name": row["action_name"],
         }
-        for r in cur.fetchall()
+        for row in rows
     ]

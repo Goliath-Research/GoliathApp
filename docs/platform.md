@@ -29,18 +29,14 @@ There is no separate `obj` schema. Object identity is `"Meta"."Objs"`.
 | Config CLI | `workflow_engine/cfg/` | `goliath-cfg`. File-backed registry under `$METHYL_CFG_STORE` or `$METHYL_WORK_ROOT/goliath/cfg-store` (default `/work/goliath/cfg-store`). |
 | Claim client | `goliath_worker/` | HTTP client for the worker routes. No database connection. |
 | Shared storage helpers | `goliath_worker/work_share.py`, `scripts/init_work_layout.sh` | Optional `/work` layout and cross-host permissions. |
-| Contract check | `workflow_engine/contract/validate_contract.py` | Requires the objects in `db_objects.yaml` to appear in both SQL trees. |
+| Contract check | `workflow_engine/contract/validate_contract.py` | Requires the objects in `db_objects.yaml` to appear in `sql_pg/`. |
 | Delphi gateway | `workflow_engine/delphi/` | Frozen Windows reference. The Python gateway is the middle tier that ships here. |
 
-`publish-program --deploy-db` imports `ops.workflow_deploy`, which is not in this tree. `sync-actions` runs `workflow_engine/sql_mssql/seed_action_catalog.py`, which is not in this tree. `sync-library-presets` imports `methyl_enricher.preset_registry`, which is not in this tree.
+`publish-program --deploy-db` imports `ops.workflow_deploy`, which is not in this tree. `sync-actions` runs `workflow_engine/sql_pg/seed_action_catalog.py`, which is not in this tree. `sync-library-presets` imports `methyl_enricher.preset_registry`, which is not in this tree.
 
 ## Gateway and database defaults
 
-`BACKEND_DB` selects the gateway backend and defaults to `mssql`. PostgreSQL is `postgres`, `postgresql`, or `pg`.
-
-PostgreSQL connection fields are `POSTGRES_HOST` (default `localhost`), `POSTGRES_PORT` (default `5432`), `POSTGRES_DB` (default `methylpipeline`), `POSTGRES_USER` (default `postgres`), `POSTGRES_PASSWORD`, and `PGSSLMODE` (default `require`). `METHYLPIPELINE_DB` replaces the built connection string. `WF_USE_MANAGED_IDENTITY=1` omits the password so an Entra token can be supplied at connect time. `WF_SCHEMA` defaults to `wf`.
-
-Azure SQL uses `AZURE_SQL_SERVER`, `AZURE_SQL_DB`, `AZURE_SQL_USER`, and `AZURE_SQL_PASSWORD`.
+The gateway connects to PostgreSQL only. Use libpq variables `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` (or `PGPASSFILE`), and `PGSSLMODE` (default `prefer`), or the aliases `POSTGRES_HOST` (default `localhost`), `POSTGRES_PORT` (default `5432`), `POSTGRES_DB` (default `goliath`), `POSTGRES_USER` (default `postgres`), and `POSTGRES_PASSWORD`. `METHYLPIPELINE_DB` replaces the built connection string. `WF_USE_MANAGED_IDENTITY=1` omits the password so an Entra token can be supplied at connect time (hosted PostgreSQL with Entra auth). `WF_SCHEMA` defaults to `wf`.
 
 The gateway listens on `WF_GATEWAY_HOST` or `REST_HOST` (default `127.0.0.1`) and `WF_GATEWAY_PORT` or `REST_PORT` (default `8080`). Health is `GET /`, `GET /v1`, and `GET /v1/health`. The health body reports `service` as `methyl-workflow-gateway`.
 

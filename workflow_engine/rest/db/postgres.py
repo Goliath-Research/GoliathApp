@@ -13,7 +13,6 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from ..azure_auth import get_database_access_token
-from ..connection import DatabaseBackend
 from .base import GatewayDbBase, WorkerAuthError, WorkerEnrollError, parse_json_value
 
 
@@ -36,7 +35,7 @@ class _PgPool:
 
     def _new_connection(self) -> psycopg.Connection[Any]:
         if self._use_managed_identity:
-            token = get_database_access_token(DatabaseBackend.POSTGRES)
+            token = get_database_access_token()
             return psycopg.connect(self._conninfo, password=token, row_factory=dict_row)
         return psycopg.connect(self._conninfo, row_factory=dict_row)
 

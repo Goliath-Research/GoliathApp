@@ -12,7 +12,7 @@
     },
     {
       "title": "Workflow engine",
-      "description": "PostgreSQL and Azure SQL run workflow graphs: sequences, branches, loops, foreach, and events. Workers lease action nodes and the engine continues from result codes."
+      "description": "PostgreSQL runs workflow graphs: sequences, branches, loops, foreach, and events. Workers lease action nodes and the engine continues from result codes."
     },
     {
       "title": "User-defined actions",

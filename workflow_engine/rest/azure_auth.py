@@ -1,18 +1,14 @@
-"""Azure Entra ID access tokens for workflow gateway database connections."""
+"""Azure Entra ID access tokens for PostgreSQL managed-identity connections."""
 
 from __future__ import annotations
 
 import os
-import struct
 import threading
 import time
 from dataclasses import dataclass
 from typing import Optional
 
-from .connection import DatabaseBackend
-
-# Match Delphi WfEngine.Connection.pas GetEntraTokenResource.
-_MSSQL_RESOURCE = "https://database.windows.net/.default"
+# Resource for Azure Database for PostgreSQL Entra authentication.
 _POSTGRES_RESOURCE = "https://ossrdbms-aad.database.windows.net/.default"
 
 # Refresh before expiry (Azure tokens are typically ~1 hour).
@@ -26,16 +22,10 @@ class _CachedToken:
 
 
 _lock = threading.Lock()
-_cache: dict[str, _CachedToken] = {}
+_cache: Optional[_CachedToken] = None
 
 
-def _token_scope(backend: DatabaseBackend) -> str:
-    if backend is DatabaseBackend.POSTGRES:
-        return _POSTGRES_RESOURCE
-    return _MSSQL_RESOURCE
-
-
-def _fetch_access_token(scope: str) -> _CachedToken:
+def _fetch_access_token() -> _CachedToken:
     try:
         from azure.identity import DefaultAzureCredential
     except ImportError as exc:
@@ -49,37 +39,25 @@ def _fetch_access_token(scope: str) -> _CachedToken:
         managed_identity_client_id=client_id,
         exclude_interactive_browser_credential=True,
     )
-    result = credential.get_token(scope)
+    result = credential.get_token(_POSTGRES_RESOURCE)
     expires_on = float(getattr(result, "expires_on", time.time() + 3600))
     return _CachedToken(token=result.token, expires_on=expires_on)
 
 
-def get_database_access_token(backend: DatabaseBackend) -> str:
-    """Return a cached Azure AD access token for the given database backend."""
-    scope = _token_scope(backend)
+def get_database_access_token() -> str:
+    """Return a cached Azure AD access token for PostgreSQL Entra auth."""
+    global _cache
     now = time.time()
     with _lock:
-        cached = _cache.get(scope)
-        if cached is not None and cached.expires_on - now > _REFRESH_MARGIN_SECONDS:
-            return cached.token
-        fresh = _fetch_access_token(scope)
-        _cache[scope] = fresh
+        if _cache is not None and _cache.expires_on - now > _REFRESH_MARGIN_SECONDS:
+            return _cache.token
+        fresh = _fetch_access_token()
+        _cache = fresh
         return fresh.token
-
-
-def mssql_access_token_bytes(token: Optional[str] = None) -> bytes:
-    """Packed access token for pyodbc SQL_COPT_SS_ACCESS_TOKEN (1256).
-
-    msodbcsql expects a 4-byte little-endian length prefix followed by UTF-16-LE
-    token bytes (ACCESSTOKEN struct). Passing raw UTF-16-LE without the prefix
-    causes authentication failures or driver crashes.
-    """
-    value = token if token is not None else get_database_access_token(DatabaseBackend.MSSQL)
-    encoded = value.encode("utf-16-le")
-    return struct.pack("<I", len(encoded)) + encoded
 
 
 def clear_token_cache() -> None:
     """Clear cached tokens (for tests)."""
+    global _cache
     with _lock:
-        _cache.clear()
+        _cache = None

@@ -7,7 +7,7 @@ The Delphi HTTP gateway (`WfEngineSrv` / `MethylWfGateway` Windows service) is n
 ## Scope when frozen
 
 - Worker and admin REST subset only (OpenAPI `/v1/*` routes implemented in DMVC controllers).
-- Dual-database connection helpers (Azure SQL + PostgreSQL, managed identity) remain in `WfEngine.Connection.pas` for historical comparison with Python.
+- Connection helpers in `WfEngine.Connection.pas` are a frozen Windows reference; the Python gateway is PostgreSQL-only.
 - **No new routes**, OpenAPI parity work, or production deployment changes are planned.
 
 ## Build (manual, Win64)
@@ -35,4 +35,4 @@ See [`WORKFLOW_ENGINE_DELPHI.md`](WORKFLOW_ENGINE_DELPHI.md) for Delphi runtime 
 
 ## Do not delete
 
-Keep `WfEngineSrv.dproj`, DMVC units, and integration tests for Windows debugging and contract archaeology. CI (`.github/workflows/db-parity.yml`) exercises the **Python** gateway only.
+Keep `WfEngineSrv.dproj`, DMVC units, and integration tests for Windows debugging and contract archaeology. CI exercises the **Python** gateway on pull requests.

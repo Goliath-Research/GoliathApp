@@ -1,6 +1,6 @@
 # RBAC
 
-RBAC is the `"RBAC"` schema in `workflow_engine/sql_pg/rbac_schema.sql` (Azure SQL twin `workflow_engine/sql_mssql/rbac_schema.sql`). Identifiers are quoted PascalCase so they match the Azure SQL names. There is no lowercase `rbac` synonym schema. The gateway does not expose these procedures over HTTP. Callers use the database.
+RBAC is the `"RBAC"` schema in `workflow_engine/sql_pg/rbac_schema.sql`. Identifiers are quoted PascalCase for legacy EpiPortal compatibility. There is no lowercase `rbac` synonym schema. The gateway does not expose these procedures over HTTP. Callers use the database.
 
 ## Tables
 

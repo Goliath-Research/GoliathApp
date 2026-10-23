@@ -19,7 +19,6 @@ Repository layout: [docs/workspace-index.md](docs/workspace-index.md). A catalog
 | Pipeline profiles | [docs/pipeline-profiles.md](docs/pipeline-profiles.md) |
 | Schema apply (`sql_pg`) | [docs/schema-apply.md](docs/schema-apply.md) |
 | PostgreSQL deploy script | [workflow_engine/sql_pg/README.md](workflow_engine/sql_pg/README.md) |
-| Azure SQL deploy script | [workflow_engine/sql_mssql/README.md](workflow_engine/sql_mssql/README.md) |
 | HTTP contract | [contracts/openapi.yaml](contracts/openapi.yaml) |
 | Worker protocol | [workers/WORKER_PROTOCOL.md](workers/WORKER_PROTOCOL.md) |
 
@@ -50,9 +49,7 @@ The shared worker HTTP client is `goliath_worker/` (stdlib only). It claims and 
 
 ## Databases
 
-PostgreSQL objects are applied by [`workflow_engine/sql_pg/deploy_azure.sh`](workflow_engine/sql_pg/deploy_azure.sh). The Azure SQL twin is [`workflow_engine/sql_mssql/deploy_azure.sh`](workflow_engine/sql_mssql/deploy_azure.sh). [`scripts/check_sql_deploy_twins.py`](scripts/check_sql_deploy_twins.py) fails when a SQL file that exists in both trees is listed in only one `SCRIPTS` array.
-
-The shell deploy scripts default the database name to `goliath`. The Python gateway defaults `BACKEND_DB` to `mssql` and, for PostgreSQL, defaults `POSTGRES_DB` to `methylpipeline` when that variable is unset (`workflow_engine/rest/connection.py`). CI parity uses `methylpipeline_parity`.
+PostgreSQL objects are applied by [`workflow_engine/sql_pg/apply_schema.sh`](workflow_engine/sql_pg/apply_schema.sh). Set `PGHOST`, `PGDATABASE`, `PGUSER`, and `PGPASSWORD` (or `PGPASSFILE`) before running. The Python gateway reads the same libpq-style variables (or `POSTGRES_*` aliases); see [`workflow_engine/rest/connection.py`](workflow_engine/rest/connection.py).
 
 ## Type checking
 

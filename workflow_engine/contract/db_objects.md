@@ -1,10 +1,10 @@
 # MethylPipeline DB Object Contract
 
-Canonical contract for middle-tier-to-database access. Both **Azure SQL (T-SQL)** and **PostgreSQL (PL/pgSQL)** must implement every object listed in [`db_objects.yaml`](db_objects.yaml) with identical semantics.
+Canonical contract for middle-tier-to-database access. **PostgreSQL (PL/pgSQL)** in `sql_pg/` must implement every object listed in [`db_objects.yaml`](db_objects.yaml).
 
 ## Schema
 
-All workflow-engine objects live in schema **`wf`**. Domain/portal objects may use `dbo`, `Meta`, `RBAC`, `portal`, etc. (Azure SQL only until ported). **Do not add process-specific config tables to `wf`** — use `portal.resource_profile` or pass fully materialized JSON in `context_json`.
+All workflow-engine objects live in schema **`wf`**. Domain/portal objects may use `dbo`, `Meta`, `RBAC`, `portal`, etc. **Do not add process-specific config tables to `wf`** — use `portal.resource_profile` or pass fully materialized JSON in `context_json`.
 
 ## Portability conventions
 
@@ -105,7 +105,7 @@ Dialect-neutral wrappers used by the REST gateway — see `db_objects.yaml` `rep
 | `wf.wf_repo_get_workflow_instance` | Fetch instance id, version, and status by instance id |
 | `wf.wf_repo_create_workflow_instance` | Insert instance row; returns `id` |
 
-Action schemas are generated from worker Pydantic models (`methyl-export-task-schemas` → `schemas/tasks/`) and seeded via [`../sql_mssql/seed_action_catalog.py`](../sql_mssql/seed_action_catalog.py) using **direct DB**. Runtime validation is enforced in workers; portal graph create rejects unknown actions in SQL.
+Action schemas are generated from worker Pydantic models (`methyl-export-task-schemas` → `schemas/tasks/`) and seeded via `sql_pg/seed_action_catalog.py` using **direct DB** when that script is present. Runtime validation is enforced in workers; portal graph create rejects unknown actions in SQL.
 
 ### 2a. Portal repository API (EpiPortal — database only)
 
@@ -214,4 +214,4 @@ Run from repo root:
 python workflow_engine/contract/validate_contract.py
 ```
 
-Fails if an object in `db_objects.yaml` is missing from either `sql_mssql/` or `sql_pg/` deploy scripts.
+Fails if an object in `db_objects.yaml` is missing from `sql_pg/` deploy scripts.

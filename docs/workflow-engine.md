@@ -1,6 +1,6 @@
 # Workflow engine
 
-The workflow engine is SQL. PostgreSQL sources are `workflow_engine/sql_pg/`. The Azure SQL twin is `workflow_engine/sql_mssql/`. Both expose the objects listed in `workflow_engine/contract/db_objects.yaml`. `workflow_engine/contract/validate_contract.py` checks that those names appear in both trees.
+The workflow engine is SQL. PostgreSQL sources are `workflow_engine/sql_pg/`. They expose the objects listed in `workflow_engine/contract/db_objects.yaml`. `workflow_engine/contract/validate_contract.py` checks that those names appear in the deploy scripts.
 
 A graph is rows in `wf.workflow_def`, `wf.workflow_version`, `wf.workflow_node`, and `wf.workflow_edge`. Node types match the compiler: `ACTION`, `SEQUENCE`, `PARALLEL`, `IF`, `SWITCH`, `REPEAT`, `WHILE`, `FOREACH`, `WAIT_EVENT`.
 
@@ -55,4 +55,4 @@ Action rows carry dispatch metadata the claim query honors. The engine does not 
 
 `workflow_engine/sql_pg/deploy_test_bed.sh` applies `wf_instance_extension.sql`, `wf_test_bed_schema.sql`, `wf_test_bed_worker.sql`, `wf_two_group_test_seed.sql`, `wf_mc_two_group_test_seed.sql`, and `wf_test_bed_run.sql`. The two seed files, and `instance_context_examples/`, are not in this repository, so the script stops when it reaches the first missing file. The schema, worker, and run scripts that are present define `wf.test_bed_run`, `wf.test_bed_task_log`, and `wf.sp_test_bed_run_workflow` once the missing seeds are supplied by the caller.
 
-Demo graphs that do live in the Azure SQL tree are `workflow_seed_examples.sql` and `workflow_tree_seed_example.sql`. They are not in the PostgreSQL `SCRIPTS` array.
+Example workflow seed SQL files are not in the PostgreSQL `SCRIPTS` array in this repository.
