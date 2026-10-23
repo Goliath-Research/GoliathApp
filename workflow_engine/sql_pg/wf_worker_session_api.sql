@@ -218,6 +218,7 @@ CREATE OR REPLACE FUNCTION wf.sp_worker_open_session(
 RETURNS TABLE (session_token text, worker_id bigint, expires_at_utc timestamptz)
 LANGUAGE plpgsql
 AS $$
+#variable_conflict use_column
 DECLARE
   v_hash bytea;
   v_worker_id bigint;
