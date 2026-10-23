@@ -197,7 +197,6 @@ class WorkflowRestClient:
         wid = worker_id if worker_id is not None else self._require_worker_id()
         if worker_token:
             self._identity_token = worker_token
-            self.open_session(worker_token)
         if not self._session_token or not self._identity_token:
             raise RuntimeError("worker session not open; call enroll or open_session")
 

@@ -13,7 +13,6 @@ BEGIN
   END IF;
 END $$;
 
-REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA portal TO goliath_portal;
 GRANT USAGE ON SCHEMA cfg TO goliath_portal;
 

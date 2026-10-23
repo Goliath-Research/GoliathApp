@@ -7,6 +7,8 @@ CREATE OR REPLACE FUNCTION wf.fn_worker_session_ttl_seconds()
 RETURNS int
 LANGUAGE sql
 STABLE
+SECURITY DEFINER
+SET search_path = wf, cfg, pg_temp
 AS $$
   SELECT cfg.fn_portal_auth_int('worker_heartbeat_seconds', 60)
        * cfg.fn_portal_auth_int('worker_session_miss_factor', 3);
@@ -62,6 +64,8 @@ $$;
 
 CREATE OR REPLACE PROCEDURE wf.wf_worker_expire_stale_sessions()
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = wf, "RBAC", cfg, pg_temp
 AS $$
 DECLARE
   v_now timestamptz := now() AT TIME ZONE 'utc';
@@ -80,11 +84,20 @@ BEGIN
     SET "RevokedAtUtc" = v_now
     WHERE "SessionID" = rec."SessionID" AND "RevokedAtUtc" IS NULL;
 
-    UPDATE wf.worker
-    SET status = 'FAILED', updated_at_utc = v_now
-    WHERE id = rec.worker_id AND status IN ('REGISTERED', 'READY');
+    IF NOT EXISTS (
+      SELECT 1
+      FROM "RBAC"."SessionTokens" st2
+      INNER JOIN "RBAC"."Sessions" s2 ON s2."ID" = st2."SessionID"
+      WHERE s2."UserID" = rec."UserID"
+        AND st2."RevokedAtUtc" IS NULL
+        AND st2."LastRefreshedAtUtc" + make_interval(secs => v_ttl) >= v_now
+    ) THEN
+      UPDATE wf.worker
+      SET status = 'FAILED', updated_at_utc = v_now
+      WHERE id = rec.worker_id AND status IN ('REGISTERED', 'READY');
 
-    PERFORM * FROM wf.sp_reclaim_expired_leases(NULL::bigint, 0, true);
+      PERFORM * FROM wf.sp_reclaim_expired_leases(NULL::bigint, 0, true);
+    END IF;
   END LOOP;
 END;
 $$;
@@ -92,6 +105,8 @@ $$;
 CREATE OR REPLACE FUNCTION wf.wf_worker_session_touch(p_session_token text)
 RETURNS boolean
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = wf, "RBAC", cfg, pg_temp
 AS $$
 DECLARE
   v_hash bytea;
@@ -120,6 +135,8 @@ CREATE OR REPLACE PROCEDURE wf.wf_worker_authenticate(
   IN p_client_ip text
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = wf, "RBAC", cfg, pg_temp
 AS $$
 DECLARE
   v_hash_session bytea;
@@ -217,6 +234,8 @@ CREATE OR REPLACE FUNCTION wf.sp_worker_open_session(
 )
 RETURNS TABLE (session_token text, worker_id bigint, expires_at_utc timestamptz)
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = wf, "RBAC", cfg, pg_temp
 AS $$
 #variable_conflict use_column
 DECLARE
@@ -271,6 +290,13 @@ BEGIN
   END IF;
 
   v_uid := wf.wf_ensure_worker_rbac_user(v_worker_id);
+
+  UPDATE "RBAC"."SessionTokens" st
+  SET "RevokedAtUtc" = v_now
+  FROM "RBAC"."Sessions" s
+  WHERE st."SessionID" = s."ID"
+    AND s."UserID" = v_uid
+    AND st."RevokedAtUtc" IS NULL;
 
   v_token := replace(
     gen_random_uuid()::text || gen_random_uuid()::text || gen_random_uuid()::text || gen_random_uuid()::text,
