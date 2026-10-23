@@ -63,6 +63,24 @@ def test_catalog_has_engine_and_core_actions() -> None:
     assert engine.resolved_exposure.value == "hidden"
 
 
+def test_normalize_strips_scheduler_injected_fields() -> None:
+    from goliath_app.execution.local import normalize_action_input
+
+    model = normalize_action_input(
+        "workflow.const_bool",
+        "workflow.compute",
+        {
+            "tool": "workflow.compute",
+            "value": False,
+            "projectPath": "/tmp/x",
+            "executionScopeId": "scope-1",
+            "workflowNodeKey": "n1",
+            "forceRerun": True,
+        },
+    )
+    assert model.value is False
+
+
 def test_engine_action_executes_with_typed_models() -> None:
     from goliath_app.engine.models import ConstBoolOutput
 
@@ -86,6 +104,18 @@ def test_action_spec_models_have_no_any_in_fields() -> None:
                 raise AssertionError(f"Any field in {spec.action_name}")
             if getattr(annotation, "__name__", "") == "Any":
                 raise AssertionError(f"Any field in {spec.action_name}")
+
+
+def test_override_rejects_new_required_input_fields() -> None:
+    from goliath_app.actions.compatibility import input_schema_compatible
+
+    base = find_action("validation.plan_iterations")
+    assert base is not None
+
+    class BadInput(PlanIterationsInput):
+        required_extra: str
+
+    assert not input_schema_compatible(base.input_model, BadInput)
 
 
 def test_override_compatibility_accepts_subclass_models() -> None:

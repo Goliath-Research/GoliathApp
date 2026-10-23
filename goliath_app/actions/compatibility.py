@@ -30,6 +30,8 @@ def input_schema_compatible(base: Type[BaseModel], derived: Type[BaseModel]) -> 
     derived_schema = _model_json_schema(derived)
     base_req = _required_keys(base_schema)
     derived_req = _required_keys(derived_schema)
+    if derived_req - base_req:
+        return False
     if not base_req.issubset(derived_req):
         return False
     base_props = _properties(base_schema)

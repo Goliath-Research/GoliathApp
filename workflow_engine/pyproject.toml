@@ -45,3 +45,4 @@ include = ["rest*", "local*", "admin*", "ops*", "cfg*", "domain*", "contract*", 
 
 [tool.setuptools.package-dir]
 "" = "."
+"goliath_app" = "../goliath_app"
