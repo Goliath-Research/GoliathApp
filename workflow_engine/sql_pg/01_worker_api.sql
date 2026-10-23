@@ -90,6 +90,8 @@ RETURNS TABLE (
   command text
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = wf, pg_temp
 AS $$
 #variable_conflict use_column
 DECLARE
@@ -321,6 +323,8 @@ CREATE OR REPLACE FUNCTION wf.sp_worker_submit_result(
 )
 RETURNS TABLE (accepted boolean, instance_status text, next_ready_count int)
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = wf, pg_temp
 AS $$
 #variable_conflict use_column
 DECLARE
@@ -383,6 +387,8 @@ CREATE OR REPLACE FUNCTION wf.sp_worker_heartbeat(
 )
 RETURNS TABLE (rows_updated int, desired_state text, command text)
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = wf, pg_temp
 AS $$
 DECLARE
   v_now timestamptz := (now() AT TIME ZONE 'utc');
@@ -418,6 +424,8 @@ END;
 $$;
 
 DROP PROCEDURE IF EXISTS wf.sp_worker_fail_task(bigint, bigint, text, int, text);
+-- Pre-P3 overload validates the enrollment token alone. Callers are dropped above.
+DROP PROCEDURE IF EXISTS wf.wf_worker_authenticate(bigint, text);
 
 CREATE OR REPLACE PROCEDURE wf.sp_worker_fail_task(
   IN p_node_execution_id bigint,
@@ -429,6 +437,8 @@ CREATE OR REPLACE PROCEDURE wf.sp_worker_fail_task(
   IN p_error_message text DEFAULT NULL
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = wf, pg_temp
 AS $$
 DECLARE
   v_now timestamptz := (now() AT TIME ZONE 'utc');

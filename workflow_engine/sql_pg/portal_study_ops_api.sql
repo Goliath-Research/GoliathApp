@@ -1123,6 +1123,8 @@ CREATE OR REPLACE FUNCTION wf.sp_worker_heartbeat(
 )
 RETURNS TABLE (rows_updated int, desired_state text, command text)
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = wf, pg_temp
 AS $$
 DECLARE
   v_now timestamptz := (now() AT TIME ZONE 'utc');

@@ -276,6 +276,9 @@ BEGIN
   IF v_worker_id IS NULL THEN
     RAISE EXCEPTION 'Invalid or unauthorized worker credentials' USING ERRCODE = '50003';
   END IF;
+  IF v_status = 'DISABLED' THEN
+    RAISE EXCEPTION 'Worker is disabled' USING ERRCODE = '50003';
+  END IF;
 
   IF v_locked IS NOT NULL AND v_locked > v_now THEN
     RAISE EXCEPTION 'Worker identity locked; re-enroll required' USING ERRCODE = '50003';
