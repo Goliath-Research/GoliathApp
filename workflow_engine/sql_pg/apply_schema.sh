@@ -1,60 +1,33 @@
 #!/usr/bin/env bash
-# Deploy MethylPipeline schema to Azure Database for PostgreSQL.
-#
-# Twin of workflow_engine/sql_mssql/deploy_azure.sh — every new table/proc/seed SQL
-# that exists in both trees must be listed in both SCRIPTS arrays (see
-# scripts/check_sql_deploy_twins.py). Canonical database name is goliath.
+# Apply GoliathApp PostgreSQL schema (ordered SCRIPTS list).
 #
 # Prerequisites:
-#   - psql (PostgreSQL client 15+)
-#   - Your client IP allowed in Azure PG firewall (or run from Azure VM / Cloud Shell)
-#   - Login granted CONNECT on database goliath (canonical parity target)
+#   - psql (PostgreSQL client 15+; 17+ recommended)
+#   - libpq connection settings (see below)
 #
-# Native PostgreSQL auth (dba):
-#   export PGHOST=goliath.postgres.database.azure.com
+# Example:
+#   export PGHOST=localhost
 #   export PGPORT=5432
 #   export PGDATABASE=goliath
-#   export PGUSER=dba
+#   export PGUSER=postgres
 #   export PGPASSWORD='...'
-#   ./deploy_azure.sh
-#
-# Microsoft Entra ID auth:
-#   export PGHOST=goliath.postgres.database.azure.com
-#   export PGPORT=5432
-#   export PGDATABASE=goliath
-#   export PGUSER='you@goliathresearch.com'
-#   export PGPASSWORD="$(az account get-access-token --resource https://ossrdbms-aad.database.windows.net --query accessToken --output tsv)"
-#   ./deploy_azure.sh
-#
-# Note: the leftover Azure PG database named "postgres" is stale (older wf-only
-# deploy). Do not treat it as the parity target.
+#   export PGSSLMODE=prefer
+#   ./apply_schema.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-export PGHOST="${PGHOST:-goliath.postgres.database.azure.com}"
+: "${PGHOST:?Set PGHOST (libpq host)}"
 export PGPORT="${PGPORT:-5432}"
-export PGDATABASE="${PGDATABASE:-${POSTGRES_DB:-goliath}}"
-export PGSSLMODE="${PGSSLMODE:-require}"
+: "${PGDATABASE:?Set PGDATABASE (libpq database name)}"
+: "${PGUSER:?Set PGUSER (libpq user)}"
+export PGSSLMODE="${PGSSLMODE:-prefer}"
 
-if [[ -z "${PGUSER:-}" ]]; then
-  PGUSER="${POSTGRES_USER:-dba}"
-  export PGUSER
-fi
-
-if [[ -z "${PGPASSWORD:-}" ]]; then
-  if [[ -n "${POSTGRES_PASSWORD:-}" ]]; then
-    export PGPASSWORD="$POSTGRES_PASSWORD"
-  elif command -v az >/dev/null 2>&1; then
-    echo "PGPASSWORD not set; fetching Entra token via az cli..."
-    export PGPASSWORD
-    PGPASSWORD="$(az account get-access-token --resource https://ossrdbms-aad.database.windows.net --query accessToken --output tsv)"
-  else
-    echo "Set PGPASSWORD (native auth) or install az cli for Entra auth." >&2
-    exit 1
-  fi
+if [[ -z "${PGPASSWORD:-}" && -z "${PGPASSFILE:-}" ]]; then
+  echo "Set PGPASSWORD or PGPASSFILE for database authentication." >&2
+  exit 1
 fi
 
 SCRIPTS=(
@@ -102,9 +75,8 @@ SCRIPTS=(
   cfg_process_pack_catalog.sql
   cfg_assay_procedure_links.sql
   cfg_hyperparameter_search.sql
-  # Modern portal API parity (sp_get_site, sp_get_study, sp_list_workflow_defs, …)
+  # Modern portal API (sp_get_site, sp_get_study, sp_list_workflow_defs, …)
   portal_modern_api_parity.sql
-  # RBAC / Meta / Contract / Onboarding API parity. Clinical and analyte scripts are GoliathOmics.
   rbac_api_parity.sql
   meta_api_parity.sql
   contract_api_parity.sql

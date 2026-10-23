@@ -9,8 +9,7 @@ This repository is the platform. Specialized applications extend it with actions
 | `workflow_engine/domain/` | DomainProgram compiler, verifier, pipeline-profile scope flags |
 | `workflow_engine/cfg/` | File-backed configuration CLI (`goliath-cfg`) |
 | `workflow_engine/contract/` | Database object contract and workflow spec models |
-| `workflow_engine/sql_pg/` | PostgreSQL engine. Apply with `deploy_azure.sh` |
-| `workflow_engine/sql_mssql/` | Azure SQL twin of the engine |
+| `workflow_engine/sql_pg/` | PostgreSQL engine. Apply with `apply_schema.sh` |
 | `workflow_engine/delphi/` | Frozen Windows gateway reference |
 | `workflow_engine/tests/` | Gateway, compiler, and parity tests |
 | `goliath_worker/` | Claim and submit HTTP client, optional shared-storage helpers |

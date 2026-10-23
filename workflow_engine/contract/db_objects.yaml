@@ -1,5 +1,5 @@
 # MethylPipeline DB Object Contract (machine-readable)
-# Both Azure SQL and PostgreSQL must implement all objects in required: true sections.
+# PostgreSQL (sql_pg/) must implement all objects in required: true sections.
 
 version: "1.0"
 schema: wf
@@ -7,9 +7,7 @@ schema: wf
 conventions:
   identity_return: single_column_result_set  # column: id
   submit_result_return: single_row_result_set  # accepted, instance_status, next_ready_count
-  json_type:
-    mssql: json
-    postgres: jsonb
+  json_type: jsonb
 
 objects:
   worker_api:
@@ -638,10 +636,10 @@ objects:
     - name: rbac.spgetuseridbyemail
       kind: procedure
       required: true
-      notes: MSSQL RBAC.spGetUserIdByEmail; PG "RBAC".spgetuseridbyemail (contract names are lowercased)
+      notes: '"RBAC".spgetuseridbyemail (contract names are lowercased)'
 
   domain:
     - name: dbo.spMapDMP2Genes
       kind: procedure
       required: false
-      notes: Azure SQL only until domain schema ported
+      notes: Optional legacy domain object; not deployed in sql_pg today

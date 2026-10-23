@@ -2,7 +2,7 @@
 
 PostgreSQL 15+ scripts for the workflow engine (17+ recommended for SQL/JSON). `00_schema.sql` uses `pg_catalog.sha256` and does not require `pgcrypto`.
 
-Apply order, defaults, and which files are re-runnable are documented in [`docs/schema-apply.md`](../../docs/schema-apply.md). The ordered list is the `SCRIPTS` array in [`deploy_azure.sh`](deploy_azure.sh). Run that script to apply every file. It is safe to run again on a database that already has the objects. One invocation always applies the whole list. There is no skip-if-applied marker.
+Apply order, defaults, and which files are re-runnable are documented in [`docs/schema-apply.md`](../../docs/schema-apply.md). The ordered list is the `SCRIPTS` array in [`apply_schema.sh`](apply_schema.sh). Run that script to apply every file. It is safe to run again on a database that already has the objects. One invocation always applies the whole list. There is no skip-if-applied marker.
 
 ```bash
 export PGHOST=localhost
@@ -10,21 +10,18 @@ export PGPORT=5432
 export PGDATABASE=goliath
 export PGUSER=postgres
 export PGPASSWORD=...
-export PGSSLMODE=require
+export PGSSLMODE=prefer
 
-./workflow_engine/sql_pg/deploy_azure.sh
+./workflow_engine/sql_pg/apply_schema.sh
 ```
 
-When `PGHOST` is unset the script defaults to `goliath.postgres.database.azure.com`. When `PGDATABASE` is unset it uses `POSTGRES_DB` and then `goliath`. When `PGPASSWORD` is unset and `az` is on `PATH`, the script requests an Entra token for `https://ossrdbms-aad.database.windows.net`.
-
-The Python gateway is a separate process. Its PostgreSQL defaults live in `workflow_engine/rest/connection.py`: `BACKEND_DB` defaults to `mssql`, and `POSTGRES_DB` defaults to `methylpipeline` when unset. Set `BACKEND_DB=postgres` and point `POSTGRES_*` at the database this script just updated.
+The Python gateway is a separate process. Connection settings are read from libpq-style variables (`PGHOST`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `PGSSLMODE`) or the `POSTGRES_*` aliases documented in [`docs/platform.md`](../../docs/platform.md).
 
 ```bash
-export BACKEND_DB=postgres
-export POSTGRES_HOST=localhost
-export POSTGRES_DB=goliath
-export POSTGRES_USER=postgres
-export POSTGRES_PASSWORD=...
+export PGHOST=localhost
+export PGDATABASE=goliath
+export PGUSER=postgres
+export PGPASSWORD=...
 goliath-gateway --host 0.0.0.0 --port 8080
 ```
 
@@ -32,7 +29,7 @@ goliath-gateway --host 0.0.0.0 --port 8080
 
 After SQL, actions are rows in `wf.workflow_action` and types are rows in `wf.data_type`. See [`docs/actions.md`](../../docs/actions.md). This tree does not include a catalog seed script.
 
-## Not applied by `deploy_azure.sh`
+## Not applied by `apply_schema.sh`
 
 | Path | Role |
 |------|------|
@@ -46,11 +43,10 @@ After SQL, actions are rows in `wf.workflow_action` and types are rows in `wf.da
 python workflow_engine/contract/validate_contract.py
 ```
 
-`deploy_azure.sh` runs that check at the end when `python3` is available.
+`apply_schema.sh` runs that check at the end when `python3` is available.
 
 ## Notes
 
 - Result-returning worker APIs are functions that return `TABLE`. PostgreSQL procedures cannot `RETURN QUERY`.
 - In PL/pgSQL, `RETURNS TABLE` columns are variables. `#variable_conflict use_column` on the first line of the body avoids SQLSTATE 42702 when a column has the same name. [`tests/test_pg_plpgsql_variable_conflict.py`](../tests/test_pg_plpgsql_variable_conflict.py) checks this.
 - Object names match [`../contract/db_objects.yaml`](../contract/db_objects.yaml).
-- The Azure SQL twin is [`../sql_mssql/README.md`](../sql_mssql/README.md).

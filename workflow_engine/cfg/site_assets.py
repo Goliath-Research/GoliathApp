@@ -138,12 +138,9 @@ def apply_site_asset_links_to_db(
     linked: Sequence[Mapping[str, str]],
 ) -> List[Dict[str, Any]]:
     """Call ``cfg.cfg_repo_link_site_asset`` for each planned row."""
-    backend = str(getattr(db, "backend", "") or "").lower()
     site_row = _fetch_one(
         db,
-        backend,
-        mssql="SELECT TOP (1) id FROM cfg.site WHERE name=? AND version=?",
-        postgres="SELECT id FROM cfg.site WHERE name=%s AND version=%s LIMIT 1",
+        "SELECT id FROM cfg.site WHERE name=%s AND version=%s LIMIT 1",
         params=(site_name, site_version),
     )
     if not site_row or site_row.get("id") is None:
@@ -156,11 +153,7 @@ def apply_site_asset_links_to_db(
         role = row["asset_role"]
         asset_row = _fetch_one(
             db,
-            backend,
-            mssql="SELECT TOP (1) id FROM cfg.reference_asset WHERE name=? AND version=?",
-            postgres=(
-                "SELECT id FROM cfg.reference_asset WHERE name=%s AND version=%s LIMIT 1"
-            ),
+            "SELECT id FROM cfg.reference_asset WHERE name=%s AND version=%s LIMIT 1",
             params=(asset_name, asset_version),
         )
         if not asset_row or asset_row.get("id") is None:
@@ -169,7 +162,7 @@ def apply_site_asset_links_to_db(
                 "deploy cfg_reference_assets_seed.sql first"
             )
         asset_id = int(asset_row["id"])
-        _exec_link(db, backend, site_id, asset_id, role)
+        _exec_link(db, site_id, asset_id, role)
         applied.append(
             {
                 "site_id": site_id,
@@ -225,31 +218,20 @@ def _asset_versions(
 
 def _fetch_one(
     db: Any,
-    backend: str,
+    sql: str,
     *,
-    mssql: str,
-    postgres: str,
     params: tuple[Any, ...],
 ) -> Optional[Dict[str, Any]]:
-    sql = postgres if backend == "postgres" else mssql
     return db._fetch_one(sql, params)  # noqa: SLF001
 
 
 def _exec_link(
     db: Any,
-    backend: str,
     site_id: int,
     asset_id: int,
     role: str,
 ) -> None:
-    if backend == "postgres":
-        db._exec_proc(  # noqa: SLF001
-            "SELECT * FROM cfg.cfg_repo_link_site_asset(%s, %s, %s)",
-            (site_id, asset_id, role),
-        )
-        return
     db._exec_proc(  # noqa: SLF001
-        "EXEC cfg.cfg_repo_link_site_asset "
-        "@site_id=?, @reference_asset_id=?, @asset_role=?",
+        "SELECT * FROM cfg.cfg_repo_link_site_asset(%s, %s, %s)",
         (site_id, asset_id, role),
     )

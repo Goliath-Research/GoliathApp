@@ -25,7 +25,7 @@ Upsert procedures replace one another as the apply order advances: 3 arguments, 
 
 `wf.workflow_action_schema` (`wf_action_schema.sql`) still stores input and output JSON blobs per action. Its own comment marks seeding of that table as retired: `wf.wf_repo_get_action_schema` is redefined in `wf_data_type.sql` to prefer the data-type `schema_json`, then the legacy blob, then an empty object. The table remains so older rows still resolve.
 
-`cfg.action_definition` is created by `cfg_registry_tables.sql`. The config CLI does not write it. `goliath-cfg sync-actions` ignores `--from-json`, `--seed-wf`, and `--draft` and always tries to seed `wf` by executing `workflow_engine/sql_mssql/seed_action_catalog.py`. That file is not in this repository, so the command raises `FileNotFoundError`.
+`cfg.action_definition` is created by `cfg_registry_tables.sql`. The config CLI does not write it. `goliath-cfg sync-actions` ignores `--from-json`, `--seed-wf`, and `--draft` and always tries to seed `wf` by executing `workflow_engine/sql_pg/seed_action_catalog.py`. That file is not in this repository, so the command raises `FileNotFoundError`.
 
 ## Defining an action from this tree
 

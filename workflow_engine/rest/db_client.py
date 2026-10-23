@@ -13,14 +13,10 @@ from .db.base import GatewayDb, WorkerAuthError
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
-# Backward-compatible alias for parity scripts that build a PostgreSQL URL.
 def pg_dsn() -> str:
-    host = os.environ.get("POSTGRES_HOST", "localhost")
-    port = os.environ.get("POSTGRES_PORT", "5432")
-    db = os.environ.get("POSTGRES_DB", "methylpipeline_parity")
-    user = os.environ.get("POSTGRES_USER", "postgres")
-    password = os.environ.get("POSTGRES_PASSWORD", "methyl")
-    return f"postgresql://{user}:{password}@{host}:{port}/{db}"
+    from .connection import build_postgres_conninfo
+
+    return build_postgres_conninfo()
 
 
 def open_db_from_dsn(dsn: str) -> GatewayDb:

@@ -49,7 +49,7 @@ def seed_wf_from_catalog(
     """Seed wf.workflow_action + wf.data_type via seed_action_catalog.py."""
     repo_root = Path(repo_root)
     _ensure_paths(repo_root)
-    script = repo_root / "workflow_engine" / "sql_mssql" / "seed_action_catalog.py"
+    script = repo_root / "workflow_engine" / "sql_pg" / "seed_action_catalog.py"
     if not script.is_file():
         raise FileNotFoundError(script)
     import subprocess

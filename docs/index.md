@@ -8,7 +8,7 @@ Specialized applications extend it with their own actions, profiles, and worker 
 
 - [Platform](platform.md) — schemas, processes, and what this tree contains
 - [Workflow compiler](workflow-compiler.md) — DomainProgram JSON lowered to a workflow graph
-- [Workflow engine](workflow-engine.md) — PostgreSQL and Azure SQL runtime
+- [Workflow engine](workflow-engine.md) — PostgreSQL runtime
 - [Actions](actions.md) — user-defined actions and data types
 - [Workers](workers.md) — enrollment, claim, and fleet control
 - [RBAC](rbac.md) — users, roles, scopes, and the portal façade

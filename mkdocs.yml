@@ -23,6 +23,7 @@ nav:
   - RBAC: rbac.md
   - Pipeline profiles: pipeline-profiles.md
   - Schema apply: schema-apply.md
+  - Semantic layer: semantic-layer.md
 
 markdown_extensions:
   - tables

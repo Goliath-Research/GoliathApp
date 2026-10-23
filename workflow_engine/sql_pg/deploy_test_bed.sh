@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Deploy wf test-bed seeds + run a smoke simulation (PostgreSQL).
 #
-# Usage (after deploy_azure.sh or local sql_pg core deploy):
-#   export PGHOST=... PGDATABASE=postgres PGUSER=... PGPASSWORD=... PGSSLMODE=require
+# Usage (after apply_schema.sh or a local sql_pg core deploy):
+#   export PGHOST=localhost PGDATABASE=goliath PGUSER=postgres PGPASSWORD=... PGSSLMODE=prefer
 #   ./deploy_test_bed.sh
 #   ./deploy_test_bed.sh --run TwoGroupTestFlow
 #   ./deploy_test_bed.sh --run McTwoGroupTestFlow
@@ -11,13 +11,15 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-export PGHOST="${PGHOST:-goliath.postgres.database.azure.com}"
+: "${PGHOST:?Set PGHOST}"
 export PGPORT="${PGPORT:-5432}"
-export PGDATABASE="${PGDATABASE:-${POSTGRES_DB:-postgres}}"
-export PGSSLMODE="${PGSSLMODE:-require}"
+: "${PGDATABASE:?Set PGDATABASE}"
+: "${PGUSER:?Set PGUSER}"
+export PGSSLMODE="${PGSSLMODE:-prefer}"
 
-if [[ -z "${PGUSER:-}" ]]; then
-  export PGUSER="${POSTGRES_USER:-dba}"
+if [[ -z "${PGPASSWORD:-}" && -z "${PGPASSFILE:-}" ]]; then
+  echo "Set PGPASSWORD or PGPASSFILE for database authentication." >&2
+  exit 1
 fi
 
 RUN_WORKFLOW=""

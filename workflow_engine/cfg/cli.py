@@ -495,7 +495,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--check-db",
         action="store_true",
-        help="Compare compiled ACTION nodes to active Azure SQL wf.workflow_version",
+        help="Compare compiled ACTION nodes to active PostgreSQL wf.workflow_version",
     )
     s.add_argument(
         "--workflow-name",
@@ -513,7 +513,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--deploy-db",
         action="store_true",
-        help="Call cfg.cfg_repo_link_site_asset on BACKEND_DB (required to fill the SQL grid)",
+        help="Call cfg.cfg_repo_link_site_asset on the gateway database (required to fill the SQL grid)",
     )
     s.set_defaults(func=_cmd_link_site_assets)
 
