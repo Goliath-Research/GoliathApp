@@ -186,6 +186,14 @@ class WorkflowRestClient:
             raise RuntimeError("worker_id unset; enroll or open_session first")
         return self._worker_id
 
+    def _ensure_worker_session(self, worker_token: Optional[str] = None) -> None:
+        """Reuse the open bearer when it already belongs to this identity token."""
+        if not worker_token:
+            return
+        if self._session_token and self._identity_token == worker_token:
+            return
+        self.open_session(worker_token)
+
     def request_task(
         self,
         worker_id: Optional[int] = None,
@@ -195,8 +203,7 @@ class WorkflowRestClient:
         max_lease_seconds: Optional[int] = None,
     ) -> TaskPollResult:
         wid = worker_id if worker_id is not None else self._require_worker_id()
-        if worker_token:
-            self._identity_token = worker_token
+        self._ensure_worker_session(worker_token)
         if not self._session_token or not self._identity_token:
             raise RuntimeError("worker session not open; call enroll or open_session")
 
@@ -237,8 +244,7 @@ class WorkflowRestClient:
         result_code: int,
         output_json: Optional[Dict[str, Any]] = None,
     ) -> SubmitAck:
-        if worker_token:
-            self._identity_token = worker_token
+        self._ensure_worker_session(worker_token)
         payload: Dict[str, Any] = {
             "worker_id": worker_id,
             "result_code": result_code,
@@ -261,8 +267,7 @@ class WorkflowRestClient:
         *,
         extend_seconds: Optional[int] = None,
     ) -> HeartbeatAck:
-        if worker_token:
-            self._identity_token = worker_token
+        self._ensure_worker_session(worker_token)
         body = self._post_json(
             f"/workers/tasks/{node_execution_id}/heartbeat",
             {
@@ -284,8 +289,7 @@ class WorkflowRestClient:
         error_code: int,
         error_message: Optional[str] = None,
     ) -> None:
-        if worker_token:
-            self._identity_token = worker_token
+        self._ensure_worker_session(worker_token)
         payload: Dict[str, Any] = {
             "worker_id": worker_id,
             "error_code": error_code,
