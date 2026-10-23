@@ -200,6 +200,10 @@ BEGIN
     RAISE EXCEPTION 'Worker identity locked; re-enroll required' USING ERRCODE = '50003';
   END IF;
 
+  IF NULLIF(btrim(v_bound_ip), '') IS NULL THEN
+    RAISE EXCEPTION 'Worker identity requires re-enrollment (no bound IP)' USING ERRCODE = '50003';
+  END IF;
+
   IF btrim(p_client_ip) <> btrim(v_bound_ip)
      AND btrim(p_client_ip) <> split_part(btrim(v_bound_ip), '/', 1) THEN
     RAISE EXCEPTION 'client IP does not match enrolled worker IP' USING ERRCODE = '50003';
@@ -277,6 +281,10 @@ BEGIN
     RAISE EXCEPTION 'Worker identity locked; re-enroll required' USING ERRCODE = '50003';
   END IF;
 
+  IF NULLIF(btrim(v_bound_ip), '') IS NULL THEN
+    RAISE EXCEPTION 'Worker identity requires re-enrollment (no bound IP)' USING ERRCODE = '50003';
+  END IF;
+
   IF btrim(p_client_ip) <> btrim(v_bound_ip)
      AND btrim(p_client_ip) <> split_part(btrim(v_bound_ip), '/', 1) THEN
     UPDATE wf.worker_token
@@ -286,7 +294,7 @@ BEGIN
           ELSE locked_until_utc
         END
     WHERE worker_id = v_worker_id;
-    RAISE EXCEPTION 'client IP does not match enrolled worker IP' USING ERRCODE = '50003';
+    RETURN;
   END IF;
 
   v_uid := wf.wf_ensure_worker_rbac_user(v_worker_id);
