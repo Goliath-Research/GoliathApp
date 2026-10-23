@@ -11,7 +11,7 @@
 
   Deploy:
     psql -v ON_ERROR_STOP=1 -f workflow_engine/sql_pg/cfg_process_pack_catalog.sql
-  Or via deploy_azure.sh (listed after cfg_portal_api.sql).
+  Or via apply_schema.sh (listed after cfg_portal_api.sql).
   Then seed rows:
     python scripts/sync_cfg_profiles_and_action_catalog.py --backend postgres --skip-seed
 */

@@ -1,5 +1,5 @@
 -- Drop leftover uniGUI schema after copying role mappings.
--- Azure SQL already has no e_portal. Not in deploy_azure.sh (idempotent leftover cleanup).
+-- Azure SQL already has no e_portal. Not in apply_schema.sh (idempotent leftover cleanup).
 -- Must copy e_portal.UserRoles → portal.UserRoles *before* DROP SCHEMA … CASCADE,
 -- otherwise RBAC.spGetUserNavTree sees an empty view on upgrade.
 

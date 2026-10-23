@@ -15,36 +15,12 @@
                          "RBAC"."IdentityProviders", "RBAC"."ScopeIdentityProviders",
                          "RBAC"."ExternalIdentities", "RBAC"."UserRoleGrants",
                          "RBAC"."BypassScopeApprovals"
-    portal_clinical_schema.sql – portal."NavTree", portal."Role2Node"
+    portal_shell_schema.sql – portal."NavTree", portal."Role2Node", portal."viewUserAllRoles"
 */
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- RBAC.spGetUserIdByEmail  → rbac.spgetuseridebyemail
 -- ──────────────────────────────────────────────────────────────────────────────
-
--- Minimal role view used by NavTree helpers (Azure also joins portal.SyUsers /
--- portal.Roles for a Role name column). Copy leftover e_portal.UserRoles first
--- so an upgrade does not retarget the view onto an empty table.
-CREATE TABLE IF NOT EXISTS portal."UserRoles" (
-  "UserId" bigint NOT NULL,
-  "RoleId" integer NOT NULL,
-  CONSTRAINT "PK_portal_UserRoles" PRIMARY KEY ("UserId", "RoleId")
-);
-DO $migrate$
-BEGIN
-  IF to_regclass('e_portal."UserRoles"') IS NOT NULL THEN
-    EXECUTE $ins$
-      INSERT INTO portal."UserRoles" ("UserId", "RoleId")
-      SELECT ur."UserId", ur."RoleId"
-      FROM e_portal."UserRoles" ur
-      ON CONFLICT ("UserId", "RoleId") DO NOTHING
-    $ins$;
-  END IF;
-END
-$migrate$;
-CREATE OR REPLACE VIEW portal."viewUserAllRoles" AS
-SELECT ur."UserId" AS "UserId", ur."RoleId" AS "RoleId"
-FROM portal."UserRoles" ur;
 
 CREATE OR REPLACE FUNCTION "RBAC".spgetuseridbyemail(
   p_email text

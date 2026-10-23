@@ -8,12 +8,28 @@ on:
 jobs:
   pr:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: methyl
+          POSTGRES_DB: goliathapp_schema_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       - name: Install contract and test dependencies
         run: python -m pip install -U pip pyyaml pytest httpx
@@ -38,7 +54,15 @@ jobs:
             workflow_engine/tests/test_local_workflow.py \
             workflow_engine/tests/test_pipeline_scope_flags.py \
             workflow_engine/tests/test_reference_selection.py \
+            workflow_engine/tests/test_goliathapp_sql_no_omics_domain.py \
+            workflow_engine/tests/test_goliathapp_pg_schema_apply.py \
             -q
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: methyl
+          POSTGRES_DB: goliathapp_schema_test
 
   product-manifest:
     runs-on: ubuntu-latest
