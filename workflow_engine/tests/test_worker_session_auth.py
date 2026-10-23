@@ -77,7 +77,8 @@ def _apply_schema_scripts(dsn: str) -> None:
 
 def seed_minimal_workflow(dsn: str) -> tuple[int, int, str]:
     """Returns (version_id, worker_id, identity_token)."""
-    _psql_query(dsn, "SELECT * FROM wf.sp_delete_workflow_def(NULL, 'ParityFlow', true);")
+    if _psql_query(dsn, "SELECT 1 FROM wf.workflow_def WHERE name = 'ParityFlow' LIMIT 1;"):
+        _psql_query(dsn, "SELECT * FROM wf.sp_delete_workflow_def(NULL, 'ParityFlow', true);")
     _psql_query(dsn, "INSERT INTO wf.workflow_def (name) VALUES ('ParityFlow');")
     def_id = int(_psql_query(dsn, "SELECT id FROM wf.workflow_def WHERE name='ParityFlow' LIMIT 1;"))
     version_id = int(
