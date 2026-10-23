@@ -9,7 +9,7 @@ ALTER TABLE wf.workflow_def
   ADD COLUMN IF NOT EXISTS source varchar(32) NOT NULL DEFAULT 'system';
 
 -- portal.sp_list_workflow_actions is owned by wf_data_type.sql (applied
--- earlier by deploy_azure.sh): it returns the typed action catalog (id,
+-- earlier by apply_schema.sh): it returns the typed action catalog (id,
 -- dispatch metadata, input/output data types). Do not redefine it here. The
 -- older four-column definition that used to live here could not replace the
 -- wider one ("cannot change return type of existing function", 42P13), so a
