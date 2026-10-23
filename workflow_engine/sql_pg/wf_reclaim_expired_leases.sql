@@ -11,6 +11,12 @@
 
 CREATE SCHEMA IF NOT EXISTS portal;
 
+-- The 3-arg form must not survive next to a defaulted 4th argument, or
+-- claim-path calls become ambiguous. Drop the SQL wrapper first; it is
+-- recreated below and is the dependent of the old signature.
+DROP FUNCTION IF EXISTS portal.sp_reclaim_expired_leases(bigint, int);
+DROP FUNCTION IF EXISTS wf.sp_reclaim_expired_leases(bigint, int, boolean);
+
 CREATE OR REPLACE FUNCTION wf.sp_reclaim_expired_leases(
   p_workflow_instance_id bigint DEFAULT NULL,
   p_grace_seconds int DEFAULT 60,
