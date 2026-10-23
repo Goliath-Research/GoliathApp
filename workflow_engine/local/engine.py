@@ -14,17 +14,12 @@ from pydantic import BaseModel, ConfigDict
 from contract.workflow_definition_spec import WorkflowDefinitionSpec
 from domain.compiler import compile_domain_program_file
 from domain.workflow_context import finalize_instance_context
-
-try:
-    from methyl_worker.handlers import execute_task as _execute_task
-    from methyl_worker.task_validation import normalize_task_input as _normalize_task_input
-    from methyl_worker.task_validation import validate_task_input as _validate_task_input
-    from methyl_worker.task_validation import validate_task_output as _validate_task_output
-except ImportError:  # product worker is optional; --stub-external does not need it
-    _execute_task = None
-    _normalize_task_input = None
-    _validate_task_input = None
-    _validate_task_output = None
+from goliath_app.actions.registry import find_action as _find_catalog_action
+from goliath_app.execution.local import (
+    execute_action as _execute_platform_action,
+    normalize_action_input as _normalize_platform_input,
+    validate_action_output as _validate_platform_output,
+)
 
 from .scheduler import ExecutionTrace, SchedulerConfig, WorkflowScheduler
 from .scope import ScopeFrame, resolve_collection_bindings
@@ -72,22 +67,16 @@ class LocalWorkflowEngine:
     def _default_handler(self) -> ActionHandler:
         if os.environ.get("WORKER_STUB_EXTERNAL") == "1":
             return stub_action
-        if (
-            _execute_task is None
-            or _normalize_task_input is None
-            or _validate_task_input is None
-            or _validate_task_output is None
-        ):
-            raise RuntimeError(
-                "local execution needs the product worker package (methyl_worker) "
-                "or --stub-external"
-            )
-
         def _run(capability: str, action_name: str, input_json: Dict[str, Any]) -> BaseModel:
-            normalized = _normalize_task_input(action_name, capability, input_json)
-            _validate_task_input(action_name, capability, normalized)
-            execution = _execute_task(capability, action_name, normalized)
-            return _validate_task_output(action_name, capability, execution.output)
+            if _find_catalog_action(action_name) is not None:
+                _normalize_platform_input(action_name, capability, input_json)
+                result = _execute_platform_action(capability, action_name, input_json)
+                return _validate_platform_output(action_name, capability, result)
+
+            raise RuntimeError(
+                f"local execution has no registered handler for action {action_name!r}; "
+                "install a descendant app catalog or use --stub-external"
+            )
 
         return _run
 

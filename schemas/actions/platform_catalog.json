@@ -1,0 +1,684 @@
+{
+  "actions": {
+    "validation.plan_iterations": {
+      "base_namespace": null,
+      "capability": "validation.plan-iterations",
+      "description": "Generic validation iteration planner hook. Descendant apps override with domain-specific Monte Carlo / stratified planning.",
+      "display_name": "Plan validation iterations",
+      "entity_code": "validation",
+      "exposure": "rbac",
+      "level": "core",
+      "namespace": "core",
+      "required_permission": "workflow.validation.plan",
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "40cb3e9f590dd139c65c48bfd225050e62b7de4efab7bba677c968624bb390c3",
+          "schema_id": "goliath.actions/core/validation.plan_iterations/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "featureIterations": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Featureiterations"
+              },
+              "iterations": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Iterations",
+                "type": "array"
+              },
+              "layout": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Layout"
+              },
+              "projectPath": {
+                "title": "Projectpath",
+                "type": "string"
+              },
+              "qualityIterations": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Qualityiterations"
+              },
+              "seed": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Seed"
+              },
+              "trainFraction": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Trainfraction"
+              }
+            },
+            "required": [
+              "projectPath"
+            ],
+            "title": "PlanIterationsInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "2b710ed49ed47deb04cb418106ffd99dc0c50a656e8c4552d08739310b359d9f",
+          "schema_id": "goliath.actions/core/validation.plan_iterations/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "centroidSeedGroups": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Centroidseedgroups",
+                "type": "array"
+              },
+              "iterations": {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Iterations",
+                "type": "array"
+              },
+              "projectPath": {
+                "title": "Projectpath",
+                "type": "string"
+              },
+              "result_code": {
+                "default": 0,
+                "description": "0 = success",
+                "title": "Result Code",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "projectPath"
+            ],
+            "title": "PlanIterationsOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
+    "workflow.const_bool": {
+      "base_namespace": null,
+      "capability": "workflow.compute",
+      "description": "Assign a boolean literal into workflow scope",
+      "display_name": "Constant bool",
+      "entity_code": "workflow",
+      "exposure": "hidden",
+      "level": "engine",
+      "namespace": "engine",
+      "required_permission": null,
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "b22c6ede81ddd6e1b405369169577d96c24f5a1acb0eef2cd7ad0e69c0e48447",
+          "schema_id": "goliath.actions/engine/workflow.const_bool/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "tool": {
+                "default": "workflow.compute",
+                "title": "Tool",
+                "type": "string"
+              },
+              "value": {
+                "title": "Value",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "ConstBoolInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "04d0bc14e32d07852076cab01c4061bb9ce1d18ff46b908169077e1ec869cc2c",
+          "schema_id": "goliath.actions/engine/workflow.const_bool/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "result_code": {
+                "default": 0,
+                "description": "0 = success",
+                "title": "Result Code",
+                "type": "integer"
+              },
+              "value": {
+                "title": "Value",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "ConstBoolOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
+    "workflow.const_int": {
+      "base_namespace": null,
+      "capability": "workflow.compute",
+      "description": "Assign an integer literal into workflow scope",
+      "display_name": "Constant int",
+      "entity_code": "workflow",
+      "exposure": "hidden",
+      "level": "engine",
+      "namespace": "engine",
+      "required_permission": null,
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "181b214ff40086c2893325520ea8d3d15ae0192a425dc339d3079d01d6d2b8f6",
+          "schema_id": "goliath.actions/engine/workflow.const_int/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "tool": {
+                "default": "workflow.compute",
+                "title": "Tool",
+                "type": "string"
+              },
+              "value": {
+                "title": "Value",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "ConstIntInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "cc806755dd7ba1e798c983ac0ab13cb9d3809173fcaf27958b8ce76d8dd4e093",
+          "schema_id": "goliath.actions/engine/workflow.const_int/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "result_code": {
+                "default": 0,
+                "description": "0 = success",
+                "title": "Result Code",
+                "type": "integer"
+              },
+              "value": {
+                "title": "Value",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "ConstIntOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
+    "workflow.const_path": {
+      "base_namespace": null,
+      "capability": "workflow.compute",
+      "description": "Assign a filesystem path literal into workflow scope",
+      "display_name": "Constant path",
+      "entity_code": "workflow",
+      "exposure": "hidden",
+      "level": "engine",
+      "namespace": "engine",
+      "required_permission": null,
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "16e370317f9b667a779fc2694848665b598e09a29d9510ded7c55da8cc52f49d",
+          "schema_id": "goliath.actions/engine/workflow.const_path/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "tool": {
+                "default": "workflow.compute",
+                "title": "Tool",
+                "type": "string"
+              },
+              "value": {
+                "description": "Filesystem path literal",
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "ConstPathInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "e02cd96d7514a69c72ea28b91ef4e7ba31130a998705fbaa5a793f65a51c92aa",
+          "schema_id": "goliath.actions/engine/workflow.const_path/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "result_code": {
+                "default": 0,
+                "description": "0 = success",
+                "title": "Result Code",
+                "type": "integer"
+              },
+              "value": {
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "ConstPathOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
+    "workflow.const_string": {
+      "base_namespace": null,
+      "capability": "workflow.compute",
+      "description": "Assign a string literal into workflow scope",
+      "display_name": "Constant string",
+      "entity_code": "workflow",
+      "exposure": "hidden",
+      "level": "engine",
+      "namespace": "engine",
+      "required_permission": null,
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "5dc3face464b42417ed17952b7f9cd6707b4c1228646efdc46367ca45cd496bd",
+          "schema_id": "goliath.actions/engine/workflow.const_string/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "tool": {
+                "default": "workflow.compute",
+                "title": "Tool",
+                "type": "string"
+              },
+              "value": {
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "ConstStringInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "3d11385bee9b470d1beb29fa12009326d08e08722ae9a4d42316b0d9f48eb863",
+          "schema_id": "goliath.actions/engine/workflow.const_string/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "result_code": {
+                "default": 0,
+                "description": "0 = success",
+                "title": "Result Code",
+                "type": "integer"
+              },
+              "value": {
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "ConstStringOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
+    "workflow.fs_stat": {
+      "base_namespace": null,
+      "capability": "workflow.compute",
+      "description": "Test whether a path exists or is a file/directory",
+      "display_name": "Filesystem stat",
+      "entity_code": "workflow",
+      "exposure": "hidden",
+      "level": "engine",
+      "namespace": "engine",
+      "required_permission": null,
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "ba2b0885ff00b7a3f7feb1d27b79070a6ae21fbd47e70b852957370e47e0db8d",
+          "schema_id": "goliath.actions/engine/workflow.fs_stat/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "check": {
+                "default": "exists",
+                "description": "exists | is_file | is_dir",
+                "title": "Check",
+                "type": "string"
+              },
+              "path": {
+                "title": "Path",
+                "type": "string"
+              },
+              "tool": {
+                "default": "workflow.compute",
+                "title": "Tool",
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ],
+            "title": "FsStatInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "c6f08b9e761214dd0a9cd1b341e99e272b906b1286850bf16280f061be4294cc",
+          "schema_id": "goliath.actions/engine/workflow.fs_stat/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "detail": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Detail"
+              },
+              "result_code": {
+                "default": 0,
+                "description": "0 = success",
+                "title": "Result Code",
+                "type": "integer"
+              },
+              "value": {
+                "title": "Value",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "FsStatOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
+    "workflow.json_path_bool": {
+      "base_namespace": null,
+      "capability": "workflow.compute",
+      "description": "Read a boolean from a JSON document using a JSONPath-like selector",
+      "display_name": "JSON path bool",
+      "entity_code": "workflow",
+      "exposure": "hidden",
+      "level": "engine",
+      "namespace": "engine",
+      "required_permission": null,
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "62e68bf20238edd92fcfff29f0bc043ad073a2c61dbff8972c6de3c93a0685b2",
+          "schema_id": "goliath.actions/engine/workflow.json_path_bool/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "additionalProperties": true,
+                "title": "Document",
+                "type": "object"
+              },
+              "jsonPath": {
+                "title": "Jsonpath",
+                "type": "string"
+              },
+              "tool": {
+                "default": "workflow.compute",
+                "title": "Tool",
+                "type": "string"
+              }
+            },
+            "required": [
+              "jsonPath"
+            ],
+            "title": "JsonPathInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "c01a4a778a4881db4243f404e88a56b5b737e066b5af027de4bcdba12d2d0e79",
+          "schema_id": "goliath.actions/engine/workflow.json_path_bool/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "result_code": {
+                "default": 0,
+                "description": "0 = success",
+                "title": "Result Code",
+                "type": "integer"
+              },
+              "value": {
+                "title": "Value",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "JsonPathBoolOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
+    "workflow.json_path_int": {
+      "base_namespace": null,
+      "capability": "workflow.compute",
+      "description": "Read an integer from a JSON document using a JSONPath-like selector",
+      "display_name": "JSON path int",
+      "entity_code": "workflow",
+      "exposure": "hidden",
+      "level": "engine",
+      "namespace": "engine",
+      "required_permission": null,
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "62e68bf20238edd92fcfff29f0bc043ad073a2c61dbff8972c6de3c93a0685b2",
+          "schema_id": "goliath.actions/engine/workflow.json_path_int/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "additionalProperties": true,
+                "title": "Document",
+                "type": "object"
+              },
+              "jsonPath": {
+                "title": "Jsonpath",
+                "type": "string"
+              },
+              "tool": {
+                "default": "workflow.compute",
+                "title": "Tool",
+                "type": "string"
+              }
+            },
+            "required": [
+              "jsonPath"
+            ],
+            "title": "JsonPathInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "6dcd643e34d23041c08988a96e792a41725003f98235d7d7d5d73e114345e156",
+          "schema_id": "goliath.actions/engine/workflow.json_path_int/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "result_code": {
+                "default": 0,
+                "description": "0 = success",
+                "title": "Result Code",
+                "type": "integer"
+              },
+              "value": {
+                "title": "Value",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "JsonPathIntOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    },
+    "workflow.json_path_string": {
+      "base_namespace": null,
+      "capability": "workflow.compute",
+      "description": "Read a string from a JSON document using a JSONPath-like selector",
+      "display_name": "JSON path string",
+      "entity_code": "workflow",
+      "exposure": "hidden",
+      "level": "engine",
+      "namespace": "engine",
+      "required_permission": null,
+      "schema_version": "1",
+      "schemas": {
+        "input": {
+          "content_hash": "62e68bf20238edd92fcfff29f0bc043ad073a2c61dbff8972c6de3c93a0685b2",
+          "schema_id": "goliath.actions/engine/workflow.json_path_string/input/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "document": {
+                "additionalProperties": true,
+                "title": "Document",
+                "type": "object"
+              },
+              "jsonPath": {
+                "title": "Jsonpath",
+                "type": "string"
+              },
+              "tool": {
+                "default": "workflow.compute",
+                "title": "Tool",
+                "type": "string"
+              }
+            },
+            "required": [
+              "jsonPath"
+            ],
+            "title": "JsonPathInput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        },
+        "output": {
+          "content_hash": "01177a6a209f7b33be3d3e336d17c09955817f7ebcd4e20b5bae098a0c5f2fa4",
+          "schema_id": "goliath.actions/engine/workflow.json_path_string/output/1",
+          "schema_json": {
+            "additionalProperties": false,
+            "properties": {
+              "result_code": {
+                "default": 0,
+                "description": "0 = success",
+                "title": "Result Code",
+                "type": "integer"
+              },
+              "value": {
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "required": [
+              "value"
+            ],
+            "title": "JsonPathStringOutput",
+            "type": "object"
+          },
+          "schema_version": "1"
+        }
+      }
+    }
+  }
+}

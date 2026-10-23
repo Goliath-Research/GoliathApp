@@ -48,6 +48,7 @@ SCRIPTS=(
   wf_action_dispatch_concurrency.sql
   wf_action_dispatch_affinity.sql
   wf_data_type.sql
+  wf_semantic_action_catalog.sql
   01_worker_api.sql
   wf_cluster_security_columns.sql
   wf_worker_enrollment.sql

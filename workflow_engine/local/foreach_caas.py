@@ -11,15 +11,18 @@ import hashlib
 import json
 import logging
 import os
+from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
-try:
-    from methyl_domain.foreach_bundle import resolve_study_root_from_scope as _resolve_study_root_from_scope
-except ImportError:  # product package is optional for a platform-only local run
-    _resolve_study_root_from_scope = None
+
+def _foreach_bundle_plugin() -> Any:
+    eps = entry_points().select(group="goliath.foreach_bundle")
+    for ep in eps:
+        return ep.load()
+    return None
 
 # Same scope key the product bundle uses so nested FOREACH identity survives
 # a platform-only local run.
@@ -67,10 +70,14 @@ def extend_foreach_ancestry(
 
 
 def resolve_study_root(scope_values: Mapping[str, Any]) -> Optional[Path]:
-    """Study root for iteration bundles, when the product helper is installed."""
-    if _resolve_study_root_from_scope is None:
+    """Study root for iteration bundles, when a descendant app registers FOREACH CAAS."""
+    plugin = _foreach_bundle_plugin()
+    if plugin is None:
         return None
-    return _resolve_study_root_from_scope(scope_values)
+    resolver = getattr(plugin, "resolve_study_root_from_scope", None)
+    if resolver is None:
+        return None
+    return resolver(scope_values)
 
 
 def foreach_caas_enabled(scope_values: Mapping[str, Any] | None = None) -> bool:
@@ -109,18 +116,15 @@ def collect_body_action_names(graph: Any, body_key: Optional[str]) -> List[str]:
 
 
 def child_action_revisions(action_names: Sequence[str]) -> List[str]:
+    from goliath_app.actions.registry import action_revision_for, find_action
+
     revisions: List[str] = []
-    try:
-        from methyl_worker.action_catalog import find_catalog_entry
-        from methyl_worker.action_skip import compute_action_revision
-    except Exception:
-        return [f"{name}:unknown" for name in action_names]
     for name in action_names:
-        entry = find_catalog_entry(name)
+        entry = find_action(name)
         if entry is None:
             revisions.append(f"{name}:unknown")
             continue
-        revisions.append(f"{name}:{compute_action_revision(entry)}")
+        revisions.append(f"{name}:{action_revision_for(entry)}")
     return revisions
 
 
@@ -149,9 +153,14 @@ def probe_iteration_bundle(
 ) -> Optional[Dict[str, Any]]:
     if not enabled or project_root is None:
         return None
-    from methyl_domain.foreach_bundle import try_short_circuit_foreach_iteration
+    plugin = _foreach_bundle_plugin()
+    if plugin is None:
+        return None
+    short_circuit = getattr(plugin, "try_short_circuit_foreach_iteration", None)
+    if short_circuit is None:
+        return None
 
-    return try_short_circuit_foreach_iteration(
+    return short_circuit(
         project_root,
         foreach_node_key=foreach_node_key,
         collection_var=collection_var,
@@ -176,10 +185,13 @@ def commit_iteration_bundle_local(
 ) -> Optional[Path]:
     if not enabled or project_root is None:
         return None
-    from methyl_domain.foreach_bundle import (
-        commit_iteration_bundle,
-        compute_iteration_bundle_key,
-    )
+    plugin = _foreach_bundle_plugin()
+    if plugin is None:
+        return None
+    compute_iteration_bundle_key = getattr(plugin, "compute_iteration_bundle_key", None)
+    commit_iteration_bundle = getattr(plugin, "commit_iteration_bundle", None)
+    if compute_iteration_bundle_key is None or commit_iteration_bundle is None:
+        return None
 
     key = compute_iteration_bundle_key(
         foreach_node_key=foreach_node_key,

@@ -43,6 +43,9 @@ jobs:
       - name: Type check with Pyrefly
         run: pyrefly check
 
+      - name: Action schema export check
+        run: goliath-export-action-schemas --check schemas/actions/platform_catalog.json
+
       - name: Gateway unit tests
         run: |
           python -m pytest \
@@ -51,6 +54,7 @@ jobs:
             workflow_engine/tests/test_gateway_auth.py \
             workflow_engine/tests/test_cfg_bundle_layout.py \
             workflow_engine/tests/test_pg_plpgsql_variable_conflict.py \
+            workflow_engine/tests/test_action_catalog_platform.py \
             workflow_engine/tests/test_local_workflow.py \
             workflow_engine/tests/test_pipeline_scope_flags.py \
             workflow_engine/tests/test_reference_selection.py \
