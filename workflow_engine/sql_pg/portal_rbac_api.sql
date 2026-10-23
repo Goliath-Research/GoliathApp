@@ -140,8 +140,7 @@ RETURNS TABLE (
   scope_id int,
   scope_type text,
   name text,
-  institution_id int,
-  lab_id int,
+  organization_id int,
   owner_user_id int,
   active boolean
 )
@@ -152,8 +151,7 @@ AS $$
     s."ScopeID",
     s."ScopeType"::text,
     s."Name"::text,
-    s."InstitutionID",
-    s."LabID",
+    s."OrganizationID",
     s."OwnerUserID",
     s."Active"
   FROM "RBAC"."Scopes" s
@@ -166,8 +164,7 @@ RETURNS TABLE (
   scope_id int,
   scope_type text,
   name text,
-  institution_id int,
-  lab_id int,
+  organization_id int,
   owner_user_id int,
   active boolean
 )
@@ -178,8 +175,7 @@ AS $$
     s."ScopeID",
     s."ScopeType"::text,
     s."Name"::text,
-    s."InstitutionID",
-    s."LabID",
+    s."OrganizationID",
     s."OwnerUserID",
     s."Active"
   FROM "RBAC"."Scopes" s

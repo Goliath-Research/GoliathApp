@@ -59,15 +59,17 @@ SCRIPTS=(
   wf_sql_collection_bindings.sql
   portal_workflow_api.sql
   wf_drop_platform_sample_storage.sql
-  # Legacy EpiPortal clinical / RBAC / Meta stack (quoted PascalCase)
   meta_schema.sql
   rbac_schema.sql
   contract_schema.sql
   onboarding_schema.sql
+  portal_shell_schema.sql
+  portal_organization_schema.sql
   legacy_cross_schema_fks.sql
   cfg_schema.sql
   cfg_registry_tables.sql
   cfg_wf_relationships.sql
+  cfg_analyte_schema.sql
   cfg_repo_api.sql
   portal_resource_profile.sql
   cfg_portal_api.sql
@@ -75,7 +77,6 @@ SCRIPTS=(
   cfg_process_pack_catalog.sql
   cfg_assay_procedure_links.sql
   cfg_hyperparameter_search.sql
-  # Modern portal API (sp_get_site, sp_get_study, sp_list_workflow_defs, …)
   portal_modern_api_parity.sql
   rbac_api_parity.sql
   meta_api_parity.sql

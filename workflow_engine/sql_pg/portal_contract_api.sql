@@ -121,8 +121,8 @@ $$;
 CREATE OR REPLACE FUNCTION portal.sp_list_contracts(p_include_inactive boolean DEFAULT false)
 RETURNS TABLE (
   contract_id int,
-  customer_id int,
-  customer_name text,
+  organization_id int,
+  organization_name text,
   name text,
   status text,
   start_date_utc timestamptz,
@@ -139,8 +139,8 @@ STABLE
 AS $$
   SELECT
     c."ContractID",
-    c."CustomerID",
-    cu."Name"::text,
+    c."OrganizationID",
+    o."Name"::text,
     c."Name"::text,
     c."Status"::text,
     c."StartDateUtc",
@@ -152,7 +152,7 @@ AS $$
     c."CreatedAtUtc",
     c."UpdatedAtUtc"
   FROM "Contract"."Contracts" c
-  INNER JOIN portal."Customers" cu ON cu."ID" = c."CustomerID"
+  INNER JOIN portal."Organizations" o ON o."ID" = c."OrganizationID"
   WHERE p_include_inactive OR c."Status" IN ('DRAFT', 'ACTIVE')
   ORDER BY c."Name";
 $$;
@@ -160,8 +160,8 @@ $$;
 CREATE OR REPLACE FUNCTION portal.sp_get_contract(p_contract_id int)
 RETURNS TABLE (
   contract_id int,
-  customer_id int,
-  customer_name text,
+  organization_id int,
+  organization_name text,
   name text,
   status text,
   start_date_utc timestamptz,
@@ -178,8 +178,8 @@ STABLE
 AS $$
   SELECT
     c."ContractID",
-    c."CustomerID",
-    cu."Name"::text,
+    c."OrganizationID",
+    o."Name"::text,
     c."Name"::text,
     c."Status"::text,
     c."StartDateUtc",
@@ -191,12 +191,12 @@ AS $$
     c."CreatedAtUtc",
     c."UpdatedAtUtc"
   FROM "Contract"."Contracts" c
-  INNER JOIN portal."Customers" cu ON cu."ID" = c."CustomerID"
+  INNER JOIN portal."Organizations" o ON o."ID" = c."OrganizationID"
   WHERE c."ContractID" = p_contract_id;
 $$;
 
 CREATE OR REPLACE FUNCTION portal.sp_upsert_contract(
-  p_customer_id int,
+  p_organization_id int,
   p_name text,
   p_status text DEFAULT 'DRAFT',
   p_start_date_utc timestamptz DEFAULT NULL,
@@ -213,8 +213,8 @@ DECLARE
   v_status varchar(24);
   v_start timestamptz;
 BEGIN
-  IF p_customer_id IS NULL OR p_customer_id <= 0 THEN
-    RAISE EXCEPTION 'customer_id is required';
+  IF p_organization_id IS NULL OR p_organization_id <= 0 THEN
+    RAISE EXCEPTION 'organization_id is required';
   END IF;
   IF p_name IS NULL OR btrim(p_name) = '' THEN
     RAISE EXCEPTION 'name is required';
@@ -227,16 +227,16 @@ BEGIN
 
   SELECT c."ContractID" INTO contract_id
   FROM "Contract"."Contracts" c
-  WHERE c."CustomerID" = p_customer_id;
+  WHERE c."OrganizationID" = p_organization_id;
 
   IF contract_id IS NULL THEN
     INSERT INTO "Contract"."Contracts" (
-      "CustomerID", "Name", "Status", "StartDateUtc", "EndDateUtc",
+      "OrganizationID", "Name", "Status", "StartDateUtc", "EndDateUtc",
       "PlanCode", "BillingCycle", "AutoRenew", "TermsVersion",
       "CreatedAtUtc", "UpdatedAtUtc"
     )
     VALUES (
-      p_customer_id, p_name, v_status, v_start, p_end_date_utc,
+      p_organization_id, p_name, v_status, v_start, p_end_date_utc,
       p_plan_code, p_billing_cycle, COALESCE(p_auto_renew, false), p_terms_version,
       now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc'
     )

@@ -10,29 +10,6 @@
 
 CREATE SCHEMA IF NOT EXISTS portal;
 
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'portal' AND table_name = 'samples'
-      AND table_type = 'BASE TABLE'
-  ) AND NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'portal' AND table_name = 'samples' AND column_name = 'extras'
-  ) THEN
-    ALTER TABLE portal.samples ADD COLUMN extras jsonb NULL;
-  ELSIF EXISTS (
-    SELECT 1 FROM information_schema.tables
-    WHERE table_schema = 'portal' AND table_name = 'Samples'
-      AND table_type = 'BASE TABLE'
-  ) AND NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'portal' AND table_name = 'Samples' AND column_name = 'Extras'
-  ) THEN
-    ALTER TABLE portal."Samples" ADD COLUMN "Extras" jsonb NULL;
-  END IF;
-END $$;
-
 CREATE TABLE IF NOT EXISTS portal.sample_field_contract (
   id bigserial PRIMARY KEY,
   name text NOT NULL,

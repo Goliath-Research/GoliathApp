@@ -19,7 +19,7 @@ An application that ships this engine applies the list once per release, to the 
 
 The script checks `current_user` and `version()`, applies each file with `psql -q -v ON_ERROR_STOP=1 -f`, then runs `workflow_engine/contract/validate_contract.py` when `python3` or `.venv/bin/python` is available. It does not set `check_function_bodies`.
 
-`LANGUAGE sql` functions in the later portal and RBAC scripts mention `portal."Customers"`, `portal."Diseases"`, `portal."Role2Node"`, `portal."NavTree"`, and `cfg.analyte`. This tree does not create those tables. PostgreSQL validates `LANGUAGE sql` bodies at creation time when `check_function_bodies` is on, so a database without the referenced tables can fail on those files. `legacy_cross_schema_fks.sql` guards some of its foreign keys with `to_regclass` and skips a constraint when the table is absent.
+GoliathApp apply creates the portal navigation shell (`portal_shell_schema.sql`), organization tenancy (`portal_organization_schema.sql`), and `cfg.analyte` (`cfg_analyte_schema.sql`). Clinical portal tables (`portal."Customers"`, `portal."Samples"`, and related Omics domain DDL) are owned by descendant apps such as GoliathOmics and are not referenced from this tree.
 
 ## Order
 
@@ -29,8 +29,8 @@ The authoritative order is the `SCRIPTS` array in `apply_schema.sh`. Grouped as 
 2. Actions and repository: `02_repository_api.sql`, `wf_action_schema.sql`, `wf_repo_upsert_workflow_action.sql`, `wf_action_dispatch_metadata.sql`, `wf_action_dispatch_concurrency.sql`, `wf_action_dispatch_affinity.sql`, `wf_data_type.sql`.
 3. Workers: `01_worker_api.sql`, `wf_cluster_security_columns.sql`, `wf_worker_enrollment.sql`, `portal_worker_enrollment_api.sql`.
 4. Graph and admin: `wf_apply_validation_plan.sql`, `wf_execution_scope.sql`, `04_admin.sql`, `wf_repo_create_workflow_graph.sql`, `wf_sql_collection_bindings.sql`, `portal_workflow_api.sql`, `wf_drop_platform_sample_storage.sql`.
-5. Meta, RBAC, contract, onboarding: `meta_schema.sql`, `rbac_schema.sql`, `contract_schema.sql`, `onboarding_schema.sql`, `legacy_cross_schema_fks.sql`.
-6. Config and portal: `cfg_schema.sql`, `cfg_registry_tables.sql`, `cfg_wf_relationships.sql`, `cfg_repo_api.sql`, `portal_resource_profile.sql`, `cfg_portal_api.sql`, `portal_sample_extras_schema.sql`, `cfg_process_pack_catalog.sql`, `cfg_assay_procedure_links.sql`, `cfg_hyperparameter_search.sql`, `portal_modern_api_parity.sql`, `rbac_api_parity.sql`, `meta_api_parity.sql`, `contract_api_parity.sql`, `onboarding_api_parity.sql`, `portal_study_pipeline_api.sql`, `portal_ops_recovery_api.sql`, `portal_rbac_api.sql`, `portal_contract_api.sql`, `portal_study_ops_api.sql`, `portal_guardrails_editor.sql`, `cfg_study_start_request.sql`, `wf_event_plane.sql`.
+5. Meta, RBAC, contract, onboarding, portal shell: `meta_schema.sql`, `rbac_schema.sql`, `contract_schema.sql`, `onboarding_schema.sql`, `portal_shell_schema.sql`, `portal_organization_schema.sql`, `legacy_cross_schema_fks.sql`.
+6. Config and portal: `cfg_schema.sql`, `cfg_registry_tables.sql`, `cfg_wf_relationships.sql`, `cfg_analyte_schema.sql`, `cfg_repo_api.sql`, `portal_resource_profile.sql`, `cfg_portal_api.sql`, `portal_sample_extras_schema.sql`, `cfg_process_pack_catalog.sql`, `cfg_assay_procedure_links.sql`, `cfg_hyperparameter_search.sql`, `portal_modern_api_parity.sql`, `rbac_api_parity.sql`, `meta_api_parity.sql`, `contract_api_parity.sql`, `onboarding_api_parity.sql`, `portal_study_pipeline_api.sql`, `portal_ops_recovery_api.sql`, `portal_rbac_api.sql`, `portal_contract_api.sql`, `portal_study_ops_api.sql`, `portal_guardrails_editor.sql`, `cfg_study_start_request.sql`, `wf_event_plane.sql`.
 
 Files on disk that the array does not apply:
 

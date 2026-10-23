@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS cfg.assay_procedure (
   CONSTRAINT ck_cfg_assay_procedure_status CHECK (status IN ('draft', 'published', 'retired'))
 );
 
--- cfg.analyte is created by GoliathOmics (cfg_analyte_catalog.sql), not by this engine script.
+-- cfg.analyte DDL is in cfg_analyte_schema.sql (Omics apps seed catalog rows).
 
 CREATE TABLE IF NOT EXISTS cfg.domain_program (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -163,9 +163,8 @@ CREATE TABLE IF NOT EXISTS cfg.enrichment_library_preset (
   CONSTRAINT ck_cfg_enrichment_library_preset_status CHECK (status IN ('draft', 'published', 'retired'))
 );
 
--- Study analysis arms. After portal_clinical_schema.sql + legacy_cross_schema_fks.sql,
--- portal_sample_id / lab_sample_id gain real FKs to portal."Samples" / portal."LabSamples"
--- (same as MSSQL). Soft integer refs remain valid until that deploy step runs.
+-- Study analysis arms. portal_sample_id / lab_sample_id are soft refs in GoliathApp;
+-- GoliathOmics may add FKs to portal clinical tables in its apply scripts.
 CREATE TABLE IF NOT EXISTS cfg.study_group (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   study_row_id bigint NOT NULL REFERENCES cfg.study (id) ON DELETE CASCADE,

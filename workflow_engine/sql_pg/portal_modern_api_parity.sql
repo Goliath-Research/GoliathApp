@@ -10,9 +10,7 @@
                                                 cfg.program_publish
     cfg_wf_relationships.sql                  – cfg.site_reference_asset, cfg.study_instance_link
     cfg_repo_api.sql                          – cfg.cfg_repo_upsert, cfg.cfg_repo_publish
-    portal_clinical_schema.sql                – portal."Diseases", portal."Groups",
-                                                portal."GroupSamples", portal."Samples",
-                                                portal."Customers"
+    portal_organization_schema.sql            – portal."Organizations" (session org lookup)
     00_schema.sql                             – wf.workflow_def, wf.workflow_version,
                                                 wf.workflow_node, wf.workflow_instance,
                                                 wf.node_execution, wf.task_lease, wf.worker
@@ -173,133 +171,27 @@ LANGUAGE sql STABLE AS $$
 $$;
 
 -- ══════════════════════════════════════════════════════════════════════════════
--- DISEASES / GROUPS / SAMPLES (clinical portal data)
+-- SESSION / ORGANIZATION
 -- ══════════════════════════════════════════════════════════════════════════════
 
-SELECT portal._drop_if_proc('portal','sp_list_diseases');
-CREATE OR REPLACE FUNCTION portal.sp_list_diseases()
-RETURNS TABLE(
-  id integer, name text, parent_id integer
-)
-LANGUAGE sql STABLE AS $$
-  SELECT d."ID", d."Name"::text, d."ParentID"
-  FROM portal."Diseases" d
-  ORDER BY d."ID";
-$$;
-
-SELECT portal._drop_if_proc('portal','sp_list_groups_for_disease');
-CREATE OR REPLACE FUNCTION portal.sp_list_groups_for_disease(
-  p_disease_id integer,
-  p_customer_id integer DEFAULT NULL
-)
-RETURNS TABLE(
-  id integer, name text, description text, customer_id integer, sample_count bigint
-)
-LANGUAGE sql STABLE AS $$
-  SELECT
-    g."ID",
-    g."Name"::text,
-    g."Description"::text,
-    g."CustomerID",
-    COUNT(gs."SampleID") AS sample_count
-  FROM portal."Groups" g
-  LEFT JOIN portal."GroupSamples" gs ON gs."GroupID" = g."ID"
-  LEFT JOIN portal."Samples" s ON s."ID" = gs."SampleID"
-  WHERE (s."DiseaseID" = p_disease_id OR p_disease_id IS NULL)
-    AND (p_customer_id IS NULL OR g."CustomerID" = p_customer_id)
-  GROUP BY g."ID", g."Name", g."Description", g."CustomerID"
-  ORDER BY g."Name";
-$$;
-
-SELECT portal._drop_if_proc('portal','sp_list_groups_for_study_enrollment');
-CREATE OR REPLACE FUNCTION portal.sp_list_groups_for_study_enrollment(
-  p_customer_id integer DEFAULT NULL
-)
-RETURNS TABLE(
-  id integer, name text, description text, customer_id integer, sample_count bigint
-)
-LANGUAGE sql STABLE AS $$
-  SELECT
-    g."ID",
-    g."Name"::text,
-    g."Description"::text,
-    g."CustomerID",
-    COUNT(gs."SampleID") AS sample_count
-  FROM portal."Groups" g
-  LEFT JOIN portal."GroupSamples" gs ON gs."GroupID" = g."ID"
-  WHERE (p_customer_id IS NULL OR g."CustomerID" = p_customer_id)
-  GROUP BY g."ID", g."Name", g."Description", g."CustomerID"
-  ORDER BY g."Name";
-$$;
-
-SELECT portal._drop_if_proc('portal','sp_list_group_samples_for_enrollment');
-CREATE OR REPLACE FUNCTION portal.sp_list_group_samples_for_enrollment(
-  p_group_id integer
-)
-RETURNS TABLE(
-  portal_sample_id integer, patient_id integer, customer_id integer,
-  disease_id integer, age numeric, bmi numeric
-)
-LANGUAGE sql STABLE AS $$
-  SELECT
-    s."ID"        AS portal_sample_id,
-    s."PatientID",
-    s."CustomerID",
-    s."DiseaseID",
-    s."Age",
-    s."BMI"
-  FROM portal."Samples" s
-  JOIN portal."GroupSamples" gs ON gs."SampleID" = s."ID"
-  WHERE gs."GroupID" = p_group_id
-  ORDER BY s."ID";
-$$;
-
-SELECT portal._drop_if_proc('portal','sp_list_group_sample_names');
-CREATE OR REPLACE FUNCTION portal.sp_list_group_sample_names(
-  p_group_id integer
-)
-RETURNS TABLE(
-  portal_sample_id integer, lab_sample_id integer, processing_sample_key text
-)
-LANGUAGE sql STABLE AS $$
-  SELECT
-    s."ID"  AS portal_sample_id,
-    ls."ID" AS lab_sample_id,
-    ls."Sample"::text AS processing_sample_key
-  FROM portal."Samples" s
-  JOIN portal."GroupSamples" gs ON gs."SampleID" = s."ID"
-  LEFT JOIN portal."LabSamples" ls ON ls."SampleID" = s."ID"
-  WHERE gs."GroupID" = p_group_id
-  ORDER BY s."ID", ls."ID";
-$$;
-
--- ══════════════════════════════════════════════════════════════════════════════
--- SESSION / CUSTOMER
--- ══════════════════════════════════════════════════════════════════════════════
-
--- Returns the session info and, when the active scope has an institution-linked customer,
--- the customer record.  RBAC.Sessions.ActiveScopeID → RBAC.Scopes.InstitutionID →
--- portal.CustomerInstitutions → portal.Customers.
--- When the scope has no institution mapping the customer columns are NULL.
-SELECT portal._drop_if_proc('portal','sp_get_session_customer');
-CREATE OR REPLACE FUNCTION portal.sp_get_session_customer(
+SELECT portal._drop_if_proc('portal','sp_get_session_organization');
+CREATE OR REPLACE FUNCTION portal.sp_get_session_organization(
   p_session_id integer
 )
 RETURNS TABLE(
   session_id integer, user_id integer, scope_id integer,
-  customer_id integer, customer_name text
+  organization_id integer, organization_name text
 )
 LANGUAGE sql STABLE AS $$
   SELECT
     s."ID"              AS session_id,
     s."UserID"          AS user_id,
     s."ActiveScopeID"   AS scope_id,
-    c."ID"              AS customer_id,
-    c."Name"::text      AS customer_name
+    o."ID"              AS organization_id,
+    o."Name"::text      AS organization_name
   FROM "RBAC"."Sessions" s
   LEFT JOIN "RBAC"."Scopes" sc ON sc."ScopeID" = s."ActiveScopeID"
-  LEFT JOIN portal."CustomerInstitutions" ci ON ci."InstitutionID" = sc."InstitutionID"
-  LEFT JOIN portal."Customers" c ON c."ID" = ci."CustomerID"
+  LEFT JOIN portal."Organizations" o ON o."ID" = sc."OrganizationID"
   WHERE s."ID" = p_session_id;
 $$;
 

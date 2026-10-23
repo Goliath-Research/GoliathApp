@@ -34,6 +34,6 @@ RBAC is the `"RBAC"` schema in `workflow_engine/sql_pg/rbac_schema.sql`. Identif
 
 `"RBAC".spgetuseridbyemail` and `"RBAC".spgetuserroles` are in `rbac_api_parity.sql`. Role lookup walks group membership. `portal."viewUserAllRoles"` reads `portal."UserRoles"`, which this script creates, and copies leftover `e_portal."UserRoles"` rows when that old table is present.
 
-Navigation and several contract functions join `portal."Role2Node"`, `portal."NavTree"`, `portal."Customers"`, and `portal."Diseases"`. Those clinical tables are not created by the scripts in this repository. See [schema-apply.md](schema-apply.md).
+Navigation uses `portal."Role2Node"` and `portal."NavTree"` from `portal_shell_schema.sql`. Contract admin APIs join `portal."Organizations"`. Clinical customer and sample tables are app-owned (see [schema-apply.md](schema-apply.md)).
 
 Permissions point at Meta classes through `ObjID` and `OperationID`. Class rows and instances live in `"Meta"` (`meta_schema.sql`, `"Meta"."Objs"`). Meta parity procedures are `meta_api_parity.sql`.
