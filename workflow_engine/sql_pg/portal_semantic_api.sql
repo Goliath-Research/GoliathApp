@@ -48,6 +48,36 @@ AS $$
     );
 $$;
 
+CREATE OR REPLACE FUNCTION portal.fn_semantic_property_json_type(p_prop jsonb)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT COALESCE(
+    NULLIF(p_prop->>'type', 'null'),
+    (
+      SELECT NULLIF(elem->>'type', 'null')
+      FROM jsonb_array_elements(COALESCE(p_prop->'anyOf', '[]'::jsonb)) AS elem
+      WHERE elem ? 'type'
+        AND elem->>'type' IS NOT NULL
+        AND elem->>'type' <> 'null'
+      LIMIT 1
+    )
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION portal.fn_semantic_property_allows_null(p_prop jsonb)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(COALESCE(p_prop->'anyOf', '[]'::jsonb)) AS elem
+    WHERE elem->>'type' = 'null'
+  );
+$$;
+
 CREATE OR REPLACE FUNCTION portal.fn_semantic_validate_params(
   p_request_code text,
   p_schema jsonb,
@@ -61,6 +91,7 @@ DECLARE
   v_key text;
   v_required jsonb;
   v_props jsonb;
+  v_prop jsonb;
   v_type text;
   v_val jsonb;
 BEGIN
@@ -101,7 +132,22 @@ BEGIN
       END IF;
       CONTINUE;
     END IF;
-    v_type := v_props->v_key->>'type';
+    v_prop := v_props->v_key;
+    IF v_val = 'null'::jsonb THEN
+      IF portal.fn_semantic_property_allows_null(v_prop) THEN
+        CONTINUE;
+      END IF;
+      PERFORM portal.fn_semantic_raise(
+        'GS400',
+        format('param %s must not be null for %s', v_key, p_request_code)
+      );
+    END IF;
+
+    v_type := portal.fn_semantic_property_json_type(v_prop);
+    IF v_type IS NULL THEN
+      CONTINUE;
+    END IF;
+
     IF v_type = 'integer' AND jsonb_typeof(v_val) <> 'number' THEN
       PERFORM portal.fn_semantic_raise(
         'GS400',
@@ -444,12 +490,14 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS portal.fn_semantic_core_filter_organizations(integer, jsonb, integer, text, text[]);
+
 CREATE OR REPLACE FUNCTION portal.fn_semantic_core_filter_organizations(
   p_user_id integer,
   p_params jsonb,
   p_limit integer,
-  p_where_sql text,
-  p_filter_args text[]
+  p_entity_id integer,
+  p_filter jsonb
 )
 RETURNS SETOF portal.core_organization_row
 LANGUAGE plpgsql
@@ -461,6 +509,8 @@ DECLARE
   v_sql text;
   v_org_ids integer[];
   v_lim integer;
+  v_where text;
+  v_args text[];
 BEGIN
   IF p_user_id IS NULL THEN
     RETURN;
@@ -470,6 +520,15 @@ BEGIN
   IF COALESCE(array_length(v_org_ids, 1), 0) = 0 THEN
     RETURN;
   END IF;
+
+  SELECT f.where_sql, f.arg_values
+  INTO v_where, v_args
+  FROM portal.fn_semantic_compile_filter(
+    p_entity_id,
+    COALESCE(p_filter, '{}'::jsonb),
+    COALESCE(p_params, '{}'::jsonb),
+    3
+  ) f;
 
   v_lim := GREATEST(0, COALESCE(p_limit, 500));
   v_sql := format(
@@ -481,15 +540,15 @@ BEGIN
       ORDER BY o."Name"
       LIMIT $2
     $q$,
-    COALESCE(NULLIF(p_where_sql, ''), 'TRUE')
+    COALESCE(NULLIF(v_where, ''), 'TRUE')
   );
 
-  IF COALESCE(array_length(p_filter_args, 1), 0) = 0 THEN
+  IF COALESCE(array_length(v_args, 1), 0) = 0 THEN
     RETURN QUERY EXECUTE v_sql USING v_org_ids, v_lim;
-  ELSIF array_length(p_filter_args, 1) = 1 THEN
-    RETURN QUERY EXECUTE v_sql USING v_org_ids, v_lim, p_filter_args[1];
-  ELSIF array_length(p_filter_args, 1) = 2 THEN
-    RETURN QUERY EXECUTE v_sql USING v_org_ids, v_lim, p_filter_args[1], p_filter_args[2];
+  ELSIF array_length(v_args, 1) = 1 THEN
+    RETURN QUERY EXECUTE v_sql USING v_org_ids, v_lim, v_args[1];
+  ELSIF array_length(v_args, 1) = 2 THEN
+    RETURN QUERY EXECUTE v_sql USING v_org_ids, v_lim, v_args[1], v_args[2];
   ELSE
     PERFORM portal.fn_semantic_raise('GS501', 'too many filter parameters for v1');
   END IF;
@@ -512,9 +571,6 @@ DECLARE
   v_sess record;
   v_req portal.semantic_request%ROWTYPE;
   v_limit integer;
-  v_where text;
-  v_args text[];
-  v_sql text;
   v_entity portal.semantic_entity%ROWTYPE;
 BEGIN
   SELECT *
@@ -574,14 +630,6 @@ BEGIN
     IF v_entity.storage_relation IS NULL OR btrim(v_entity.storage_relation) = '' THEN
       PERFORM portal.fn_semantic_raise('GS501', 'template target missing storage_relation');
     END IF;
-    SELECT f.where_sql, f.arg_values
-    INTO v_where, v_args
-    FROM portal.fn_semantic_compile_filter(
-      v_req.entity_id,
-      COALESCE(p_filter, v_req.filter_template),
-      p_params,
-      3
-    ) f;
 
     IF v_req.target_name = 'portal.fn_semantic_core_filter_organizations' THEN
       RETURN QUERY
@@ -590,8 +638,8 @@ BEGIN
         v_sess.user_id,
         COALESCE(p_params, '{}'::jsonb),
         v_limit,
-        v_where,
-        v_args
+        v_req.entity_id,
+        COALESCE(p_filter, v_req.filter_template, '{}'::jsonb)
       ) r;
       RETURN;
     END IF;
@@ -681,7 +729,7 @@ BEGIN
         COALESCE(v_rec.target_name, '');
     ELSIF v_rec.target_kind = 'template' THEN
       v_fn := to_regprocedure(
-        v_rec.target_name || '(integer,jsonb,integer,text,text[])'
+        v_rec.target_name || '(integer,jsonb,integer,integer,jsonb)'
       );
       RETURN QUERY SELECT
         format('target_exists:%s', v_rec.request_code),

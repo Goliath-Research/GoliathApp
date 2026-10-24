@@ -27,9 +27,10 @@ def _pg_env() -> dict[str, str]:
     return env
 
 
-def _psql(sql: str, env: dict[str, str]) -> str:
+def _psql(sql: str, env: dict[str, str], *, verbose_errors: bool = False) -> str:
+    prefix = "\\set VERBOSITY verbose\n" if verbose_errors else ""
     proc = subprocess.run(
-        ["psql", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", sql],
+        ["psql", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", prefix + sql],
         env=env,
         capture_output=True,
         text=True,
@@ -42,7 +43,16 @@ def _psql(sql: str, env: dict[str, str]) -> str:
 
 def _psql_expect_error(sql: str, env: dict[str, str], errcode: str) -> str:
     proc = subprocess.run(
-        ["psql", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", sql],
+        [
+            "psql",
+            "-q",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-t",
+            "-A",
+            "-c",
+            "\\set VERBOSITY verbose\n" + sql,
+        ],
         env=env,
         capture_output=True,
         text=True,
@@ -126,6 +136,19 @@ def test_cross_organization_denied(semantic_env: dict[str, str]) -> None:
         f"'{token_a}', 'core.list_organizations', '1', '{params}'::jsonb)",
         semantic_env,
         "GS403",
+    )
+
+
+def test_invalid_limit_param_gs400(semantic_env: dict[str, str]) -> None:
+    user_id = _create_user(semantic_env)
+    _create_org(semantic_env, user_id, f"Org-{user_id}")
+    token = _open_session(semantic_env, user_id)
+    params = json.dumps({"limit": "not-an-integer"})
+    _psql_expect_error(
+        "SELECT * FROM portal.sp_run_semantic_request("
+        f"'{token}', 'core.list_organizations', '1', '{params}'::jsonb)",
+        semantic_env,
+        "GS400",
     )
 
 
