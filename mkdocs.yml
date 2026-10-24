@@ -25,6 +25,7 @@ nav:
   - Schema apply: schema-apply.md
   - Semantic layer: semantic-layer.md
   - Semantic extensions: semantic-extensions.md
+  - Deployment: deployment.md
 
 markdown_extensions:
   - tables

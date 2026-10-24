@@ -1,0 +1,10 @@
+[exograph]
+version = "=0.29.1"
+
+# MCP: expose semantic read GraphQL operations to agents (execute_query_semantic_read).
+[[mcp.profiles]]
+name = "semantic_read"
+queries.operations.include = ["runSemanticRequest", "*semantic*"]
+queries.models.include = ["Semantic*"]
+mutations.operations.include = []
+mutations.models.include = []

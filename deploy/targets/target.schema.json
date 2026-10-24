@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Goliath-Research/GoliathApp/deploy/targets/target.schema.json",
+  "title": "GoliathApp deploy target",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "rollouts_environment", "database"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rollouts_environment": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Cursor Rollouts / Factory environment id for this stack."
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "port", "dbname", "sslmode"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Provider hint (neon, aurora, self-hosted, ...)."
+        },
+        "host": { "type": "string" },
+        "port": { "type": "integer" },
+        "dbname": { "type": "string" },
+        "sslmode": {
+          "type": "string",
+          "enum": ["disable", "allow", "prefer", "require", "verify-ca", "verify-full"]
+        },
+        "portal_role": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["user"],
+          "properties": {
+            "user": { "type": "string" },
+            "password": { "type": "string" }
+          }
+        },
+        "gateway_role": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["user"],
+          "properties": {
+            "user": { "type": "string" },
+            "password": { "type": "string" }
+          }
+        }
+      }
+    },
+    "exograph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["install_root", "bind_host", "port"],
+      "properties": {
+        "install_root": { "type": "string" },
+        "env_file": { "type": "string" },
+        "bind_host": { "type": "string" },
+        "port": { "type": "integer" },
+        "public_base_url": { "type": "string" },
+        "mcp_profile": {
+          "type": "string",
+          "description": "MCP profile name from exo/exo.toml (default semantic_read)."
+        },
+        "exo_postgres_url": {
+          "type": "string",
+          "description": "libpq URL for goliath_portal with sslmode=verify-full (secret at deploy time)."
+        }
+      }
+    },
+    "portal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "client": {
+          "type": "string",
+          "description": "Preferred access path (goliath_app.portal.PortalClient or GraphQL)."
+        }
+      }
+    },
+    "gateway": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "note": {
+          "type": "string",
+          "description": "Workers use the REST gateway in application repos; not provisioned here."
+        }
+      }
+    },
+    "schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "goliathapp": { "type": "string" },
+        "apply": { "type": "string" }
+      }
+    }
+  }
+}

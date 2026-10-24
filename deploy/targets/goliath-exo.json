@@ -1,0 +1,38 @@
+{
+  "name": "goliath-exo",
+  "rollouts_environment": "goliath-exo",
+  "database": {
+    "kind": "postgresql",
+    "host": "db.example.com",
+    "port": 5432,
+    "dbname": "goliath",
+    "sslmode": "verify-full",
+    "portal_role": {
+      "user": "goliath_portal",
+      "password": "secret:GOLIATH_PORTAL_DB_PASSWORD"
+    },
+    "gateway_role": {
+      "user": "goliath_gateway",
+      "password": "secret:GOLIATH_GATEWAY_DB_PASSWORD"
+    }
+  },
+  "exograph": {
+    "install_root": "/opt/goliath-exograph",
+    "env_file": "/opt/goliath-exograph/env/exograph.env",
+    "bind_host": "127.0.0.1",
+    "port": 9876,
+    "public_base_url": "https://portal.example.com/graphql",
+    "mcp_profile": "semantic_read",
+    "exo_postgres_url": "secret:EXO_POSTGRES_URL"
+  },
+  "portal": {
+    "client": "goliath_app.portal.PortalClient or Exograph GraphQL runSemanticRequest"
+  },
+  "gateway": {
+    "note": "Workflow workers and methyl-gateway stay on the Omics test/production targets (goliath-test). This profile is PostgreSQL + portal + Exograph only."
+  },
+  "schema": {
+    "goliathapp": "per-release",
+    "apply": "workflow_engine/sql_pg/apply_schema.sh"
+  }
+}

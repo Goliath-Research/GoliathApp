@@ -52,6 +52,13 @@ jobs:
           goliath-semantic-export --check schemas/semantic/catalog.json \
             --row-types workflow_engine/sql_pg/portal_semantic_row_types.sql
 
+      - name: Fetch Exograph (pinned linux-x86_64)
+        run: python3 scripts/fetch_third_party.py
+
+      - name: Build Exograph project
+        run: third_party/vendor/exograph/0.29.1/linux-x86_64/exo build
+        working-directory: exo
+
       - name: Gateway unit tests
         run: |
           python -m pytest \
@@ -70,6 +77,7 @@ jobs:
             workflow_engine/tests/test_semantic_layer.py \
             workflow_engine/tests/test_portal_client.py \
             workflow_engine/tests/test_portal_client_types.py \
+            workflow_engine/tests/test_exograph_third_party.py \
             -q
         env:
           POSTGRES_HOST: localhost
