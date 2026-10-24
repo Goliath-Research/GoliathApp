@@ -257,8 +257,7 @@ CREATE OR REPLACE PROCEDURE portal.sp_semantic_register_entity(
   IN p_schema_version text,
   IN p_content_hash text,
   IN p_storage_relation text DEFAULT NULL,
-  IN p_meta_class_id integer DEFAULT NULL,
-  OUT p_entity_id integer
+  IN p_meta_class_id integer DEFAULT NULL
 )
 LANGUAGE plpgsql
 AS $$
@@ -289,8 +288,7 @@ BEGIN
     storage_relation = EXCLUDED.storage_relation,
     schema_id = EXCLUDED.schema_id,
     schema_version = EXCLUDED.schema_version,
-    content_hash = EXCLUDED.content_hash
-  RETURNING id INTO p_entity_id;
+    content_hash = EXCLUDED.content_hash;
 END;
 $$;
 
