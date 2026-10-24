@@ -33,6 +33,10 @@
     {
       "title": "Release-time schema apply",
       "description": "The PostgreSQL scripts apply in a fixed order and can be applied again to a database that already has the objects. An application release runs that list once."
+    },
+    {
+      "title": "Semantic read layer",
+      "description": "Portal registry tables and portal.sp_run_semantic_request expose customer-facing entities and saved queries. The goliath_portal role and goliath_app.portal.PortalClient call stored procedures only."
     }
   ],
   "links": {
