@@ -94,8 +94,9 @@ def _create_user(env: dict[str, str]) -> int:
 
 
 def _create_org(env: dict[str, str], user_id: int, name: str) -> int:
+    escaped = name.replace("'", "''")
     row = _psql(
-        f"SELECT * FROM portal.sp_organization_create('{name}')",
+        f"SELECT * FROM portal.sp_organization_create('{escaped}')",
         env,
     )
     org_id = int(row.split("|")[0])
