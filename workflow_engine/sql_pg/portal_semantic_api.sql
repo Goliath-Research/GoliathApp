@@ -335,7 +335,24 @@ CREATE OR REPLACE PROCEDURE portal.sp_semantic_register_request(
 )
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  v_row_type regtype;
+  v_type_name text := split_part(p_row_type, '.', 2);
 BEGIN
+  IF v_type_name = '' THEN
+    v_type_name := p_row_type;
+  END IF;
+
+  SELECT t.oid::regtype
+  INTO v_row_type
+  FROM pg_type t
+  INNER JOIN pg_namespace n ON n.oid = t.typnamespace
+  WHERE n.nspname = 'portal'
+    AND t.typname = v_type_name;
+
+  IF v_row_type IS NULL THEN
+    RAISE EXCEPTION 'semantic row type % not found in portal schema', p_row_type;
+  END IF;
   INSERT INTO portal.semantic_namespace (code, display_name)
   VALUES (p_namespace, p_namespace)
   ON CONFLICT (code) DO NOTHING;
@@ -354,7 +371,7 @@ BEGIN
     p_entity_id,
     p_target_kind,
     p_target_name,
-    p_row_type::regtype,
+    v_row_type,
     COALESCE(p_params_schema, '{}'::jsonb),
     COALESCE(p_result_schema, '{}'::jsonb),
     p_filter_template,

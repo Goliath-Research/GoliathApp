@@ -104,7 +104,7 @@ def seed(conn) -> int:
                     "filter_template": filter_payload,
                 }
             )
-            row_type = f"portal.{entity.namespace}_{entity.code}_row".replace(".", "_")
+            row_type = f"{entity.namespace}_{entity.code}_row".replace(".", "_")
             cur.execute(
                 """
                 CALL portal.sp_semantic_register_request(
