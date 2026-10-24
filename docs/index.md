@@ -14,6 +14,7 @@ Specialized applications extend it with their own actions, profiles, and worker 
 - [RBAC](rbac.md) — users, roles, scopes, and the portal façade
 - [Semantic layer](semantic-layer.md) — portal registry, runner, and Python client
 - [Semantic extensions](semantic-extensions.md) — namespaces, overrides, and auth for descendant apps
+- [Deployment](deployment.md) — `goliath-exo` PostgreSQL + Exograph/MCP target
 - [Pipeline profiles](pipeline-profiles.md) — scope flags for workflow branches
 - [Schema apply](schema-apply.md) — ordered, re-runnable `sql_pg` apply
 - [Repository layout](workspace-index.md) — directories in this tree

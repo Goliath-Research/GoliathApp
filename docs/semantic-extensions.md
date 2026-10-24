@@ -41,6 +41,8 @@ Organization-scoped reads additionally enforce membership through `portal.fn_sem
 
 Sensitive reads should **always** enforce scope in SQL. GraphQL or MCP façades must not skip these checks.
 
+Exograph (`exo/`) connects as `goliath_portal`, exposes registry types read-only (`@access(query=true, mutation=false)`), and dispatches saved requests through the same `portal.sp_run_semantic_request` procedure as `PortalClient`. See [deployment](deployment.md) for the `goliath-exo` profile.
+
 ## Auth policy hooks
 
 `portal.auth_policy` and `portal.sp_auth_register_policy` let an installation point namespace-specific policy functions. Session idle and absolute lifetimes come from `cfg.fn_portal_auth_int` keys `portal_session_idle_seconds` and `portal_session_absolute_seconds` (see [RBAC](rbac.md)).

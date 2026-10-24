@@ -3,3 +3,13 @@ site/
 
 # Editable install metadata
 *.egg-info/
+
+# Fetched third-party binaries (pinned by third_party/*.lock)
+third_party/vendor/
+
+# Exograph build artifacts
+exo/target/
+exo/generated/
+exo/node_modules/
+exo/src/*.deno.lock
+__pycache__/

@@ -1,0 +1,55 @@
+context PortalAuthContext {
+  @jwt session_token: String
+}
+
+@postgres(schema="portal", managed=false)
+module GoliathPortalRegistry {
+  @access(query=true, mutation=false)
+  type SemanticNamespace {
+    @pk code: String
+    @column("display_name") displayName: String
+    @column("owner_app") ownerApp: String
+    @column("created_at_utc") createdAtUtc: Instant
+  }
+
+  @access(query=true, mutation=false)
+  type SemanticEntity {
+    @pk id: Int
+    namespace: String
+    code: String
+    @column("display_name") displayName: String
+    description: String
+    @column("meta_class_id") metaClassId: Int?
+    @column("storage_relation") storageRelation: String?
+    @column("schema_id") schemaId: String
+    @column("schema_version") schemaVersion: String
+    @column("content_hash") contentHash: String
+    @column("created_at_utc") createdAtUtc: Instant
+  }
+
+  @access(query=true, mutation=false)
+  type SemanticRequest {
+    @pk id: Int
+    @column("request_code") requestCode: String
+    version: String
+    namespace: String
+    @column("base_namespace") baseNamespace: String?
+    @column("entity_id") entityId: Int
+    @column("target_kind") targetKind: String
+    @column("target_name") targetName: String
+    @column("required_permission") requiredPermission: String?
+    @column("max_rows") maxRows: Int
+    @column("created_at_utc") createdAtUtc: Instant
+  }
+}
+
+@deno("semantic.ts")
+module SemanticRuntime {
+  @access(true)
+  query runSemanticRequest(
+    requestCode: String,
+    params: Json,
+    version: String,
+    @inject auth: PortalAuthContext
+  ): Json
+}

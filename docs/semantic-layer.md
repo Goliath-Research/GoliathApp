@@ -323,9 +323,13 @@ Typed helpers (`list_organizations`, `filter_organizations`) map to core request
 | Core seed and export drift checks | Shipped |
 | Typed `PortalClient` | Shipped (A4) |
 | Descendant override conventions | [semantic-extensions.md](semantic-extensions.md) |
-| Exograph GraphQL / MCP façade | Future |
+| Exograph GraphQL / MCP façade | Shipped (phase E, `exo/`) |
 | Portal UI wiring | Application repos |
 
 ## Status
 
-GoliathApp ships the registry, runner, export pipeline, core organization requests, and the Python portal client. Exograph remains optional. See [schema apply](schema-apply.md) for apply order and [semantic-extensions.md](semantic-extensions.md) for registering app-specific entities.
+GoliathApp ships the registry, runner, export pipeline, core organization requests, the Python portal client, and an optional Exograph project (`exo/`) with MCP profile `semantic_read`. Deploy the **`goliath-exo`** target when you need GraphQL/MCP; see [deployment](deployment.md). See [schema apply](schema-apply.md) for apply order and [semantic-extensions.md](semantic-extensions.md) for registering app-specific entities.
+
+### Exograph dispatcher
+
+`runSemanticRequest` is implemented in Deno (`exo/src/semantic.ts`) by calling `portal.sp_run_semantic_request` through the `postgres` npm client, forwarding the JWT `session_token`. If that path is unavailable in a given runtime, use unmanaged Postgres types over security-barrier views filtered by session context (documented in `exo/README.md`).

@@ -1,0 +1,36 @@
+{
+  "name": "goliath-exo",
+  "rollouts_environment": "goliath-exo",
+  "database": {
+    "kind": "postgresql",
+    "host": "YOUR_PG_HOST",
+    "port": 5432,
+    "dbname": "goliath",
+    "sslmode": "verify-full",
+    "portal_role": {
+      "user": "goliath_portal",
+      "password": "secret:GOLIATH_PORTAL_DB_PASSWORD"
+    },
+    "gateway_role": {
+      "user": "goliath_gateway",
+      "password": "secret:GOLIATH_GATEWAY_DB_PASSWORD"
+    }
+  },
+  "exograph": {
+    "install_root": "/opt/goliath-exograph",
+    "env_file": "/opt/goliath-exograph/env/exograph.env",
+    "bind_host": "127.0.0.1",
+    "port": 9876,
+    "mcp_profile": "semantic_read"
+  },
+  "portal": {
+    "client": "goliath_app.portal.PortalClient"
+  },
+  "gateway": {
+    "note": "Provision workers via GoliathOmics deploy targets (e.g. goliath-test), not this profile."
+  },
+  "schema": {
+    "goliathapp": "per-release",
+    "apply": "workflow_engine/sql_pg/apply_schema.sh"
+  }
+}

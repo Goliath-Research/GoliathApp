@@ -36,7 +36,7 @@
     },
     {
       "title": "Semantic read layer",
-      "description": "Portal registry tables and portal.sp_run_semantic_request expose customer-facing entities and saved queries. The goliath_portal role and goliath_app.portal.PortalClient call stored procedures only."
+      "description": "Portal registry tables and portal.sp_run_semantic_request expose customer-facing entities and saved queries. The goliath_portal role, goliath_app.portal.PortalClient, and optional Exograph GraphQL/MCP (goliath-exo) call stored procedures only."
     }
   ],
   "links": {
