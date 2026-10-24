@@ -89,6 +89,9 @@ SCRIPTS=(
   portal_ops_recovery_api.sql
   portal_rbac_api.sql
   portal_session_api.sql
+  portal_semantic_schema.sql
+  portal_semantic_row_types.sql
+  portal_semantic_api.sql
   portal_contract_api.sql
   portal_study_ops_api.sql
   portal_guardrails_editor.sql

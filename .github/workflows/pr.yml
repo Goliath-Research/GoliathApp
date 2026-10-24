@@ -47,6 +47,11 @@ jobs:
       - name: Action schema export check
         run: goliath-export-action-schemas --check schemas/actions/platform_catalog.json
 
+      - name: Semantic catalog export check
+        run: |
+          goliath-semantic-export --check schemas/semantic/catalog.json \
+            --row-types workflow_engine/sql_pg/portal_semantic_row_types.sql
+
       - name: Gateway unit tests
         run: |
           python -m pytest \
@@ -62,6 +67,7 @@ jobs:
             workflow_engine/tests/test_goliathapp_sql_no_omics_domain.py \
             workflow_engine/tests/test_goliathapp_pg_schema_apply.py \
             workflow_engine/tests/test_worker_session_auth.py \
+            workflow_engine/tests/test_semantic_layer.py \
             -q
         env:
           POSTGRES_HOST: localhost
