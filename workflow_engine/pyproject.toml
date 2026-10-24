@@ -31,6 +31,7 @@ methyl-study-validate-manifest = "admin.study_validate:main"
 methyl-cfg = "cfg.cli:main"
 methyl-reclaim-leases = "ops.reclaim_expired_leases:main"
 goliath-export-action-schemas = "goliath_app.actions.schema_export:main"
+goliath-semantic-export = "goliath_app.semantic.export:main"
 
 [project.entry-points."goliath.action_catalogs"]
 engine = "goliath_app.engine.catalog:ACTION_CATALOG"

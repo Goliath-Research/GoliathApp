@@ -1,0 +1,282 @@
+{
+  "entities": {
+    "core.organization": {
+      "attributes": [
+        {
+          "code": "organization_id",
+          "column_name": "ID",
+          "filterable_ops": [],
+          "json_type": "integer",
+          "role": "key"
+        },
+        {
+          "code": "name",
+          "column_name": "Name",
+          "filterable_ops": [
+            "eq",
+            "starts_with"
+          ],
+          "json_type": "string",
+          "role": "filter"
+        },
+        {
+          "code": "active",
+          "column_name": "Active",
+          "filterable_ops": [],
+          "json_type": "boolean",
+          "role": "list"
+        }
+      ],
+      "code": "organization",
+      "content_hash": "0533ad1617b96a213720af42535fe457de96546902c7948cfe7c24c3d12b47ca",
+      "description": "Generic GoliathApp organization tenancy record.",
+      "display_name": "Organization",
+      "namespace": "core",
+      "row_schema": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "organization_id",
+          "name",
+          "active"
+        ],
+        "title": "OrganizationRow",
+        "type": "object"
+      },
+      "row_type": "portal.core_organization_row",
+      "schema_id": "goliath.semantic/core/organization/1",
+      "schema_version": "1",
+      "storage_relation": "portal.\"Organizations\""
+    }
+  },
+  "requests": {
+    "core.filter_organizations": {
+      "base_namespace": null,
+      "content_hash": "64ce370769ebb3008eeea6f556d42e6ba76de83587c9bd51d6da143a7b92855e",
+      "entity_code": "organization",
+      "filter_template": {
+        "all_of": [
+          {
+            "attribute": "name",
+            "op": "starts_with",
+            "param": "name"
+          }
+        ]
+      },
+      "max_rows": 500,
+      "namespace": "core",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 500,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Limit"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "FilterOrganizationsParams",
+        "type": "object"
+      },
+      "request_code": "core.filter_organizations",
+      "required_permission": null,
+      "result_schema": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "organization_id",
+          "name",
+          "active"
+        ],
+        "title": "OrganizationRow",
+        "type": "object"
+      },
+      "row_type": "portal.core_organization_row",
+      "schema_id": "goliath.semantic/core/core.filter_organizations/1",
+      "target_kind": "template",
+      "target_name": "portal.fn_semantic_core_filter_organizations",
+      "version": "1"
+    },
+    "core.list_organizations": {
+      "base_namespace": null,
+      "content_hash": "0cbf5a5a8da04ace820ce60e343b540db0fb675b8c787eb64b6b9a2227037568",
+      "entity_code": "organization",
+      "filter_template": null,
+      "max_rows": 500,
+      "namespace": "core",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 500,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Limit"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Organization Id"
+          }
+        },
+        "title": "ListOrganizationsParams",
+        "type": "object"
+      },
+      "request_code": "core.list_organizations",
+      "required_permission": null,
+      "result_schema": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "organization_id",
+          "name",
+          "active"
+        ],
+        "title": "OrganizationRow",
+        "type": "object"
+      },
+      "row_type": "portal.core_organization_row",
+      "schema_id": "goliath.semantic/core/core.list_organizations/1",
+      "target_kind": "function",
+      "target_name": "portal.fn_semantic_core_list_organizations",
+      "version": "1"
+    },
+    "core.restricted_probe": {
+      "base_namespace": null,
+      "content_hash": "3b0c86c4146a32b17c13aa0036a439511b7679d61bae5df943d0fd4bcb15d200",
+      "entity_code": "organization",
+      "filter_template": null,
+      "max_rows": 500,
+      "namespace": "core",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 500,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Limit"
+          },
+          "organization_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Organization Id"
+          }
+        },
+        "title": "ListOrganizationsParams",
+        "type": "object"
+      },
+      "request_code": "core.restricted_probe",
+      "required_permission": "semantic.restricted.probe",
+      "result_schema": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "organization_id",
+          "name",
+          "active"
+        ],
+        "title": "OrganizationRow",
+        "type": "object"
+      },
+      "row_type": "portal.core_organization_row",
+      "schema_id": "goliath.semantic/core/core.restricted_probe/1",
+      "target_kind": "function",
+      "target_name": "portal.fn_semantic_core_list_organizations",
+      "version": "1"
+    }
+  }
+}
