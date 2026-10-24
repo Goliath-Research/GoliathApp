@@ -39,3 +39,43 @@ GRANT EXECUTE ON PROCEDURE wf.sp_worker_fail_task(
   bigint, bigint, text, text, text, int, text
 ) TO goliath_gateway;
 ALTER DEFAULT PRIVILEGES IN SCHEMA wf GRANT EXECUTE ON FUNCTIONS TO goliath_gateway;
+
+-- Semantic read path: goliath_portal calls sp_run_semantic_request only (not filter/compiler internals).
+DO $$
+DECLARE
+  v_sig regprocedure;
+BEGIN
+  FOR v_sig IN
+    SELECT p.oid::regprocedure
+    FROM pg_proc p
+    INNER JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'portal'
+      AND p.prokind = 'f'
+      AND p.proname = ANY (
+        ARRAY[
+          'fn_semantic_compile_filter',
+          'fn_semantic_core_filter_organizations',
+          'fn_semantic_core_list_organizations',
+          'fn_semantic_assert_safe_compiled_where',
+          'fn_semantic_validate_params',
+          'fn_semantic_property_json_type',
+          'fn_semantic_property_allows_null',
+          'fn_semantic_user_organization_ids',
+          'fn_semantic_raise'
+        ]
+      )
+  LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, goliath_portal', v_sig);
+  END LOOP;
+
+  FOR v_sig IN
+    SELECT p.oid::regprocedure
+    FROM pg_proc p
+    INNER JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'portal'
+      AND p.prokind = 'p'
+      AND p.proname LIKE 'sp_semantic_register%'
+  LOOP
+    EXECUTE format('REVOKE EXECUTE ON PROCEDURE %s FROM PUBLIC, goliath_portal', v_sig);
+  END LOOP;
+END $$;

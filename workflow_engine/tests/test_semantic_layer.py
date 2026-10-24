@@ -61,7 +61,11 @@ def _psql_expect_error(sql: str, env: dict[str, str], errcode: str) -> str:
     )
     assert proc.returncode != 0, "expected failure"
     combined = (proc.stderr or "") + (proc.stdout or "")
-    assert errcode in combined
+    assert errcode in combined, f"expected SQLSTATE {errcode} in: {combined!r}"
+    # VERBOSITY sqlstate prints the five-char code (GS4xx/GS5xx) as the error line.
+    assert combined.strip().startswith(errcode), (
+        f"expected primary SQLSTATE {errcode}, got: {combined!r}"
+    )
     return combined
 
 
@@ -220,6 +224,30 @@ def test_permission_denied(semantic_env: dict[str, str]) -> None:
         f"'{token}', 'core.restricted_probe', '1', '{{}}'::jsonb)",
         semantic_env,
         "GS403",
+    )
+
+
+def test_portal_role_cannot_execute_filter_internals(semantic_env: dict[str, str]) -> None:
+    _psql(
+        """
+        DO $do$
+        BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'goliath_portal') THEN
+            RAISE EXCEPTION 'goliath_portal role missing';
+          END IF;
+          BEGIN
+            EXECUTE 'SET LOCAL ROLE goliath_portal';
+            PERFORM portal.fn_semantic_core_filter_organizations(
+              1, '{}'::jsonb, 10, 1, '{"all_of": []}'::jsonb
+            );
+            RAISE EXCEPTION 'filter executor should not be callable as goliath_portal';
+          EXCEPTION
+            WHEN insufficient_privilege THEN
+              NULL;
+          END;
+        END $do$;
+        """,
+        semantic_env,
     )
 
 

@@ -145,6 +145,12 @@ BEGIN
 
     v_type := portal.fn_semantic_property_json_type(v_prop);
     IF v_type IS NULL THEN
+      IF v_prop ? 'anyOf' OR v_prop ? 'oneOf' THEN
+        PERFORM portal.fn_semantic_raise(
+          'GS400',
+          format('unsupported param schema for %s on %s', v_key, p_request_code)
+        );
+      END IF;
       CONTINUE;
     END IF;
 
@@ -490,6 +496,47 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION portal.fn_semantic_assert_safe_compiled_where(p_where text)
+RETURNS void
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = portal, pg_temp
+AS $$
+DECLARE
+  v_part text;
+  v_fragment text;
+BEGIN
+  IF p_where IS NULL OR btrim(p_where) = '' OR p_where = 'TRUE' THEN
+    RETURN;
+  END IF;
+
+  IF upper(p_where) ~ '(;|--|/\*|\bUNION\b|\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bDROP\b|\bEXECUTE\b)' THEN
+    PERFORM portal.fn_semantic_raise('GS501', 'compiled filter contains forbidden tokens');
+  END IF;
+
+  FOREACH v_part IN ARRAY string_to_array(p_where, ' AND ')
+  LOOP
+    v_fragment := btrim(v_part);
+    IF v_fragment ~ '^"[^"]+" IS NULL$' THEN
+      CONTINUE;
+    ELSIF v_fragment ~ '^"[^"]+"::text = \$[0-9]+$' THEN
+      CONTINUE;
+    ELSIF v_fragment ~ '^"[^"]+"::text >= \$[0-9]+$' THEN
+      CONTINUE;
+    ELSIF v_fragment ~ '^"[^"]+"::text <= \$[0-9]+$' THEN
+      CONTINUE;
+    ELSIF v_fragment ~ '^"[^"]+" ILIKE \(\$[0-9]+ \|\| ''%''\)$' THEN
+      CONTINUE;
+    ELSE
+      PERFORM portal.fn_semantic_raise(
+        'GS501',
+        format('compiled filter fragment rejected: %s', v_fragment)
+      );
+    END IF;
+  END LOOP;
+END;
+$$;
+
 DROP FUNCTION IF EXISTS portal.fn_semantic_core_filter_organizations(integer, jsonb, integer, text, text[]);
 
 CREATE OR REPLACE FUNCTION portal.fn_semantic_core_filter_organizations(
@@ -529,6 +576,8 @@ BEGIN
     COALESCE(p_params, '{}'::jsonb),
     3
   ) f;
+
+  PERFORM portal.fn_semantic_assert_safe_compiled_where(v_where);
 
   v_lim := GREATEST(0, COALESCE(p_limit, 500));
   v_sql := format(
