@@ -27,10 +27,9 @@ def _pg_env() -> dict[str, str]:
     return env
 
 
-def _psql(sql: str, env: dict[str, str], *, verbose_errors: bool = False) -> str:
-    prefix = "\\set VERBOSITY verbose\n" if verbose_errors else ""
+def _psql(sql: str, env: dict[str, str]) -> str:
     proc = subprocess.run(
-        ["psql", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", prefix + sql],
+        ["psql", "-q", "-v", "ON_ERROR_STOP=1", "-t", "-A", "-c", sql],
         env=env,
         capture_output=True,
         text=True,
@@ -51,7 +50,9 @@ def _psql_expect_error(sql: str, env: dict[str, str], errcode: str) -> str:
             "-t",
             "-A",
             "-c",
-            "\\set VERBOSITY verbose\n" + sql,
+            "\\set VERBOSITY sqlstate",
+            "-c",
+            sql,
         ],
         env=env,
         capture_output=True,
