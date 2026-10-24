@@ -37,3 +37,24 @@ RBAC is the `"RBAC"` schema in `workflow_engine/sql_pg/rbac_schema.sql`. Identif
 Navigation uses `portal."Role2Node"` and `portal."NavTree"` from `portal_shell_schema.sql`. Contract admin APIs join `portal."Organizations"`. Clinical customer and sample tables are app-owned (see [schema-apply.md](schema-apply.md)).
 
 Permissions point at Meta classes through `ObjID` and `OperationID`. Class rows and instances live in `"Meta"` (`meta_schema.sql`, `"Meta"."Objs"`). Meta parity procedures are `meta_api_parity.sql`.
+
+## Organizations
+
+Tenancy for the portal lives in `portal."Organizations"` and `portal."OrganizationMembers"` (`portal_organization_schema.sql`). Administration uses `portal.sp_organization_*` procedures (create, add member, list). Semantic organization reads (`core.list_organizations`, `core.filter_organizations`) scope rows to the caller's memberships through `portal.fn_semantic_user_organization_ids`; they do not expose cross-tenant data.
+
+`portal.fn_session_resolve` attaches a JSON array of `{organization_id, name}` pairs to the session context for UI menus. That snapshot is informational; enforcement for reads stays in the semantic runner.
+
+## Portal sessions
+
+Interactive portal users authenticate into `"RBAC"."Sessions"` with bearer tokens stored as hashes in `"RBAC"."SessionTokens"`. Session lifecycle procedures are in `portal_session_api.sql`:
+
+| Procedure | Role |
+|-----------|------|
+| `portal.sp_session_open` | Mint a token for an active `"RBAC"."Users"` row |
+| `portal.fn_session_resolve` | Resolve token to user, scope, organizations, expiry |
+| `portal.sp_session_touch` | Refresh idle expiry within policy |
+| `portal.sp_session_revoke` | Revoke the current token |
+
+Idle and absolute timeouts read `cfg` keys `portal_session_idle_seconds` and `portal_session_absolute_seconds`. Optional namespace hooks are registered with `portal.sp_auth_register_policy` (see [semantic-extensions.md](semantic-extensions.md)).
+
+The `goliath_portal` database login may execute these session procedures plus semantic reads; it has no `USAGE` on `"RBAC"` tables. Worker fleet sessions (`wf.wf_worker_authenticate`) are separate; see [workers.md](workers.md).

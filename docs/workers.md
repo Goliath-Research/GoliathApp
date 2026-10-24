@@ -59,6 +59,19 @@ Optional checks, off unless the environment flag is set:
 
 `WorkflowRestClient` also defines `create_workflow_instance`, `get_workflow_instance`, and `list_actions`. The gateway routes in this tree do not implement those paths.
 
+## Session authentication
+
+Workers use **gateway sessions**, not portal user sessions. After enrollment, `POST /v1/workers/authenticate` exchanges `worker_id` and `worker_token` for a short-lived `session_token`. Subsequent claim, heartbeat, submit, and fail calls send that bearer token (header `Authorization: Bearer …` on the client). The gateway hashes tokens at the database boundary (`wf.wf_worker_session_touch`, `wf.sp_worker_request_task`, and related procedures in `wf_worker_session_api.sql`).
+
+| Concern | Portal user | Worker |
+|---------|-------------|--------|
+| Credential | Portal login → `portal.sp_session_open` | Enroll → `worker_token` |
+| Storage | `"RBAC"."SessionTokens"` | `wf.worker_session` |
+| DB role | `goliath_portal` (semantic + session procs) | `goliath_gateway` (`wf.sp_*` only) |
+| HTTP surface | Application BFF (not in this repo) | `workflow_engine/rest/gateway.py` |
+
+Workers never call `portal.sp_run_semantic_request`. Portal backends never call `wf.sp_worker_request_task` directly; they use the semantic client or future GraphQL façade.
+
 ## Fleet
 
 One database leases work to many workers. Each enrolled VM polls with its own token. Capability arrays split the fleet. `max_per_worker`, `exclusive_worker`, and the affinity columns (see [workflow-engine.md](workflow-engine.md)) decide which READY row a given worker may take. `portal.sp_list_clusters` and `portal.sp_list_worker_enrollments` read the allowlist back.

@@ -68,6 +68,8 @@ jobs:
             workflow_engine/tests/test_goliathapp_pg_schema_apply.py \
             workflow_engine/tests/test_worker_session_auth.py \
             workflow_engine/tests/test_semantic_layer.py \
+            workflow_engine/tests/test_portal_client.py \
+            workflow_engine/tests/test_portal_client_types.py \
             -q
         env:
           POSTGRES_HOST: localhost
