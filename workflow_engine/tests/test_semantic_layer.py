@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import uuid
 from pathlib import Path
@@ -61,10 +62,10 @@ def _psql_expect_error(sql: str, env: dict[str, str], errcode: str) -> str:
     )
     assert proc.returncode != 0, "expected failure"
     combined = (proc.stderr or "") + (proc.stdout or "")
-    assert errcode in combined, f"expected SQLSTATE {errcode} in: {combined!r}"
-    # VERBOSITY sqlstate prints the five-char code (GS4xx/GS5xx) as the error line.
-    assert combined.strip().startswith(errcode), (
-        f"expected primary SQLSTATE {errcode}, got: {combined!r}"
+    match = re.search(r"\b(GS\d{3})\b", combined)
+    assert match is not None, f"expected semantic SQLSTATE in: {combined!r}"
+    assert match.group(1) == errcode, (
+        f"expected SQLSTATE {errcode}, got {match.group(1)!r} in: {combined!r}"
     )
     return combined
 
