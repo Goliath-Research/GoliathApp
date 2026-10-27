@@ -37,11 +37,18 @@ from .db_client import (
     worker_request_task,
     worker_submit_result,
 )
+from .worker_wake import NullWorkerWakePublisher, WorkerWakePublisher, publish_wakes_after_event_ingest
 
 
 class RestGateway:
-    def __init__(self, db: GatewayDb) -> None:
+    def __init__(
+        self,
+        db: GatewayDb,
+        *,
+        wake_publisher: Optional[WorkerWakePublisher] = None,
+    ) -> None:
         self.db = db
+        self._wake_publisher: WorkerWakePublisher = wake_publisher or NullWorkerWakePublisher()
 
     @property
     def backend(self) -> str:
@@ -196,6 +203,14 @@ class RestGateway:
                     if body.get("occurred_at_utc")
                     else None
                 ),
+            )
+            # Dual activation (tier 1): notify idle workers; claim still owns the lease.
+            publish_wakes_after_event_ingest(
+                self._wake_publisher,
+                ingest_result=result,
+                event_type=event_type,
+                idempotency_key=idempotency_key,
+                payload=payload if isinstance(payload, dict) else {},
             )
             return 200, result
 

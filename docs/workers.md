@@ -26,6 +26,10 @@ HTTP 200 returns `worker_id`, `worker_token` (plaintext, once), `external_worker
 
 `WorkflowRestClient.enroll` is the client call. There is no enroll console script in this repository.
 
+## Dual activation (push wake + claim)
+
+Idle workers today use the claim loop below as a **pull** path. Tier 1 also defines an optional **push wake**: the gateway publishes a small notify on pool/capability/program channels; workers interrupt idle wait, then **still claim** so the lease stays single-owned. Poll remains the safety net. See [dual-activation.md](dual-activation.md) for message shape, channel naming, failure modes, and rollout.
+
 ## Claim loop
 
 | Call | Gateway path | Database |

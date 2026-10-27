@@ -16,7 +16,11 @@ sequenceDiagram
   API->>DB: wf.sp_worker_enroll
   DB-->>API: worker_id
   API-->>Worker: worker_id and worker_token
-  loop poll
+  opt push wake (tier 1, optional bus)
+    API-->>Worker: WorkerWakeMessage on pool/capability/program channel
+    Note over Worker: interrupt idle wait; claim still required
+  end
+  loop poll / post-wake claim
     Worker->>API: POST /v1/workers/tasks/request
     API->>DB: wf.sp_worker_request_task
     DB-->>API: task row or empty
@@ -39,6 +43,29 @@ Paths below are under the `/v1` prefix the gateway serves. The OpenAPI document 
 3. A missing allowlist row, a revoked row, or an IP that does not match the preregistered address is HTTP 403. The client in this repository does not fall back to SQL.
 
 `goliath_worker.client.WorkflowRestClient.enroll` performs step 2. The default base URL is `METHYL_API_BASE`, or `http://localhost:8080/v1`.
+
+## Push wake (notify only)
+
+Dual activation adds an optional **wake** path alongside claim. Wakes do **not** replace claim: they only hint that a worker should call `POST /v1/workers/tasks/request` sooner. See [../docs/dual-activation.md](../docs/dual-activation.md).
+
+### Wake message (bus payload)
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `wake_id` | yes | Dedup id (for example tied to event idempotency). |
+| `reason` | yes | Producer label (for example `event_ingest:{event_type}`). |
+| `pool` | at least one of pool, capability, `program_id` | Fleet pool / cluster key. |
+| `capability` | at least one of pool, capability, `program_id` | Matches worker capability filtering on claim. |
+| `program_id` | at least one of pool, capability, `program_id` | Domain program hint. |
+| `event_id` | no | Source event when wake follows `POST /v1/events`. |
+| `workflow_instance_id` | no | Observability only; not a lease. |
+| `occurred_at_utc` | no | ISO-8601 UTC. |
+
+Channel names: `goliath.wake.v1.pool.{pool}`, `goliath.wake.v1.capability.{name}`, `goliath.wake.v1.program.{program_id}` (see `goliath_worker.wake`).
+
+Event adapters may include optional hints under `payload.worker_wake` with the same three dimensions. After ingest, the gateway may publish when `applied_count > 0` (implementation uses a pluggable publisher; default is no-op).
+
+Subscribing to wakes requires an authenticated **worker session** (same bearer session as claim). Lost wakes fall back to poll; duplicate wakes cause multiple claim attempts but at most one lease.
 
 ## Claim, submit, heartbeat, fail
 
