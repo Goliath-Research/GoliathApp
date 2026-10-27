@@ -6,9 +6,16 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+from goliath_worker.wake import (
+    WorkerWakeSubscriber,
+    wake_channel_for_capability,
+    wake_channel_for_pool,
+    wake_channel_for_program,
+)
 
 WORKER_IDENTITY_HEADER = "X-Goliath-Worker-Token"
 
@@ -185,6 +192,75 @@ class WorkflowRestClient:
         if self._worker_id is None:
             raise RuntimeError("worker_id unset; enroll or open_session first")
         return self._worker_id
+
+    @property
+    def worker_id(self) -> Optional[int]:
+        return self._worker_id
+
+    @property
+    def session_token(self) -> Optional[str]:
+        return self._session_token
+
+    @staticmethod
+    def wake_channels_for_enrollment(
+        *,
+        cluster_key: str,
+        capabilities: Optional[Iterable[str]] = None,
+        program_id: Optional[str] = None,
+    ) -> list[str]:
+        """Logical wake channels implied by enrollment (pool + capabilities + optional program)."""
+        channels: list[str] = [wake_channel_for_pool(cluster_key)]
+        for cap in capabilities or ():
+            name = str(cap).strip()
+            if name and name != "*":
+                channels.append(wake_channel_for_capability(name))
+        if program_id:
+            channels.append(wake_channel_for_program(program_id))
+        seen: set[str] = set()
+        out: list[str] = []
+        for ch in channels:
+            if ch not in seen:
+                seen.add(ch)
+                out.append(ch)
+        return out
+
+    def wait_idle_then_request_task(
+        self,
+        subscriber: WorkerWakeSubscriber,
+        wake_channels: Iterable[str],
+        *,
+        poll_timeout_seconds: Optional[float] = None,
+        capability: Optional[str] = None,
+        max_lease_seconds: Optional[int] = None,
+        worker_token: Optional[str] = None,
+    ) -> TaskPollResult:
+        """Interruptible idle wait, then claim (notify via pub/sub, own via claim)."""
+        timeout = (
+            poll_timeout_seconds
+            if poll_timeout_seconds is not None
+            else float(os.environ.get("WORKER_WAKE_POLL_SECONDS", "30"))
+        )
+        wid = self._require_worker_id()
+        self._ensure_worker_session(worker_token)
+        if not self._session_token:
+            raise RuntimeError("worker session not open; call enroll or open_session")
+
+        channel_list = list(wake_channels)
+        subscriber.subscribe(
+            channel_list,
+            session_token=self._session_token,
+            worker_id=wid,
+        )
+        try:
+            subscriber.wait_for_wake(timeout_seconds=timeout)
+        finally:
+            subscriber.unsubscribe()
+
+        return self.request_task(
+            capability=capability,
+            max_lease_seconds=max_lease_seconds,
+            worker_token=worker_token,
+        )
 
     def _ensure_worker_session(self, worker_token: Optional[str] = None) -> None:
         """Reuse the open bearer when it already belongs to this identity token."""

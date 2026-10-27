@@ -6,12 +6,16 @@ This module defines the wake message shape and channel naming only; no broker.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Optional, Protocol, runtime_checkable
 
 WAKE_CHANNEL_PREFIX = "goliath.wake.v1"
+"""Postgres NOTIFY channel prefix (logical names use dots; NOTIFY identifiers do not)."""
+PG_NOTIFY_CHANNEL_PREFIX = "gw1_"
+PG_NOTIFY_CHANNEL_MAX_LEN = 63
 _SEGMENT_SAFE = re.compile(r"[^a-zA-Z0-9._-]+")
 
 
@@ -35,6 +39,44 @@ def wake_channel_for_capability(capability: str) -> str:
 def wake_channel_for_program(program_id: str) -> str:
     """Channel for workers bound to a domain program (tier-2 products may narrow further)."""
     return f"{WAKE_CHANNEL_PREFIX}.program.{_normalize_segment(program_id)}"
+
+
+def logical_wake_channel_to_pg_notify(logical_channel: str) -> str:
+    """Map a logical wake channel to a Postgres ``NOTIFY`` identifier (≤63 chars).
+
+    Mapping (see ``docs/dual-activation.md``):
+
+    - Logical: ``goliath.wake.v1.{pool|capability|program}.{segment}``
+    - NOTIFY: ``gw1_{pool|capability|program}_{segment}`` (dots → underscores in the prefix path)
+
+    When the NOTIFY name would exceed 63 characters, the segment is replaced with
+    ``h`` + the first 16 hex chars of SHA-256(logical_channel).
+    """
+    prefix = f"{WAKE_CHANNEL_PREFIX}."
+    if not logical_channel.startswith(prefix):
+        raise ValueError(f"logical wake channel must start with {prefix!r}")
+    suffix = logical_channel[len(prefix) :]
+    notify = PG_NOTIFY_CHANNEL_PREFIX + suffix.replace(".", "_")
+    if len(notify) <= PG_NOTIFY_CHANNEL_MAX_LEN:
+        return notify
+    digest = hashlib.sha256(logical_channel.encode("utf-8")).hexdigest()[:16]
+    # Keep kind (first segment) for observability: gw1_pool_h<digest>
+    kind, _, _rest = suffix.partition(".")
+    hashed = f"{PG_NOTIFY_CHANNEL_PREFIX}{kind.replace('.', '_')}_h{digest}"
+    return hashed[:PG_NOTIFY_CHANNEL_MAX_LEN]
+
+
+def pg_notify_to_logical_wake_channel(notify_channel: str) -> Optional[str]:
+    """Best-effort inverse of :func:`logical_wake_channel_to_pg_notify` (non-hashed names only)."""
+    if not notify_channel.startswith(PG_NOTIFY_CHANNEL_PREFIX):
+        return None
+    body = notify_channel[len(PG_NOTIFY_CHANNEL_PREFIX) :]
+    if "_h" in body:
+        return None
+    kind, _, segment = body.partition("_")
+    if kind not in ("pool", "capability", "program") or not segment:
+        return None
+    return f"{WAKE_CHANNEL_PREFIX}.{kind}.{segment}"
 
 
 def wake_channels_for_message(message: WorkerWakeMessage) -> list[str]:

@@ -37,6 +37,7 @@ from .db_client import (
     worker_request_task,
     worker_submit_result,
 )
+from .postgres_wake import resolve_wake_publisher
 from .worker_wake import NullWorkerWakePublisher, WorkerWakePublisher, publish_wakes_after_event_ingest
 
 
@@ -236,7 +237,8 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     config = resolve_connection_config()
     db = open_gateway_db(config)
-    gateway = RestGateway(db)
+    wake_publisher = resolve_wake_publisher(config)
+    gateway = RestGateway(db, wake_publisher=wake_publisher)
     app = create_app(gateway)
     print(
         f"REST gateway on http://{args.host}:{args.port}/v1 (backend={gateway.backend})",
@@ -248,6 +250,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         print("Stopped.", flush=True)
     finally:
         db.close()
+        if hasattr(wake_publisher, "close"):
+            wake_publisher.close()
     return 0
 
 
