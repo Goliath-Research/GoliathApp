@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Optional, Protocol, runtime_checkable
@@ -207,5 +208,6 @@ class NullWorkerWakeSubscriber:
         pass
 
     def wait_for_wake(self, *, timeout_seconds: Optional[float] = None) -> Optional[WorkerWakeMessage]:
-        _ = timeout_seconds
+        if timeout_seconds is not None and timeout_seconds > 0:
+            time.sleep(timeout_seconds)
         return None

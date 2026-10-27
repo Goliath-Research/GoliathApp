@@ -180,13 +180,13 @@ class PostgresWorkerWakeSubscriber:
         conn = self._conn
         self._listener_thread = None
         self._conn = None
-        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
-            thread.join(timeout=2.0)
         if conn is not None and not conn.closed:
             try:
                 conn.close()
             except psycopg.Error:
                 pass
+        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
+            thread.join(timeout=2.0)
 
     def wait_for_wake(self, *, timeout_seconds: Optional[float] = None) -> Optional[WorkerWakeMessage]:
         try:
