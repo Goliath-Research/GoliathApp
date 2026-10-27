@@ -6,15 +6,9 @@ See docs/dual-activation.md. Production brokers are out of scope for the first s
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
 from typing import Any, Mapping, Optional
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-
-from goliath_worker.wake import (  # noqa: E402
+from goliath_worker.wake import (
     NullWorkerWakePublisher,
     WorkerWakeMessage,
     WorkerWakePublisher,

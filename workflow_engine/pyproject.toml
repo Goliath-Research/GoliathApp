@@ -45,8 +45,9 @@ build-backend = "setuptools.build_meta"
 # and wheel include it. Searching ".." drops those files from the release tree.
 [tool.setuptools.packages.find]
 where = [".", ".."]
-include = ["rest*", "local*", "admin*", "ops*", "cfg*", "domain*", "contract*", "goliath_app*"]
+include = ["rest*", "local*", "admin*", "ops*", "cfg*", "domain*", "contract*", "goliath_app*", "goliath_worker*"]
 
 [tool.setuptools.package-dir]
 "" = "."
 "goliath_app" = "../goliath_app"
+"goliath_worker" = "../goliath_worker"
