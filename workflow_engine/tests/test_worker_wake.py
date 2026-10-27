@@ -13,6 +13,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from goliath_worker.wake import (  # noqa: E402
     WorkerWakeMessage,
+    logical_wake_channel_to_pg_notify,
     wake_channel_for_capability,
     wake_channel_for_pool,
     wake_channel_for_program,
@@ -37,6 +38,10 @@ class WorkerWakeTests(unittest.TestCase):
         self.assertEqual(
             wake_channel_for_pool("omics west"),
             "goliath.wake.v1.pool.omics_west",
+        )
+        self.assertEqual(
+            logical_wake_channel_to_pg_notify("goliath.wake.v1.pool.omics_west"),
+            "gw1_pool_omics_west",
         )
         self.assertEqual(
             wake_channel_for_capability("align/bam"),

@@ -19,7 +19,7 @@ Dual activation keeps poll/claim semantics (heartbeats, fail/requeue, capability
 |-------|--------|
 | Live GoliathGroundStation OPC telemetry in the claim loop | **Excluded** — telemetry uses a separate bus (publish once, many listeners), not leased work. |
 | Product-specific wake channels (Ground Station I&T, Omics spikes) | **Tier 2** — builds on these channel names and DTOs. |
-| Production Redis / NATS / Postgres `LISTEN` wiring | **Next PR** — this slice ships **protocol stubs** and a **NullPublisher** default. |
+| Production Redis / NATS wake bus | **Optional later** — tier 1 production path is Postgres `NOTIFY`/`LISTEN` (see below). |
 | Changing lease SQL (`wf.sp_worker_request_task`) | **Unchanged** |
 | Replacing claim with message-carried task payloads | **Rejected** — wakes carry no `input_json` and no lease. |
 
@@ -94,7 +94,19 @@ Prefix: `goliath.wake.v1`.
 
 Segments are normalized (unsafe characters → `_`). A message may publish to **multiple** channels when more than one dimension is set.
 
-Workers subscribe to the union of channels implied by their enrollment (pool), declared **capabilities**, and optional program binding — tier 2 may refine subscription rules.
+### Postgres `NOTIFY` channel mapping
+
+Postgres channel identifiers are limited to **63 characters** and must not rely on `.` (logical names use dots). The gateway and workers map logical names to NOTIFY identifiers without changing the JSON payload (`WorkerWakeMessage`).
+
+| Logical (pub/sub API) | Postgres `NOTIFY` channel |
+|-----------------------|---------------------------|
+| `goliath.wake.v1.pool.{segment}` | `gw1_pool_{segment}` |
+| `goliath.wake.v1.capability.{segment}` | `gw1_capability_{segment}` |
+| `goliath.wake.v1.program.{segment}` | `gw1_program_{segment}` |
+
+Implementation: `goliath_worker.wake.logical_wake_channel_to_pg_notify`. Underscores in `{segment}` are preserved (they already replace unsafe characters in the logical name). When the NOTIFY name would exceed 63 characters, the channel becomes `gw1_{kind}_h{sha256(logical)[:16]}` (truncated to 63).
+
+Workers subscribe to the union of channels implied by their enrollment (pool), declared **capabilities**, and optional program binding — tier 2 may refine subscription rules. `WorkflowRestClient.wake_channels_for_enrollment` builds that list; idle wait uses `wait_idle_then_request_task` (wake, then **always** claim).
 
 ## Failure modes
 
@@ -103,7 +115,7 @@ Workers subscribe to the union of channels implied by their enrollment (pool), d
 | **Lost wake** | Worker stays idle until the next claim poll (existing backoff). Poll remains the safety net. |
 | **Duplicate wake** | Harmless; multiple workers wake and **claim**; `wf.sp_worker_request_task` gives at most one lease; losers get empty claim and return to idle/subscribe. |
 | **Wake without matching READY work** | Claim returns idle; worker resubscribes or polls. |
-| **Publisher down** | `NullWorkerWakePublisher` default: no external dependency; behavior identical to poll-only today. |
+| **Publisher down** | With `WF_WAKE_POSTGRES` unset, `NullWorkerWakePublisher` default: no external dependency; behavior identical to poll-only today. |
 | **Stale wake_id** | Subscribers may ignore repeats; claim is authoritative. |
 
 ## Gateway publish hooks
@@ -118,7 +130,9 @@ Implementation entry points:
 
 - `workflow_engine/rest/gateway.py` — injectable `wake_publisher`.
 - `workflow_engine/rest/worker_wake.py` — `publish_wakes_after_event_ingest`, payload parsing.
-- `goliath_worker/wake.py` — DTO, channel helpers, `WorkerWakePublisher` / `WorkerWakeSubscriber` protocols, null implementations.
+- `goliath_worker/wake.py` — DTO, channel helpers, NOTIFY mapping, `WorkerWakePublisher` / `WorkerWakeSubscriber` protocols, null implementations.
+- `goliath_worker/postgres_wake.py` — Postgres `NOTIFY`/`LISTEN` publisher and subscriber (dedicated connections; not the gateway request pool).
+- `workflow_engine/rest/postgres_wake.py` — `resolve_wake_publisher` for gateway startup.
 
 ## Worker subscribe while idle
 
@@ -132,6 +146,17 @@ Recommended idle loop (product worker process):
 
 `goliath_worker.wake.NullWorkerWakeSubscriber` preserves poll-only behavior for hosts without a bus.
 
+### Configuration
+
+| Variable | Component | Meaning |
+|----------|-----------|---------|
+| `WF_WAKE_POSTGRES=1` | Gateway | Use `PostgresWorkerWakePublisher` on the gateway DSN (`METHYLPIPELINE_DB` / `PG*`). Default off → `NullWorkerWakePublisher`. |
+| `WORKER_WAKE_POSTGRES=1` | Worker | Use `PostgresWorkerWakeSubscriber` via `resolve_worker_wake_subscriber()`. |
+| `WORKER_WAKE_PG_DSN` | Worker | Optional LISTEN connection string; defaults to `METHYLPIPELINE_DB` / `PG*`. |
+| `WORKER_WAKE_POLL_SECONDS` | Worker | Idle wait timeout before claim safety-net poll (default `30`). |
+
+Wake-enabled workers open a **separate** Postgres connection for `LISTEN` only; they still **never** claim via SQL. Subscribe requires the same bearer **worker session** as claim (validated before `LISTEN`).
+
 ## Security
 
 - **Subscribe requires worker session** — same bearer session as claim (`Authorization: Bearer` + identity header). Anonymous subscribers must not receive fleet wakes (capability and pool metadata leaks work queue shape).
@@ -140,8 +165,8 @@ Recommended idle loop (product worker process):
 
 ## Rollout plan
 
-1. **This PR** — design doc, DTO/protocol stubs, `NullPublisher` default, event-ingest hook (no external bus), tests for channel naming and payload parsing.
-2. **Next PR** — choose broker (Redis pub/sub, NATS, or Postgres `NOTIFY` with scoped channels); implement `WorkerWakePublisher` / `WorkerWakeSubscriber`; gateway env config; worker idle loop integration in reference VM image.
+1. **Done (PR #23)** — design doc, DTO/protocol stubs, `NullPublisher` default, event-ingest hook, tests for channel naming and payload parsing.
+2. **This PR** — **Postgres `NOTIFY`/`LISTEN`** as the production wake broker; `WF_WAKE_POSTGRES` gateway opt-in; worker idle subscribe + claim in `WorkflowRestClient`; NOTIFY channel mapping documented above. Redis/NATS remain optional later brokers implementing the same logical channels and JSON payload.
 3. **Tier 2** — GoliathGroundStation and Omics product channels and OPC/telemetry separation verified.
 4. **Operate** — metrics on wake publish count, claim latency p50/p95 with wakes enabled, duplicate wake rate vs empty claims.
 

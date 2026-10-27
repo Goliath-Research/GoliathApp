@@ -28,7 +28,7 @@ HTTP 200 returns `worker_id`, `worker_token` (plaintext, once), `external_worker
 
 ## Dual activation (push wake + claim)
 
-Idle workers today use the claim loop below as a **pull** path. Tier 1 also defines an optional **push wake**: the gateway publishes a small notify on pool/capability/program channels; workers interrupt idle wait, then **still claim** so the lease stays single-owned. Poll remains the safety net. See [dual-activation.md](dual-activation.md) for message shape, channel naming, failure modes, and rollout.
+Idle workers today use the claim loop below as a **pull** path. Tier 1 also defines an optional **push wake**: the gateway publishes a small notify on pool/capability/program channels; workers interrupt idle wait, then **still claim** so the lease stays single-owned. Poll remains the safety net. Production wakes use Postgres `NOTIFY`/`LISTEN` when `WF_WAKE_POSTGRES=1` (gateway) and `WORKER_WAKE_POSTGRES=1` (worker); otherwise behavior is unchanged. See [dual-activation.md](dual-activation.md) for message shape, NOTIFY channel mapping, failure modes, and rollout. Reference client: `WorkflowRestClient.wait_idle_then_request_task` and `wake_channels_for_enrollment`.
 
 ## Claim loop
 
