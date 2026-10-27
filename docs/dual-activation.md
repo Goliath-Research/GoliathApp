@@ -148,5 +148,5 @@ Recommended idle loop (product worker process):
 ## Related docs
 
 - [workers.md](workers.md) — claim loop and sessions
-- [../workers/WORKER_PROTOCOL.md](../workers/WORKER_PROTOCOL.md) — HTTP contract including wake fields
+- `workers/WORKER_PROTOCOL.md` (repository root) — HTTP contract including wake fields
 - GitHub: [GoliathApp #22](https://github.com/Goliath-Research/GoliathApp/issues/22)
