@@ -15,6 +15,7 @@ import psycopg
 from psycopg import sql
 
 from goliath_worker.wake import (
+    NullWorkerWakeSubscriber,
     WorkerWakeMessage,
     logical_wake_channel_to_pg_notify,
 )
@@ -206,9 +207,7 @@ def resolve_postgres_wake_conninfo(explicit: Optional[str] = None) -> str:
     return build_postgres_conninfo(use_managed_identity=use_mi)
 
 
-def resolve_worker_wake_subscriber() -> PostgresWorkerWakeSubscriber | "NullWorkerWakeSubscriber":
-    from goliath_worker.wake import NullWorkerWakeSubscriber
-
+def resolve_worker_wake_subscriber() -> PostgresWorkerWakeSubscriber | NullWorkerWakeSubscriber:
     if not postgres_wake_enabled():
         return NullWorkerWakeSubscriber()
     use_mi = _env_flag("WF_USE_MANAGED_IDENTITY")
