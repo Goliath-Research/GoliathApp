@@ -36,7 +36,7 @@ RBAC is the `"RBAC"` schema in `workflow_engine/sql_pg/rbac_schema.sql`. Identif
 
 Navigation uses `portal."Role2Node"` and `portal."NavTree"` from `portal_shell_schema.sql`. Contract admin APIs join `portal."Organizations"`. Clinical customer and sample tables are app-owned (see [schema-apply.md](schema-apply.md)).
 
-Permissions point at Meta classes through `ObjID` and `OperationID`. Class rows and instances live in `"Meta"` (`meta_schema.sql`, `"Meta"."Objs"`). Meta parity procedures are `meta_api_parity.sql`.
+Permissions point at Meta classes through `ObjID` and `OperationID`. Class rows and instances live in `"Meta"` (`meta_schema.sql`, `"Meta"."Objs"`). Meta parity procedures are `meta_api_parity.sql`. The redesign that replaces them (inheritance, JSONB values, layered validation) is in [Meta model](meta-model.md).
 
 ## Organizations
 

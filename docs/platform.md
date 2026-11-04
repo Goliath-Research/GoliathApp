@@ -8,14 +8,14 @@ The repository map is [workspace-index.md](workspace-index.md). Apply order is [
 
 | Schema | What the SQL in this tree defines |
 |--------|-----------------------------------|
-| `Meta` | Class model. Instances are `"Meta"."Objs"`. |
+| `Meta` | Class model with single inheritance (`Classes.ParentID`), fields, methods and meta links. Instances are `"Meta"."Objs"`. Today values live in per-class typed tables; the accepted design moves them to JSONB in `"Meta"."ObjValues"`, validated against class JSON Schemas ([Meta model](meta-model.md)). |
 | `RBAC` | Users, groups, roles, permissions, scopes, sessions, external identities. Quoted PascalCase identifiers. |
 | `portal` | Portal functions (`portal.sp_*`) for workflow definitions, worker enrollment, RBAC administration, studies, and related operator calls. |
 | `wf` | Workflow definitions, instances, actions, data types, worker registry, leases, and the event plane. |
 | `cfg` | Sites, pipeline profiles, assay procedures, domain programs, studies, credentials, storage, and reference-asset registry tables. |
 | `Contract`, `Onboarding` | Contract and onboarding tables and parity APIs. |
 
-`cfg.analyte` is defined in `cfg_analyte_schema.sql`. The portal navigation shell (`portal."NavTree"`, `portal."Role2Node"`, and related tables) is in `portal_shell_schema.sql`. Generic tenancy uses `portal."Organizations"` in `portal_organization_schema.sql`. Clinical and customer domain tables are owned by apps that extend GoliathApp (for example GoliathOmics).
+`cfg.analyte` is defined in `cfg_analyte_schema.sql`. The portal navigation shell (`portal."NavTree"`, `portal."Role2Node"`, and related tables) is in `portal_shell_schema.sql`. NavTree is the planned first adopter of the Meta `Tree` type ([Meta model](meta-model.md) §6). Generic tenancy uses `portal."Organizations"` in `portal_organization_schema.sql`. Clinical and customer domain tables are owned by apps that extend GoliathApp (for example GoliathOmics).
 
 There is no separate `obj` schema. Object identity is `"Meta"."Objs"`.
 
