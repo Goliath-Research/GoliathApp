@@ -1,6 +1,6 @@
 # Meta model redesign (design, not yet implemented)
 
-Status: **proposed** — for review by David Izada Rodriguez. No implementation code in this PR. Decisions D1–D4 recorded in §10.
+Status: **accepted design, not yet implemented** (approved by David Izada Rodriguez, PR #25). Decisions D1–D4 in §10.
 
 ## 1. Current state (audited at `a50874c`)
 
@@ -20,11 +20,14 @@ Status: **proposed** — for review by David Izada Rodriguez. No implementation 
 
 ```mermaid
 erDiagram
-    DATA_TYPE ||--o{ DATA_TYPE : "BaseTypeID (derives)"
+    DATA_TYPE ||--o{ DATA_TYPE : "base_type_id (derives)"
     CLASSES ||--o{ CLASSES : "ParentID (inherits from)"
     CLASSES ||--|| DATA_TYPE : "publishes class type"
     CLASSES ||--o{ FIELDS : declares
     FIELDS }o--|| DATA_TYPE : "typed by"
+    CLASSES ||--o{ METHODS : declares
+    METHODS ||--o{ METHOD_PARAMS : "ordered params"
+    METHOD_PARAMS }o--|| DATA_TYPE : "typed by"
     CLASSES ||--o{ META_LINKS : declares
     META_LINKS }o--|| CLASSES : "target class"
     META_LINKS |o--o| META_LINKS : inverse
@@ -61,7 +64,7 @@ CREATE FUNCTION "Meta".trg_classes_hierarchy() RETURNS trigger ...;
 Rules:
 - One parent. Abstract classes cannot be instantiated (`Objs` insert trigger checks `IsAbstract`).
 - Members (methods, fields, meta links) are resolved **by name, nearest definition wins** (lowest `Depth` in the closure).
-- Overrides may only **narrow**: a field's type must be the same as, or derived from (§3), the inherited type; `Required` may go false→true, not back; a meta link may narrow target class to a descendant and cardinality (e.g. `0..*` → `0..1`), never widen. Violations are rejected by the `Fields`/`MetaLinks` triggers.
+- Field and meta-link overrides may only **narrow** (method signatures follow §2.3): a field's type must be the same as, or derived from (§4.1), the inherited type; `Required` may go false→true, not back; a meta link may narrow target class to a descendant and cardinality (e.g. `0..*` → `0..1`), never widen. Violations are rejected by the `Fields`/`MetaLinks` triggers.
 - Re-parenting a class with existing objects is rejected unless the new chain is a superset (only adds ancestors with no required fields).
 
 Resolution view:
@@ -120,18 +123,18 @@ CREATE TABLE "Meta"."MethodParams" (
 Rules:
 - **Resolution:** nearest definition wins (through `ClassClosure`), the same as for fields. A `VClassMethodsResolved` view gives the effective method per class.
 - **Abstract methods:** a concrete class must resolve every abstract method to a concrete one; this is checked when `IsAbstract` is set to false and when objects are inserted.
-- **Signature compatibility on override (narrowing):**
+- **Signature compatibility on override** (parameter types invariant, return type narrows):
   - Same parameter names, in the same order.
   - An override can't add a new required parameter; it may add an optional one at the end.
   - A parameter's type must be the same as the inherited one. Changing it in either direction would break calls made through the parent's signature, so input types are invariant.
-  - A required parameter can't become optional or the other way round, except that an override may relax required → optional.
+  - An optional parameter can't become required; a required one may become optional (accepts every call the parent accepted).
   - The return type may narrow to a derived type (covariant).
   - `IsOverride` must be true exactly when an inherited method exists, and a `IsFinal` method can't be overridden.
 - **Implementation mapping:**
   - `sql`: a stored proc taking `(self_id int, args jsonb)`.
   - `action`: a `wf.workflow_action` whose `input_type_id` is the method's parameter type (below).
   - `python`: a handler registered in the semantic/action registry.
-  - `Meta.sp_invoke(obj_id, method, args jsonb)` resolves the method for the object's class, validates `args`, then dispatches.
+  - `Meta.sp_invoke(obj_id, method, args jsonb)` resolves the method for the object's class, validates `args` against the parameter schema, then dispatches.
 - **Parameter schema:** `Meta.fn_method_params_json_schema(method_id)` builds a draft 2020-12 object schema from `MethodParams`: each parameter's type is a `$ref`, `required` and `default` come from the table, and `unevaluatedProperties: false`. It's published as a catalog type (`<Class>.<Method>.Params`) so ActionSpecs and the portal use it directly. The return type is already a catalog type.
 
 ## 3. Meta links vs instance links
@@ -212,7 +215,7 @@ The single generated class schema (§4.2, stored in `wf.data_type.schema_json`) 
 1. **UI (primary, interactive):** the portal validates captured values against the class or method-parameter schema before calling the input.
 2. **Python (primary, programmatic):** Pydantic models are generated from the same schema (e.g. with `datamodel-code-generator`, at build time or cached by `content_hash`) and validate every payload before it reaches Postgres. External callers always send schema-compliant JSON.
 3. **Postgres (backstop, mainly for internal writers):**
-   - **Always on, cheap SQL check:** `Meta.sp_obj_insert` / `sp_obj_update` split the document by level through `VClassFieldsResolved`. They **raise on unknown keys** (today those keys are dropped silently) and on missing required keys. This is plain SQL with no extension; it's also the fallback.
+   - **Always on, cheap SQL check:** `Meta.sp_obj_insert` / `sp_obj_update` split the document by level through `VClassFieldsResolved`. They **raise on unknown keys** (today those keys are dropped silently) and on missing required keys. The same check also runs as a cheap always-on `BEFORE INSERT OR UPDATE` trigger on `ObjValues` (keys vs `VClassFieldsResolved` for that level; required keys at a deferred commit check), so direct DML can't skip it. It's plain SQL with no extension, and it's also the fallback.
    - **Optional `pg_jsonschema` trigger:** a `BEFORE INSERT OR UPDATE` trigger on `ObjValues` validates the merged document against the bundled schema with `jsonb_matches_schema`. It's controlled per class and per environment:
 
 ```sql
@@ -274,7 +277,7 @@ pgTAP (supported on Neon) for SQL plus pytest for Python:
 - Overrides: narrowing accepted, widening rejected (type, Required, link target, cardinality); nearest-wins resolution.
 - Links: instance link without a permitting meta link rejected; Max/MinCard; inverse maintenance.
 - Schema: golden-file `fn_class_json_schema` output; `allOf` chain; unknown key rejected; derived type bounds (Percent 101 rejected).
-- Storage: per-level split; generated hot columns; direct DML bypass caught by trigger.
+- Storage: per-level split; generated hot columns; direct DML with an unknown key caught by the always-on key-check trigger.
 - Views: polymorphic select; regeneration after a field is added or a class is re-parented.
 - Trees: ltree path maintained, move subtree, cycle rejected, TreeRef integrity.
 - Migration: round-trip fixture from the current typed tables.
@@ -286,7 +289,6 @@ pgTAP (supported on Neon) for SQL plus pytest for Python:
 - **D1 (was Q5):** No existing `ParentID` rows are trees; `ParentID` is inheritance only. The only tree in use is NavTree, the first future adopter of the `Tree` type. The migration needs no tree reclassification.
 - **D2 (was Q3):** Methods are declared in Meta (`Meta.Methods` + `Meta.MethodParams`, §2.3), inherited and overridable by name, with signature-compatibility rules. Each method is implemented by a SQL proc, an ActionSpec or a Python handler, and generates a JSON Schema for its parameters.
 - **D3 (was Q1):** Values stay in the single JSONB table `Meta.ObjValues`, not partitioned by root class. Indexes: B-tree on `(ObjID, ClassID)` and `(ClassID)`, GIN on `Data`, and generated columns for hot fields (§4.3).
-
 - **D4:** Primary validation happens before Postgres: Pydantic models generated from the class schema (Python) and UI validation of captured values. Postgres validation is a backstop, mainly for internal writers. An always-on SQL unknown/required-key check, plus an optional `pg_jsonschema` trigger toggled per class (`PgValidate`) and per environment (`goliath.meta_pg_validate`). All layers use the single generated schema (§4.4). Parameter types in method overrides stay strictly invariant (§2.3), as approved.
 
 ## 11. Open questions

@@ -24,6 +24,7 @@ nav:
   - RBAC: rbac.md
   - Pipeline profiles: pipeline-profiles.md
   - Schema apply: schema-apply.md
+  - Meta model (design): meta-model.md
   - Semantic layer: semantic-layer.md
   - Semantic extensions: semantic-extensions.md
   - Deployment: deployment.md
