@@ -12,6 +12,7 @@ Specialized applications extend it with their own actions, profiles, and worker 
 - [Actions](actions.md) — user-defined actions and data types
 - [Workers](workers.md) — enrollment, claim, and fleet control
 - [RBAC](rbac.md) — users, roles, scopes, and the portal façade
+- [Meta model (design)](meta-model.md) — inheritance, links, JSON Schema, trees
 - [Semantic layer](semantic-layer.md) — portal registry, runner, and Python client
 - [Semantic extensions](semantic-extensions.md) — namespaces, overrides, and auth for descendant apps
 - [Deployment](deployment.md) — `goliath-exo` PostgreSQL + Exograph/MCP target
