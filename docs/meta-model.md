@@ -1,6 +1,6 @@
 # Meta model redesign (design, not yet implemented)
 
-Status: **proposed** — for review by David Izada Rodriguez. No implementation code in this PR. Decisions D1–D3 recorded in §10.
+Status: **proposed** — for review by David Izada Rodriguez. No implementation code in this PR. Decisions D1–D4 recorded in §10.
 
 ## 1. Current state (audited at `a50874c`)
 
@@ -205,14 +205,26 @@ CREATE TABLE "Meta"."ObjValues" (
 
 Each object has one row per class in its chain (root to leaf). The keys in a row are the fields declared at that level (a key moves to the overriding level). One unpartitioned table (Decision D3). Indexes: PK B-tree `(ObjID, ClassID)` plus B-tree `(ClassID)`; GIN `jsonb_path_ops` on `Data`. Hot fields become **generated columns** on `ObjValues`, e.g. `"Barcode" text GENERATED ALWAYS AS ("Data"->>'Barcode') STORED`, with partial B-tree indexes `WHERE "ClassID" = <level>`.
 
-### 4.4 Validation
+### 4.4 Validation (layered, Decision D4)
 
-- `Meta.sp_obj_insert(class_id, jsonb)` / `sp_obj_update(obj_id, jsonb patch)` replace `spinsertobject` / `spupdateobject`. They split the document by level using `VClassFieldsResolved` and **raise on unknown keys**. Today those keys are dropped silently.
-- A `BEFORE INSERT OR UPDATE` trigger on `ObjValues` checks the merged document against the bundled class schema. The trigger also covers direct DML, so nothing can skip validation.
-- **Engine: `pg_jsonschema`** (`jsonb_matches_schema` / `jsonschema_is_valid`). On 2026-11-04 Neon's extension list showed it supported as 0.3.3 on PG14–17 and 0.3.4 on PG18 (https://neon.com/docs/extensions/pg-extensions). It's Rust (`jsonschema` crate) and supports 2019-09/2020-12.
-  - Alternatives rejected: PL/pgSQL (too much to implement by hand to cover the keywords we need); plv8 (Neon blocks new installs); Python-only validation (doesn't cover direct SQL writes).
-  - Python (`jsonschema` lib) still runs the same schema in the semantic/action layer to give users earlier, friendlier errors.
-  - **Open:** confirm `unevaluatedProperties` and `$ref`-free bundles behave as expected under the Neon pg_jsonschema build; if not, fallback = PL/pgSQL key check plus pg_jsonschema on draft-7 with flattened properties.
+The single generated class schema (§4.2, stored in `wf.data_type.schema_json`) is the **only** source for every layer, so they can't drift. No layer writes its own rules.
+
+1. **UI (primary, interactive):** the portal validates captured values against the class or method-parameter schema before calling the input.
+2. **Python (primary, programmatic):** Pydantic models are generated from the same schema (e.g. with `datamodel-code-generator`, at build time or cached by `content_hash`) and validate every payload before it reaches Postgres. External callers always send schema-compliant JSON.
+3. **Postgres (backstop, mainly for internal writers):**
+   - **Always on, cheap SQL check:** `Meta.sp_obj_insert` / `sp_obj_update` split the document by level through `VClassFieldsResolved`. They **raise on unknown keys** (today those keys are dropped silently) and on missing required keys. This is plain SQL with no extension; it's also the fallback.
+   - **Optional `pg_jsonschema` trigger:** a `BEFORE INSERT OR UPDATE` trigger on `ObjValues` validates the merged document against the bundled schema with `jsonb_matches_schema`. It's controlled per class and per environment:
+
+```sql
+ALTER TABLE "Meta"."Classes" ADD COLUMN "PgValidate" boolean NULL;  -- NULL = follow environment
+-- environment default: ALTER DATABASE ... SET goliath.meta_pg_validate = 'on'   (dev/test)
+-- internal writers:    SET LOCAL goliath.meta_pg_validate = 'on' or a role-level setting
+-- trigger runs when COALESCE(cls."PgValidate", current_setting('goliath.meta_pg_validate', true)::bool, false)
+```
+
+   - Suggested defaults: on in dev/test/CI and for internal roles (migrations, workers, admin SQL); off in prod for the external API path, which Pydantic has already validated.
+- **Engine:** `pg_jsonschema`. On 2026-11-04 Neon's extension list showed 0.3.3 on PG14–17 and 0.3.4 on PG18 (https://neon.com/docs/extensions/pg-extensions). Alternatives rejected: plv8 (Neon blocks new installs) and a full PL/pgSQL validator (too much to build).
+- **Fallback if `unevaluatedProperties` is unsupported on Neon:** the always-on SQL key check above already rejects unknown keys. `pg_jsonschema` then validates a flattened variant (all resolved properties merged, `additionalProperties: false`, no `allOf`), generated from the same source.
 
 ## 5. Recursive class views
 
@@ -253,7 +265,7 @@ JOIN "Meta"."ObjValues" v ON v."ObjID" = p."ID" AND v."ClassID" = 12;
 4. Build `Meta.Fields` from `information_schema.columns` of each per-class table, and map SQL types to catalog types.
 5. Copy rows from the per-class tables into `ObjValues` (`to_jsonb(row) - 'ID'`), validating in report mode (log, don't reject).
 6. Create the class views under the old table names as compatibility views, keep the old tables read-only for one release, then drop them.
-7. Switch on enforcing validation; drop the old `sp*` and stubs.
+7. Switch on the always-on SQL key check everywhere and the `pg_jsonschema` trigger in dev/test and for internal writers; drop the old `sp*` and stubs.
 
 ## 9. Test plan (there are none today)
 
@@ -266,7 +278,8 @@ pgTAP (supported on Neon) for SQL plus pytest for Python:
 - Views: polymorphic select; regeneration after a field is added or a class is re-parented.
 - Trees: ltree path maintained, move subtree, cycle rejected, TreeRef integrity.
 - Migration: round-trip fixture from the current typed tables.
-- Python: the same schema accepted/rejected identically by the `jsonschema` library and `pg_jsonschema`.
+- Cross-layer parity: one fixture corpus (valid/invalid documents per class) must give the same result in generated Pydantic models, the UI validator, the SQL key check and `pg_jsonschema`.
+- Toggle: trigger fires or skips according to `PgValidate` and `goliath.meta_pg_validate`; the SQL key check always fires.
 
 ## 10. Decisions (David, PR #25)
 
@@ -274,8 +287,10 @@ pgTAP (supported on Neon) for SQL plus pytest for Python:
 - **D2 (was Q3):** Methods are declared in Meta (`Meta.Methods` + `Meta.MethodParams`, §2.3), inherited and overridable by name, with signature-compatibility rules. Each method is implemented by a SQL proc, an ActionSpec or a Python handler, and generates a JSON Schema for its parameters.
 - **D3 (was Q1):** Values stay in the single JSONB table `Meta.ObjValues`, not partitioned by root class. Indexes: B-tree on `(ObjID, ClassID)` and `(ClassID)`, GIN on `Data`, and generated columns for hot fields (§4.3).
 
+- **D4:** Primary validation happens before Postgres: Pydantic models generated from the class schema (Python) and UI validation of captured values. Postgres validation is a backstop, mainly for internal writers. An always-on SQL unknown/required-key check, plus an optional `pg_jsonschema` trigger toggled per class (`PgValidate`) and per environment (`goliath.meta_pg_validate`). All layers use the single generated schema (§4.4). Parameter types in method overrides stay strictly invariant (§2.3), as approved.
+
 ## 11. Open questions
 
 1. View regeneration: synchronous in a trigger vs a deferred queue (DDL inside DML transactions).
 2. Versioning of class types (`wf.data_type.version`) when a class changes: bump on every change, or only on breaking changes?
-3. pg_jsonschema `unevaluatedProperties` behaviour on Neon (see §4.4).
+3. Verify `unevaluatedProperties` (and bundled `$defs`) on Neon `pg_jsonschema`. This only decides whether the optional trigger uses the `allOf` schema or the flattened variant; the always-on SQL key check doesn't depend on it (§4.4).
