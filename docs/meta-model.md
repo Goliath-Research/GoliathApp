@@ -1,6 +1,6 @@
 # Meta model redesign (design, not yet implemented)
 
-Status: **proposed** — for review by David Izada Rodriguez. No implementation code in this PR.
+Status: **proposed** — for review by David Izada Rodriguez. No implementation code in this PR. Decisions D1–D3 recorded in §10.
 
 ## 1. Current state (audited at `a50874c`)
 
@@ -88,6 +88,52 @@ CREATE TABLE "Meta"."Fields" (
   UNIQUE ("ClassID","Name"));
 ```
 
+### 2.3 Methods
+
+Methods are declared in Meta. Like fields, they're inherited and overridden by name.
+
+```sql
+CREATE TABLE "Meta"."Methods" (
+  "ID" int GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "ClassID" int NOT NULL REFERENCES "Meta"."Classes" ON DELETE CASCADE,
+  "Name" text NOT NULL,
+  "Description" text,
+  "ReturnTypeID" bigint NULL REFERENCES wf.data_type(id),   -- NULL = void
+  "IsAbstract" boolean NOT NULL DEFAULT false,              -- no implementation; class must be abstract
+  "IsOverride" boolean NOT NULL DEFAULT false,              -- must match an inherited method
+  "IsFinal" boolean NOT NULL DEFAULT false,                 -- cannot be overridden
+  "ImplKind" text NULL CHECK ("ImplKind" IN ('sql','action','python')),
+  "ImplRef" text NULL,     -- proc regprocedure text | wf action name/version | python dotted path
+  UNIQUE ("ClassID","Name"),
+  CHECK ("IsAbstract" = ("ImplKind" IS NULL)));
+
+CREATE TABLE "Meta"."MethodParams" (
+  "MethodID" int NOT NULL REFERENCES "Meta"."Methods" ON DELETE CASCADE,
+  "Ordinal" int NOT NULL,
+  "Name" text NOT NULL,
+  "TypeID" bigint NOT NULL REFERENCES wf.data_type(id),
+  "Required" boolean NOT NULL DEFAULT true,
+  "DefaultValue" jsonb NULL,          -- validated against the param type
+  PRIMARY KEY ("MethodID","Ordinal"), UNIQUE ("MethodID","Name"));
+```
+
+Rules:
+- **Resolution:** nearest definition wins (through `ClassClosure`), the same as for fields. A `VClassMethodsResolved` view gives the effective method per class.
+- **Abstract methods:** a concrete class must resolve every abstract method to a concrete one; this is checked when `IsAbstract` is set to false and when objects are inserted.
+- **Signature compatibility on override (narrowing):**
+  - Same parameter names, in the same order.
+  - An override can't add a new required parameter; it may add an optional one at the end.
+  - A parameter's type must be the same as the inherited one. Changing it in either direction would break calls made through the parent's signature, so input types are invariant.
+  - A required parameter can't become optional or the other way round, except that an override may relax required → optional.
+  - The return type may narrow to a derived type (covariant).
+  - `IsOverride` must be true exactly when an inherited method exists, and a `IsFinal` method can't be overridden.
+- **Implementation mapping:**
+  - `sql`: a stored proc taking `(self_id int, args jsonb)`.
+  - `action`: a `wf.workflow_action` whose `input_type_id` is the method's parameter type (below).
+  - `python`: a handler registered in the semantic/action registry.
+  - `Meta.sp_invoke(obj_id, method, args jsonb)` resolves the method for the object's class, validates `args`, then dispatches.
+- **Parameter schema:** `Meta.fn_method_params_json_schema(method_id)` builds a draft 2020-12 object schema from `MethodParams`: each parameter's type is a `$ref`, `required` and `default` come from the table, and `unevaluatedProperties: false`. It's published as a catalog type (`<Class>.<Method>.Params`) so ActionSpecs and the portal use it directly. The return type is already a catalog type.
+
 ## 3. Meta links vs instance links
 
 - **Meta link**: declared on a class — name, target class, cardinality, optional inverse, `IsHierarchical`.
@@ -157,7 +203,7 @@ CREATE TABLE "Meta"."ObjValues" (
   PRIMARY KEY ("ObjID","ClassID"));
 ```
 
-Each object has one row per class in its chain (root to leaf). The keys in a row are the fields declared at that level (a key moves to the overriding level). Hot fields become **generated columns** on per-class partitions or side tables, e.g. `"Barcode" text GENERATED ALWAYS AS ("Data"->>'Barcode') STORED`, with B-tree indexes. Cold fields use a GIN `jsonb_path_ops` index.
+Each object has one row per class in its chain (root to leaf). The keys in a row are the fields declared at that level (a key moves to the overriding level). One unpartitioned table (Decision D3). Indexes: PK B-tree `(ObjID, ClassID)` plus B-tree `(ClassID)`; GIN `jsonb_path_ops` on `Data`. Hot fields become **generated columns** on `ObjValues`, e.g. `"Barcode" text GENERATED ALWAYS AS ("Data"->>'Barcode') STORED`, with partial B-tree indexes `WHERE "ClassID" = <level>`.
 
 ### 4.4 Validation
 
@@ -203,7 +249,7 @@ JOIN "Meta"."ObjValues" v ON v."ObjID" = p."ID" AND v."ClassID" = 12;
 
 1. Add the new columns/tables; backfill `AncestorPath`/closure. Run a cycle report first and fix bad rows by hand.
 2. Add the FK and cycle trigger. Mark the obvious bases abstract (manual review).
-3. Find `ParentID` uses that actually mean "tree" (if any) and move them to hierarchical meta links.
+3. No tree reclassification: no existing `ParentID` rows are trees (Decision D1). NavTree adopts `Tree` separately.
 4. Build `Meta.Fields` from `information_schema.columns` of each per-class table, and map SQL types to catalog types.
 5. Copy rows from the per-class tables into `ObjValues` (`to_jsonb(row) - 'ID'`), validating in report mode (log, don't reject).
 6. Create the class views under the old table names as compatibility views, keep the old tables read-only for one release, then drop them.
@@ -222,11 +268,14 @@ pgTAP (supported on Neon) for SQL plus pytest for Python:
 - Migration: round-trip fixture from the current typed tables.
 - Python: the same schema accepted/rejected identically by the `jsonschema` library and `pg_jsonschema`.
 
-## 10. Open questions
+## 10. Decisions (David, PR #25)
 
-1. JSONB as one table vs partitioned by root class (affects generated hot columns and index size).
-2. View regeneration: synchronous in a trigger vs a deferred queue (DDL inside DML transactions).
-3. Do methods need a table (`Meta.Methods`) or do they stay in code? Override-by-name assumes they're named.
-4. Versioning of class types (`wf.data_type.version`) when a class changes: bump on every change, or only on breaking changes?
-5. Are there current `ParentID` uses that actually mean trees? Needs a data review on the live DB.
-6. pg_jsonschema `unevaluatedProperties` behaviour on Neon (see §4.4).
+- **D1 (was Q5):** No existing `ParentID` rows are trees; `ParentID` is inheritance only. The only tree in use is NavTree, the first future adopter of the `Tree` type. The migration needs no tree reclassification.
+- **D2 (was Q3):** Methods are declared in Meta (`Meta.Methods` + `Meta.MethodParams`, §2.3), inherited and overridable by name, with signature-compatibility rules. Each method is implemented by a SQL proc, an ActionSpec or a Python handler, and generates a JSON Schema for its parameters.
+- **D3 (was Q1):** Values stay in the single JSONB table `Meta.ObjValues`, not partitioned by root class. Indexes: B-tree on `(ObjID, ClassID)` and `(ClassID)`, GIN on `Data`, and generated columns for hot fields (§4.3).
+
+## 11. Open questions
+
+1. View regeneration: synchronous in a trigger vs a deferred queue (DDL inside DML transactions).
+2. Versioning of class types (`wf.data_type.version`) when a class changes: bump on every change, or only on breaking changes?
+3. pg_jsonschema `unevaluatedProperties` behaviour on Neon (see §4.4).
