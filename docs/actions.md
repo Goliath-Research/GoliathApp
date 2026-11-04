@@ -23,6 +23,8 @@ Upsert procedures replace one another as the apply order advances: 3 arguments, 
 
 `wf.wf_repo_upsert_data_type` writes a type. `schema_json` is the JSON Schema document. The kind and field tables are an index over that document.
 
+Under the accepted [Meta model](meta-model.md) design, `wf.data_type` is the single catalog for Meta too. Types gain `description` and `base_type_id` (derived types such as `Percent` from `Decimal`), each Meta class publishes its generated JSON Schema (draft 2020-12) as a catalog type, and each Meta method publishes a parameter type. ActionSpec inputs and outputs reference these catalog types. Not implemented yet.
+
 `wf.workflow_action_schema` (`wf_action_schema.sql`) still stores input and output JSON blobs per action. Its own comment marks seeding of that table as retired: `wf.wf_repo_get_action_schema` is redefined in `wf_data_type.sql` to prefer the data-type `schema_json`, then the legacy blob, then an empty object. The table remains so older rows still resolve.
 
 `cfg.action_definition` is created by `cfg_registry_tables.sql`. The config CLI does not write it. `goliath-cfg sync-actions` ignores `--from-json`, `--seed-wf`, and `--draft` and always tries to seed `wf` by executing `workflow_engine/sql_pg/seed_action_catalog.py`. That file is not in this repository, so the command raises `FileNotFoundError`.

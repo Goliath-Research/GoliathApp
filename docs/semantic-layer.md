@@ -70,7 +70,7 @@ flowchart TB
 | Layer | Where it lives | What customers see |
 |-------|----------------|-------------------|
 | Vocabulary | `portal` registry rows | Study, Sample, Run |
-| Physical / class model | `Meta`, app tables | Internal mapping (optional link from registry) |
+| Physical / class model | `Meta`, app tables | Internal mapping (optional link from registry); Meta-backed entities read the recursive class views `"Meta"."V<Class>"` ([Meta model](meta-model.md)) |
 | Authorization | `RBAC` + portal checks | What they may open |
 | Operations | `wf` / gateway | Starts, retries (outside semantic read layer) |
 
@@ -145,7 +145,7 @@ erDiagram
 
 Suggested responsibilities:
 
-- **SemanticEntity** — Stable `code`, customer-facing `display_name`, optional link to `"Meta"."Classes"` for class-backed storage.
+- **SemanticEntity** — Stable `code`, customer-facing `display_name`, optional link to `"Meta"."Classes"` for class-backed storage. Under the [Meta model](meta-model.md) design, class-backed entities read `"Meta"."V<Class>"`, and their row schema is the class catalog type (no separate Pydantic-derived schema).
 - **SemanticAttribute** — Fields shown in list/detail/filter UI; may map to columns or computed labels.
 - **SemanticRequest** — Named, versioned read operation: points to a view, a `portal.sp_*` function, or a parameterized template evaluated only inside trusted SQL.
 - **RequestParameter** — Typed inputs the portal and API expose.
@@ -239,7 +239,7 @@ module SemanticRuntime {
 
 ## App descendants
 
-GoliathApp ships core registry tables and shared requests. A descendant application adds Meta classes, domain tables, registry rows, and nav bindings in its own apply scripts—without forking the execution engine.
+GoliathApp ships core registry tables and shared requests. A descendant application adds Meta classes (single inheritance, JSONB values; see [Meta model](meta-model.md)), domain tables, registry rows, and nav bindings in its own apply scripts—without forking the execution engine.
 
 ```mermaid
 flowchart TB
@@ -295,7 +295,7 @@ flowchart LR
 | **Exograph + portal registry (this doc)** | Portal-first, DB-backed definitions, optional MCP |
 | **Apache AGE** | In-DB graph traversals; does not replace a customer entity catalog; MCP is custom |
 | **`.exo` only (no registry)** | Fast bootstrap; poor fit for per-tenant/per-app requests without redeploy |
-| **Meta alone** | Class/table model; lacks customer-facing request catalog and portal UX binding |
+| **Meta alone** | Class model ([Meta model](meta-model.md)); lacks customer-facing request catalog and portal UX binding |
 
 See [Platform](platform.md) for current schemas and [RBAC](rbac.md) for portal integration points.
 

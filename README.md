@@ -2,7 +2,7 @@
 
 **GoliathApp** is a general-purpose enterprise platform. Specialized applications extend it. The platform does not depend on those applications.
 
-It keeps application behavior in a database: a Meta object model, RBAC, portal SQL, a workflow engine, and user-defined actions. A REST gateway enrolls distributed workers that carry out the actions. This repository ships the engine, the compiler, and the claim client.
+It keeps application behavior in a database: a Meta object model (see [docs/meta-model.md](docs/meta-model.md)), RBAC, portal SQL, a workflow engine, and user-defined actions. A REST gateway enrolls distributed workers that carry out the actions. This repository ships the engine, the compiler, and the claim client.
 
 Repository layout: [docs/workspace-index.md](docs/workspace-index.md). A catalog site can read [`.goliath/product.json`](.goliath/product.json) at build time.
 
