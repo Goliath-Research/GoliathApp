@@ -59,6 +59,51 @@ def _row_type_name(entity: SemanticEntitySpec) -> str:
     return f"{entity.namespace}_{entity.code}_row".replace(".", "_")
 
 
+def _row_type_sync_block(type_name: str, fields: List[tuple[str, str]]) -> List[str]:
+    fields_sql = ",\n".join(f"  {name} {pg_t}" for name, pg_t in fields)
+    names_array = ", ".join(f"'{name}'" for name, _ in fields)
+    types_array = ", ".join(f"'{pg_t}'" for _, pg_t in fields)
+    return [
+        "DO $$",
+        "DECLARE",
+        f"  v_typname constant text := '{type_name}';",
+        f"  v_desired text[] := ARRAY[{names_array}];",
+        f"  v_desired_types text[] := ARRAY[{types_array}];",
+        "  v_existing text[];",
+        "  v_i int;",
+        "BEGIN",
+        "  SELECT array_agg(a.attname ORDER BY a.attnum)",
+        "  INTO v_existing",
+        "  FROM pg_type t",
+        "  JOIN pg_namespace n ON n.oid = t.typnamespace",
+        "  JOIN pg_class c ON c.oid = t.typrelid",
+        "  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped",
+        "  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';",
+        "",
+        "  IF v_existing IS NULL THEN",
+        f"    CREATE TYPE portal.{type_name} AS (",
+        fields_sql,
+        "    );",
+        "  ELSIF v_existing = v_desired THEN",
+        "    NULL;",
+        "  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)",
+        "        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN",
+        "    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP",
+        "      EXECUTE format(",
+        "        'ALTER TYPE portal.%I ADD ATTRIBUTE IF NOT EXISTS %I %s',",
+        "        v_typname, v_desired[v_i], v_desired_types[v_i]",
+        "      );",
+        "    END LOOP;",
+        "  ELSE",
+        f"    DROP TYPE IF EXISTS portal.{type_name} CASCADE;",
+        f"    CREATE TYPE portal.{type_name} AS (",
+        fields_sql,
+        "    );",
+        "  END IF;",
+        "END $$;",
+    ]
+
+
 def export_row_types_sql(catalog: Sequence[SemanticEntitySpec]) -> str:
     lines = [
         "/*",
@@ -73,33 +118,11 @@ def export_row_types_sql(catalog: Sequence[SemanticEntitySpec]) -> str:
         model_schema = entity.row_model.model_json_schema(mode="serialization")
         props = model_schema.get("properties", {})
         type_name = _row_type_name(entity)
-        field_parts: List[str] = []
-        for name in props:
-            pg_t = _pg_type_for_field(props.get(name, {}))
-            field_parts.append(f"  {name} {pg_t}")
-        fields_sql = ",\n".join(field_parts)
-        alter_lines = [
-            f"ALTER TYPE portal.{type_name} ADD ATTRIBUTE IF NOT EXISTS {name} {_pg_type_for_field(props.get(name, {}))};"
-            for name in props
+        fields: List[tuple[str, str]] = [
+            (name, _pg_type_for_field(props.get(name, {}))) for name in props
         ]
-        lines.extend(
-            [
-                "DO $$",
-                "BEGIN",
-                "  IF NOT EXISTS (",
-                "    SELECT 1 FROM pg_type t",
-                "    JOIN pg_namespace n ON n.oid = t.typnamespace",
-                f"    WHERE n.nspname = 'portal' AND t.typname = '{type_name}'",
-                "  ) THEN",
-                f"    CREATE TYPE portal.{type_name} AS (",
-                f"{fields_sql}",
-                "    );",
-                "  END IF;",
-                "END $$;",
-                *alter_lines,
-                "",
-            ]
-        )
+        lines.extend(_row_type_sync_block(type_name, fields))
+        lines.append("")
     return "\n".join(lines)
 
 
