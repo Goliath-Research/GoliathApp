@@ -121,12 +121,16 @@ objects:
       kind: function
       required: true
       parameters:
-        - { name: p_instance_ids, type: bigint[], direction: in }
+        - name: p_instance_ids
+          type: "bigint[]"
+          direction: in
     - name: wf.fn_worker_wake_hints_for_node_executions
       kind: function
       required: true
       parameters:
-        - { name: p_node_execution_ids, type: bigint[], direction: in }
+        - name: p_node_execution_ids
+          type: "bigint[]"
+          direction: in
 
   repository_api:
     - name: wf.wf_repo_set_instance_status
