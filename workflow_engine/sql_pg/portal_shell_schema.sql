@@ -1,5 +1,5 @@
 -- GoliathApp portal navigation shell (NavTree, entitlements, Meta object bridge).
--- Copied from GoliathOmics workflow_engine/sql_pg/portal_clinical_schema.sql (shell tables only).
+-- Shell tables aligned with extension-owned portal_clinical_schema.sql (navigation only).
 
 CREATE SCHEMA IF NOT EXISTS portal;
 

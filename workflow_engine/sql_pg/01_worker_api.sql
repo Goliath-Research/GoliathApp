@@ -1,10 +1,10 @@
 /*
-  MethylPipeline wf schema - PostgreSQL worker API (contract result shapes).
+  GoliathApp wf schema - PostgreSQL worker API (contract result shapes).
   Prerequisites: 00_schema.sql, 03_engine_core.sql (for wf_engine_on_action_complete).
 */
 
 /*
-  MethylPipeline wf schema - PostgreSQL worker API (contract result shapes).
+  GoliathApp wf schema - PostgreSQL worker API (contract result shapes).
   Prerequisites: 00_schema.sql, 03_engine_core.sql (for wf_engine_on_action_complete).
 */
 

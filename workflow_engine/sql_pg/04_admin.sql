@@ -1,5 +1,5 @@
 /*
-  MethylPipeline wf schema - PostgreSQL admin procedures.
+  GoliathApp wf schema - PostgreSQL admin procedures.
   Prerequisites: 00_schema.sql
 */
 

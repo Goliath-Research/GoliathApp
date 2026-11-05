@@ -1,5 +1,5 @@
 /*
-  MethylPipeline wf schema - PostgreSQL (core definition + runtime tables).
+  GoliathApp wf schema - PostgreSQL (core definition + runtime tables).
   Deploy first. Requires PostgreSQL 15+ (17+ recommended; PG 18+ on Azure).
   Uses pg_catalog sha256(bytea) — no pgcrypto extension required on Azure Flexible Server.
 */

@@ -1,5 +1,5 @@
 /*
-  MethylPipeline wf schema - execution scope registry and action result ledger (PostgreSQL).
+  GoliathApp wf schema - execution scope registry and action result ledger (PostgreSQL).
 
   An "execution scope" is the workflow engine's process-agnostic identity for one
   fully-resolved configuration combination (a hash of the baked resolvedConfig__*

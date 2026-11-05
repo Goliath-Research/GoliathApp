@@ -1,5 +1,5 @@
 /*
-  MethylPipeline wf schema - generic instance extension storage (PostgreSQL).
+  GoliathApp wf schema - generic instance extension storage (PostgreSQL).
 
   Prerequisites: 00_schema.sql (workflow_instance)
 */

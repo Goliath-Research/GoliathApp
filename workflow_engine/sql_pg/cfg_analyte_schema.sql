@@ -1,4 +1,4 @@
--- Versioned analyte config catalog (platform cfg; Omics apps seed rows).
+-- Versioned analyte config catalog (platform cfg; application extensions seed rows).
 
 CREATE TABLE IF NOT EXISTS cfg.analyte (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
