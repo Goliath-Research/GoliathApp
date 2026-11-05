@@ -25,6 +25,24 @@ CREATE TABLE IF NOT EXISTS wf.data_type (
 ALTER TABLE wf.data_type
   ADD COLUMN IF NOT EXISTS schema_json jsonb NULL;
 
+ALTER TABLE wf.data_type
+  ADD COLUMN IF NOT EXISTS description text;
+
+ALTER TABLE wf.data_type
+  ADD COLUMN IF NOT EXISTS base_type_id bigint NULL;
+
+DO $fk$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_wf_data_type_base_type') THEN
+    ALTER TABLE wf.data_type
+      ADD CONSTRAINT fk_wf_data_type_base_type
+      FOREIGN KEY (base_type_id) REFERENCES wf.data_type (id);
+  END IF;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$fk$;
+
 DO $ck$
 BEGIN
   ALTER TABLE wf.data_type

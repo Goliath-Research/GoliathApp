@@ -64,6 +64,7 @@ SCRIPTS=(
   portal_workflow_api.sql
   wf_drop_platform_sample_storage.sql
   meta_schema.sql
+  meta_model_phase_a.sql
   contract_schema.sql
   onboarding_schema.sql
   portal_shell_schema.sql
