@@ -1,6 +1,6 @@
 # Meta model redesign (design, not yet implemented)
 
-Status: **accepted design, not yet implemented** (approved by David Izada Rodriguez, PR #25). Decisions D1–D4 in §10.
+Status: **accepted design, not yet implemented** (approved by David Izada Rodriguez, PR #25). Decisions D1–D7 in §10; no open questions remain.
 
 ## 1. Current state (audited at `a50874c`)
 
@@ -194,7 +194,7 @@ ALTER TABLE wf.data_type
 
 - **Draft 2020-12**, because with `allOf` composition only `unevaluatedProperties: false` rejects unknown keys while still seeing the parent's properties (`additionalProperties` can't). Draft 2020-12 is also what Pydantic v2 `model_json_schema` emits (`semantic/export.py`), so semantic entities and Meta classes use the same dialect.
 - For validation the function also gives a **bundled** form (with `$defs` inlined) because the validator can't fetch `$ref` URIs.
-- The schema is stored in the class's `wf.data_type.schema_json` (kind `object`, `class_id` set). It's regenerated when any class, field or ancestor changes.
+- The schema is stored in the class's `wf.data_type.schema_json` (kind `object`, `class_id` set). It's regenerated when any class, field or ancestor changes, and versioned per §4.5.
 
 ### 4.3 Storage: JSONB per class level
 
@@ -208,15 +208,15 @@ CREATE TABLE "Meta"."ObjValues" (
 
 Each object has one row per class in its chain (root to leaf). The keys in a row are the fields declared at that level (a key moves to the overriding level). One unpartitioned table (Decision D3). Indexes: PK B-tree `(ObjID, ClassID)` plus B-tree `(ClassID)`; GIN `jsonb_path_ops` on `Data`. Hot fields become **generated columns** on `ObjValues`, e.g. `"Barcode" text GENERATED ALWAYS AS ("Data"->>'Barcode') STORED`, with partial B-tree indexes `WHERE "ClassID" = <level>`.
 
-### 4.4 Validation (layered, Decision D4)
+### 4.4 Validation (layered, Decisions D4 and D7)
 
 The single generated class schema (§4.2, stored in `wf.data_type.schema_json`) is the **only** source for every layer, so they can't drift. No layer writes its own rules.
 
 1. **UI (primary, interactive):** the portal validates captured values against the class or method-parameter schema before calling the input.
 2. **Python (primary, programmatic):** Pydantic models are generated from the same schema (e.g. with `datamodel-code-generator`, at build time or cached by `content_hash`) and validate every payload before it reaches Postgres. External callers always send schema-compliant JSON.
-3. **Postgres (backstop, mainly for internal writers):**
+3. **Postgres (backstop, mainly for internal writers). This is a mandatory deliverable of the Meta implementation (D7), not an experiment:**
    - **Always on, cheap SQL check:** `Meta.sp_obj_insert` / `sp_obj_update` split the document by level through `VClassFieldsResolved`. They **raise on unknown keys** (today those keys are dropped silently) and on missing required keys. The same check also runs as a cheap always-on `BEFORE INSERT OR UPDATE` trigger on `ObjValues` (keys vs `VClassFieldsResolved` for that level; required keys at a deferred commit check), so direct DML can't skip it. It's plain SQL with no extension, and it's also the fallback.
-   - **Optional `pg_jsonschema` trigger:** a `BEFORE INSERT OR UPDATE` trigger on `ObjValues` validates the merged document against the bundled schema with `jsonb_matches_schema`. It's controlled per class and per environment:
+   - **Full-schema trigger (shipped; toggled on or off per D4):** a `BEFORE INSERT OR UPDATE` trigger on `ObjValues` validates the merged document against the bundled schema with `jsonb_matches_schema`. It's controlled per class and per environment:
 
 ```sql
 ALTER TABLE "Meta"."Classes" ADD COLUMN "PgValidate" boolean NULL;  -- NULL = follow environment
@@ -226,8 +226,29 @@ ALTER TABLE "Meta"."Classes" ADD COLUMN "PgValidate" boolean NULL;  -- NULL = fo
 ```
 
    - Suggested defaults: on in dev/test/CI and for internal roles (migrations, workers, admin SQL); off in prod for the external API path, which Pydantic has already validated.
-- **Engine:** `pg_jsonschema`. On 2026-11-04 Neon's extension list showed 0.3.3 on PG14–17 and 0.3.4 on PG18 (https://neon.com/docs/extensions/pg-extensions). Alternatives rejected: plv8 (Neon blocks new installs) and a full PL/pgSQL validator (too much to build).
-- **Fallback if `unevaluatedProperties` is unsupported on Neon:** the always-on SQL key check above already rejects unknown keys. `pg_jsonschema` then validates a flattened variant (all resolved properties merged, `additionalProperties: false`, no `allOf`), generated from the same source.
+- **Engine (preferred):** Neon `pg_jsonschema`. On 2026-11-04 Neon's extension list showed 0.3.3 on PG14–17 and 0.3.4 on PG18 (https://neon.com/docs/extensions/pg-extensions). Alternatives rejected: plv8 (Neon blocks new installs) and a full PL/pgSQL validator (too much to build).
+- **Fallback (always ships):**
+  - The always-on stored procedure / SQL check rejects unknown keys and enforces required keys whether or not `pg_jsonschema` is installed. Postgres validation is real even without `unevaluatedProperties`.
+  - If `pg_jsonschema` is installed but `unevaluatedProperties` doesn't work, the full trigger validates a **flattened** variant (all resolved properties merged, `additionalProperties: false`, no `allOf`) generated from the same source.
+  - If the extension isn't installed at all, the full trigger falls back to the SQL check plus per-key type checks for the catalog base kinds.
+- **Capability probe:** a migration-time `Meta.fn_jsonschema_capabilities()` checks whether the extension exists and runs a known `unevaluatedProperties` fixture. The result picks the `allOf` or flattened mode. The probe is part of the pgTAP suite.
+
+### 4.5 Class type versioning (Decision D6)
+
+Each class's published catalog type (`wf.data_type`, unique on `name, version`) is versioned `MAJOR.MINOR`. Each regeneration compares the new effective schema with the last published one. If the schema didn't change, nothing is published. If it did, a new row is published with a bumped version:
+
+- **Major** (`N+1.0`) when the effective schema (including inherited parts) does any of the following:
+  - a property is added, removed or renamed;
+  - a requiredness change breaks callers (optional → required; a newly required property);
+  - inheritance changes (a new parent, an ancestor added or removed) alter the published schema.
+- **Minor** (`N.M+1`) when an existing property changes without adding or removing properties:
+  - its type is replaced, or its constraints are tightened or widened;
+  - the schema fragment changes in another localized way (for example a description change that alters the fragment);
+  - required → optional, which doesn't break callers.
+- An ancestor change is applied to every descendant's type: each one is regenerated and bumped by the same rule.
+- Method parameter types (`<Class>.<Method>.Params`) follow the same major/minor rules when a method signature changes. Return types are ordinary catalog types and are versioned as types.
+- `content_hash` (the hash of the bundled schema) still drives cache invalidation of generated Pydantic models and UI validators. The version number is for humans and for compatibility checks.
+- Earlier versions stay `published` until retired, so ActionSpecs pinned to an older version keep resolving.
 
 ## 5. Recursive class views
 
@@ -242,7 +263,7 @@ JOIN "Meta"."ObjValues" v ON v."ObjID" = p."ID" AND v."ClassID" = 12;
 ```
 
 - A view for class C includes objects of every descendant class (polymorphic select), because the root view filters through `ClassClosure`.
-- `Meta.sp_class_regenerate_views(class_id)` (re)creates the views top-down for the class and all its descendants. It runs from the hierarchy/field triggers (or is deferred to commit via a dirty-class queue). It replaces the stubs `spclasscreatetablesql`, `spclasscreateviewsql`, `spclasscreatehistorysql` and `spclassadded`, which are then dropped.
+- `Meta.sp_class_regenerate_views(class_id)` (re)creates the views top-down for the class and all its descendants. It runs **immediately**, from the `Classes`/`Fields`/`Methods`/`MetaLinks` triggers, every time the class or an ancestor that affects it changes. There's no deferred or queue-until-commit mode (Decision D5). The class schema and catalog type (§4.2, §4.5) are regenerated in the same step. It replaces the stubs `spclasscreatetablesql`, `spclasscreateviewsql`, `spclasscreatehistorysql` and `spclassadded`, which are then dropped.
 - History: one `"Meta"."ObjValuesHistory"` table (jsonb snapshot + op + ts) replaces the per-class history DDL. `HasHistory` stays.
 
 ## 6. Trees
@@ -268,7 +289,7 @@ JOIN "Meta"."ObjValues" v ON v."ObjID" = p."ID" AND v."ClassID" = 12;
 4. Build `Meta.Fields` from `information_schema.columns` of each per-class table, and map SQL types to catalog types.
 5. Copy rows from the per-class tables into `ObjValues` (`to_jsonb(row) - 'ID'`), validating in report mode (log, don't reject).
 6. Create the class views under the old table names as compatibility views, keep the old tables read-only for one release, then drop them.
-7. Switch on the always-on SQL key check everywhere and the `pg_jsonschema` trigger in dev/test and for internal writers; drop the old `sp*` and stubs.
+7. Install `pg_jsonschema` where available and run the capability probe (D7). Switch on the always-on SQL key check everywhere and the `pg_jsonschema` trigger in dev/test and for internal writers; drop the old `sp*` and stubs.
 
 ## 9. Test plan (there are none today)
 
@@ -278,21 +299,20 @@ pgTAP (supported on Neon) for SQL plus pytest for Python:
 - Links: instance link without a permitting meta link rejected; Max/MinCard; inverse maintenance.
 - Schema: golden-file `fn_class_json_schema` output; `allOf` chain; unknown key rejected; derived type bounds (Percent 101 rejected).
 - Storage: per-level split; generated hot columns; direct DML with an unknown key caught by the always-on key-check trigger.
-- Views: polymorphic select; regeneration after a field is added or a class is re-parented.
+- Views (D5): polymorphic select; a view is regenerated immediately (same transaction) after a field is added, a type changes, a class is re-parented, or an ancestor changes; descendants are refreshed too.
+- Versioning (D6): golden cases for each major/minor rule (add/remove/rename, optional→required, re-parent → major; type/constraint change, required→optional → minor; no change → no new version); method signature change bumps the params type; `content_hash` changes whenever the schema changes.
 - Trees: ltree path maintained, move subtree, cycle rejected, TreeRef integrity.
 - Migration: round-trip fixture from the current typed tables.
 - Cross-layer parity: one fixture corpus (valid/invalid documents per class) must give the same result in generated Pydantic models, the UI validator, the SQL key check and `pg_jsonschema`.
 - Toggle: trigger fires or skips according to `PgValidate` and `goliath.meta_pg_validate`; the SQL key check always fires.
+- Postgres validation (D7): the capability probe reports `unevaluatedProperties` support on Neon; the same corpus passes in `allOf` mode, flattened mode and extension-absent mode; unknown keys and missing required keys are always rejected.
 
-## 10. Decisions (David, PR #25)
+## 10. Decisions (David)
 
 - **D1 (was Q5):** No existing `ParentID` rows are trees; `ParentID` is inheritance only. The only tree in use is NavTree, the first future adopter of the `Tree` type. The migration needs no tree reclassification.
 - **D2 (was Q3):** Methods are declared in Meta (`Meta.Methods` + `Meta.MethodParams`, §2.3), inherited and overridable by name, with signature-compatibility rules. Each method is implemented by a SQL proc, an ActionSpec or a Python handler, and generates a JSON Schema for its parameters.
 - **D3 (was Q1):** Values stay in the single JSONB table `Meta.ObjValues`, not partitioned by root class. Indexes: B-tree on `(ObjID, ClassID)` and `(ClassID)`, GIN on `Data`, and generated columns for hot fields (§4.3).
 - **D4:** Primary validation happens before Postgres: Pydantic models generated from the class schema (Python) and UI validation of captured values. Postgres validation is a backstop, mainly for internal writers. An always-on SQL unknown/required-key check, plus an optional `pg_jsonschema` trigger toggled per class (`PgValidate`) and per environment (`goliath.meta_pg_validate`). All layers use the single generated schema (§4.4). Parameter types in method overrides stay strictly invariant (§2.3), as approved.
-
-## 11. Open questions
-
-1. View regeneration: synchronous in a trigger vs a deferred queue (DDL inside DML transactions).
-2. Versioning of class types (`wf.data_type.version`) when a class changes: bump on every change, or only on breaking changes?
-3. Verify `unevaluatedProperties` (and bundled `$defs`) on Neon `pg_jsonschema`. This only decides whether the optional trigger uses the `allOf` schema or the flattened variant; the always-on SQL key check doesn't depend on it (§4.4).
+- **D5:** Each class view is regenerated **immediately** whenever the class or an ancestor that affects it changes. No deferred or queue-until-commit option (§5).
+- **D6:** Class catalog types are versioned `MAJOR.MINOR` and bumped only when the schema changes. Major: a property is added, removed or renamed, a requiredness change breaks callers, or an inheritance change alters the published schema. Minor: an existing property's type or constraints change, or another localized change to the fragment. Method parameter types follow the same rules. `content_hash` still drives Pydantic and UI cache invalidation (§4.5).
+- **D7:** Postgres JSON Schema validation is a mandatory deliverable. Preferred: Neon `pg_jsonschema`, with a capability probe for `unevaluatedProperties` (`allOf` mode if it works, flattened schema if not). The stored procedure / SQL required-key and unknown-key check always ships, so validation is real without the extension. The layered model and toggles from D4 are unchanged (§4.4).
