@@ -13,7 +13,6 @@ docs/workflow-compiler.md
 goliath_app/actions/registry.py
 scripts/default_methyl_site.json
 workers/WORKER_PROTOCOL.md
-workflow_engine/cfg/reference_selection.py
 workflow_engine/cfg/sync_library_presets.py
 workflow_engine/cfg/verify_workflow_cmd.py
 workflow_engine/contract/db_objects.md
@@ -36,9 +35,7 @@ workflow_engine/delphi/src/WfEngine.Mvc.Service.dfm
 workflow_engine/delphi/src/WfEngine.Mvc.Service.pas
 workflow_engine/delphi/tests/WfEngine.GatewayService.Tests.pas
 workflow_engine/delphi/tests/WfEngine.Integration.Tests.pas
-workflow_engine/domain/pipeline_profiles.py
-workflow_engine/domain/verify_workflow.py
-workflow_engine/domain/workflow_context.py
+workflow_engine/domain/_application_profiles.py
 workflow_engine/local/foreach_caas.py
 workflow_engine/pyproject.toml
 workflow_engine/sql_pg/00_schema.sql
