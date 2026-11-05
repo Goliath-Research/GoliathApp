@@ -112,6 +112,21 @@ objects:
       kind: procedure
       required: true
       notes: Portal/apps wrapper over wf.sp_ingest_event; never call wf.* from UI code.
+    - name: wf.fn_worker_wake_hints_for_event
+      kind: function
+      required: true
+      parameters:
+        - { name: p_event_id, type: bigint, direction: in }
+    - name: wf.fn_worker_wake_hints_for_instances
+      kind: function
+      required: true
+      parameters:
+        - { name: p_instance_ids, type: bigint[], direction: in }
+    - name: wf.fn_worker_wake_hints_for_node_executions
+      kind: function
+      required: true
+      parameters:
+        - { name: p_node_execution_ids, type: bigint[], direction: in }
 
   repository_api:
     - name: wf.wf_repo_set_instance_status

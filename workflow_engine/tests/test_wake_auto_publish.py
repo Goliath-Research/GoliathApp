@@ -6,7 +6,7 @@ import sys
 import threading
 import unittest
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 from unittest import mock
 
 WF_ENGINE = Path(__file__).resolve().parents[1]
@@ -19,7 +19,7 @@ from goliath_worker.wake import (  # noqa: E402
     WorkerWakeMessage,
     wake_channel_for_capability,
 )
-from goliath_worker.client import TaskPollResult, WorkflowRestClient  # noqa: E402
+from goliath_worker.client import TaskClaim, TaskPollResult, WorkflowRestClient  # noqa: E402
 from rest.wake_coalesce import CoalescingWorkerWakePublisher, _truncate_payload  # noqa: E402
 from rest.worker_wake import (  # noqa: E402
     WorkerWakeHint,
@@ -108,8 +108,8 @@ class AutoWakePublishTests(unittest.TestCase):
         pub = _RecordingPublisher()
 
         def _ext(
-            messages: list[WorkerWakeMessage], _ctx: WakePublishContext
-        ) -> list[WorkerWakeMessage]:
+            messages: Sequence[WorkerWakeMessage], _ctx: WakePublishContext
+        ) -> Sequence[WorkerWakeMessage]:
             if not messages:
                 return messages
             first = messages[0]
@@ -166,11 +166,16 @@ class DualWorkerClaimTests(unittest.TestCase):
                     return TaskPollResult(claim=None)
                 claimed.append(self._worker_id or 0)
                 return TaskPollResult(
-                    claim={
-                        "node_execution_id": 1,
-                        "workflow_instance_id": 2,
-                        "capability": "task-cap",
-                    }
+                    claim=TaskClaim(
+                        node_execution_id=1,
+                        workflow_instance_id=2,
+                        node_key="n",
+                        action_name="a",
+                        capability="task-cap",
+                        attempt_no=1,
+                        input_json={},
+                        iteration_no=0,
+                    )
                 )
 
         w1 = make_client(1)

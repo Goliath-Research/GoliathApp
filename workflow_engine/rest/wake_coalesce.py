@@ -58,9 +58,9 @@ class CoalescingWorkerWakePublisher:
         debounce_seconds: Optional[float] = None,
     ) -> None:
         self._inner = inner
-        self._debounce = debounce_seconds
-        if self._debounce is None:
-            self._debounce = _env_float("WF_WAKE_COALESCE_SECONDS", 0.05)
+        if debounce_seconds is None:
+            debounce_seconds = _env_float("WF_WAKE_COALESCE_SECONDS", 0.05)
+        self._debounce = float(debounce_seconds)
         self._lock = threading.Lock()
         self._pending: dict[str, WorkerWakeMessage] = {}
         self._timer: Optional[threading.Timer] = None
