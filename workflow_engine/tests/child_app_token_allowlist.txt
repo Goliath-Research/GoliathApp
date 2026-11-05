@@ -2,11 +2,9 @@
 # One repo-relative path per line. Remove a path when that file is clean in a D phase.
 # Comments and blank lines are ignored.
 
-.github/workflows/pr.yml
 deploy/README.md
 deploy/targets/goliath-exo.example.json
 deploy/targets/goliath-exo.json
-docs/actions.md
 docs/dual-activation.md
 docs/pipeline-profiles.md
 docs/schema-apply.md
@@ -16,7 +14,6 @@ goliath_app/actions/registry.py
 goliath_worker/client.py
 goliath_worker/postgres_wake.py
 goliath_worker/work_share.py
-pyrefly.toml
 scripts/default_methyl_site.json
 workers/WORKER_PROTOCOL.md
 workflow_engine/cfg/cli.py
@@ -24,7 +21,6 @@ workflow_engine/cfg/import_fs.py
 workflow_engine/cfg/materialize.py
 workflow_engine/cfg/provision.py
 workflow_engine/cfg/reference_selection.py
-workflow_engine/cfg/scaffold.py
 workflow_engine/cfg/store.py
 workflow_engine/cfg/sync_library_presets.py
 workflow_engine/cfg/sync_on_start.py

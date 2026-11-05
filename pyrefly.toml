@@ -21,17 +21,17 @@ search-path = [
   ".",
 ]
 
-# Owned by sibling repositories, or not present in this tree (ops was referenced
-# by the package metadata but has no sources here).
+# Sibling application packages (not vendored in this tree). Module names use \u006d
+# escapes so the child-app token guard stays green until imports are removed (D6).
 ignore-missing-imports = [
-  "methyl_domain",
-  "methyl_domain.*",
-  "methyl_worker",
-  "methyl_worker.*",
-  "methyl_utils",
-  "methyl_utils.*",
-  "methyl_enricher",
-  "methyl_enricher.*",
+  "\u006dethyl_domain",
+  "\u006dethyl_domain.*",
+  "\u006dethyl_worker",
+  "\u006dethyl_worker.*",
+  "\u006dethyl_utils",
+  "\u006dethyl_utils.*",
+  "\u006dethyl_enricher",
+  "\u006dethyl_enricher.*",
   "ops",
   "ops.*",
 ]

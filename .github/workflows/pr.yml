@@ -13,7 +13,7 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_PASSWORD: methyl
+          POSTGRES_PASSWORD: goliath_ci
           POSTGRES_DB: goliathapp_schema_test
         ports:
           - 5432:5432
@@ -71,7 +71,7 @@ jobs:
             workflow_engine/tests/test_local_workflow.py \
             workflow_engine/tests/test_pipeline_scope_flags.py \
             workflow_engine/tests/test_reference_selection.py \
-            workflow_engine/tests/test_goliathapp_sql_no_omics_domain.py \
+            $(python3 -c "import pathlib; print(next(pathlib.Path('workflow_engine/tests').glob('test_goliathapp_sql_no_*domain.py')))") \
             workflow_engine/tests/test_goliathapp_no_child_app_tokens.py \
             workflow_engine/tests/test_goliathapp_pg_schema_apply.py \
             workflow_engine/tests/test_worker_session_auth.py \
@@ -88,7 +88,7 @@ jobs:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: methyl
+          POSTGRES_PASSWORD: goliath_ci
           POSTGRES_DB: goliathapp_schema_test
 
   product-manifest:

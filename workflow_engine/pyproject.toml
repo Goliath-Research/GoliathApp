@@ -1,7 +1,7 @@
 [project]
-name = "methyl-gateway"
+name = "goliath-gateway"
 version = "1.0.0"
-description = "MethylPipeline workflow REST gateway (PostgreSQL)"
+description = "GoliathApp workflow REST gateway (PostgreSQL)"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
 dependencies = [
