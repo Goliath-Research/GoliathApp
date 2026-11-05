@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS cfg.assay_procedure (
   CONSTRAINT ck_cfg_assay_procedure_status CHECK (status IN ('draft', 'published', 'retired'))
 );
 
--- cfg.analyte DDL is in cfg_analyte_schema.sql (Omics apps seed catalog rows).
+-- cfg.analyte DDL is in cfg_analyte_schema.sql (application extensions seed catalog rows).
 
 CREATE TABLE IF NOT EXISTS cfg.domain_program (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -148,8 +148,8 @@ CREATE TABLE IF NOT EXISTS cfg.action_definition (
 );
 
 -- Enrichment library presets (named Enrichr library sets, e.g. cancer-core, neuro-core).
--- Authored in packages/methylenricher/.../data/library_presets.json; synced via
--- methyl-cfg sync-library-presets. Config, not a workflow node.
+-- Authored in extension worker packages under data/library_presets.json; synced via
+-- goliath-cfg sync-library-presets. Config, not a workflow node.
 CREATE TABLE IF NOT EXISTS cfg.enrichment_library_preset (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   name text NOT NULL,
@@ -164,7 +164,7 @@ CREATE TABLE IF NOT EXISTS cfg.enrichment_library_preset (
 );
 
 -- Study analysis arms. portal_sample_id / lab_sample_id are soft refs in GoliathApp;
--- GoliathOmics may add FKs to portal clinical tables in its apply scripts.
+-- Application extensions may add FKs to portal clinical tables in their apply scripts.
 CREATE TABLE IF NOT EXISTS cfg.study_group (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   study_row_id bigint NOT NULL REFERENCES cfg.study (id) ON DELETE CASCADE,

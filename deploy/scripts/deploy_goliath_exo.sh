@@ -55,6 +55,6 @@ Deploy sequence (adapt hosts / orchestrator to your environment):
   7. Start exo-server from the release bundle; expose MCP profile semantic_read if agents are enabled
   8. Portal backends may use PortalClient or GraphQL runSemanticRequest with the same session token
 
-Workers and the REST gateway are out of scope for goliath-exo; use GoliathOmics deploy targets.
+Workers and the REST gateway are out of scope for goliath-exo; use extension-app deploy targets.
 
 EOF

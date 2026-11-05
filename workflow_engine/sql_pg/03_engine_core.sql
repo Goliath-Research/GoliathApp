@@ -1,5 +1,5 @@
 /*
-  MethylPipeline wf schema - PostgreSQL engine runtime (SQL-only activation path).
+  GoliathApp wf schema - PostgreSQL engine runtime (SQL-only activation path).
   Prerequisites: 00_schema.sql
 */
 

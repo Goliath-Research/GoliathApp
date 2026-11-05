@@ -27,7 +27,7 @@
     "client": "goliath_app.portal.PortalClient"
   },
   "gateway": {
-    "note": "Provision workers via GoliathOmics deploy targets (e.g. goliath-test), not this profile."
+    "note": "Provision workers and the REST gateway via extension-app deploy targets, not this profile."
   },
   "schema": {
     "goliathapp": "per-release",

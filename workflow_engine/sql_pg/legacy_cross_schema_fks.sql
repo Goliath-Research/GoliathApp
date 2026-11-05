@@ -1,5 +1,5 @@
 -- Cross-schema foreign keys for GoliathApp platform objects only.
--- Omics portal clinical FKs live in GoliathOmics apply scripts.
+-- Extension-owned portal clinical FKs live in application extension apply scripts.
 
 DO $fk$
 BEGIN
