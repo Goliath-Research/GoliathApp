@@ -51,20 +51,23 @@ _STUB_PROGRAM = {
 
 
 def _workflow_run() -> str:
-    script = shutil.which("methyl-workflow-run")
-    assert script, "methyl-workflow-run is not on PATH; install workflow_engine"
-    return script
+    for name in ("goliath-workflow-run", "methyl-workflow-run"):
+        script = shutil.which(name)
+        if script:
+            return script
+    assert False, "goliath-workflow-run is not on PATH; install workflow_engine"
 
 
 def test_compile_sample_prep_program() -> None:
     result = compile_domain_program_file(SAMPLE_PREP, enrich_context=False)
     spec = result.workflow
-    assert spec.name == "SamplePrepPipeline"
+    assert spec.name == "WorkflowCompilerFixture"
     assert spec.root_node_key == "root"
     assert any(node.node_type == "ACTION" for node in spec.nodes)
-    assert any(node.action_name == "sample.download_fastq" for node in spec.nodes)
+    assert any(node.action_name == "demo.echo" for node in spec.nodes)
+    assert any(node.action_name == "demo.touch" for node in spec.nodes)
     assert any(node.node_type == "FOREACH" for node in spec.nodes)
-    assert "qcPass" in spec.variable_schemas
+    assert "ready" in spec.variable_schemas
 
 
 def test_compile_only_cli_writes_sample_prep(tmp_path: Path) -> None:
@@ -77,7 +80,7 @@ def test_compile_only_cli_writes_sample_prep(tmp_path: Path) -> None:
     )
     assert proc.returncode == 0, proc.stderr
     spec = json.loads(out.read_text(encoding="utf-8"))
-    assert spec["name"] == "SamplePrepPipeline"
+    assert spec["name"] == "WorkflowCompilerFixture"
     assert isinstance(spec["nodes"], list) and spec["nodes"]
 
 

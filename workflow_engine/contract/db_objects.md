@@ -1,4 +1,4 @@
-# MethylPipeline DB Object Contract
+# GoliathApp DB object contract
 
 Canonical contract for middle-tier-to-database access. **PostgreSQL (PL/pgSQL)** in `sql_pg/` must implement every object listed in [`db_objects.yaml`](db_objects.yaml).
 

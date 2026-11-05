@@ -18,9 +18,6 @@ workflow_engine/cfg/sync_library_presets.py
 workflow_engine/cfg/verify_workflow_cmd.py
 workflow_engine/contract/db_objects.md
 workflow_engine/contract/db_objects.yaml
-workflow_engine/contract/domain_types.md
-workflow_engine/contract/sample_prep_capabilities.md
-workflow_engine/contract/validation_planner_capabilities.md
 workflow_engine/contract/workflow_definition_spec.py
 workflow_engine/delphi/DELPHI_GATEWAY_STATUS.md
 workflow_engine/delphi/WORKFLOW_ENGINE_DELPHI.md
@@ -64,7 +61,6 @@ workflow_engine/sql_pg/wf_execution_scope.sql
 workflow_engine/sql_pg/wf_instance_extension.sql
 workflow_engine/sql_pg/wf_json_column_alignment.sql
 workflow_engine/sql_pg/wf_test_bed_run.sql
-workflow_engine/tests/fixtures/sample_prep.program.json
 workflow_engine/tests/test_action_catalog_platform.py
 workflow_engine/tests/test_goliathapp_pg_schema_apply.py
 workflow_engine/tests/test_goliathapp_sql_no_omics_domain.py
