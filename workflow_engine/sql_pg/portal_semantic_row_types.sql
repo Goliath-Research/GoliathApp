@@ -30,10 +30,14 @@ BEGIN
   ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
         AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
     FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
-      EXECUTE format(
-        'ALTER TYPE portal.%I ADD ATTRIBUTE IF NOT EXISTS %I %s',
-        v_typname, v_desired[v_i], v_desired_types[v_i]
-      );
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
     END LOOP;
   ELSE
     DROP TYPE IF EXISTS portal.core_organization_row CASCADE;
@@ -78,10 +82,14 @@ BEGIN
   ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
         AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
     FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
-      EXECUTE format(
-        'ALTER TYPE portal.%I ADD ATTRIBUTE IF NOT EXISTS %I %s',
-        v_typname, v_desired[v_i], v_desired_types[v_i]
-      );
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
     END LOOP;
   ELSE
     DROP TYPE IF EXISTS portal.inv_item_row CASCADE;
@@ -130,10 +138,14 @@ BEGIN
   ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
         AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
     FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
-      EXECUTE format(
-        'ALTER TYPE portal.%I ADD ATTRIBUTE IF NOT EXISTS %I %s',
-        v_typname, v_desired[v_i], v_desired_types[v_i]
-      );
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
     END LOOP;
   ELSE
     DROP TYPE IF EXISTS portal.inv_purchase_order_row CASCADE;
@@ -182,10 +194,14 @@ BEGIN
   ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
         AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
     FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
-      EXECUTE format(
-        'ALTER TYPE portal.%I ADD ATTRIBUTE IF NOT EXISTS %I %s',
-        v_typname, v_desired[v_i], v_desired_types[v_i]
-      );
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
     END LOOP;
   ELSE
     DROP TYPE IF EXISTS portal.inv_stock_lot_row CASCADE;
@@ -236,10 +252,14 @@ BEGIN
   ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
         AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
     FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
-      EXECUTE format(
-        'ALTER TYPE portal.%I ADD ATTRIBUTE IF NOT EXISTS %I %s',
-        v_typname, v_desired[v_i], v_desired_types[v_i]
-      );
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
     END LOOP;
   ELSE
     DROP TYPE IF EXISTS portal.inv_supplier_item_row CASCADE;
