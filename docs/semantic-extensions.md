@@ -42,7 +42,7 @@ Organization-scoped reads additionally enforce membership through `portal.fn_sem
 
 Sensitive reads should **always** enforce scope in SQL. GraphQL or MCP façades must not skip these checks.
 
-Exograph (`exo/`) connects as `goliath_portal`, exposes registry types read-only (`@access(query=true, mutation=false)`), and dispatches saved requests through the same `portal.sp_run_semantic_request` procedure as `PortalClient`. Exograph and the portal are planned to share one set of type definitions from the `wf.data_type` catalog (see [Meta model](meta-model.md) §7). See [deployment](deployment.md) for the `goliath-exo` profile.
+Exograph (`exo/`) connects as `goliath_portal`, exposes registry types read-only (`@access(query=true, mutation=false)`), and dispatches saved requests through the same `portal.sp_run_semantic_request` procedure as `PortalClient`. Meta-backed entities and the `wf.data_type` catalog share class JSON Schemas ([Meta model](meta-model.md) §7); fully catalog-driven Exograph generation remains a follow-up. See [deployment](deployment.md) for the `goliath-exo` profile.
 
 ## Auth policy hooks
 

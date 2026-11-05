@@ -145,7 +145,7 @@ erDiagram
 
 Suggested responsibilities:
 
-- **SemanticEntity** — Stable `code`, customer-facing `display_name`, optional link to `"Meta"."Classes"` for class-backed storage. Under the [Meta model](meta-model.md) design, class-backed entities read `"Meta"."V<Class>"`, and their row schema is the class catalog type (no separate Pydantic-derived schema).
+- **SemanticEntity** — Stable `code`, customer-facing `display_name`, optional link to `"Meta"."Classes"` for class-backed storage. When `meta_class_name` is set, entities read `"Meta"."V<Class>"` and their row schema is the class catalog type (`goliath_app/semantic/export.py`, [Meta model](meta-model.md) §7).
 - **SemanticAttribute** — Fields shown in list/detail/filter UI; may map to columns or computed labels.
 - **SemanticRequest** — Named, versioned read operation: points to a view, a `portal.sp_*` function, or a parameterized template evaluated only inside trusted SQL.
 - **RequestParameter** — Typed inputs the portal and API expose.

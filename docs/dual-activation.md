@@ -122,7 +122,7 @@ Workers subscribe to the union of channels implied by their enrollment (pool), d
 
 | Edge | Status (this PR) | Notes |
 |------|------------------|-------|
-| `POST /v1/events` after `wf.sp_ingest_event` | **Stub wired** | Uses `RestGateway(wake_publisher=…)`; default no-op. |
+| `POST /v1/events` after `wf.sp_ingest_event` | **Implemented** | `RestGateway(wake_publisher=…)`; publishes when `WF_WAKE_POSTGRES=1`, otherwise `NullWorkerWakePublisher` (poll-only). |
 | Portal / study start → new READY work | **Documented** | Call `publish_wakes_after_event_ingest` or a sibling helper when instance start is exposed on gateway. |
 | Action completion → downstream READY | **Future** | May publish capability-scoped wakes from graph metadata. |
 
@@ -166,7 +166,7 @@ Wake-enabled workers open a **separate** Postgres connection for `LISTEN` only; 
 ## Rollout plan
 
 1. **Done (PR #23)** — design doc, DTO/protocol stubs, `NullPublisher` default, event-ingest hook, tests for channel naming and payload parsing.
-2. **This PR** — **Postgres `NOTIFY`/`LISTEN`** as the production wake broker; `WF_WAKE_POSTGRES` gateway opt-in; worker idle subscribe + claim in `WorkflowRestClient`; NOTIFY channel mapping documented above. Redis/NATS remain optional later brokers implementing the same logical channels and JSON payload.
+2. **Done (PR #24)** — **Postgres `NOTIFY`/`LISTEN`** as the tier-1 wake broker; `WF_WAKE_POSTGRES` gateway opt-in; worker idle subscribe + claim in `WorkflowRestClient`; NOTIFY channel mapping documented above. Redis/NATS remain optional later brokers implementing the same logical channels and JSON payload.
 3. **Tier 2** — GoliathGroundStation and Omics product channels and OPC/telemetry separation verified.
 4. **Operate** — metrics on wake publish count, claim latency p50/p95 with wakes enabled, duplicate wake rate vs empty claims.
 
