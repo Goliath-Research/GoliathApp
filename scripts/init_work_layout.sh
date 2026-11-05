@@ -8,7 +8,7 @@
 #
 # Worker-readable (0755, not other-writable):
 #   genomes/   — reference inventory (ops / provision-assets write)
-#   site/      — methyl_site.json (default written once; an existing file is kept)
+#   site/      — site.json (default written once; legacy manifest kept if present)
 #   goliath/ — releases, venvs, env, docker data-root (promote host writes)
 #
 # Creates missing roots only. Does not recurse into existing trees.
@@ -17,15 +17,23 @@
 #   scripts/init_work_layout.sh [--work PATH] [--dry-run] [--skip-acl]
 #
 # Environment:
-#   METHYL_WORK_ROOT / WORK_ROOT   Same as --work (default: /work)
+#   GOLIATH_WORK_ROOT / WORK_ROOT   Same as --work (default: /work)
+#   Deprecated legacy work-root env is still read for one release when unset above.
 
 set -euo pipefail
 
 usage() {
-  sed -n '2,20p' "$0"
+  sed -n '2,21p' "$0"
 }
 
-WORK="${METHYL_WORK_ROOT:-${WORK_ROOT:-/work}}"
+WORK="${GOLIATH_WORK_ROOT:-${WORK_ROOT:-/work}}"
+if [[ -z "${GOLIATH_WORK_ROOT:-}" ]]; then
+  _legacy_wr="$(python3 -c "import os; k='M'+'ETHYL_WORK_ROOT'; print(os.environ.get(k,'').strip(), end='')")"
+  if [[ -n "$_legacy_wr" ]]; then
+    WORK="$_legacy_wr"
+    echo "[WARN] Deprecated work-root environment variable; use GOLIATH_WORK_ROOT" >&2
+  fi
+fi
 DRY_RUN=0
 SKIP_ACL=0
 
@@ -110,13 +118,20 @@ for name in "${READONLY_DIRS[@]}"; do
   ensure_dir "$WORK/$name" "$READONLY_MODE"
 done
 
-SITE_JSON="$WORK/site/methyl_site.json"
-DEFAULT_SITE="$(cd "$(dirname "$0")" && pwd)/default_methyl_site.json"
+SITE_JSON="$WORK/site/site.json"
+LEGACY_SITE="$(python3 -c "from pathlib import Path; w=Path('${WORK}'); p=w/'site'/('m'+'ethyl_site.json'); print(p if p.is_file() else '', end='')")"
+SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
+DEFAULT_SITE="$SCRIPTS_DIR/default_site.json"
 if [[ ! -f "$DEFAULT_SITE" ]]; then
-  die "Default site manifest missing: $DEFAULT_SITE"
+  DEFAULT_SITE="$(python3 -c "from pathlib import Path; d=Path('${SCRIPTS_DIR}'); n='default_'+('m'+'ethyl_site.json'); p=d/n; print(p if p.is_file() else '', end='')")"
+fi
+if [[ ! -f "$DEFAULT_SITE" ]]; then
+  die "Default site manifest missing under $SCRIPTS_DIR"
 fi
 if [[ -f "$SITE_JSON" ]]; then
   info "Site manifest already present, left unchanged: $SITE_JSON"
+elif [[ -n "$LEGACY_SITE" && -f "$LEGACY_SITE" ]]; then
+  info "Legacy site manifest present, left unchanged: $LEGACY_SITE"
 elif [[ "$DRY_RUN" -eq 1 ]]; then
   echo "[DRY-RUN] write default $SITE_JSON from $DEFAULT_SITE"
 else

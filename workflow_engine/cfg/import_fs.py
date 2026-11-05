@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from goliath_worker.platform_env import resolve_site_manifest  # noqa: E402
 
 from .store import ConfigStore
 
@@ -159,7 +166,7 @@ def import_filesystem(
                 imported.append(f"domain_program:{name}")
 
     if include_site and work_root_p is not None:
-        site_path = work_root_p / "site" / "methyl_site.json"
+        site_path = resolve_site_manifest(work_root_p)
         if site_path.is_file():
             doc = _load_json(site_path)
             store.upsert("site", "default", doc, status=status)

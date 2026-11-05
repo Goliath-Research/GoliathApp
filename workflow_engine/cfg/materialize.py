@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .kinds import MATERIALIZABLE_KINDS, Kind
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from goliath_worker.platform_env import resolve_site_manifest  # noqa: E402
+
 from .store import ConfigStore
 
 
@@ -25,7 +33,7 @@ def materialize_paths(
         work_root / "goliath" / "current" / "runtime-bundle" / "domain"
     )
     return {
-        "site": work_root / "site" / "methyl_site.json",
+        "site": resolve_site_manifest(work_root),
         "storage_endpoints": work_root / "site" / "storage_endpoints",
         "storage_profiles": work_root / "site" / "storage_profiles",
         "profiles": bundle / "profiles",
