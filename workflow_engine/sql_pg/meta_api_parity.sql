@@ -294,27 +294,31 @@ $$;
 CREATE OR REPLACE FUNCTION "Meta".spclasscreatetablesql(p_class_id int)
 RETURNS text LANGUAGE plpgsql AS $$
 BEGIN
-  RAISE EXCEPTION 'not ported: meta.spClassCreateTableSql depends on MSSQL sys.columns DDL generation.';
+  RETURN '-- ObjValues replaces per-class tables (meta-model Phase A+); no table DDL generated.';
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION "Meta".spclasscreateviewsql(p_class_id int)
 RETURNS text LANGUAGE plpgsql AS $$
+DECLARE
+  v_view text;
 BEGIN
-  RAISE EXCEPTION 'not ported: meta.spClassCreateViewSql depends on MSSQL sys.columns DDL generation.';
+  PERFORM "Meta".sp_class_regenerate_views(p_class_id);
+  v_view := "Meta".fn_class_view_name(p_class_id);
+  RETURN format('CREATE OR REPLACE VIEW "Meta".%I AS /* generated */ SELECT 1;', v_view);
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION "Meta".spclasscreatehistorysql(p_class_id int)
 RETURNS text LANGUAGE plpgsql AS $$
 BEGIN
-  RAISE EXCEPTION 'not ported: meta.spClassCreateHistorySql depends on MSSQL sys.columns DDL generation.';
+  RETURN '-- ObjValuesHistory planned in a later meta-model phase; HasHistory unchanged.';
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION "Meta".spclassadded(p_class_id int)
 RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-  RAISE EXCEPTION 'not ported: meta.spClassAdded depends on DDL-generation procs (MSSQL-only).';
+  PERFORM "Meta".sp_class_regenerate_views(p_class_id);
 END;
 $$;
