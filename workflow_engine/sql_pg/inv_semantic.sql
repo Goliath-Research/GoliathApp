@@ -115,8 +115,8 @@ BEGIN
     v.description,
     v.base_unit,
     v.costing_method,
-    v.qty_on_hand,
-    v.avg_unit_cost,
+    v.qty_on_hand::double precision,
+    v.avg_unit_cost::double precision,
     v.active
   FROM inv.v_item v
   WHERE v.organization_id = v_org_id
@@ -197,8 +197,8 @@ BEGIN
     v.location_code,
     v.bin_code,
     v.lot_number,
-    v.qty_on_hand,
-    v.unit_cost
+    v.qty_on_hand::double precision,
+    v.unit_cost::double precision
   FROM inv.v_stock_lot v
   WHERE v.organization_id = v_org_id
     AND v.item_id = v_item_id
