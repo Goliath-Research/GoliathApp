@@ -1,0 +1,25 @@
+{
+  "description": "Shared valid/invalid Meta object documents for SQL + Python parity (meta-model §9).",
+  "cases": [
+    {
+      "id": "required_field_ok",
+      "fields": [{"name": "Code", "required": true}],
+      "document": {"Code": "A1"},
+      "valid": true
+    },
+    {
+      "id": "unknown_key",
+      "fields": [{"name": "Code", "required": true}],
+      "document": {"Code": "A1", "Extra": 1},
+      "valid": false,
+      "sql_error_substr": "unknown field"
+    },
+    {
+      "id": "missing_required",
+      "fields": [{"name": "Code", "required": true}],
+      "document": {},
+      "valid": false,
+      "sql_error_substr": "missing required"
+    }
+  ]
+}
