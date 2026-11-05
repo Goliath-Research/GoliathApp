@@ -87,6 +87,7 @@ SCRIPTS=(
   portal_modern_api_parity.sql
   rbac_api_parity.sql
   meta_api_parity.sql
+  meta_model_phase_e.sql
   contract_api_parity.sql
   onboarding_api_parity.sql
   portal_study_pipeline_api.sql
@@ -96,6 +97,7 @@ SCRIPTS=(
   portal_semantic_schema.sql
   portal_semantic_row_types.sql
   portal_semantic_api.sql
+  meta_model_semantic.sql
   portal_contract_api.sql
   portal_study_ops_api.sql
   portal_guardrails_editor.sql

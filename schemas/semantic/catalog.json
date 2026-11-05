@@ -27,10 +27,13 @@
           "role": "list"
         }
       ],
+      "catalog_type_name": null,
       "code": "organization",
-      "content_hash": "0533ad1617b96a213720af42535fe457de96546902c7948cfe7c24c3d12b47ca",
+      "content_hash": "f343982058cd370c841af1762ea50a7992a4567161a0bc3087883be05d69dbc1",
       "description": "Generic GoliathApp organization tenancy record.",
       "display_name": "Organization",
+      "meta_class_id": null,
+      "meta_class_name": null,
       "namespace": "core",
       "row_schema": {
         "properties": {

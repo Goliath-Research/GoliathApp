@@ -28,6 +28,8 @@ class SemanticEntitySpec:
     schema_version: str
     row_model: Type[BaseModel]
     storage_relation: Optional[str] = None
+    meta_class_id: Optional[int] = None
+    meta_class_name: Optional[str] = None
     attributes: Sequence[SemanticAttributeSpec] = ()
 
 

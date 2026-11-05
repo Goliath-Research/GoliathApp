@@ -36,6 +36,14 @@ class ActionSpec(BaseModel):
     required_permission: Optional[str] = None
     input_model: Type[BaseModel]
     output_model: Type[BaseModel]
+    input_catalog_type_name: Optional[str] = Field(
+        default=None,
+        description="wf.data_type.name for action input (overrides embedded JSON schema when set)",
+    )
+    output_catalog_type_name: Optional[str] = Field(
+        default=None,
+        description="wf.data_type.name for action output",
+    )
     schema_version: str
     overrides: Optional[str] = Field(
         default=None,
