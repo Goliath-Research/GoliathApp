@@ -11,7 +11,7 @@ _HANDLER_STUB = '''\
 
 from __future__ import annotations
 
-# from methyl_worker.task_models import {class_prefix}TaskInput, {class_prefix}TaskOutput
+# from app_worker.task_models import {class_prefix}TaskInput, {class_prefix}TaskOutput
 
 
 def handle_{slug}(
@@ -25,7 +25,7 @@ def handle_{slug}(
     )
 
 
-# Catalog registration note (merge into workers/methyl_worker/action_catalog.py):
+# Catalog registration note (merge into workers/app_worker/action_catalog.py):
 # in_process(
 #     "{action_name}",
 #     "{capability}",
@@ -41,10 +41,10 @@ _CATALOG_STUB = '''\
 # schema_id={schema_id!r}
 # execution_mode="in_process"  # or "cli"
 # Next steps:
-#   1. Fill Pydantic models under workers/methyl_worker/task_models/
+#   1. Fill Pydantic models under workers/app_worker/task_models/
 #   2. Implement handler; set in_process_handler / register_cli_provider
-#   3. methyl-export-action-catalog && methyl-export-task-schemas
-#   4. methyl-cfg sync-actions   # seeds wf.workflow_action + wf.data_type
+#   3. goliath-export-action-schemas && export task schemas in the child app
+#   4. goliath-cfg sync-actions   # seeds wf.workflow_action + wf.data_type
 '''
 
 _PYDANTIC_STUB = '''\
@@ -176,7 +176,7 @@ def scaffold_action(
     Emit task schema files, catalog note, handler stub, optional Pydantic models,
     and DomainProgram step snippet from the git catalog (or an explicit document).
 
-    Actions and I/O types are seeded into wf via ``methyl-cfg sync-actions``;
+    Actions and I/O types are seeded into wf via ``goliath-cfg sync-actions``;
     this helper does not write ``cfg.action_definition``.
     """
     del store, version
@@ -218,7 +218,7 @@ def scaffold_action(
             path.write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
             written.append(str(path))
 
-    stub_dir = repo_root / "workers" / "methyl_worker" / "scaffolded"
+    stub_dir = repo_root / "workers" / "app_worker" / "scaffolded"
     stub_dir.mkdir(parents=True, exist_ok=True)
     handler_path = stub_dir / f"{slug}.py"
     if handler_path.exists() and not force:
@@ -245,7 +245,7 @@ def scaffold_action(
     written.append(str(note_path))
 
     if emit_pydantic:
-        models_dir = repo_root / "workers" / "methyl_worker" / "task_models"
+        models_dir = repo_root / "workers" / "app_worker" / "task_models"
         models_dir.mkdir(parents=True, exist_ok=True)
         model_path = models_dir / f"{slug}_scaffold.py"
         if model_path.exists() and not force:

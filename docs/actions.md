@@ -39,11 +39,11 @@ The [Meta model](meta-model.md) extends `wf.data_type` as the single catalog: `d
 `goliath-cfg scaffold-action NAME --define` builds an in-memory document (capability defaults to the text before the first dot) and writes files under the repo root:
 
 - `schemas/tasks/<schema_id>.input.schema.json` and `.output.schema.json`
-- `workers/methyl_worker/scaffolded/<slug>.py` (handler stub that raises `NotImplementedError`)
+- `workers/app_worker/scaffolded/<slug>.py` (handler stub that raises `NotImplementedError`)
 - a catalog note and a DomainProgram snippet in that same directory
-- `workers/methyl_worker/task_models/<slug>_scaffold.py` unless `--no-pydantic`
+- `workers/app_worker/task_models/<slug>_scaffold.py` unless `--no-pydantic`
 
-Those paths are the product worker layout. This repository does not contain `workers/methyl_worker/` until the command creates the stub directory. Scaffold does not insert the database row. Without `--define`, the command reads `schemas/actions/catalog.json`, which is not in this tree, and raises `KeyError`.
+Those paths are the product worker layout. This repository does not contain `workers/app_worker/` until the command creates the stub directory. Scaffold does not insert the database row. Without `--define`, the command reads `schemas/actions/catalog.json`, which is not in this tree, and raises `KeyError`.
 
 ## What a worker does with the row
 
