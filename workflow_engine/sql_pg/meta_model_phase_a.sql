@@ -443,7 +443,8 @@ DECLARE
   v_mincard int;
   v_count int;
 BEGIN
-  IF TG_OP IN ('DELETE', 'UPDATE') AND OLD."ObjID1" IS NOT NULL AND OLD."MetaLinkID" IS NOT NULL THEN
+  IF TG_OP IN ('DELETE', 'UPDATE') AND OLD."ObjID1" IS NOT NULL AND OLD."MetaLinkID" IS NOT NULL
+     AND EXISTS (SELECT 1 FROM "Meta"."Objs" o WHERE o."ID" = OLD."ObjID1") THEN
     SELECT ml."MinCard" INTO v_mincard
     FROM "Meta"."MetaLinks" ml
     WHERE ml."ID" = OLD."MetaLinkID";
