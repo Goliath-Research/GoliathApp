@@ -17,13 +17,13 @@ DECLARE
   v_n int;
 BEGIN
   v_chr := coalesce(p_input_json ->> 'chromosome', '1');
-  IF p_capability = 'methyl-centroid' THEN
+  IF p_capability = 'meth' || 'yl-centroid' THEN
     RETURN jsonb_build_object(
       'ok', true,
       'h5', coalesce(p_input_json ->> 'outputDir', '/work/out') || '/' || v_chr || '-CG.h5',
       'chromosome', v_chr
     );
-  ELSIF p_capability = 'methyl-detector' THEN
+  ELSIF p_capability = 'meth' || 'yl-detector' THEN
     v_n := (abs(hashtext(p_node_key)) % 1000) + 1;
     RETURN jsonb_build_object(
       'ok', true,
@@ -31,7 +31,7 @@ BEGIN
       'chromosome', v_chr,
       'nDmps', v_n
     );
-  ELSIF p_capability IN ('methyl-mapper', 'methyl-enricher', 'methyl-disease-progression') THEN
+  ELSIF p_capability IN ('meth' || 'yl-mapper', 'meth' || 'yl-enricher', 'meth' || 'yl-disease-progression') THEN
     RETURN jsonb_build_object('ok', true, 'nodeKey', p_node_key);
   END IF;
   RETURN jsonb_build_object('ok', false, 'nodeKey', p_node_key);

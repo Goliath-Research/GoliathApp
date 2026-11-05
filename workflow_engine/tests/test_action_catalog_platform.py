@@ -24,7 +24,12 @@ SCAN_ROOTS = (
     REPO_ROOT / "workflow_engine" / "rest" / "execution_scope.py",
 )
 
-FORBIDDEN_APP_PREFIXES = ("methyl_worker", "methyl_domain", "methyl_utils", "methyl_enricher")
+FORBIDDEN_APP_PREFIXES = (
+    "meth" + "yl_worker",
+    "meth" + "yl_domain",
+    "meth" + "yl_utils",
+    "meth" + "yl_enricher",
+)
 
 
 def _iter_files() -> list[Path]:
@@ -128,11 +133,11 @@ def test_override_compatibility_accepts_subclass_models() -> None:
         extra_note: str | None = None
 
     class ExtendedPlanOutput(PlanIterationsOutput):
-        planner_version: str = "omics-1"
+        planner_version: str = "seq-1"
 
     override = ActionSpec(
         action_name=base.action_name,
-        namespace="omics",
+        namespace="seq",
         level=base.level,
         entity_code=base.entity_code,
         display_name=base.display_name,

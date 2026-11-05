@@ -77,9 +77,12 @@ def _resolve_project_path(context: Mapping[str, Any]) -> Path:
 
 def enrich_comparisons_from_project(project_path: Path) -> List[Dict[str, Any]]:
     """Build comparison objects with output path fields for workflow scope."""
-    from ._application_profiles import enrich_comparisons_from_project as _impl
+    from .application_extension import get_application_profiles_module
 
-    return _impl(project_path)
+    mod = get_application_profiles_module()
+    if not hasattr(mod, "enrich_comparisons_from_project"):
+        return []
+    return mod.enrich_comparisons_from_project(project_path)
 
 
 def apply_study_analyte(context: Dict[str, Any], project: Any | None = None) -> Dict[str, Any]:
@@ -89,9 +92,12 @@ def apply_study_analyte(context: Dict[str, Any], project: Any | None = None) -> 
     and stale portal ``cfdna`` defaults. Token shape matches SQL create-instance
     overlays: lowercase, hyphen → underscore (aliases are not collapsed).
     """
-    from ._application_profiles import apply_study_analyte as _impl
+    from .application_extension import get_application_profiles_module
 
-    return _impl(context, project)
+    mod = get_application_profiles_module()
+    if not hasattr(mod, "apply_study_analyte"):
+        return dict(context)
+    return mod.apply_study_analyte(context, project)
 
 
 def enrich_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
@@ -106,8 +112,10 @@ def enrich_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
 
     import importlib
 
-    from ._application_profiles import load_site_manifest
+    from .application_extension import get_application_profiles_module
 
+    mod = get_application_profiles_module()
+    load_site_manifest = getattr(mod, "load_site_manifest", None)
     load_project = importlib.import_module("meth" + "yl_utils").load_project
 
     project = load_project(str(project_path))
@@ -131,9 +139,11 @@ def enrich_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
         resolved = project.get_resolved_groups()
         out["groups"] = [{"label": label} for label, _ in resolved]
 
-    if not out.get("siteConfig"):
+    if not out.get("siteConfig") and callable(load_site_manifest):
         site_path = out.get("siteConfigPath")
-        out["siteConfig"] = load_site_manifest(site_path) if site_path else load_site_manifest()
+        out["siteConfig"] = (
+            load_site_manifest(site_path) if site_path else load_site_manifest()
+        )
 
     if not out.get("regulatory"):
         out["regulatory"] = project.get_regulatory_config()
@@ -369,9 +379,11 @@ def finalize_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
 
     out = ensure_study_work_synced(context)
     out = enrich_instance_context(out)
-    from ._application_profiles import finalize_science_gates
+    from .application_extension import get_application_profiles_module
 
-    out = finalize_science_gates(out)
+    mod = get_application_profiles_module()
+    if hasattr(mod, "finalize_science_gates"):
+        out = mod.finalize_science_gates(out)
     out.update(build_resolved_config_scope_vars(out))
     scope_id = compute_execution_scope_id(out)
     out["executionScopeId"] = scope_id

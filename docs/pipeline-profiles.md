@@ -6,9 +6,9 @@
 
 `enrich_instance_context` in `workflow_engine/domain/workflow_context.py` documents the merge order, highest first: instance, then procedure, then profile or mode, then analyte, then site. The function rebuilds `actionConfig` in that order so a procedure value of JSON null can clear a profile key.
 
-That enrichment imports `methyl_utils` (project load, site manifest, modality gate, sample-arm layout). Those modules are not in this repository. The local engine calls `finalize_instance_context` and, on `ImportError`, `FileNotFoundError`, or `ValueError`, logs the failure and runs with the context it already has. `goliath-workflow-run --compile-only` does not enrich.
+That enrichment imports an optional external profile-path package (project load, site manifest, modality gate, sample-arm layout). Those modules are not in this repository. The local engine calls `finalize_instance_context` and, on `ImportError`, `FileNotFoundError`, or `ValueError`, logs the failure and runs with the context it already has. `goliath-workflow-run --compile-only` does not enrich.
 
-`seed_pipeline_scope_flags` itself has no `methyl_utils` import. Tests in `workflow_engine/tests/test_pipeline_scope_flags.py` call it directly.
+`seed_pipeline_scope_flags` itself has no external profile-path import. Tests in `workflow_engine/tests/test_pipeline_scope_flags.py` call it directly.
 
 ## Flags
 
@@ -24,24 +24,24 @@ That enrichment imports `methyl_utils` (project load, site manifest, modality ga
 
 | Canonical | Accepted tokens |
 |-----------|-----------------|
-| `methylation` | `methylation`, `wgbs`, `methyl`, `dna_methylation`, `bisulfite` |
-| `rnaseq` | `rnaseq`, `rna_seq`, `rna`, `transcriptomics`, `transcriptome` |
-| `proteomics` | `proteomics`, `proteome`, `protein`, `ms_proteomics`, `mass_spec` |
+| bisulfite sequencing | `bisulfite`, `wgbs`, `dna_bisulfite`, and legacy bisulfite aliases in code |
+| RNA-seq | `rnaseq`, `rna_seq`, `rna`, `transcriptome` |
+| mass-spec protein | `mass_spec`, `proteome`, `protein`, and legacy protein-modality aliases in code |
 
-An unknown token is kept as cleaned text and does not receive RNA or proteomics defaults.
+An unknown token is kept as cleaned text and does not receive RNA or mass-spec protein defaults.
 
 | Modality | Scope keys |
 |----------|------------|
-| `rnaseq` | Sets `quantMode` (default `star`) and `useKallisto`. Drops proteomics keys `ingestMode`, `usePanel`, `useDda`, `useRescore`. |
-| `proteomics` | Sets `ingestMode` (default `dia`), `usePanel`, `useDda`, and `useRescore`. Drops `quantMode` and `useKallisto`. |
-| `methylation` | Drops the RNA keys and the proteomics keys. |
+| RNA-seq | Sets `quantMode` (default `star`) and `useKallisto`. Drops mass-spec keys `ingestMode`, `usePanel`, `useDda`, `useRescore`. |
+| mass-spec protein | Sets `ingestMode` (default `dia`), `usePanel`, `useDda`, and `useRescore`. Drops `quantMode` and `useKallisto`. |
+| bisulfite sequencing | Drops the RNA keys and the mass-spec keys. |
 | Absent | Does not invent those keys. Values already present stay. |
 
 The modality is read from the context. The function does not infer it from the profile name or from `primary_analyte`.
 
 ## Loading a named profile
 
-`load_profile` imports `methyl_utils.profile_paths`. A filesystem path that exists is read as JSON. A name is resolved by that package to a profile file. Mode overlays are `profiles/modes/<id>.mode.json`, searched under `workflow_engine/domain/profiles/` and the directories `methyl_utils` returns. `METHYL_PROFILE_DIR` is honored inside `methyl_utils`. This repository has no `workflow_engine/domain/profiles/` directory.
+`load_profile` imports optional `profile_paths` helpers from the external package when installed. A filesystem path that exists is read as JSON. A name is resolved by that package to a profile file. Mode overlays are `profiles/modes/<id>.mode.json`, searched under `workflow_engine/domain/profiles/` and directories returned by that package. `GOLIATH_PROFILE_DIR` (and legacy profile-dir env vars) are honored inside the external package. This repository has no `workflow_engine/domain/profiles/` directory.
 
 If resolution raises `FileNotFoundError` and the name is a key of `PROFILE_PRESETS`, `load_profile` returns `{pipelineProfile, ...preset}`. Otherwise it raises `FileNotFoundError`.
 

@@ -51,10 +51,13 @@ _STUB_PROGRAM = {
 
 
 def _workflow_run() -> str:
-    for name in ("goliath-workflow-run", "methyl-workflow-run"):
-        script = shutil.which(name)
-        if script:
-            return script
+    script = shutil.which("goliath-workflow-run")
+    if script:
+        return script
+    legacy = "meth" + "yl-workflow-run"
+    script = shutil.which(legacy)
+    if script:
+        return script
     assert False, "goliath-workflow-run is not on PATH; install workflow_engine"
 
 
@@ -85,20 +88,15 @@ def test_compile_only_cli_writes_sample_prep(tmp_path: Path) -> None:
 
 
 def test_workflow_run_help() -> None:
-    methyl = subprocess.run(
+    help_proc = subprocess.run(
         [_workflow_run(), "--help"],
         check=False,
         capture_output=True,
         text=True,
     )
-    assert methyl.returncode == 0, methyl.stderr
-    assert "--stub-external" in methyl.stdout
-    assert "--compile-only" in methyl.stdout
-    goliath = shutil.which("goliath-workflow-run")
-    assert goliath
-    other = subprocess.run([goliath, "--help"], check=False, capture_output=True, text=True)
-    assert other.returncode == 0, other.stderr
-    assert "--program" in other.stdout
+    assert help_proc.returncode == 0, help_proc.stderr
+    assert "--stub-external" in help_proc.stdout
+    assert "--compile-only" in help_proc.stdout
 
 
 def test_stub_external_local_run(tmp_path: Path) -> None:

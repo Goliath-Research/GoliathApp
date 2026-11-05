@@ -2,19 +2,6 @@
 # One repo-relative path per line. Remove a path when that file is clean in a D phase.
 # Comments and blank lines are ignored.
 
-docs/dual-activation.md
-docs/pipeline-profiles.md
-docs/schema-apply.md
-docs/semantic-layer.md
-docs/workflow-compiler.md
-goliath_app/actions/registry.py
-scripts/default_methyl_site.json
-workers/WORKER_PROTOCOL.md
-workflow_engine/cfg/sync_library_presets.py
-workflow_engine/cfg/verify_workflow_cmd.py
-workflow_engine/contract/db_objects.md
-workflow_engine/contract/db_objects.yaml
-workflow_engine/contract/workflow_definition_spec.py
 workflow_engine/delphi/DELPHI_GATEWAY_STATUS.md
 workflow_engine/delphi/WORKFLOW_ENGINE_DELPHI.md
 workflow_engine/delphi/WfEngineSrv.dpr
@@ -32,30 +19,4 @@ workflow_engine/delphi/src/WfEngine.Mvc.Service.dfm
 workflow_engine/delphi/src/WfEngine.Mvc.Service.pas
 workflow_engine/delphi/tests/WfEngine.GatewayService.Tests.pas
 workflow_engine/delphi/tests/WfEngine.Integration.Tests.pas
-workflow_engine/domain/_application_profiles.py
-workflow_engine/local/foreach_caas.py
 workflow_engine/pyproject.toml
-workflow_engine/sql_pg/README.md
-workflow_engine/sql_pg/cfg_repo_api.sql
-workflow_engine/sql_pg/portal_contract_api.sql
-workflow_engine/sql_pg/portal_guardrails_editor.sql
-workflow_engine/sql_pg/portal_study_pipeline_api.sql
-workflow_engine/sql_pg/wf_apply_validation_plan.sql
-workflow_engine/sql_pg/wf_execution_scope.sql
-workflow_engine/sql_pg/wf_test_bed_run.sql
-workflow_engine/tests/test_action_catalog_platform.py
-workflow_engine/tests/test_goliathapp_pg_schema_apply.py
-workflow_engine/tests/test_goliathapp_sql_no_omics_domain.py
-workflow_engine/tests/test_inv_module.py
-workflow_engine/tests/test_local_workflow.py
-workflow_engine/tests/test_meta_model_fixtures.py
-workflow_engine/tests/test_meta_model_phase_a.py
-workflow_engine/tests/test_meta_model_phase_b.py
-workflow_engine/tests/test_meta_model_phase_c.py
-workflow_engine/tests/test_pipeline_scope_flags.py
-workflow_engine/tests/test_portal_client.py
-workflow_engine/tests/test_postgres_wake.py
-workflow_engine/tests/test_reference_selection.py
-workflow_engine/tests/test_semantic_layer.py
-workflow_engine/tests/test_worker_session_auth.py
-workflow_engine/tests/test_worker_wake.py

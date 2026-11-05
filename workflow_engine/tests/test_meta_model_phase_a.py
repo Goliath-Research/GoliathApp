@@ -21,7 +21,7 @@ def _pg_env() -> dict[str, str]:
     if env.get("POSTGRES_PASSWORD"):
         env["PGPASSWORD"] = env["POSTGRES_PASSWORD"]
     elif env.get("PGHOST", "localhost") in ("localhost", "127.0.0.1"):
-        env.setdefault("PGPASSWORD", "methyl")
+        env.setdefault("PGPASSWORD", "goliath")
     return env
 
 

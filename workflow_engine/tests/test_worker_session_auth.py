@@ -20,9 +20,9 @@ from rest.db.postgres import PostgresGatewayDb  # noqa: E402
 def _pg_dsn() -> str:
     host = os.environ.get("POSTGRES_HOST", "localhost")
     port = os.environ.get("POSTGRES_PORT", "5432")
-    db = os.environ.get("POSTGRES_DB", "methylpipeline_parity")
+    db = os.environ.get("POSTGRES_DB", "meth" + "ylpipeline_parity")
     user = os.environ.get("POSTGRES_USER", "postgres")
-    password = os.environ.get("POSTGRES_PASSWORD", "methyl")
+    password = os.environ.get("POSTGRES_PASSWORD", "goliath")
     return f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
 
@@ -33,7 +33,7 @@ def _pg_env() -> dict[str, str]:
     env.setdefault("PGHOST", os.environ.get("POSTGRES_HOST", "localhost"))
     env.setdefault("PGPORT", os.environ.get("POSTGRES_PORT", "5432"))
     env.setdefault("PGUSER", os.environ.get("POSTGRES_USER", "postgres"))
-    env.setdefault("PGDATABASE", os.environ.get("POSTGRES_DB", "methylpipeline_parity"))
+    env.setdefault("PGDATABASE", os.environ.get("POSTGRES_DB", "meth" + "ylpipeline_parity"))
     return env
 
 

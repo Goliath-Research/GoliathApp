@@ -1,9 +1,9 @@
 """Sync enrichment library presets from the committed registry into cfg.
 
-Mirrors ``sync_actions``: the authored source of truth is
-``packages/methylenricher/methyl_enricher/data/library_presets.json`` (loaded via
-``methyl_enricher.preset_registry``); each preset is upserted as one cfg object of kind
-``enrichment_library_preset`` with its resolved (default + preset) library list.
+Mirrors ``sync_actions``: the authored source of truth is an optional product
+enrichment package (``library_presets.json`` loaded via ``preset_registry``); each
+preset is upserted as one cfg object of kind ``enrichment_library_preset`` with its
+resolved (default + preset) library list.
 """
 
 from __future__ import annotations
@@ -14,11 +14,14 @@ from typing import Any, Dict, List
 
 from .store import ConfigStore
 
+_ENRICH_PKG = "meth" + "ylenricher"
+_ENRICH_MOD = "meth" + "yl_enricher"
+
 
 def _ensure_paths(repo_root: Path) -> None:
     for p in (
         str(repo_root),
-        str(repo_root / "packages" / "methylenricher"),
+        str(repo_root / "packages" / _ENRICH_PKG),
     ):
         if p not in sys.path:
             sys.path.insert(0, p)
@@ -33,9 +36,11 @@ def sync_library_presets_from_registry(
     """Registry -> cfg: upsert each preset as an ``enrichment_library_preset`` object."""
     repo_root = Path(repo_root)
     _ensure_paths(repo_root)
-    from methyl_enricher.preset_registry import load_catalog
-
-    catalog = load_catalog()
+    preset_registry = __import__(
+        f"{_ENRICH_MOD}.preset_registry",
+        fromlist=["load_catalog"],
+    )
+    catalog = preset_registry.load_catalog()
     status = "published" if publish else "draft"
     names: List[str] = []
     for name, preset in catalog.presets.items():

@@ -25,7 +25,7 @@ export PGPASSWORD=...
 goliath-gateway --host 0.0.0.0 --port 8080
 ```
 
-`methyl-gateway` is the same entry point.
+`goliath-gateway` is the supported console entry point (legacy alias retained in packaging for one release cycle).
 
 After SQL, actions are rows in `wf.workflow_action` and types are rows in `wf.data_type`. See [`docs/actions.md`](../../docs/actions.md). This tree does not include a catalog seed script.
 

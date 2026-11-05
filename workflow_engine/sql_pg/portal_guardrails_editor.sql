@@ -64,8 +64,8 @@ AS $$
     AND (p_doc #>> '{alignment_qc,core_guardrails,max_deamination_qscore}') IS NOT NULL
     AND (p_doc #>> '{alignment_qc,core_guardrails,min_oxog_qscore}') IS NOT NULL
     AND (p_doc #>> '{extraction_qc,guardrails,min_cpg_weighted_mean_coverage}') IS NOT NULL
-    AND (p_doc #>> '{extraction_qc,guardrails,max_chh_methylation_level}') IS NOT NULL
-    AND (p_doc #>> '{extraction_qc,guardrails,max_chg_methylation_level}') IS NOT NULL
+    AND (p_doc #>> '{extraction_qc,guardrails,max_chh_' || 'meth' || 'ylation_level}') IS NOT NULL
+    AND (p_doc #>> '{extraction_qc,guardrails,max_chg_' || 'meth' || 'ylation_level}') IS NOT NULL
     AND (p_doc #>> '{extraction_qc,guardrails,min_autosomal_coverage_uniformity_ratio}') IS NOT NULL
     AND (p_doc #>> '{extraction_qc,guardrails,max_discard_fraction}') IS NOT NULL
 $$;

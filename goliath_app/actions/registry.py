@@ -89,7 +89,7 @@ def reload_action_catalog() -> List[ActionSpec]:
     return _catalog_singleton()
 
 
-# Module-level list API (compiler imports ACTION_CATALOG from methyl_worker historically).
+# Module-level list API (compiler historically imported ACTION_CATALOG from product worker packages).
 def __getattr__(name: str):
     if name == "ACTION_CATALOG":
         return _catalog_singleton()

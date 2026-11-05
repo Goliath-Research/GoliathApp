@@ -42,7 +42,7 @@ Paths below are under the `/v1` prefix the gateway serves. The OpenAPI document 
 2. From that public IP, `POST /v1/workers/enroll` with `cluster_key`, `external_worker_key`, and an optional `capabilities` array. The gateway reads the client address from the connection (or from `X-Real-IP` / the last `X-Forwarded-For` hop when the peer is a trusted proxy). It mints `worker_token` (`secrets.token_hex(32)`), stores the SHA-256 digest, and returns `worker_id` and the plaintext token once.
 3. A missing allowlist row, a revoked row, or an IP that does not match the preregistered address is HTTP 403. The client in this repository does not fall back to SQL.
 
-`goliath_worker.client.WorkflowRestClient.enroll` performs step 2. The default base URL is `METHYL_API_BASE`, or `http://localhost:8080/v1`.
+`goliath_worker.client.WorkflowRestClient.enroll` performs step 2. The default base URL is `GOLIATH_API_BASE` (legacy `METH` + `YL_API_BASE`), or `http://localhost:8080/v1`.
 
 ## Push wake (notify only)
 
@@ -98,7 +98,7 @@ The claim and heartbeat bodies include `desired_state` (`ACTIVE`, `DRAINING`, `S
 Optional environment flags on the gateway:
 
 - `GATEWAY_WORKER_IP_BIND` — when the cluster has `allowed_source_cidrs`, the client IP must fall in that list.
-- `GATEWAY_REQUIRE_ARC_ATTEST` — `X-Arc-Resource-Id` must match the cluster `arc_resource_id` when one is stored. The client sends `ARC_RESOURCE_ID`, or the value in `METHYL_ARC_ENV` (default `/etc/methyl/arc.env`).
+- `GATEWAY_REQUIRE_ARC_ATTEST` — `X-Arc-Resource-Id` must match the cluster `arc_resource_id` when one is stored. The client sends `ARC_RESOURCE_ID`, or the value in `GOLIATH_ARC_ENV` (legacy `/etc/goliath/arc.env`).
 
 `GATEWAY_REQUIRE_ENTRA` is loaded and does not gate these routes.
 
@@ -110,4 +110,4 @@ The engine stores `result_code` on `node_execution` and selects IF and SWITCH br
 
 Handler dispatch, command lines, and in-process functions belong to the specialized application. After a claim, that application runs the action and calls submit. `WorkflowRestClient` also has methods that request `POST /workflows/instances`, `GET /workflows/instances/{id}`, and `GET /actions`. The gateway in this tree does not implement those paths.
 
-Shared storage is optional. `goliath_worker.work_share` helps when several hosts mount the same tree. A worker that never calls it does not need the mount. `scripts/init_work_layout.sh` creates the directory layout under `METHYL_WORK_ROOT`, `WORK_ROOT`, or `/work` when that mount already exists.
+Shared storage is optional. `goliath_worker.work_share` helps when several hosts mount the same tree. A worker that never calls it does not need the mount. `scripts/init_work_layout.sh` creates the directory layout under `GOLIATH_WORK_ROOT`, `WORK_ROOT`, or `/work` when that mount already exists.

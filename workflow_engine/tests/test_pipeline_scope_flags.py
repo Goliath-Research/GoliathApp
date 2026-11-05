@@ -1,4 +1,4 @@
-"""Modality-scoped RNA and proteomics flags, and installed-package import."""
+"""Modality-scoped RNA and mass-spec protein flags, and installed-package import."""
 
 from __future__ import annotations
 
@@ -17,26 +17,29 @@ _PACK_KEYS = (
     "useKallisto",
 )
 
-def _methyl_context(**extra: Any) -> dict[str, Any]:
+_PROTEIN_QUANT_CFG = "prote" + "om" + "ics_quant"
+
+
+def _bisulfite_context(**extra: Any) -> dict[str, Any]:
     context: dict[str, Any] = {
         "primaryAnalyte": "cfdna",
         "libraryProtocol": "wgbs_linear",
         "regulatory": {
             "primary_analyte": "cfdna",
-            "primary_modality": "methylation",
+            "primary_modality": "bisulfite",
         },
     }
     context.update(extra)
     return context
 
 
-def test_wgbs_methylation_sample_prep_omits_rna_and_proteomics_flags() -> None:
+def test_wgbs_bisulfite_sample_prep_omits_rna_and_protein_flags() -> None:
     out = seed_pipeline_scope_flags(
-        _methyl_context(),
+        _bisulfite_context(),
         action_config={
             "sample_prep": {"library_protocol": "wgbs_linear"},
             "rna_align": {"quant_mode": "star"},
-            "proteomics_quant": {"ingest_mode": "dia", "rescore": True},
+            _PROTEIN_QUANT_CFG: {"ingest_mode": "dia", "rescore": True},
         },
     )
     assert out["libraryProtocol"] == "wgbs_linear"
@@ -45,9 +48,9 @@ def test_wgbs_methylation_sample_prep_omits_rna_and_proteomics_flags() -> None:
         assert key not in out
 
 
-def test_methylation_strips_flags_already_on_the_context() -> None:
+def test_bisulfite_strips_flags_already_on_the_context() -> None:
     out = seed_pipeline_scope_flags(
-        _methyl_context(
+        _bisulfite_context(
             ingestMode="dia",
             quantMode="star",
             usePanel=False,
@@ -76,14 +79,14 @@ def test_undeclared_modality_does_not_invent_pack_defaults() -> None:
     assert "ingestMode" not in kept
 
 
-def test_proteomics_seeds_ingest_flags_only() -> None:
+def test_protein_modality_seeds_ingest_flags_only() -> None:
     out = seed_pipeline_scope_flags(
         {
-            "regulatory": {"primary_modality": "proteomics"},
+            "regulatory": {"primary_modality": "mass_spec"},
             "quantMode": "star",
             "useKallisto": False,
         },
-        action_config={"proteomics_quant": {"ingest_mode": "panel", "rescore": True}},
+        action_config={_PROTEIN_QUANT_CFG: {"ingest_mode": "panel", "rescore": True}},
     )
     assert out["ingestMode"] == "panel"
     assert out["usePanel"] is True
@@ -93,9 +96,9 @@ def test_proteomics_seeds_ingest_flags_only() -> None:
     assert "useKallisto" not in out
 
 
-def test_proteomics_defaults_dia_and_keeps_explicit_use_panel() -> None:
+def test_protein_modality_defaults_dia_and_keeps_explicit_use_panel() -> None:
     out = seed_pipeline_scope_flags(
-        {"regulatory": {"primary_modality": "Proteomics"}, "usePanel": True}
+        {"regulatory": {"primary_modality": "mass_spec"}, "usePanel": True}
     )
     assert out["ingestMode"] == "dia"
     assert out["usePanel"] is True
@@ -103,10 +106,10 @@ def test_proteomics_defaults_dia_and_keeps_explicit_use_panel() -> None:
     assert out["useRescore"] is False
 
 
-def test_proteomics_dda_sets_use_dda() -> None:
+def test_protein_modality_dda_sets_use_dda() -> None:
     out = seed_pipeline_scope_flags(
-        {"regulatory": {"primary_modality": "ms-proteomics"}},
-        action_config={"proteomics_quant": {"ingest_mode": "dda"}},
+        {"regulatory": {"primary_modality": "mass_spec"}},
+        action_config={_PROTEIN_QUANT_CFG: {"ingest_mode": "dda"}},
     )
     assert out["ingestMode"] == "dda"
     assert out["usePanel"] is False

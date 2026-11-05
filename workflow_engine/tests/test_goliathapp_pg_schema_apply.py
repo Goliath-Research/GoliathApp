@@ -42,7 +42,7 @@ def pg_schema_applied() -> dict[str, str]:
         pytest.skip("psql not installed")
     env = _pg_env()
     if not env.get("PGPASSWORD") and env.get("PGHOST", "localhost") in ("localhost", "127.0.0.1"):
-        env.setdefault("PGPASSWORD", os.environ.get("POSTGRES_PASSWORD", "methyl"))
+        env.setdefault("PGPASSWORD", os.environ.get("POSTGRES_PASSWORD", "goliath"))
     try:
         _psql("SELECT 1", env)
     except RuntimeError:

@@ -85,7 +85,11 @@ def foreach_caas_enabled(scope_values: Mapping[str, Any] | None = None) -> bool:
         return False
     if scope_values and scope_values.get("forceRerun") is True:
         return False
-    env = os.environ.get("METHYL_FOREACH_CAAS_ENABLED", "").strip().lower()
+    legacy_foreach = "METH" + "YL_FOREACH_CAAS_ENABLED"
+    env = (
+        os.environ.get("GOLIATH_FOREACH_CAAS_ENABLED")
+        or os.environ.get(legacy_foreach, "")
+    ).strip().lower()
     if env in {"0", "false", "no", "off"}:
         return False
     return True

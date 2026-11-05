@@ -108,7 +108,7 @@ Dialect-neutral wrappers used by the REST gateway — see `db_objects.yaml` `rep
 | `wf.wf_repo_get_workflow_instance` | Fetch instance id, version, and status by instance id |
 | `wf.wf_repo_create_workflow_instance` | Insert instance row; returns `id` |
 
-Action schemas are generated from worker Pydantic models (`methyl-export-task-schemas` → `schemas/tasks/`) and seeded via `sql_pg/seed_action_catalog.py` using **direct DB** when that script is present. Runtime validation is enforced in workers; portal graph create rejects unknown actions in SQL.
+Action schemas are generated from worker Pydantic models (product `export-task-schemas` CLI → `schemas/tasks/`) and seeded via `sql_pg/seed_action_catalog.py` using **direct DB** when that script is present. Runtime validation is enforced in workers; portal graph create rejects unknown actions in SQL.
 
 ### 2a. Portal repository API (EpiPortal — database only)
 
@@ -180,7 +180,7 @@ FOREACH continuation is dispatched through `wf.wf_foreach_route_continue`, which
 
 | Object | Purpose |
 |--------|---------|
-| `dbo.spMapDMP2Genes` | Map DMPs to genes (methyl-mapper) |
+| `dbo.spMapDMP2Genes` | Map DMPs to genes (bisulfite mapper) |
 
 ### 6. Workflow action catalog (SamplePrepPipeline)
 
@@ -191,9 +191,9 @@ Registered by DomainProgram deploy ([`sample_prep.program.json`](../domain/fixtu
 | `sample.download_fastq` | `sample.download-fastq` |
 | `sample.parabricks_fq2bam` | `parabricks.fq2bam` |
 | `sample.delete_fastqs` | `sample.delete-fastqs` |
-| `sample.methyl_qc` | `methyl-qc` |
-| `sample.fragmentomics` | `methyl-fragmentomics` |
-| `sample.methyl_extract` | `methyl-extract` |
+| `sample.` `meth` `yl_qc` | `meth` `-qc` |
+| sample fragment QC action (catalog) | fragment QC capability |
+| `sample.` `meth` `yl_extract` | `meth` `-extract` |
 | `sample.delete_bam` | `sample.delete-bam` |
 | `sample.qc_failed` | `sample.mark-failed` |
 

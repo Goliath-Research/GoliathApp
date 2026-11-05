@@ -19,7 +19,7 @@ An application that ships this engine applies the list once per release, to the 
 
 The script checks `current_user` and `version()`, applies each file with `psql -q -v ON_ERROR_STOP=1 -f`, then runs `workflow_engine/contract/validate_contract.py` when `python3` or `.venv/bin/python` is available. It does not set `check_function_bodies`.
 
-GoliathApp apply creates the portal navigation shell (`portal_shell_schema.sql`), organization tenancy (`portal_organization_schema.sql`), the optional **`inv`** inventory module (`inv_schema.sql`, `inv_api.sql`, `inv_semantic.sql` after generated row types), and `cfg.analyte` (`cfg_analyte_schema.sql`). Clinical portal tables (`portal."Customers"`, `portal."Samples"`, and related Omics domain DDL) are owned by descendant apps such as GoliathOmics and are not referenced from this tree.
+GoliathApp apply creates the portal navigation shell (`portal_shell_schema.sql`), organization tenancy (`portal_organization_schema.sql`), the optional **`inv`** inventory module (`inv_schema.sql`, `inv_api.sql`, `inv_semantic.sql` after generated row types), and `cfg.analyte` (`cfg_analyte_schema.sql`). Clinical portal tables (`portal."Customers"`, `portal."Samples"`, and related extension-app domain DDL) are owned by descendant applications and are not referenced from this tree.
 
 ## Order
 
@@ -54,7 +54,7 @@ The `exo/` project is a read-only GraphQL/MCP façade over the same `portal` reg
 | Run server | `exo-server` with `EXO_POSTGRES_URL` for `goliath_portal`, `sslmode=verify-full`, **without** `EXO_POSTGRES_READ_WRITE` |
 | MCP | Profile `semantic_read` in `exo/exo.toml` → `execute_query_semantic_read` |
 
-Deploy profile **`goliath-exo`** (not `goliath-test`, which is the Omics worker stack) is documented in [deployment](deployment.md). JWTs must carry `session_token` for `runSemanticRequest`; RBAC enforcement remains inside PostgreSQL.
+Deploy profile **`goliath-exo`** (not `goliath-test`, which is the extension-app worker stack) is documented in [deployment](deployment.md). JWTs must carry `session_token` for `runSemanticRequest`; RBAC enforcement remains inside PostgreSQL.
 
 Files on disk that the array does not apply:
 

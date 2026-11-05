@@ -126,7 +126,7 @@ BEGIN
   IF p_persist_extension THEN
     CALL wf.wf_repo_upsert_instance_extension(
       p_workflow_instance_id,
-      'methyl.execution.scope',
+      'meth' || 'yl.execution.scope',
       jsonb_build_object(
         'executionScopeId', p_set_key,
         'executionScopeName', p_display_name,

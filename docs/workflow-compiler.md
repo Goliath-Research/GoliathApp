@@ -39,7 +39,7 @@ Node types on the spec are `ACTION`, `SEQUENCE`, `PARALLEL`, `IF`, `SWITCH`, `RE
 
 ## Actions while compiling
 
-`workflow_engine/domain/action_catalog.py` imports `methyl_worker.action_catalog` when that package is installed.
+`workflow_engine/domain/action_catalog.py` imports an optional product worker `action_catalog` module when that package is installed.
 
 - When the catalog is absent, the compiler accepts any action name and takes the input template from the step (`with` / `in` / `out`).
 - When the catalog is installed and the name is missing, compilation raises `ValueError`.

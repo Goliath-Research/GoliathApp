@@ -1,6 +1,6 @@
 # Semantic layer
 
-GoliathApp stores platform mechanics in PostgreSQL schemas such as `wf`, `cfg`, and `RBAC`, and exposes operator behavior through `portal.sp_*` and related functions. Domain tables and Meta-backed classes often live in the same database but are split across apply scripts and descendant applications (for example GoliathOmics).
+GoliathApp stores platform mechanics in PostgreSQL schemas such as `wf`, `cfg`, and `RBAC`, and exposes operator behavior through `portal.sp_*` and related functions. Domain tables and Meta-backed classes often live in the same database but are split across apply scripts and descendant extension applications.
 
 Customers need a **stable vocabulary**—Study, Sample, Contract—not raw schema names. Agents benefit from the same vocabulary through an optional MCP channel, but most access is through a **portal** where users recognize entities and run saved queries.
 

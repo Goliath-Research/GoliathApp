@@ -1,4 +1,4 @@
-"""Implementation of ``methyl-cfg verify-workflow``."""
+"""Implementation of ``goliath-cfg verify-workflow``."""
 
 from __future__ import annotations
 
@@ -6,12 +6,20 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from domain.application_extension import get_application_profiles_module
 from domain.compiler import compile_domain_program_file
-from domain._application_profiles import verify_wgbs_align_bake
 from domain.verify_workflow import (
     compare_compiled_to_db_nodes,
     verify_program_file,
 )
+
+
+def _verify_wgbs_align_bake(site, profile_ac):
+    mod = get_application_profiles_module()
+    fn = getattr(mod, "verify_wgbs_align_bake", None)
+    if not callable(fn):
+        return []
+    return fn(site, profile_ac)
 
 
 def run_verify_workflow(
@@ -32,12 +40,12 @@ def run_verify_workflow(
         if procedure_path and procedure_path.is_file():
             proc = json.loads(procedure_path.read_text(encoding="utf-8"))
             profile_ac = proc.get("actionConfig")
-        for f in verify_wgbs_align_bake(site, profile_ac):
+        for f in _verify_wgbs_align_bake(site, profile_ac):
             bake_findings.append(
                 {"severity": f.severity, "code": f.code, "message": f.message}
             )
             report.findings.append(f)
-    payload["methylgrapher_bake"] = bake_findings
+    payload["wgbs_align_bake"] = bake_findings
 
     db_findings: List[Dict[str, str]] = []
     if check_db:

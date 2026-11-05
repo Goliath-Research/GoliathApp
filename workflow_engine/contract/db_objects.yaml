@@ -1,4 +1,4 @@
-# MethylPipeline DB Object Contract (machine-readable)
+# GoliathApp DB object contract (machine-readable)
 # PostgreSQL (sql_pg/) must implement all objects in required: true sections.
 
 version: "1.0"

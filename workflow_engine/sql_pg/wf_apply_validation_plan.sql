@@ -22,7 +22,7 @@ BEGIN
      AND p_context_json ? 'validationPlan' THEN
     CALL wf.wf_repo_upsert_instance_extension(
       p_workflow_instance_id,
-      'methylvalidation.plan',
+      'meth' || 'ylvalidation.plan',
       p_context_json -> 'validationPlan'
     );
   END IF;

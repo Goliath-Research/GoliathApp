@@ -5,7 +5,7 @@ GoliathApp and **goliath-gateway** support two ways to get idle workers moving t
 1. **Pull / claim (existing)** — workers call `POST /v1/workers/tasks/request` (`wf.sp_worker_request_task`). This remains the **safety net**, the **backlog path**, and the **only** path that grants a lease.
 2. **Push wake (new)** — when event-triggered or portal-started work should start quickly, the gateway (or a future edge) publishes a **small wake** on a pool / capability / program channel. Subscribed workers **interrupt idle wait**, then **still claim** so ownership stays single: **notify via pub/sub, own via claim**.
 
-This document is tier **1** (shared platform). Product-specific wakes (for example [GoliathGroundStation #3](https://github.com/Goliath-Research/GoliathGroundStation/issues/3)) and live OPC telemetry fan-out are **out of scope** here.
+This document is tier **1** (shared platform). Product-specific wakes (for example tier-2 satellite I&T issue #3 in the satellite repo) and live OPC telemetry fan-out are **out of scope** here.
 
 ## Problem
 
@@ -17,8 +17,8 @@ Dual activation keeps poll/claim semantics (heartbeats, fail/requeue, capability
 
 | Topic | Status |
 |-------|--------|
-| Live GoliathGroundStation OPC telemetry in the claim loop | **Excluded** — telemetry uses a separate bus (publish once, many listeners), not leased work. |
-| Product-specific wake channels (Ground Station I&T, Omics spikes) | **Tier 2** — builds on these channel names and DTOs. |
+| Live tier-2 OPC telemetry in the claim loop | **Excluded** — telemetry uses a separate bus (publish once, many listeners), not leased work. |
+| Product-specific wake channels (field I&T, tier-2 workload spikes) | **Tier 2** — builds on these channel names and DTOs. |
 | Production Redis / NATS wake bus | **Optional later** — tier 1 production path is Postgres `NOTIFY`/`LISTEN` (see below). |
 | Changing lease SQL (`wf.sp_worker_request_task`) | **Unchanged** |
 | Replacing claim with message-carried task payloads | **Rejected** — wakes carry no `input_json` and no lease. |
@@ -125,7 +125,7 @@ Workers subscribe to the union of channels implied by their enrollment (pool), d
 | `POST /v1/events` after `wf.sp_ingest_event` | **Automatic** | Hint query + optional `payload.worker_wake` override; coalesced NOTIFY when `WF_WAKE_POSTGRES=1`. |
 | `sp_start_workflow_instance` (portal/API) | **Automatic** | Postgres gateway backend publishes after start via `publish_wakes_after_workflow_instance_start`. |
 | Lease reclaim → READY | **Helper** | `publish_wakes_after_lease_reclaim` for non-quiet reclaim callers; claim-path quiet reclaim uses poll safety net. |
-| Tier-2 product wakes | **Hook** | `worker_wake_tier2.register_tier2_wake_extension` (GoliathGroundStation #3). |
+| Tier-2 product wakes | **Hook** | `worker_wake_tier2.register_tier2_wake_extension` (satellite tier-2 issue #3). |
 
 Implementation entry points:
 
@@ -154,9 +154,9 @@ Recommended idle loop (product worker process):
 
 | Variable | Component | Meaning |
 |----------|-----------|---------|
-| `WF_WAKE_POSTGRES=1` | Gateway | Use `PostgresWorkerWakePublisher` on the gateway DSN (`METHYLPIPELINE_DB` / `PG*`). Default off → `NullWorkerWakePublisher`. |
+| `WF_WAKE_POSTGRES=1` | Gateway | Use `PostgresWorkerWakePublisher` on the gateway DSN (`METH` + `YLPIPELINE_DB` / `PG*`). Default off → `NullWorkerWakePublisher`. |
 | `WORKER_WAKE_POSTGRES=1` | Worker | Use `PostgresWorkerWakeSubscriber` via `resolve_worker_wake_subscriber()`. |
-| `WORKER_WAKE_PG_DSN` | Worker | Optional LISTEN connection string; defaults to `METHYLPIPELINE_DB` / `PG*`. |
+| `WORKER_WAKE_PG_DSN` | Worker | Optional LISTEN connection string; defaults to `METH` + `YLPIPELINE_DB` / `PG*`. |
 | `WORKER_WAKE_POLL_SECONDS` | Worker | Idle wait timeout before claim safety-net poll (default `30`). |
 | `WF_WAKE_COALESCE_SECONDS` | Gateway | Debounce window for coalesced NOTIFY (default `0.05`; `0` flushes immediately). |
 
@@ -173,7 +173,7 @@ Wake-enabled workers open a **separate** Postgres connection for `LISTEN` only; 
 1. **Done (PR #23)** — design doc, DTO/protocol stubs, `NullPublisher` default, event-ingest hook, tests for channel naming and payload parsing.
 2. **Done (PR #24)** — Postgres `NOTIFY`/`LISTEN` broker; worker idle subscribe + claim; opt-in env flags.
 3. **This slice (PR #37)** — automatic subscription-derived wakes, coalesced NOTIFY, instance-start publish, tier-2 hook stub, integration tests.
-4. **Tier 2** — GoliathGroundStation product channels and OPC/telemetry separation (issue #3).
+4. **Tier 2** — Satellite product channels and OPC/telemetry separation (issue #3).
 5. **Operate** — metrics on wake publish count, claim latency p50/p95 with wakes enabled, duplicate wake rate vs empty claims.
 
 ## Related docs

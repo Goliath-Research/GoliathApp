@@ -67,15 +67,15 @@ def test_linear_engine_comes_from_config() -> None:
 
 
 def test_mojo_pack_gate_follows_engine_and_env(monkeypatch) -> None:
-    monkeypatch.delenv("METHYL_REQUIRE_MOJO_LINEAR", raising=False)
+    monkeypatch.delenv("GOLIATH_REQUIRE_MOJO_LINEAR", raising=False)
     assert mojo_linear_pack_required(_linear_site()) is False
     assert mojo_linear_pack_required(_linear_site("parabricks")) is False
     assert mojo_linear_pack_required(_linear_site("mojo")) is True
-    monkeypatch.setenv("METHYL_REQUIRE_MOJO_LINEAR", "0")
+    monkeypatch.setenv("GOLIATH_REQUIRE_MOJO_LINEAR", "0")
     assert mojo_linear_pack_required(_linear_site("mojo")) is False
-    monkeypatch.setenv("METHYL_REQUIRE_MOJO_LINEAR", "false")
+    monkeypatch.setenv("GOLIATH_REQUIRE_MOJO_LINEAR", "false")
     assert mojo_linear_pack_required(_linear_site("mojo")) is False
-    monkeypatch.setenv("METHYL_REQUIRE_MOJO_LINEAR", "1")
+    monkeypatch.setenv("GOLIATH_REQUIRE_MOJO_LINEAR", "1")
     assert mojo_linear_pack_required(_linear_site("mojo")) is True
     assert mojo_linear_pack_required(_linear_site("parabricks")) is False
 
@@ -83,7 +83,7 @@ def test_mojo_pack_gate_follows_engine_and_env(monkeypatch) -> None:
 def test_parabricks_linear_requires_bwameth_index_not_plain_bwa_or_mojo(
     tmp_path: Path, monkeypatch
 ) -> None:
-    monkeypatch.delenv("METHYL_REQUIRE_MOJO_LINEAR", raising=False)
+    monkeypatch.delenv("GOLIATH_REQUIRE_MOJO_LINEAR", raising=False)
     fasta = _fasta(tmp_path)
     _touch(fasta)
     for suffix in _PLAIN_BWA_SUFFIXES:
@@ -107,7 +107,7 @@ def test_parabricks_linear_requires_bwameth_index_not_plain_bwa_or_mojo(
 
 
 def test_unset_engine_does_not_require_mojo_pack(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("METHYL_REQUIRE_MOJO_LINEAR", "1")
+    monkeypatch.setenv("GOLIATH_REQUIRE_MOJO_LINEAR", "1")
     fasta = _fasta(tmp_path)
     _write_linear_index(fasta, mojo=False)
     report = verify_selected_paths(_linear_site(), work_root=tmp_path)
@@ -116,7 +116,7 @@ def test_unset_engine_does_not_require_mojo_pack(tmp_path: Path, monkeypatch) ->
 
 
 def test_mojo_linear_requires_c2t_and_dense_pack(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.delenv("METHYL_REQUIRE_MOJO_LINEAR", raising=False)
+    monkeypatch.delenv("GOLIATH_REQUIRE_MOJO_LINEAR", raising=False)
     fasta = _fasta(tmp_path)
     _write_linear_index(fasta, mojo=False)
     report = verify_selected_paths(_linear_site("mojo"), work_root=tmp_path)
@@ -136,7 +136,7 @@ def test_mojo_linear_requires_c2t_and_dense_pack(tmp_path: Path, monkeypatch) ->
 
 
 def test_mojo_pack_can_be_skipped_on_partial_trees(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.setenv("METHYL_REQUIRE_MOJO_LINEAR", "off")
+    monkeypatch.setenv("GOLIATH_REQUIRE_MOJO_LINEAR", "off")
     fasta = _fasta(tmp_path)
     _write_linear_index(fasta, mojo=False)
     report = verify_selected_paths(_linear_site("mojo"), work_root=tmp_path)

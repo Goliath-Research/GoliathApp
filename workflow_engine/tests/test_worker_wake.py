@@ -43,12 +43,12 @@ class _RecordingPublisher:
 class WorkerWakeTests(unittest.TestCase):
     def test_channel_naming_normalizes_segments(self) -> None:
         self.assertEqual(
-            wake_channel_for_pool("omics west"),
-            "goliath.wake.v1.pool.omics_west",
+            wake_channel_for_pool("seq west"),
+            "goliath.wake.v1.pool.seq_west",
         )
         self.assertEqual(
-            logical_wake_channel_to_pg_notify("goliath.wake.v1.pool.omics_west"),
-            "gw1_pool_omics_west",
+            logical_wake_channel_to_pg_notify("goliath.wake.v1.pool.seq_west"),
+            "gw1_pool_seq_west",
         )
         self.assertEqual(
             wake_channel_for_capability("align/bam"),

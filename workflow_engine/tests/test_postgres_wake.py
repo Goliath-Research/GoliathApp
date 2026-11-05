@@ -32,8 +32,8 @@ from rest.wake_coalesce import CoalescingWorkerWakePublisher  # noqa: E402
 
 class PostgresWakeMappingTests(unittest.TestCase):
     def test_logical_to_notify_strips_dots(self) -> None:
-        logical = wake_channel_for_pool("omics-west")
-        self.assertEqual(logical_wake_channel_to_pg_notify(logical), "gw1_pool_omics-west")
+        logical = wake_channel_for_pool("seq-west")
+        self.assertEqual(logical_wake_channel_to_pg_notify(logical), "gw1_pool_seq-west")
 
     def test_notify_inverse_simple(self) -> None:
         notify = "gw1_capability_align_bam"

@@ -160,7 +160,7 @@ BEGIN
       updated_at_utc = (now() AT TIME ZONE 'utc')
     RETURNING cfg.reference_asset.id INTO v_id;
   ELSIF p_kind = 'action_definition' THEN
-    RAISE EXCEPTION 'cfg.action_definition retired; seed wf via seed_action_catalog / methyl-cfg sync-actions';
+    RAISE EXCEPTION 'cfg.action_definition retired; seed wf via seed_action_catalog / goliath-cfg sync-actions';
   ELSIF p_kind = 'enrichment_library_preset' THEN
     INSERT INTO cfg.enrichment_library_preset(name, version, status, content_hash, document_json)
     VALUES (p_name, v_version, v_status, v_hash, p_document)

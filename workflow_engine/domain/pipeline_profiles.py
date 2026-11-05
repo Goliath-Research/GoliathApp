@@ -94,9 +94,9 @@ PIPELINE_FLAG_DEFAULTS: Dict[str, bool] = {
 
 
 def _application_profiles():
-    from . import _application_profiles as app
+    from .application_extension import get_application_profiles_module
 
-    return app
+    return get_application_profiles_module()
 
 
 def cfg_status_for_catalog(catalog: Mapping[str, Any] | None) -> Optional[str]:

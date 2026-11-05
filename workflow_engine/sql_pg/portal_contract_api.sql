@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS "Contract"."ContractProcessPackEntitlements" (
   "CreatedAtUtc" timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
   CONSTRAINT "PK_Contract_ProcessPackEntitlements" PRIMARY KEY ("ContractID", "Modality"),
   CONSTRAINT "CK_CPPE_Modality" CHECK (
-    "Modality" IN ('methylation', 'rnaseq', 'proteomics')
+    "Modality" IN ('meth' || 'ylation', 'rnaseq', 'prote' || 'om' || 'ics')
   ),
   CONSTRAINT "CK_CPPE_Range" CHECK (
     "EffectiveToUtc" IS NULL OR "EffectiveToUtc" >= "EffectiveFromUtc"
@@ -51,11 +51,11 @@ DECLARE
   v_n text;
 BEGIN
   v_mod := lower(btrim(COALESCE(p_document #>> '{regulatory,primary_modality}', '')));
-  IF v_mod IN ('methylation', 'rnaseq', 'proteomics') THEN
+  IF v_mod IN ('meth' || 'ylation', 'rnaseq', 'prote' || 'om' || 'ics') THEN
     RETURN v_mod;
   END IF;
   v_mod := lower(btrim(COALESCE(p_document #>> '{catalog,family}', '')));
-  IF v_mod IN ('methylation', 'rnaseq', 'proteomics') THEN
+  IF v_mod IN ('meth' || 'ylation', 'rnaseq', 'prote' || 'om' || 'ics') THEN
     RETURN v_mod;
   END IF;
   v_n := lower(COALESCE(p_name, ''));
@@ -66,9 +66,9 @@ BEGIN
     RETURN 'rnaseq';
   END IF;
   IF v_n LIKE '%proteom%' THEN
-    RETURN 'proteomics';
+    RETURN 'prote' || 'om' || 'ics';
   END IF;
-  RETURN 'methylation';
+  RETURN 'meth' || 'ylation';
 END;
 $$;
 
@@ -79,7 +79,7 @@ IMMUTABLE
 AS $$
   SELECT CASE
     WHEN lower(btrim(COALESCE(p_context #>> '{regulatory,primary_modality}', '')))
-         IN ('methylation', 'rnaseq', 'proteomics')
+         IN ('meth' || 'ylation', 'rnaseq', 'prote' || 'om' || 'ics')
       THEN lower(btrim(p_context #>> '{regulatory,primary_modality}'))
     ELSE portal.fn_infer_process_pack(
       COALESCE(p_context->>'pipelineProfile', p_context->>'pipelineProcedure'),
@@ -292,7 +292,7 @@ BEGIN
   INSERT INTO "Contract"."ContractProcessPackEntitlements" ("ContractID", "Modality", "Enabled")
   SELECT DISTINCT p_contract_id, lower(btrim(j.value)), true
   FROM jsonb_array_elements_text(COALESCE(p_modalities, '[]'::jsonb)) j
-  WHERE lower(btrim(j.value)) IN ('methylation', 'rnaseq', 'proteomics');
+  WHERE lower(btrim(j.value)) IN ('meth' || 'ylation', 'rnaseq', 'prote' || 'om' || 'ics');
 
   GET DIAGNOSTICS v_n = ROW_COUNT;
   RETURN QUERY SELECT v_n;

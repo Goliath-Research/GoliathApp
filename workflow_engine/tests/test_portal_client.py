@@ -27,7 +27,7 @@ def _pg_env() -> dict[str, str]:
     env.setdefault("PGDATABASE", os.environ.get("POSTGRES_DB", "goliathapp_schema_test"))
     if env.get("POSTGRES_PASSWORD"):
         env["PGPASSWORD"] = env["POSTGRES_PASSWORD"]
-    env.setdefault("PGPASSWORD", os.environ.get("POSTGRES_PASSWORD", "methyl"))
+    env.setdefault("PGPASSWORD", os.environ.get("POSTGRES_PASSWORD", "goliath"))
     return env
 
 
