@@ -1,4 +1,4 @@
-"""Tier-2 product wake extensions (stub — GoliathGroundStation #3 plugs in here)."""
+"""Tier-2 product wake extensions (registration stub for downstream products)."""
 
 from __future__ import annotations
 
