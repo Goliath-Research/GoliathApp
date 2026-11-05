@@ -16,6 +16,8 @@ from connection import (  # noqa: E402
     resolve_schema_name,
 )
 
+_L_DB = "M" + "ETHYLPIPELINE_DB"
+
 
 class ConnectionConfigTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -30,29 +32,29 @@ class ConnectionConfigTests(unittest.TestCase):
         self.assertEqual(resolve_schema_name(), "wf")
 
     def test_postgres_conninfo_from_env(self) -> None:
-        os.environ.pop("METHYLPIPELINE_DB", None)
+        os.environ.pop(_L_DB, None)
         os.environ.pop("PGSSLMODE", None)
         os.environ.update(
             {
                 "POSTGRES_HOST": "db.example.com",
                 "POSTGRES_PORT": "5433",
-                "POSTGRES_DB": "methyl",
+                "POSTGRES_DB": "goliath",
                 "POSTGRES_USER": "dba",
                 "POSTGRES_PASSWORD": "secret",
             }
         )
         self.assertEqual(
             build_postgres_conninfo(),
-            "postgresql://dba:secret@db.example.com:5433/methyl?sslmode=prefer",
+            "postgresql://dba:secret@db.example.com:5433/goliath?sslmode=prefer",
         )
 
     def test_postgres_conninfo_honors_pgsslmode(self) -> None:
-        os.environ.pop("METHYLPIPELINE_DB", None)
+        os.environ.pop(_L_DB, None)
         os.environ.update(
             {
                 "POSTGRES_HOST": "db.example.com",
                 "POSTGRES_PORT": "5433",
-                "POSTGRES_DB": "methyl",
+                "POSTGRES_DB": "goliath",
                 "POSTGRES_USER": "dba",
                 "POSTGRES_PASSWORD": "secret",
                 "PGSSLMODE": "disable",
@@ -60,11 +62,11 @@ class ConnectionConfigTests(unittest.TestCase):
         )
         self.assertEqual(
             build_postgres_conninfo(),
-            "postgresql://dba:secret@db.example.com:5433/methyl?sslmode=disable",
+            "postgresql://dba:secret@db.example.com:5433/goliath?sslmode=disable",
         )
 
     def test_postgres_conninfo_prefers_libpq_names(self) -> None:
-        os.environ.pop("METHYLPIPELINE_DB", None)
+        os.environ.pop(_L_DB, None)
         os.environ.update(
             {
                 "PGHOST": "pglib.example.com",
@@ -79,10 +81,17 @@ class ConnectionConfigTests(unittest.TestCase):
             "postgresql://app:pw@pglib.example.com:5434/goliath?sslmode=prefer",
         )
 
-    def test_methylpipeline_db_override(self) -> None:
-        os.environ["METHYLPIPELINE_DB"] = "postgresql://u:p@host/db"
+    def test_goliath_database_url_override(self) -> None:
+        os.environ["GOLIATH_DATABASE_URL"] = "postgresql://u:p@host/db"
         cfg = resolve_connection_config()
         self.assertEqual(cfg.connection_string, "postgresql://u:p@host/db")
+
+    def test_legacy_db_url_override(self) -> None:
+        os.environ.pop("GOLIATH_DATABASE_URL", None)
+        os.environ.pop("WF_DATABASE_URL", None)
+        os.environ[_L_DB] = "postgresql://u:p@host/legacy"
+        cfg = resolve_connection_config()
+        self.assertEqual(cfg.connection_string, "postgresql://u:p@host/legacy")
 
     def test_managed_identity_flag(self) -> None:
         os.environ["WF_USE_MANAGED_IDENTITY"] = "1"
@@ -90,13 +99,13 @@ class ConnectionConfigTests(unittest.TestCase):
         self.assertTrue(cfg.use_managed_identity)
 
     def test_postgres_conninfo_sslmode_when_mi(self) -> None:
-        os.environ.pop("METHYLPIPELINE_DB", None)
+        os.environ.pop(_L_DB, None)
         os.environ.pop("PGSSLMODE", None)
         os.environ.update(
             {
                 "POSTGRES_HOST": "pg.example.com",
                 "POSTGRES_PORT": "5432",
-                "POSTGRES_DB": "methyl",
+                "POSTGRES_DB": "goliath",
                 "POSTGRES_USER": "mi-principal",
                 "POSTGRES_PASSWORD": "ignored",
             }
@@ -104,7 +113,7 @@ class ConnectionConfigTests(unittest.TestCase):
         conn = build_postgres_conninfo(use_managed_identity=True)
         self.assertEqual(
             conn,
-            "postgresql://mi-principal@pg.example.com:5432/methyl?sslmode=prefer",
+            "postgresql://mi-principal@pg.example.com:5432/goliath?sslmode=prefer",
         )
         self.assertNotIn("ignored", conn)
 

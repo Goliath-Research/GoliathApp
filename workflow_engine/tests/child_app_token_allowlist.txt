@@ -11,8 +11,6 @@ docs/schema-apply.md
 docs/semantic-layer.md
 docs/workflow-compiler.md
 goliath_app/actions/registry.py
-goliath_worker/client.py
-goliath_worker/postgres_wake.py
 scripts/default_methyl_site.json
 workers/WORKER_PROTOCOL.md
 workflow_engine/cfg/reference_selection.py
@@ -46,9 +44,6 @@ workflow_engine/domain/verify_workflow.py
 workflow_engine/domain/workflow_context.py
 workflow_engine/local/foreach_caas.py
 workflow_engine/pyproject.toml
-workflow_engine/rest/azure_auth.py
-workflow_engine/rest/connection.py
-workflow_engine/rest/gateway.py
 workflow_engine/sql_pg/00_schema.sql
 workflow_engine/sql_pg/01_worker_api.sql
 workflow_engine/sql_pg/02_repository_api.sql
@@ -71,7 +66,6 @@ workflow_engine/sql_pg/wf_json_column_alignment.sql
 workflow_engine/sql_pg/wf_test_bed_run.sql
 workflow_engine/tests/fixtures/sample_prep.program.json
 workflow_engine/tests/test_action_catalog_platform.py
-workflow_engine/tests/test_connection.py
 workflow_engine/tests/test_goliathapp_pg_schema_apply.py
 workflow_engine/tests/test_goliathapp_sql_no_omics_domain.py
 workflow_engine/tests/test_inv_module.py

@@ -31,7 +31,7 @@ def _fetch_access_token() -> _CachedToken:
     except ImportError as exc:
         raise RuntimeError(
             "azure-identity is required when WF_USE_MANAGED_IDENTITY=1 "
-            "(pip install methyl-gateway with azure-identity)"
+            "(pip install goliath-gateway with azure-identity)"
         ) from exc
 
     client_id = os.environ.get("AZURE_CLIENT_ID", "").strip() or None
