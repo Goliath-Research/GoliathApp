@@ -214,44 +214,6 @@ def verify_program_file(path: Path | str, *, check_catalog: bool = True) -> Veri
     return verify_compiled_workflow(compiled, catalog_action_names=catalog)
 
 
-def verify_methylgrapher_bake(
-    site: Mapping[str, Any],
-    profile_action_config: Optional[Mapping[str, Any]] = None,
-) -> List[Finding]:
-    """Ensure methylgrapher_wgbs resolvedConfig keeps image/engine/align_engine."""
-    from methyl_utils.action_config_resolver import (
-        resolve_action_config,
-        resolve_methylgrapher_wgbs_genome,
-    )
-
-    findings: List[Finding] = []
-    merged = resolve_action_config(
-        "methylgrapher_wgbs",
-        site=site,
-        profile_action_config=dict(profile_action_config or {}),
-    )
-    for key in ("image", "engine", "align_engine"):
-        if merged.get(key) in (None, ""):
-            findings.append(
-                Finding(
-                    "error",
-                    "methylgrapher_bake_missing",
-                    f"resolvedConfig.methylgrapher_wgbs missing {key!r} after site/profile merge",
-                )
-            )
-    genome = resolve_methylgrapher_wgbs_genome(resolved_config=merged)
-    for key in ("image", "engine", "align_engine"):
-        if genome.get(key) in (None, ""):
-            findings.append(
-                Finding(
-                    "error",
-                    "methylgrapher_genome_drop",
-                    f"resolve_methylgrapher_wgbs_genome dropped {key!r}",
-                )
-            )
-    return findings
-
-
 def compare_compiled_to_db_nodes(
     compiled: CompileResult | Mapping[str, Any],
     db_nodes: Iterable[Mapping[str, Any]],

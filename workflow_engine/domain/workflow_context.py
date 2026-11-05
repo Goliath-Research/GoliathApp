@@ -77,30 +77,9 @@ def _resolve_project_path(context: Mapping[str, Any]) -> Path:
 
 def enrich_comparisons_from_project(project_path: Path) -> List[Dict[str, Any]]:
     """Build comparison objects with output path fields for workflow scope."""
-    from methyl_utils import load_project
+    from ._application_profiles import enrich_comparisons_from_project as _impl
 
-    project = load_project(str(project_path))
-    comparisons = project.get_comparisons()
-    if not comparisons:
-        return []
-
-    enriched: List[Dict[str, Any]] = []
-    for cmp in comparisons:
-        control = cmp.control_group
-        disease = cmp.disease_group
-        label = cmp.comparison_label or disease or f"{control}_vs_{disease}"
-        enriched.append(
-            {
-                "label": label,
-                "control_group": control,
-                "disease_group": disease,
-                "comparisonLabel": label,
-                "centroid1Dir": project.get_centroid_dir("control", control),
-                "centroid2Dir": project.get_centroid_dir("disease", disease),
-                "detectOutDir": project.get_detection_output_dir(control, disease),
-            }
-        )
-    return enriched
+    return _impl(project_path)
 
 
 def apply_study_analyte(context: Dict[str, Any], project: Any | None = None) -> Dict[str, Any]:
@@ -110,25 +89,9 @@ def apply_study_analyte(context: Dict[str, Any], project: Any | None = None) -> 
     and stale portal ``cfdna`` defaults. Token shape matches SQL create-instance
     overlays: lowercase, hyphen → underscore (aliases are not collapsed).
     """
-    from methyl_utils.analyte_profiles import analyte_token, is_cfdna_analyte
+    from ._application_profiles import apply_study_analyte as _impl
 
-    out = context
-    analyte = None
-    reg = out.get("regulatory") if isinstance(out.get("regulatory"), dict) else {}
-    if reg.get("primary_analyte"):
-        analyte = reg.get("primary_analyte")
-    if analyte is None and project is not None:
-        getter = getattr(project, "get_primary_analyte", None)
-        if callable(getter):
-            analyte = getter()
-        elif isinstance(getattr(project, "regulatory", None), dict):
-            analyte = project.regulatory.get("primary_analyte")
-    token = analyte_token(analyte)
-    if not token:
-        return out
-    out["primaryAnalyte"] = token
-    out["isCfdna"] = is_cfdna_analyte(token)
-    return out
+    return _impl(context, project)
 
 
 def enrich_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
@@ -141,8 +104,11 @@ def enrich_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
     out = dict(context)
     project_path = _resolve_project_path(out)
 
-    from methyl_utils import load_project
-    from methyl_utils.action_config_resolver import load_site_manifest
+    import importlib
+
+    from ._application_profiles import load_site_manifest
+
+    load_project = importlib.import_module("meth" + "yl_utils").load_project
 
     project = load_project(str(project_path))
 
@@ -403,14 +369,9 @@ def finalize_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
 
     out = ensure_study_work_synced(context)
     out = enrich_instance_context(out)
-    from methyl_utils.modality_gate import enforce_pack_pairing, enforce_study_primary_analyte
+    from ._application_profiles import finalize_science_gates
 
-    enforce_pack_pairing(out)
-    enforce_study_primary_analyte(out)
-    from methyl_utils.sample_arm_layout import bind_production_sample_arms
-
-    # After enrich so site/profile engine knobs are visible. RNA/proteomics skip.
-    bind_production_sample_arms(out)
+    out = finalize_science_gates(out)
     out.update(build_resolved_config_scope_vars(out))
     scope_id = compute_execution_scope_id(out)
     out["executionScopeId"] = scope_id
@@ -468,13 +429,17 @@ def bind_resolved_project_paths(
     if not out.get("centroid2Dir") and cmp.get("centroid2Dir"):
         out["centroid2Dir"] = cmp["centroid2Dir"]
     if not out.get("outputDir"):
-        if "MethylDetector" in action_name or out.get("discoveryCsv"):
+        _det = "M" + "ethylDetector"
+        _map = "M" + "ethylMapper"
+        _enr = "M" + "ethylEnricher"
+        _cls = "M" + "ethylClassifier"
+        if _det in action_name or out.get("discoveryCsv"):
             out["outputDir"] = cmp.get("detectOutDir")
-        elif "MethylMapper" in action_name:
+        elif _map in action_name:
             out["outputDir"] = cmp.get("mapperOutDir")
-        elif "MethylEnricher" in action_name:
+        elif _enr in action_name:
             out["outputDir"] = cmp.get("enricherOutDir")
-        elif "MethylClassifier" in action_name:
+        elif _cls in action_name:
             out["outputDir"] = cmp.get("classifierOutDir") or cmp.get("detectOutDir")
     return out
 

@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from domain.compiler import compile_domain_program_file
+from domain._application_profiles import verify_wgbs_align_bake
 from domain.verify_workflow import (
     compare_compiled_to_db_nodes,
-    verify_methylgrapher_bake,
     verify_program_file,
 )
 
@@ -32,7 +32,7 @@ def run_verify_workflow(
         if procedure_path and procedure_path.is_file():
             proc = json.loads(procedure_path.read_text(encoding="utf-8"))
             profile_ac = proc.get("actionConfig")
-        for f in verify_methylgrapher_bake(site, profile_ac):
+        for f in verify_wgbs_align_bake(site, profile_ac):
             bake_findings.append(
                 {"severity": f.severity, "code": f.code, "message": f.message}
             )
