@@ -72,6 +72,8 @@ SCRIPTS=(
   onboarding_schema.sql
   portal_shell_schema.sql
   portal_organization_schema.sql
+  inv_schema.sql
+  inv_api.sql
   legacy_cross_schema_fks.sql
   cfg_schema.sql
   cfg_registry_tables.sql
@@ -96,6 +98,7 @@ SCRIPTS=(
   portal_session_api.sql
   portal_semantic_schema.sql
   portal_semantic_row_types.sql
+  inv_semantic.sql
   portal_semantic_api.sql
   meta_model_semantic.sql
   portal_contract_api.sql

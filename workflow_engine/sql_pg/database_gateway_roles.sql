@@ -79,3 +79,21 @@ BEGIN
     EXECUTE format('REVOKE EXECUTE ON PROCEDURE %s FROM PUBLIC, goliath_portal', v_sig);
   END LOOP;
 END $$;
+
+REVOKE ALL ON ALL TABLES IN SCHEMA inv FROM PUBLIC, goliath_portal;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA inv FROM PUBLIC, goliath_portal;
+
+DO $$
+DECLARE
+  v_sig regprocedure;
+BEGIN
+  FOR v_sig IN
+    SELECT p.oid::regprocedure
+    FROM pg_proc p
+    INNER JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'inv'
+      AND p.prokind = 'f'
+  LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, goliath_portal', v_sig);
+  END LOOP;
+END $$;

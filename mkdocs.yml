@@ -27,6 +27,7 @@ nav:
   - Meta model (design): meta-model.md
   - Semantic layer: semantic-layer.md
   - Semantic extensions: semantic-extensions.md
+  - Inventory module: inventory-module.md
   - Deployment: deployment.md
 
 markdown_extensions:

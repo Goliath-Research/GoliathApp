@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from goliath_app.semantic.filters import FilterOp, FilterTemplate, Predicate
+from goliath_app.inv.semantic import INV_ENTITIES, INV_REQUESTS
 from goliath_app.semantic.models import (
     FilterOrganizationsParams,
     ListOrganizationsParams,
@@ -31,7 +32,7 @@ ORGANIZATION_ENTITY = SemanticEntitySpec(
     ),
 )
 
-SEMANTIC_CATALOG: list[SemanticEntitySpec] = [ORGANIZATION_ENTITY]
+SEMANTIC_CATALOG: list[SemanticEntitySpec] = [ORGANIZATION_ENTITY, *INV_ENTITIES]
 
 SEMANTIC_REQUESTS: list[SemanticRequestSpec] = [
     SemanticRequestSpec(
@@ -68,4 +69,5 @@ SEMANTIC_REQUESTS: list[SemanticRequestSpec] = [
         result_row_model=OrganizationRow,
         required_permission="semantic.restricted.probe",
     ),
+    *INV_REQUESTS,
 ]

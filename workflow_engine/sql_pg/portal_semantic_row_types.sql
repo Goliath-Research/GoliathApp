@@ -4,15 +4,274 @@
 */
 
 DO $$
+DECLARE
+  v_typname constant text := 'core_organization_row';
+  v_desired text[] := ARRAY['organization_id', 'name', 'active'];
+  v_desired_types text[] := ARRAY['integer', 'text', 'boolean'];
+  v_existing text[];
+  v_i int;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_type t
-    JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'portal' AND t.typname = 'core_organization_row'
-  ) THEN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
     CREATE TYPE portal.core_organization_row AS (
   organization_id integer,
   name text,
+  active boolean
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.core_organization_row CASCADE;
+    CREATE TYPE portal.core_organization_row AS (
+  organization_id integer,
+  name text,
+  active boolean
+    );
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  v_typname constant text := 'inv_item_row';
+  v_desired text[] := ARRAY['item_id', 'organization_id', 'item_number', 'description', 'base_unit', 'costing_method', 'qty_on_hand', 'avg_unit_cost', 'active'];
+  v_desired_types text[] := ARRAY['integer', 'integer', 'text', 'text', 'text', 'text', 'double precision', 'double precision', 'boolean'];
+  v_existing text[];
+  v_i int;
+BEGIN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.inv_item_row AS (
+  item_id integer,
+  organization_id integer,
+  item_number text,
+  description text,
+  base_unit text,
+  costing_method text,
+  qty_on_hand double precision,
+  avg_unit_cost double precision,
+  active boolean
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.inv_item_row CASCADE;
+    CREATE TYPE portal.inv_item_row AS (
+  item_id integer,
+  organization_id integer,
+  item_number text,
+  description text,
+  base_unit text,
+  costing_method text,
+  qty_on_hand double precision,
+  avg_unit_cost double precision,
+  active boolean
+    );
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  v_typname constant text := 'inv_purchase_order_row';
+  v_desired text[] := ARRAY['purchase_order_id', 'organization_id', 'po_number', 'supplier_code', 'supplier_name', 'status', 'ordered_at_utc'];
+  v_desired_types text[] := ARRAY['integer', 'integer', 'text', 'text', 'text', 'text', 'timestamptz'];
+  v_existing text[];
+  v_i int;
+BEGIN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.inv_purchase_order_row AS (
+  purchase_order_id integer,
+  organization_id integer,
+  po_number text,
+  supplier_code text,
+  supplier_name text,
+  status text,
+  ordered_at_utc timestamptz
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.inv_purchase_order_row CASCADE;
+    CREATE TYPE portal.inv_purchase_order_row AS (
+  purchase_order_id integer,
+  organization_id integer,
+  po_number text,
+  supplier_code text,
+  supplier_name text,
+  status text,
+  ordered_at_utc timestamptz
+    );
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  v_typname constant text := 'inv_stock_lot_row';
+  v_desired text[] := ARRAY['stock_lot_id', 'organization_id', 'item_id', 'item_number', 'location_code', 'bin_code', 'lot_number', 'qty_on_hand', 'unit_cost'];
+  v_desired_types text[] := ARRAY['integer', 'integer', 'integer', 'text', 'text', 'text', 'text', 'double precision', 'double precision'];
+  v_existing text[];
+  v_i int;
+BEGIN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.inv_stock_lot_row AS (
+  stock_lot_id integer,
+  organization_id integer,
+  item_id integer,
+  item_number text,
+  location_code text,
+  bin_code text,
+  lot_number text,
+  qty_on_hand double precision,
+  unit_cost double precision
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.inv_stock_lot_row CASCADE;
+    CREATE TYPE portal.inv_stock_lot_row AS (
+  stock_lot_id integer,
+  organization_id integer,
+  item_id integer,
+  item_number text,
+  location_code text,
+  bin_code text,
+  lot_number text,
+  qty_on_hand double precision,
+  unit_cost double precision
+    );
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  v_typname constant text := 'inv_supplier_item_row';
+  v_desired text[] := ARRAY['supplier_item_id', 'organization_id', 'item_id', 'item_number', 'supplier_code', 'supplier_part_number', 'preferred', 'lead_time_days', 'active'];
+  v_desired_types text[] := ARRAY['integer', 'integer', 'integer', 'text', 'text', 'text', 'boolean', 'integer', 'boolean'];
+  v_existing text[];
+  v_i int;
+BEGIN
+  SELECT array_agg(a.attname ORDER BY a.attnum)
+  INTO v_existing
+  FROM pg_type t
+  JOIN pg_namespace n ON n.oid = t.typnamespace
+  JOIN pg_class c ON c.oid = t.typrelid
+  JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+  WHERE n.nspname = 'portal' AND t.typname = v_typname AND t.typtype = 'c';
+
+  IF v_existing IS NULL THEN
+    CREATE TYPE portal.inv_supplier_item_row AS (
+  supplier_item_id integer,
+  organization_id integer,
+  item_id integer,
+  item_number text,
+  supplier_code text,
+  supplier_part_number text,
+  preferred boolean,
+  lead_time_days integer,
+  active boolean
+    );
+  ELSIF v_existing = v_desired THEN
+    NULL;
+  ELSIF coalesce(array_length(v_existing, 1), 0) < array_length(v_desired, 1)
+        AND v_existing = v_desired[1:array_length(v_existing, 1)] THEN
+    FOR v_i IN array_length(v_existing, 1) + 1 .. array_length(v_desired, 1) LOOP
+      BEGIN
+        EXECUTE format(
+          'ALTER TYPE portal.%I ADD ATTRIBUTE %I %s',
+          v_typname, v_desired[v_i], v_desired_types[v_i]
+        );
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END;
+    END LOOP;
+  ELSE
+    DROP TYPE IF EXISTS portal.inv_supplier_item_row CASCADE;
+    CREATE TYPE portal.inv_supplier_item_row AS (
+  supplier_item_id integer,
+  organization_id integer,
+  item_id integer,
+  item_number text,
+  supplier_code text,
+  supplier_part_number text,
+  preferred boolean,
+  lead_time_days integer,
   active boolean
     );
   END IF;
