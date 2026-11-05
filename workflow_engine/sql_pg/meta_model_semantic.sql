@@ -29,7 +29,7 @@ DECLARE
   v_type record;
   v_entity_id int;
 BEGIN
-  SELECT c."ID", c."Name", c."TypeID", c."Description"
+  SELECT c."ID", c."Name", c."TypeID"
   INTO v_class
   FROM "Meta"."Classes" c
   WHERE c."ID" = p_class_id;
@@ -56,7 +56,7 @@ BEGIN
     p_namespace,
     p_entity_code,
     COALESCE(p_display_name, v_class."Name"),
-    COALESCE(p_description, v_class."Description", ''),
+    COALESCE(p_description, ''),
     "Meta".fn_class_schema_uri(p_class_id),
     v_type.version,
     v_type.content_hash,

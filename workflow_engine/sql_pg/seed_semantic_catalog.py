@@ -14,7 +14,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from goliath_app.semantic.catalog import SEMANTIC_CATALOG, SEMANTIC_REQUESTS
 from goliath_app.semantic.export import _entity_by_code, _schema_id, content_hash_for
-from goliath_app.semantic.meta_bridge import meta_class_schema_id, meta_class_storage_relation
+from goliath_app.semantic.meta_bridge import (
+    meta_class_catalog_type_name,
+    meta_class_schema_id,
+    meta_class_storage_relation,
+)
 
 
 def _connect():
@@ -35,7 +39,10 @@ def seed(conn) -> int:
     with conn.cursor() as cur:
         for entity in SEMANTIC_CATALOG:
             if entity.meta_class_name:
-                row_schema = {"$ref": meta_class_schema_id(entity.meta_class_name)}
+                row_schema = {
+                    "$ref": meta_class_schema_id(entity.meta_class_name),
+                    "catalog_type": meta_class_catalog_type_name(entity.meta_class_name),
+                }
             else:
                 row_schema = entity.row_model.model_json_schema(mode="serialization")
             entity_hash = content_hash_for(
