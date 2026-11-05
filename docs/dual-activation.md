@@ -172,7 +172,7 @@ Wake-enabled workers open a **separate** Postgres connection for `LISTEN` only; 
 
 1. **Done (PR #23)** — design doc, DTO/protocol stubs, `NullPublisher` default, event-ingest hook, tests for channel naming and payload parsing.
 2. **Done (PR #24)** — Postgres `NOTIFY`/`LISTEN` broker; worker idle subscribe + claim; opt-in env flags.
-3. **This slice** — automatic subscription-derived wakes, coalesced NOTIFY, instance-start publish, tier-2 hook stub, integration tests.
+3. **This slice (PR #37)** — automatic subscription-derived wakes, coalesced NOTIFY, instance-start publish, tier-2 hook stub, integration tests.
 4. **Tier 2** — GoliathGroundStation product channels and OPC/telemetry separation (issue #3).
 5. **Operate** — metrics on wake publish count, claim latency p50/p95 with wakes enabled, duplicate wake rate vs empty claims.
 

@@ -1,6 +1,6 @@
 # Inventory module (`inv`)
 
-GoliathApp ships an **optional**, domain-neutral inventory and purchasing module in the PostgreSQL schema `inv`. Child applications (GoliathFactory, GoliathCrop, GoliathOmics) enable and extend it; GoliathApp does not reference factory, crop, or omics concepts.
+GoliathApp ships an **optional**, domain-neutral inventory and purchasing module in the PostgreSQL schema `inv` ([PR #34](https://github.com/Goliath-Research/GoliathApp/pull/34)). Child applications enable and extend it; GoliathApp does not reference factory, crop, or omics concepts.
 
 ## What is included
 
