@@ -61,9 +61,9 @@ JSON fields (see `goliath_worker.wake.WorkerWakeMessage`):
 
 Wakes **must not** include task input, node execution ids for claiming, or lease tokens.
 
-### Event payload hints (gateway hook, first slice)
+### Event payload hints (optional override)
 
-When ingesting events, adapters may attach optional hints under `worker_wake`:
+Adapters may attach optional overrides under `worker_wake`. When present, these fields **merge with** subscription-derived hints from the database (override rows first):
 
 ```json
 {
@@ -72,15 +72,15 @@ When ingesting events, adapters may attach optional hints under `worker_wake`:
   "idempotency_key": "…",
   "payload": {
     "worker_wake": {
-      "pool": "omics-west",
+      "pool": "west",
       "capability": "align_bam",
-      "program_id": "methyl-pipeline-v2"
+      "program_id": "my-program@v1"
     }
   }
 }
 ```
 
-`workflow_engine.rest.worker_wake.publish_wakes_after_event_ingest` runs after a **non-duplicate** ingest with `applied_count > 0`. Future hooks (portal instance start, graph deploy edges) should call the same helper.
+When `applied_count > 0`, the gateway loads claimable-task dimensions via `wf.fn_worker_wake_hints_for_event` (pool from instance `context_json.pool`, capability from READY actions, program from publish/study links). `payload.worker_wake` remains supported as an override; it is no longer required for wakes to fire.
 
 ## Channel naming
 
@@ -120,16 +120,20 @@ Workers subscribe to the union of channels implied by their enrollment (pool), d
 
 ## Gateway publish hooks
 
-| Edge | Status (this PR) | Notes |
-|------|------------------|-------|
-| `POST /v1/events` after `wf.sp_ingest_event` | **Stub wired** | Uses `RestGateway(wake_publisher=…)`; default no-op. |
-| Portal / study start → new READY work | **Documented** | Call `publish_wakes_after_event_ingest` or a sibling helper when instance start is exposed on gateway. |
-| Action completion → downstream READY | **Future** | May publish capability-scoped wakes from graph metadata. |
+| Edge | Status | Notes |
+|------|--------|-------|
+| `POST /v1/events` after `wf.sp_ingest_event` | **Automatic** | Hint query + optional `payload.worker_wake` override; coalesced NOTIFY when `WF_WAKE_POSTGRES=1`. |
+| `sp_start_workflow_instance` (portal/API) | **Automatic** | Postgres gateway backend publishes after start via `publish_wakes_after_workflow_instance_start`. |
+| Lease reclaim → READY | **Helper** | `publish_wakes_after_lease_reclaim` for non-quiet reclaim callers; claim-path quiet reclaim uses poll safety net. |
+| Tier-2 product wakes | **Hook** | `worker_wake_tier2.register_tier2_wake_extension` (GoliathGroundStation #3). |
 
 Implementation entry points:
 
 - `workflow_engine/rest/gateway.py` — injectable `wake_publisher`.
-- `workflow_engine/rest/worker_wake.py` — `publish_wakes_after_event_ingest`, payload parsing.
+- `workflow_engine/rest/worker_wake.py` — ingest/start/reclaim publish helpers, hint merge, tier-1 publish.
+- `workflow_engine/rest/worker_wake_tier2.py` — tier-2 extension registration stub.
+- `workflow_engine/rest/wake_coalesce.py` — debounced publisher wrapper (NOTIFY burst control, payload size guard).
+- `workflow_engine/sql_pg/wf_worker_wake_hints.sql` — `fn_worker_wake_hints_for_{event,instances,node_executions}`.
 - `goliath_worker/wake.py` — DTO, channel helpers, NOTIFY mapping, `WorkerWakePublisher` / `WorkerWakeSubscriber` protocols, null implementations.
 - `goliath_worker/postgres_wake.py` — Postgres `NOTIFY`/`LISTEN` publisher and subscriber (dedicated connections; not the gateway request pool).
 - `workflow_engine/rest/postgres_wake.py` — `resolve_wake_publisher` for gateway startup.
@@ -154,6 +158,7 @@ Recommended idle loop (product worker process):
 | `WORKER_WAKE_POSTGRES=1` | Worker | Use `PostgresWorkerWakeSubscriber` via `resolve_worker_wake_subscriber()`. |
 | `WORKER_WAKE_PG_DSN` | Worker | Optional LISTEN connection string; defaults to `METHYLPIPELINE_DB` / `PG*`. |
 | `WORKER_WAKE_POLL_SECONDS` | Worker | Idle wait timeout before claim safety-net poll (default `30`). |
+| `WF_WAKE_COALESCE_SECONDS` | Gateway | Debounce window for coalesced NOTIFY (default `0.05`; `0` flushes immediately). |
 
 Wake-enabled workers open a **separate** Postgres connection for `LISTEN` only; they still **never** claim via SQL. Subscribe requires the same bearer **worker session** as claim (validated before `LISTEN`).
 
@@ -166,9 +171,10 @@ Wake-enabled workers open a **separate** Postgres connection for `LISTEN` only; 
 ## Rollout plan
 
 1. **Done (PR #23)** — design doc, DTO/protocol stubs, `NullPublisher` default, event-ingest hook, tests for channel naming and payload parsing.
-2. **This PR** — **Postgres `NOTIFY`/`LISTEN`** as the production wake broker; `WF_WAKE_POSTGRES` gateway opt-in; worker idle subscribe + claim in `WorkflowRestClient`; NOTIFY channel mapping documented above. Redis/NATS remain optional later brokers implementing the same logical channels and JSON payload.
-3. **Tier 2** — GoliathGroundStation and Omics product channels and OPC/telemetry separation verified.
-4. **Operate** — metrics on wake publish count, claim latency p50/p95 with wakes enabled, duplicate wake rate vs empty claims.
+2. **Done (PR #24)** — Postgres `NOTIFY`/`LISTEN` broker; worker idle subscribe + claim; opt-in env flags.
+3. **This slice** — automatic subscription-derived wakes, coalesced NOTIFY, instance-start publish, tier-2 hook stub, integration tests.
+4. **Tier 2** — GoliathGroundStation product channels and OPC/telemetry separation (issue #3).
+5. **Operate** — metrics on wake publish count, claim latency p50/p95 with wakes enabled, duplicate wake rate vs empty claims.
 
 ## Related docs
 

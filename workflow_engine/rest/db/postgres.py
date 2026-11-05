@@ -332,6 +332,78 @@ class PostgresGatewayDb(GatewayDbBase):
             "ignored_count": int(row["ignored_count"]),
         }
 
+    def fetch_worker_wake_hints_for_event(self, event_id: int) -> list[Any]:
+        from rest.worker_wake import WorkerWakeHint
+
+        rows = self._fetch_all(
+            f"""
+            SELECT pool, capability, program_id, workflow_instance_id
+            FROM {self._qual('fn_worker_wake_hints_for_event')}(%s)
+            """,
+            (event_id,),
+        )
+        return [
+            WorkerWakeHint(
+                pool=str(r["pool"]) if r.get("pool") not in (None, "") else None,
+                capability=str(r["capability"]) if r.get("capability") not in (None, "") else None,
+                program_id=str(r["program_id"]) if r.get("program_id") not in (None, "") else None,
+                workflow_instance_id=int(r["workflow_instance_id"])
+                if r.get("workflow_instance_id") is not None
+                else None,
+            )
+            for r in rows
+        ]
+
+    def fetch_worker_wake_hints_for_instances(self, instance_ids: list[int]) -> list[Any]:
+        from rest.worker_wake import WorkerWakeHint
+
+        if not instance_ids:
+            return []
+        rows = self._fetch_all(
+            f"""
+            SELECT pool, capability, program_id, workflow_instance_id
+            FROM {self._qual('fn_worker_wake_hints_for_instances')}(%s)
+            """,
+            (instance_ids,),
+        )
+        return [
+            WorkerWakeHint(
+                pool=str(r["pool"]) if r.get("pool") not in (None, "") else None,
+                capability=str(r["capability"]) if r.get("capability") not in (None, "") else None,
+                program_id=str(r["program_id"]) if r.get("program_id") not in (None, "") else None,
+                workflow_instance_id=int(r["workflow_instance_id"])
+                if r.get("workflow_instance_id") is not None
+                else None,
+            )
+            for r in rows
+        ]
+
+    def fetch_worker_wake_hints_for_node_executions(
+        self, node_execution_ids: list[int]
+    ) -> list[Any]:
+        from rest.worker_wake import WorkerWakeHint
+
+        if not node_execution_ids:
+            return []
+        rows = self._fetch_all(
+            f"""
+            SELECT pool, capability, program_id, workflow_instance_id
+            FROM {self._qual('fn_worker_wake_hints_for_node_executions')}(%s)
+            """,
+            (node_execution_ids,),
+        )
+        return [
+            WorkerWakeHint(
+                pool=str(r["pool"]) if r.get("pool") not in (None, "") else None,
+                capability=str(r["capability"]) if r.get("capability") not in (None, "") else None,
+                program_id=str(r["program_id"]) if r.get("program_id") not in (None, "") else None,
+                workflow_instance_id=int(r["workflow_instance_id"])
+                if r.get("workflow_instance_id") is not None
+                else None,
+            )
+            for r in rows
+        ]
+
     def create_workflow_instance(
         self,
         workflow_version_id: int,
@@ -350,6 +422,9 @@ class PostgresGatewayDb(GatewayDbBase):
             f"CALL {self._qual('sp_start_workflow_instance')}(%s)",
             (instance_id,),
         )
+        from rest.worker_wake import publish_wakes_after_workflow_instance_start
+
+        publish_wakes_after_workflow_instance_start(self, instance_id)
 
     def get_workflow_instance(self, instance_id: int) -> dict[str, Any]:
         row = self._fetch_one(

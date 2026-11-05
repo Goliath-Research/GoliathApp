@@ -20,9 +20,16 @@ from goliath_worker.wake import (  # noqa: E402
     wake_channels_for_message,
 )
 from rest.worker_wake import (  # noqa: E402
+    WorkerWakeHint,
     publish_wakes_after_event_ingest,
     wake_message_from_event_payload,
 )
+
+
+class _NullHintDb:
+    def fetch_worker_wake_hints_for_event(self, event_id: int) -> list[WorkerWakeHint]:
+        _ = event_id
+        return []
 
 
 class _RecordingPublisher:
@@ -97,6 +104,7 @@ class WorkerWakeTests(unittest.TestCase):
         self.assertEqual(
             publish_wakes_after_event_ingest(
                 pub,
+                _NullHintDb(),
                 ingest_result={"duplicate": True, "applied_count": 1, "event_id": 1},
                 event_type="t",
                 idempotency_key="k",
@@ -107,6 +115,7 @@ class WorkerWakeTests(unittest.TestCase):
         self.assertEqual(
             publish_wakes_after_event_ingest(
                 pub,
+                _NullHintDb(),
                 ingest_result={"duplicate": False, "applied_count": 0, "event_id": 1},
                 event_type="t",
                 idempotency_key="k",
@@ -120,6 +129,7 @@ class WorkerWakeTests(unittest.TestCase):
         pub = _RecordingPublisher()
         count = publish_wakes_after_event_ingest(
             pub,
+            _NullHintDb(),
             ingest_result={"duplicate": False, "applied_count": 2, "event_id": 99},
             event_type="upload.landed",
             idempotency_key="idem-1",

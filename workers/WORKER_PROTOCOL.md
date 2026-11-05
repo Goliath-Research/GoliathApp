@@ -63,7 +63,7 @@ Dual activation adds an optional **wake** path alongside claim. Wakes do **not**
 
 Channel names: `goliath.wake.v1.pool.{pool}`, `goliath.wake.v1.capability.{name}`, `goliath.wake.v1.program.{program_id}` (see `goliath_worker.wake`).
 
-Event adapters may include optional hints under `payload.worker_wake` with the same three dimensions. After ingest, the gateway may publish when `applied_count > 0` (implementation uses a pluggable publisher; default is no-op).
+Event adapters may include optional overrides under `payload.worker_wake`. After ingest with `applied_count > 0`, the gateway publishes wakes from subscription-derived READY work (`wf.fn_worker_wake_hints_for_event`) merged with any override. Default publisher is no-op unless `WF_WAKE_POSTGRES=1`.
 
 Subscribing to wakes requires an authenticated **worker session** (same bearer session as claim). Lost wakes fall back to poll; duplicate wakes cause multiple claim attempts but at most one lease.
 

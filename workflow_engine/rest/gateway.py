@@ -38,7 +38,7 @@ from .db_client import (
     worker_submit_result,
 )
 from .postgres_wake import resolve_wake_publisher
-from .worker_wake import NullWorkerWakePublisher, WorkerWakePublisher, publish_wakes_after_event_ingest
+from .worker_wake import NullWorkerWakePublisher, WorkerWakePublisher, bind_worker_wake_publisher, publish_wakes_after_event_ingest
 
 
 class RestGateway:
@@ -50,6 +50,7 @@ class RestGateway:
     ) -> None:
         self.db = db
         self._wake_publisher: WorkerWakePublisher = wake_publisher or NullWorkerWakePublisher()
+        bind_worker_wake_publisher(self._wake_publisher)
 
     @property
     def backend(self) -> str:
@@ -208,6 +209,7 @@ class RestGateway:
             # Dual activation (tier 1): notify idle workers; claim still owns the lease.
             publish_wakes_after_event_ingest(
                 self._wake_publisher,
+                self.db,
                 ingest_result=result,
                 event_type=event_type,
                 idempotency_key=idempotency_key,

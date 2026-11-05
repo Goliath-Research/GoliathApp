@@ -182,7 +182,7 @@ class WorkerWakeSubscriber(Protocol):
 
 
 class NullWorkerWakePublisher:
-    """Default gateway publisher: no external bus (claim poll remains the fast path)."""
+    """Default gateway publisher: no external bus (claim poll is the safety net)."""
 
     def publish(self, channel: str, message: WorkerWakeMessage) -> None:
         _ = channel
