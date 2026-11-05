@@ -1,19 +1,19 @@
 openapi: 3.0.3
 info:
-  title: MethylPipeline Workflow Gateway API
+  title: Goliath Workflow Gateway API
   description: "REST contract for the workflow **gateway** (worker-only):\n\n- **Workers** \u2014 `/workers/*`\
     \ with `Authorization: Bearer <session>`, header `X-Goliath-Worker-Token` (enrollment identity), proxy-derived IP, and JSON `worker_id`.\n- **Session** \u2014 `POST /workers/session` opens a bearer session from the identity token.\n- **Enroll** \u2014 `POST /workers/enroll`\
     \ from a portal-preregistered public IP (no worker_token yet; gateway mints credentials once).\n\n\
     **EpiPortal never calls this API.** Catalog seed, workflow deploy, and study lifecycle use direct\
     \ DB (`workflow_engine/ops`, `seed_action_catalog.py`, `deploy_workflow_definitions.sh`) or portal\
     \ SQL (`portal.sp_*`). Sensor/operator adapters POST `/events` (typed JSON ingest). Interactive inspection uses Cursor MCP.\n\nMaps to DB objects in `workflow_engine/contract/db_objects.yaml`.\n\
-    Production: Python gateway on Linux (`methyl-gateway`, systemd, uvicorn)."
+    Production: Python gateway on Linux (`goliath-gateway`, systemd, uvicorn)."
   version: 1.5.0
 servers:
 - url: https://api.example.com/v1
   description: Production
 - url: http://localhost:8080/v1
-  description: Local Python gateway (methyl-gateway)
+  description: Local Python gateway (goliath-gateway)
 tags:
 - name: workers
   description: Remote worker poll/submit protocol (session + identity token auth)
@@ -236,7 +236,7 @@ components:
           format: int64
         worker_token:
           type: string
-          description: Plaintext token returned once; write to /etc/methyl/worker-token
+          description: Plaintext token returned once; write to /etc/goliath/worker-token
         external_worker_key:
           type: string
         cluster_key:

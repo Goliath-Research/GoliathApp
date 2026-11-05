@@ -19,4 +19,4 @@ This repository is the platform. Specialized applications extend it with actions
 | `docs/` | This documentation set |
 | `.goliath/product.json` | Machine-readable product summary |
 
-Console scripts that resolve to modules in this tree are `goliath-gateway`, `goliath-workflow-run`, and `goliath-cfg`, plus the `methyl-gateway`, `methyl-workflow-run`, and `methyl-cfg` aliases of those three. The distribution name is `methyl-gateway`.
+Console scripts that resolve to modules in this tree are `goliath-gateway`, `goliath-workflow-run`, and `goliath-cfg`. The PyPI distribution name is `goliath-gateway`.

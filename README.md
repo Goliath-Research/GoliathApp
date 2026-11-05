@@ -35,15 +35,15 @@ mkdocs serve
 python -m pip install -e "workflow_engine/[dev]"
 ```
 
-The distribution name in `workflow_engine/pyproject.toml` is `methyl-gateway`. Python is `>=3.10,<3.15`. These console scripts point at modules in this tree:
+The installable distribution is **`goliath-gateway`** (see `workflow_engine/pyproject.toml`). Python is `>=3.10,<3.15`. Console scripts that point at modules in this tree:
 
 | Script | Entry |
 |--------|--------|
-| `goliath-gateway`, `methyl-gateway` | `rest.gateway:main` |
-| `goliath-workflow-run`, `methyl-workflow-run` | `local.runner:main` |
-| `goliath-cfg`, `methyl-cfg` | `cfg.cli:main` |
+| `goliath-gateway` | `rest.gateway:main` |
+| `goliath-workflow-run` | `local.runner:main` |
+| `goliath-cfg` | `cfg.cli:main` |
 
-The same file also lists `methyl-study-start`, `methyl-study-init`, `methyl-study-validate-manifest`, and `methyl-reclaim-leases`. Those entry points import `admin` and `ops`, and those packages are not in this tree.
+The same file also lists legacy study and ops console entry points. Those entry points import `admin` and `ops`, and those packages are not in this tree. Extension application repositories document one-release console and environment aliases still used on deployed targets.
 
 The shared worker HTTP client is `goliath_worker/` (stdlib only). It claims and submits tasks. It does not execute an action.
 

@@ -1,6 +1,6 @@
 # Deployment targets
 
-GoliathApp ships provider-neutral target descriptors under `deploy/targets/` for platform stacks that need PostgreSQL and the semantic read layer. Worker fleets and the REST gateway are provisioned from descendant repositories (see GoliathOmics `goliath-test`).
+GoliathApp ships provider-neutral target descriptors under `deploy/targets/` for platform stacks that need PostgreSQL and the semantic read layer. Worker fleets and the REST gateway are provisioned from extension application repositories (see each product’s deployment guide and the **`goliath-test`** integration profile where applicable).
 
 ## goliath-exo
 
@@ -21,6 +21,6 @@ Files:
 
 Exograph install steps and environment variables are also summarized in [schema apply](schema-apply.md#exograph-and-mcp-optional) and `exo/README.md`.
 
-## goliath-test (Omics)
+## goliath-test (integration stack)
 
-The **`goliath-test`** name is reserved for the GoliathOmics integration stack (gateway, workers, shared `/work` storage). Do not reuse that name for the Exograph profile.
+The **`goliath-test`** name is reserved for full-stack integration targets that run the gateway, worker fleet, and shared `/work` storage alongside GoliathApp schema. Do not reuse that name for the Exograph **`goliath-exo`** profile. Extension repositories own playbooks for that profile.
