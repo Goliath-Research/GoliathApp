@@ -362,7 +362,7 @@ class PostgresGatewayDb(GatewayDbBase):
         rows = self._fetch_all(
             f"""
             SELECT pool, capability, program_id, workflow_instance_id
-            FROM {self._qual('fn_worker_wake_hints_for_instances')}(%s)
+            FROM {self._qual('fn_worker_wake_hints_for_instances')}(%s::bigint[])
             """,
             (instance_ids,),
         )
@@ -388,7 +388,7 @@ class PostgresGatewayDb(GatewayDbBase):
         rows = self._fetch_all(
             f"""
             SELECT pool, capability, program_id, workflow_instance_id
-            FROM {self._qual('fn_worker_wake_hints_for_node_executions')}(%s)
+            FROM {self._qual('fn_worker_wake_hints_for_node_executions')}(%s::bigint[])
             """,
             (node_execution_ids,),
         )
