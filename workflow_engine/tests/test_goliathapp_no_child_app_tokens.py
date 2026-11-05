@@ -144,11 +144,11 @@ def _scan_file(path: Path) -> list[tuple[int, str, str]]:
     in_alias_block = False
     for lineno, line in enumerate(text.splitlines(), start=1):
         if rel == _PYPROJECT_REL:
-            if _ONE_RELEASE_ALIAS_BLOCK_START.search(line):
-                in_alias_block = True
-            elif _ONE_RELEASE_ALIAS_BLOCK_END.search(line):
+            if _ONE_RELEASE_ALIAS_BLOCK_END.search(line):
                 in_alias_block = False
                 continue
+            if _ONE_RELEASE_ALIAS_BLOCK_START.search(line):
+                in_alias_block = True
         if _line_allowed_one_release_packaging(rel, line, in_alias_block=in_alias_block):
             continue
         token = _line_has_forbidden_token(line)
