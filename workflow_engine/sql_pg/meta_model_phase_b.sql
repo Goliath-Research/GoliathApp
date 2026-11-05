@@ -65,6 +65,8 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS "Meta".fn_class_json_schema(int);
+
 CREATE OR REPLACE FUNCTION "Meta".fn_class_json_schema(p_class_id int, p_as_base boolean DEFAULT false)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -320,6 +322,8 @@ BEGIN
   RETURN v_type_id;
 END;
 $$;
+
+DROP FUNCTION IF EXISTS "Meta".sp_meta_publish_method_params_type(int);
 
 CREATE OR REPLACE FUNCTION "Meta".sp_meta_publish_method_params_type(
   p_method_id int,
