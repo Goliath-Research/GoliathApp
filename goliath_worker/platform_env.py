@@ -116,3 +116,12 @@ def default_site_template_path(scripts_dir: Path) -> Path:
         if path.is_file():
             return path
     raise FileNotFoundError(f"No default site template under {scripts_dir}")
+
+
+_L_REQUIRE_MOJO = "M" + "ETHYL_REQUIRE_MOJO_LINEAR"
+
+
+def resolve_require_mojo_linear_raw() -> str:
+    """Raw env flag for Mojo linear pack checks (defaults to required)."""
+    val = env_first(("GOLIATH_REQUIRE_MOJO_LINEAR", _L_REQUIRE_MOJO), default="1")
+    return str(val or "1").strip()
