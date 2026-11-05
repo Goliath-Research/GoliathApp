@@ -166,13 +166,16 @@ BEGIN
     IF extensions.jsonb_matches_schema(v_schema, v_doc) THEN
       RETURN NEW;
     END IF;
-    RAISE EXCEPTION 'document failed json schema validation for class %', v_leaf_class;
   EXCEPTION
     WHEN undefined_function THEN
       v_use_allof := false;
     WHEN others THEN
       v_use_allof := false;
   END;
+
+  IF v_use_allof THEN
+    RAISE EXCEPTION 'document failed json schema validation for class %', v_leaf_class;
+  END IF;
 
   IF NOT v_use_allof THEN
     v_schema := "Meta".fn_class_json_schema_flattened(v_leaf_class);
