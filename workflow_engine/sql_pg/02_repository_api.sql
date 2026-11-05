@@ -1,5 +1,5 @@
 /*
-  MethylPipeline wf schema - PostgreSQL repository API (middle-tier persistence).
+  GoliathApp wf schema - PostgreSQL repository API (middle-tier persistence).
   Dialect-neutral wrappers for WfEngine.Repository.
   Prerequisites: 00_schema.sql
 */

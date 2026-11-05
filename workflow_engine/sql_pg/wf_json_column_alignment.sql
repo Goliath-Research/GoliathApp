@@ -1,5 +1,5 @@
 /*
-  MethylPipeline wf schema - align JSON payload columns to jsonb (PostgreSQL).
+  GoliathApp wf schema - align JSON payload columns to jsonb (PostgreSQL).
   Safe to re-run.
 */
 

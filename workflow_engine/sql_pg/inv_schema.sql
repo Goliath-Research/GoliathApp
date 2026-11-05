@@ -1,5 +1,5 @@
 -- Domain-neutral inventory & purchasing module (optional; child apps extend via Meta / domain actions).
--- See docs/inventory-module.md and GoliathFactory docs/plan.md § Inventory & Purchasing.
+-- See docs/inventory-module.md for extension-owned inventory documentation.
 
 CREATE SCHEMA IF NOT EXISTS inv;
 

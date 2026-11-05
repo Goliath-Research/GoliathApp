@@ -1,6 +1,6 @@
 # GoliathApp deploy targets
 
-Provider-neutral target descriptors live under `deploy/targets/`. They describe how to wire **PostgreSQL**, the **portal** semantic client, and the optional **Exograph** GraphQL/MCP façade. Workflow **workers** and the REST **gateway** fleet stay in descendant stacks (for example GoliathOmics `goliath-test`); this repository does not provision GPUs or worker pods.
+Provider-neutral target descriptors live under `deploy/targets/`. They describe how to wire **PostgreSQL**, the **portal** semantic client, and the optional **Exograph** GraphQL/MCP façade. Workflow **workers** and the REST **gateway** fleet are provisioned by **application extension** deploy profiles; this repository does not provision GPUs or worker pods.
 
 | Target | Purpose |
 |--------|---------|
@@ -14,7 +14,7 @@ flowchart LR
   UI["Portal / agent UI"]
   EXO["Exograph\nGraphQL + MCP"]
   PG[("PostgreSQL\nportal registry + sp_*")]
-  GW["REST gateway\n(workers — Omics-side)"]
+  GW["REST gateway\n(extension app stack)"]
 
   UI --> EXO
   EXO --> PG

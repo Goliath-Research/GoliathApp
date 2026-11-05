@@ -2,9 +2,6 @@
 # One repo-relative path per line. Remove a path when that file is clean in a D phase.
 # Comments and blank lines are ignored.
 
-deploy/README.md
-deploy/targets/goliath-exo.example.json
-deploy/targets/goliath-exo.json
 docs/dual-activation.md
 docs/pipeline-profiles.md
 docs/schema-apply.md
@@ -38,25 +35,13 @@ workflow_engine/delphi/tests/WfEngine.Integration.Tests.pas
 workflow_engine/domain/_application_profiles.py
 workflow_engine/local/foreach_caas.py
 workflow_engine/pyproject.toml
-workflow_engine/sql_pg/00_schema.sql
-workflow_engine/sql_pg/01_worker_api.sql
-workflow_engine/sql_pg/02_repository_api.sql
-workflow_engine/sql_pg/03_engine_core.sql
-workflow_engine/sql_pg/04_admin.sql
 workflow_engine/sql_pg/README.md
-workflow_engine/sql_pg/cfg_analyte_schema.sql
-workflow_engine/sql_pg/cfg_registry_tables.sql
 workflow_engine/sql_pg/cfg_repo_api.sql
-workflow_engine/sql_pg/inv_schema.sql
-workflow_engine/sql_pg/legacy_cross_schema_fks.sql
 workflow_engine/sql_pg/portal_contract_api.sql
 workflow_engine/sql_pg/portal_guardrails_editor.sql
-workflow_engine/sql_pg/portal_shell_schema.sql
 workflow_engine/sql_pg/portal_study_pipeline_api.sql
 workflow_engine/sql_pg/wf_apply_validation_plan.sql
 workflow_engine/sql_pg/wf_execution_scope.sql
-workflow_engine/sql_pg/wf_instance_extension.sql
-workflow_engine/sql_pg/wf_json_column_alignment.sql
 workflow_engine/sql_pg/wf_test_bed_run.sql
 workflow_engine/tests/test_action_catalog_platform.py
 workflow_engine/tests/test_goliathapp_pg_schema_apply.py

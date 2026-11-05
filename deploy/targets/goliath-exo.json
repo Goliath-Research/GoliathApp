@@ -29,7 +29,7 @@
     "client": "goliath_app.portal.PortalClient or Exograph GraphQL runSemanticRequest"
   },
   "gateway": {
-    "note": "Workflow workers and methyl-gateway stay on the Omics test/production targets (goliath-test). This profile is PostgreSQL + portal + Exograph only."
+    "note": "Workflow workers and the REST gateway are provisioned via extension-app deploy targets, not this profile. This profile is PostgreSQL + portal + Exograph only."
   },
   "schema": {
     "goliathapp": "per-release",
