@@ -77,6 +77,28 @@ _FACTORY_LINE_ALLOW = re.compile(
     re.I,
 )
 
+# ``workflow_engine/pyproject.toml`` keeps ``methyl-*`` console scripts one release (D8→D10).
+_PYPROJECT_REL = "workflow_engine/pyproject.toml"
+_ONE_RELEASE_CONSOLE_ALIAS = re.compile(r"^\s*methyl-[a-z0-9-]+\s*=", re.I)
+_ONE_RELEASE_ALIAS_BLOCK_START = re.compile(
+    r"one-release console-script aliases", re.I
+)
+_ONE_RELEASE_ALIAS_BLOCK_END = re.compile(r"end one-release console-script aliases", re.I)
+
+
+def _line_allowed_one_release_packaging(rel: str, line: str, *, in_alias_block: bool) -> bool:
+    if rel != _PYPROJECT_REL:
+        return False
+    if in_alias_block:
+        return True
+    if _ONE_RELEASE_CONSOLE_ALIAS.match(line):
+        return True
+    if _ONE_RELEASE_ALIAS_BLOCK_START.search(line) or _ONE_RELEASE_ALIAS_BLOCK_END.search(
+        line
+    ):
+        return True
+    return False
+
 
 def _load_allowlist() -> frozenset[str]:
     paths: set[str] = set()
@@ -119,7 +141,16 @@ def _scan_file(path: Path) -> list[tuple[int, str, str]]:
     rel = path.relative_to(REPO_ROOT).as_posix()
     hits: list[tuple[int, str, str]] = []
     text = path.read_text(encoding="utf-8", errors="replace")
+    in_alias_block = False
     for lineno, line in enumerate(text.splitlines(), start=1):
+        if rel == _PYPROJECT_REL:
+            if _ONE_RELEASE_ALIAS_BLOCK_START.search(line):
+                in_alias_block = True
+            elif _ONE_RELEASE_ALIAS_BLOCK_END.search(line):
+                in_alias_block = False
+                continue
+        if _line_allowed_one_release_packaging(rel, line, in_alias_block=in_alias_block):
+            continue
         token = _line_has_forbidden_token(line)
         if token:
             hits.append((lineno, token, line.strip()))

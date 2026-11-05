@@ -19,4 +19,3 @@ workflow_engine/delphi/src/WfEngine.Mvc.Service.dfm
 workflow_engine/delphi/src/WfEngine.Mvc.Service.pas
 workflow_engine/delphi/tests/WfEngine.GatewayService.Tests.pas
 workflow_engine/delphi/tests/WfEngine.Integration.Tests.pas
-workflow_engine/pyproject.toml
