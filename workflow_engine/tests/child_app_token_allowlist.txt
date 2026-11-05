@@ -3,22 +3,15 @@
 # Comments and blank lines are ignored.
 
 .github/workflows/pr.yml
-README.md
-contracts/openapi.yaml
 deploy/README.md
 deploy/targets/goliath-exo.example.json
 deploy/targets/goliath-exo.json
 docs/actions.md
-docs/deployment.md
 docs/dual-activation.md
-docs/inventory-module.md
 docs/pipeline-profiles.md
-docs/platform.md
 docs/schema-apply.md
 docs/semantic-layer.md
-docs/workers.md
 docs/workflow-compiler.md
-docs/workspace-index.md
 goliath_app/actions/registry.py
 goliath_worker/client.py
 goliath_worker/postgres_wake.py

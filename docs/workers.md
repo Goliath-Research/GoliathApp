@@ -2,7 +2,7 @@
 
 Workers never open the database. They call the REST gateway defined in `contracts/openapi.yaml` and implemented in `workflow_engine/rest/gateway.py`. The client in this repository is `goliath_worker.WorkflowRestClient`.
 
-Default base URL is `METHYL_API_BASE`, or `http://localhost:8080/v1`.
+Default base URL is `GOLIATH_API_BASE`, or `http://localhost:8080/v1`.
 
 ## Enrollment
 
@@ -57,7 +57,7 @@ While `desired_state` is `DRAINING` or `STOPPING`, the response has `has_task` f
 Optional checks, off unless the environment flag is set:
 
 - `GATEWAY_WORKER_IP_BIND` — client IP must fall in the cluster `allowed_source_cidrs` when that list is non-empty.
-- `GATEWAY_REQUIRE_ARC_ATTEST` — `X-Arc-Resource-Id` must equal the cluster `arc_resource_id` when one is stored. The client sends the header from `ARC_RESOURCE_ID` or from `METHYL_ARC_ENV` (default `/etc/methyl/arc.env`).
+- `GATEWAY_REQUIRE_ARC_ATTEST` — `X-Arc-Resource-Id` must equal the cluster `arc_resource_id` when one is stored. The client sends the header from `ARC_RESOURCE_ID` or from `GOLIATH_ARC_ENV` (default `/etc/goliath/arc.env`).
 
 `GATEWAY_REQUIRE_ENTRA` is read into the auth config and does not gate worker routes. Workers authenticate with `worker_token`.
 

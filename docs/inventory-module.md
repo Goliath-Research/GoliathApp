@@ -1,6 +1,6 @@
 # Inventory module (`inv`)
 
-GoliathApp ships an **optional**, domain-neutral inventory and purchasing module in the PostgreSQL schema `inv` ([PR #34](https://github.com/Goliath-Research/GoliathApp/pull/34)). Child applications enable and extend it; GoliathApp does not reference factory, crop, or omics concepts.
+GoliathApp ships an **optional**, domain-neutral inventory and purchasing module in the PostgreSQL schema `inv` ([PR #34](https://github.com/Goliath-Research/GoliathApp/pull/34)). Child applications enable and extend it; GoliathApp does not encode child-domain semantics in `inv`.
 
 ## What is included
 
@@ -26,7 +26,7 @@ Core write **`ActionSpec`** rows (entry point `goliath.action_catalogs` / `inv`)
 | `inv.stock.adjust` | Signed adjustment on a lot |
 | `inv.stock.issue` | Stub issue: decrement lot, record opaque `ref_type` / `ref_id` for child genealogy |
 
-Child apps override or wrap these actions (same `action_name` + `overrides`) to attach travelers, QC holds, or crop/omics attributes.
+Child apps override or wrap these actions (same `action_name` + `overrides`) to attach travelers, QC holds, or other domain-specific attributes.
 
 ## Enablement
 
@@ -35,7 +35,7 @@ Child apps override or wrap these actions (same `action_name` + `overrides`) to 
 3. Seed actions: `python3 workflow_engine/sql_pg/seed_action_catalog.py`.
 4. Grant RBAC permissions (`inv.stock.*`) to storekeeper roles in the child app.
 
-Factory/Crop/Omics repos register **`mfg.*` / app namespaces** that alias or extend `inv.*` entities; they do not fork the `inv` tables.
+Child application repositories register **`mfg.*` / app namespaces** that alias or extend `inv.*` entities; they do not fork the `inv` tables.
 
 ## Extension points
 
@@ -46,4 +46,4 @@ Factory/Crop/Omics repos register **`mfg.*` / app namespaces** that alias or ext
 ## Related docs
 
 - [Semantic extensions](semantic-extensions.md)
-- GoliathFactory `docs/plan.md` — Inventory & Purchasing, decision #9 (module location) and #10 (costing default)
+- Child application planning docs — inventory module location and costing defaults (see each product’s `docs/plan.md` where applicable)

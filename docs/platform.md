@@ -15,7 +15,7 @@ The repository map is [workspace-index.md](workspace-index.md). Apply order is [
 | `cfg` | Sites, pipeline profiles, assay procedures, domain programs, studies, credentials, storage, and reference-asset registry tables. |
 | `Contract`, `Onboarding` | Contract and onboarding tables and parity APIs. |
 
-`cfg.analyte` is defined in `cfg_analyte_schema.sql`. The portal navigation shell (`portal."NavTree"`, `portal."Role2Node"`, and related tables) is in `portal_shell_schema.sql`. NavTree is not yet backed by Meta `Tree` ([Meta model](meta-model.md) §6, §11). Generic tenancy uses `portal."Organizations"` in `portal_organization_schema.sql`. Clinical and customer domain tables are owned by apps that extend GoliathApp (for example GoliathOmics).
+`cfg.analyte` is defined in `cfg_analyte_schema.sql`. The portal navigation shell (`portal."NavTree"`, `portal."Role2Node"`, and related tables) is in `portal_shell_schema.sql`. NavTree is not yet backed by Meta `Tree` ([Meta model](meta-model.md) §6, §11). Generic tenancy uses `portal."Organizations"` in `portal_organization_schema.sql`. Clinical and customer domain tables are owned by specialized applications that extend GoliathApp.
 
 There is no separate `obj` schema. Object identity is `"Meta"."Objs"`.
 
@@ -23,28 +23,28 @@ There is no separate `obj` schema. Object identity is `"Meta"."Objs"`.
 
 | Piece | Where | What it does |
 |-------|--------|----------------|
-| REST gateway | `workflow_engine/rest/` | `goliath-gateway` / `methyl-gateway`. Worker enroll, claim, submit, heartbeat, fail, and `POST /v1/events`. |
+| REST gateway | `workflow_engine/rest/` | `goliath-gateway`. Worker enroll, claim, submit, heartbeat, fail, and `POST /v1/events`. |
 | Local runner | `workflow_engine/local/` | `goliath-workflow-run`. Compiles a DomainProgram and can execute the graph in-process. |
 | Compiler | `workflow_engine/domain/` | Lowers DomainProgram JSON to `WorkflowDefinitionSpec`. |
-| Config CLI | `workflow_engine/cfg/` | `goliath-cfg`. File-backed registry under `$METHYL_CFG_STORE` or `$METHYL_WORK_ROOT/goliath/cfg-store` (default `/work/goliath/cfg-store`). |
+| Config CLI | `workflow_engine/cfg/` | `goliath-cfg`. File-backed registry under `$GOLIATH_CFG_STORE` or `$GOLIATH_WORK_ROOT/goliath/cfg-store` (default `/work/goliath/cfg-store`). |
 | Claim client | `goliath_worker/` | HTTP client for the worker routes. No database connection. |
 | Shared storage helpers | `goliath_worker/work_share.py`, `scripts/init_work_layout.sh` | Optional `/work` layout and cross-host permissions. |
 | Contract check | `workflow_engine/contract/validate_contract.py` | Requires the objects in `db_objects.yaml` to appear in `sql_pg/`. |
 | Delphi gateway | `workflow_engine/delphi/` | Frozen Windows reference. The Python gateway is the middle tier that ships here. |
 
-`publish-program --deploy-db` imports `ops.workflow_deploy`, which is not in this tree. `sync-actions` runs `workflow_engine/sql_pg/seed_action_catalog.py`, which is not in this tree. `sync-library-presets` imports `methyl_enricher.preset_registry`, which is not in this tree.
+`publish-program --deploy-db` imports `ops.workflow_deploy`, which is not in this tree. `sync-actions` runs `workflow_engine/sql_pg/seed_action_catalog.py`, which is not in this tree. `sync-library-presets` imports an application enricher preset registry, which is not in this tree.
 
 ## Gateway and database defaults
 
-The gateway connects to PostgreSQL only. Use libpq variables `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` (or `PGPASSFILE`), and `PGSSLMODE` (default `prefer`), or the aliases `POSTGRES_HOST` (default `localhost`), `POSTGRES_PORT` (default `5432`), `POSTGRES_DB` (default `goliath`), `POSTGRES_USER` (default `postgres`), and `POSTGRES_PASSWORD`. `METHYLPIPELINE_DB` replaces the built connection string. `WF_USE_MANAGED_IDENTITY=1` omits the password so an Entra token can be supplied at connect time (hosted PostgreSQL with Entra auth). `WF_SCHEMA` defaults to `wf`.
+The gateway connects to PostgreSQL only. Use libpq variables `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` (or `PGPASSFILE`), and `PGSSLMODE` (default `prefer`), or the aliases `POSTGRES_HOST` (default `localhost`), `POSTGRES_PORT` (default `5432`), `POSTGRES_DB` (default `goliath`), `POSTGRES_USER` (default `postgres`), and `POSTGRES_PASSWORD`. `GOLIATH_DATABASE_URL` or `WF_DATABASE_URL` replaces the built connection string when set. `WF_USE_MANAGED_IDENTITY=1` omits the password so an Entra token can be supplied at connect time (hosted PostgreSQL with Entra auth). `WF_SCHEMA` defaults to `wf`.
 
-The gateway listens on `WF_GATEWAY_HOST` or `REST_HOST` (default `127.0.0.1`) and `WF_GATEWAY_PORT` or `REST_PORT` (default `8080`). Health is `GET /`, `GET /v1`, and `GET /v1/health`. The health body reports `service` as `methyl-workflow-gateway`.
+The gateway listens on `WF_GATEWAY_HOST` or `REST_HOST` (default `127.0.0.1`) and `WF_GATEWAY_PORT` or `REST_PORT` (default `8080`). Health is `GET /`, `GET /v1`, and `GET /v1/health`. The health body reports `service` as `goliath-workflow-gateway`.
 
 The gateway does not load an action catalog and does not resolve study configuration when a worker claims a task. `input_json` on the claim is whatever the database function returns.
 
 ## Config CLI
 
-`goliath-cfg` (alias `methyl-cfg`) subcommands that call code in this tree:
+`goliath-cfg` subcommands that call code in this tree:
 
 `import-fs`, `upsert`, `materialize`, `publish-program`, `scaffold-action`, `verify-workflow`, `link-site-assets`, `provision-assets`, `expand-endpoint`, `list`, `get`, and the study-group commands (`set-study-group`, `set-study-group-members`, `list-study-groups`, `list-study-group-members`, `materialize-study-lists`).
 
@@ -54,9 +54,9 @@ Kinds accepted by the file store are `site`, `pipeline_profile`, `assay_procedur
 
 ## Shared storage
 
-`scripts/init_work_layout.sh` creates a layout under `METHYL_WORK_ROOT`, or `WORK_ROOT`, or `/work`. The mount must already exist. Writable directories (`0777`, with a default ACL when `setfacl` works): `samples/`, `projects/`, `cache/`. Directories created mode `0755`: `genomes/`, `site/`, `goliath/`. If `site/methyl_site.json` is absent, the script copies `scripts/default_methyl_site.json`. An existing site file is left in place.
+`scripts/init_work_layout.sh` creates a layout under `GOLIATH_WORK_ROOT`, or `WORK_ROOT`, or `/work`. The mount must already exist. Writable directories (`0777`, with a default ACL when `setfacl` works): `samples/`, `projects/`, `cache/`. Directories created mode `0755`: `genomes/`, `site/`, `goliath/`. If `site/site.json` is absent, the script copies `scripts/default_site.json`. An existing site file is left in place.
 
-`goliath_worker.work_share` treats `/work` as optional. It also honors `METHYL_WORK_ROOT` and an existing `/lambda/nfs/Work`. A workflow that never calls those helpers has no dependency on the mount.
+`goliath_worker.work_share` treats `/work` as optional. It also honors `GOLIATH_WORK_ROOT` and an existing `/lambda/nfs/Work`. A workflow that never calls those helpers has no dependency on the mount.
 
 ## Local workflow run
 
@@ -66,6 +66,6 @@ goliath-workflow-run --program path/to/program.json --stub-external
 goliath-workflow-run --workflow path/to/spec.json --dry-run
 ```
 
-`--compile-only` writes `WorkflowDefinitionSpec` JSON and does not execute. Execution without `--stub-external` imports `methyl_worker` handlers. That package is not in this tree. `--stub-external` sets `WORKER_STUB_EXTERNAL=1` and returns a stub payload per action. A checked-in program used by tests is `workflow_engine/tests/fixtures/sample_prep.program.json`.
+`--compile-only` writes `WorkflowDefinitionSpec` JSON and does not execute. Execution without `--stub-external` imports application worker handler packages. Those packages are not in this tree. `--stub-external` sets `WORKER_STUB_EXTERNAL=1` and returns a stub payload per action. A checked-in program used by tests is `workflow_engine/tests/fixtures/sample_prep.program.json`.
 
-`finalize_instance_context` enriches a run from `methyl_utils` (project file, site manifest, modality gate). The local engine logs and continues when that import or the project file fails.
+`finalize_instance_context` enriches a run from optional application context utilities (project file, site manifest, modality gate). The local engine logs and continues when that import or the project file fails.
