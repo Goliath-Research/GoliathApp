@@ -2,6 +2,7 @@
 
 Scans repository sources for forbidden tokens (methyl, omics, crop, factory, realty,
 groundstation, goliathalign, goliathextractor, and common Goliath* product spellings).
+See ``docs/decoupling-plan.md`` for the phased removal plan.
 Known legacy references are listed in ``child_app_token_allowlist.txt``; shrink that
 list each decoupling phase. New files and new references outside the allowlist fail CI.
 """
