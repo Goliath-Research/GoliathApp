@@ -18,6 +18,7 @@ from goliath_worker.wake import (
     NullWorkerWakeSubscriber,
     WorkerWakeMessage,
     logical_wake_channel_to_pg_notify,
+    pg_notify_payload_json,
 )
 
 
@@ -92,7 +93,7 @@ class PostgresWorkerWakePublisher:
 
     def publish(self, channel: str, message: WorkerWakeMessage) -> None:
         notify_channel = logical_wake_channel_to_pg_notify(channel)
-        payload = json.dumps(message.to_json(), separators=(",", ":"))
+        payload = pg_notify_payload_json(message)
         conn = self._ensure_connection()
         with conn.cursor() as cur:
             cur.execute("SELECT pg_notify(%s, %s)", (notify_channel, payload))

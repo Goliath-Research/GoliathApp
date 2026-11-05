@@ -27,6 +27,7 @@ from goliath_worker.wake import (  # noqa: E402
 )
 from rest.postgres_wake import resolve_wake_publisher  # noqa: E402
 from rest.connection import GatewayConnectionConfig  # noqa: E402
+from rest.wake_coalesce import CoalescingWorkerWakePublisher  # noqa: E402
 
 
 class PostgresWakeMappingTests(unittest.TestCase):
@@ -158,7 +159,7 @@ class ResolveWakePublisherTests(unittest.TestCase):
         )
         with mock.patch.dict("os.environ", {"WF_WAKE_POSTGRES": "1"}):
             pub = resolve_wake_publisher(config)
-        self.assertIsInstance(pub, PostgresWorkerWakePublisher)
+        self.assertIsInstance(pub, CoalescingWorkerWakePublisher)
 
 
 if __name__ == "__main__":

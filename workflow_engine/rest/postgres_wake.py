@@ -15,6 +15,7 @@ from goliath_worker.postgres_wake import PostgresWorkerWakePublisher  # noqa: E4
 from goliath_worker.wake import NullWorkerWakePublisher, WorkerWakePublisher  # noqa: E402
 
 from .connection import GatewayConnectionConfig, _env_flag  # noqa: E402
+from .wake_coalesce import CoalescingWorkerWakePublisher  # noqa: E402
 
 
 def resolve_wake_publisher(
@@ -23,10 +24,11 @@ def resolve_wake_publisher(
     """Return Postgres NOTIFY publisher when ``WF_WAKE_POSTGRES=1``, else no-op."""
     if not _env_flag("WF_WAKE_POSTGRES"):
         return NullWorkerWakePublisher()
-    return PostgresWorkerWakePublisher(
+    inner = PostgresWorkerWakePublisher(
         config.connection_string,
         use_managed_identity=config.use_managed_identity,
     )
+    return CoalescingWorkerWakePublisher(inner)
 
 
 def resolve_wake_publisher_from_env(
