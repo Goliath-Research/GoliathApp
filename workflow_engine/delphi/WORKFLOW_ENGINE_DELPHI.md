@@ -1,12 +1,12 @@
 # Workflow Engine Delphi REST Gateway (frozen reference)
 
-> **Deprecated.** This Delphi HTTP host is a frozen reference only. See [`DELPHI_GATEWAY_STATUS.md`](DELPHI_GATEWAY_STATUS.md). **Production gateway:** Python `goliath-gateway` in [`../rest/gateway.py`](../rest/gateway.py) (`methyl-gateway` is a one-cycle alias). No new routes or OpenAPI parity work on `WfEngineSrv`.
+> **Deprecated.** This Delphi HTTP host is a frozen reference only. See [`DELPHI_GATEWAY_STATUS.md`](DELPHI_GATEWAY_STATUS.md). **Production gateway:** Python `goliath-gateway` in [`../rest/gateway.py`](../rest/gateway.py). No new routes or OpenAPI parity work on `WfEngineSrv`.
 
 The Delphi middle-tier in `workflow_engine/delphi/src` is a **thin REST gateway** between workers (and other clients) and the `wf` SQL contract. It mirrors the Python production gateway in [`workflow_engine/rest/gateway.py`](../rest/gateway.py).
 
 Workflow activation, control flow, scope resolution, and task progression run **in the database** (`sp_start_workflow_instance`, `sp_worker_submit_result`, `wf_engine_activate`, and related procs). Delphi does not embed an inline engine.
 
-The gateway is built on [DelphiMVCFramework](https://github.com/danieleteti/delphimvcframework) (DMVC) and runs as a **Windows service** (`MethylWfGateway`) that can be started, paused, resumed, and stopped through the Service Control Manager.
+The gateway is built on [DelphiMVCFramework](https://github.com/danieleteti/delphimvcframework) (DMVC) and runs as a **Windows service** (`WfEngineGateway`) that can be started, paused, resumed, and stopped through the Service Control Manager.
 
 It uses DMVC's pluggable server backend (`IMVCServer`) with the **HTTP.sys** driver (`TMVCServerFactory.CreateHttpSys` → `TMVCHttpSysServer`): the Windows kernel-mode HTTP stack (same as IIS/Kestrel), engine-first — no WebBroker module, no Indy sockets.
 
@@ -14,7 +14,7 @@ It uses DMVC's pluggable server backend (`IMVCServer`) with the **HTTP.sys** dri
 
 | Unit | Role |
 |------|------|
-| `WfEngine.Mvc.Service.pas` (`TMethylWfGatewayService`) | Windows service; SCM start/pause/continue/stop |
+| `WfEngine.Mvc.Service.pas` (`TWfEngineGatewayService`) | Windows service; SCM start/pause/continue/stop |
 | `WfEngine.Mvc.Server.pas` (`TWfGatewayServer`) | Standalone `TMVCEngine` + HTTP.sys `IMVCServer`; registers `IGatewayService` for DI |
 | `WfEngine.Mvc.WorkersController.pas` | DMVC worker routes (`MVCFromBody`, `IMVCResponse`) |
 | `WfEngine.Mvc.WorkflowsController.pas` | DMVC workflow admin routes |
@@ -86,13 +86,13 @@ WfEngineSrv /install
 WfEngineSrv /uninstall
 ```
 
-Operate like any Windows service (service name `MethylWfGateway`, display name "MethylPipeline Workflow Gateway"):
+Operate like any Windows service (service name `WfEngineGateway`, display name "Goliath WfEngine Workflow Gateway"):
 
 ```
-sc start    MethylWfGateway
-sc pause    MethylWfGateway     (HTTP listener suspended; DB state kept)
-sc continue MethylWfGateway
-sc stop     MethylWfGateway
+sc start    WfEngineGateway
+sc pause    WfEngineGateway     (HTTP listener suspended; DB state kept)
+sc continue WfEngineGateway
+sc stop     WfEngineGateway
 ```
 
 Pause unregisters the HTTP.sys URL and stops accepting requests without tearing down the gateway; continue re-registers and resumes. Stop closes the listener and releases the DB connection.
@@ -106,7 +106,7 @@ WfEngineSrv /startinstance version=<id> [context={}]   one-shot instance start
 
 Environment (system-level for service mode):
 
-- `METHYLPIPELINE_DB` — UniDAC connection string (required for dev), or
+- `WF_DATABASE_URL` / `GOLIATH_DATABASE_URL` — connection string (optional), or
 - `POSTGRES_*` / `AZURE_SQL_*` — built by `WfEngine.Connection.BuildConnectionStringFromEnv`
 - `BACKEND_DB` — `mssql` (default) or `postgres`
 - `WF_USE_MANAGED_IDENTITY` — `1` or `true` for Azure Entra ID token auth via IMDS (production)
@@ -145,7 +145,7 @@ python workflow_engine/rest/gateway.py --port 8080
 After `wf_repository_api.sql` / `02_repository_api.sql`:
 
 1. Apply [`../sql_mssql/wf_action_schema.sql`](../sql_mssql/wf_action_schema.sql) or [`sql_pg/wf_action_schema.sql`](sql_pg/wf_action_schema.sql).
-2. Export from Pydantic: `methyl-export-task-schemas` (writes `schemas/tasks/*.schema.json`; CI gate: `methyl-export-task-schemas --check`).
+2. Export from Pydantic: `goliath-export-action-schemas` (writes `schemas/tasks/*.schema.json`; CI gate: `goliath-export-action-schemas --check`).
 3. Seed DB: `python workflow_engine/sql_mssql/seed_action_schemas.py` (PostgreSQL; Azure SQL via equivalent `sqlcmd` calling `wf.wf_repo_upsert_action_schema`).
 
 Workers validate resolved `input_json` / handler output at runtime; the gateway serves schemas read-only for the Config Editor.

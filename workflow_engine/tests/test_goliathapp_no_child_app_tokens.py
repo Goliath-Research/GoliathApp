@@ -3,8 +3,9 @@
 Scans repository sources for forbidden tokens (methyl, omics, crop, factory, realty,
 groundstation, goliathalign, goliathextractor, and common Goliath* product spellings).
 See ``docs/decoupling-plan.md`` for the phased removal plan.
-Known legacy references are listed in ``child_app_token_allowlist.txt``; shrink that
-list each decoupling phase. New files and new references outside the allowlist fail CI.
+
+Phase D10: no grandfather allowlist — any hit outside carved-out plan/test paths fails CI.
+The SQL-specific extension-domain guard remains in ``test_goliathapp_sql_no_extension_domain.py``.
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ALLOWLIST = Path(__file__).resolve().parent / "child_app_token_allowlist.txt"
 
 SCAN_EXTENSIONS = frozenset(
     {
@@ -42,7 +42,6 @@ SKIP_DIR_NAMES = frozenset(
 EXCLUDE_REL_PATHS = frozenset(
     {
         "docs/decoupling-plan.md",
-        "workflow_engine/tests/child_app_token_allowlist.txt",
         "workflow_engine/tests/test_goliathapp_no_child_app_tokens.py",
     }
 )
@@ -77,37 +76,6 @@ _FACTORY_LINE_ALLOW = re.compile(
     re.I,
 )
 
-# ``workflow_engine/pyproject.toml`` keeps ``methyl-*`` console scripts one release (D8→D10).
-_PYPROJECT_REL = "workflow_engine/pyproject.toml"
-_ONE_RELEASE_CONSOLE_ALIAS = re.compile(r"^\s*methyl-[a-z0-9-]+\s*=", re.I)
-_ONE_RELEASE_ALIAS_BLOCK_START = re.compile(
-    r"one-release console-script aliases", re.I
-)
-_ONE_RELEASE_ALIAS_BLOCK_END = re.compile(r"end one-release console-script aliases", re.I)
-
-
-def _line_allowed_one_release_packaging(rel: str, line: str, *, in_alias_block: bool) -> bool:
-    if rel != _PYPROJECT_REL:
-        return False
-    if in_alias_block:
-        return True
-    if _ONE_RELEASE_CONSOLE_ALIAS.match(line):
-        return True
-    if _ONE_RELEASE_ALIAS_BLOCK_START.search(line) or _ONE_RELEASE_ALIAS_BLOCK_END.search(
-        line
-    ):
-        return True
-    return False
-
-
-def _load_allowlist() -> frozenset[str]:
-    paths: set[str] = set()
-    for raw in ALLOWLIST.read_text(encoding="utf-8").splitlines():
-        line = raw.split("#", 1)[0].strip()
-        if line:
-            paths.add(line.replace("\\", "/"))
-    return frozenset(paths)
-
 
 def _iter_scan_files() -> list[Path]:
     files: list[Path] = []
@@ -138,64 +106,28 @@ def _line_has_forbidden_token(line: str) -> str | None:
 
 
 def _scan_file(path: Path) -> list[tuple[int, str, str]]:
-    rel = path.relative_to(REPO_ROOT).as_posix()
     hits: list[tuple[int, str, str]] = []
     text = path.read_text(encoding="utf-8", errors="replace")
-    in_alias_block = False
     for lineno, line in enumerate(text.splitlines(), start=1):
-        if rel == _PYPROJECT_REL:
-            if _ONE_RELEASE_ALIAS_BLOCK_END.search(line):
-                in_alias_block = False
-                continue
-            if _ONE_RELEASE_ALIAS_BLOCK_START.search(line):
-                in_alias_block = True
-        if _line_allowed_one_release_packaging(rel, line, in_alias_block=in_alias_block):
-            continue
         token = _line_has_forbidden_token(line)
         if token:
             hits.append((lineno, token, line.strip()))
     return hits
 
 
-def test_child_app_token_allowlist_paths_exist_and_offend() -> None:
-    """Every allowlisted path must still exist and still contain forbidden tokens."""
-    allowlisted = _load_allowlist()
-    missing: list[str] = []
-    stale: list[str] = []
-    for rel in sorted(allowlisted):
-        path = REPO_ROOT / rel
-        if not path.is_file():
-            missing.append(rel)
-            continue
-        if not _scan_file(path):
-            stale.append(rel)
-    problems: list[str] = []
-    if missing:
-        problems.append("Allowlist paths missing on disk:\n" + "\n".join(missing))
-    if stale:
-        problems.append(
-            "Allowlist paths no longer contain forbidden tokens (remove from allowlist):\n"
-            + "\n".join(stale)
-        )
-    assert not problems, "\n\n".join(problems)
-
-
-def test_no_new_child_app_token_references() -> None:
-    allowlisted = _load_allowlist()
+def test_no_child_app_token_references() -> None:
     offenders: list[str] = []
     for path in _iter_scan_files():
         rel = path.relative_to(REPO_ROOT).as_posix()
         hits = _scan_file(path)
         if not hits:
             continue
-        if rel in allowlisted:
-            continue
         for lineno, token, snippet in hits[:5]:
             offenders.append(f"{rel}:{lineno} [{token}] {snippet[:120]}")
         if len(hits) > 5:
             offenders.append(f"{rel}: … +{len(hits) - 5} more lines")
     assert not offenders, (
-        "Child-app or utility tokens outside the allowlist "
-        f"(update {ALLOWLIST.name} only when cleaning a file in a D phase):\n"
+        "Child-app or utility tokens in GoliathApp "
+        "(see docs/decoupling-plan.md; only decoupling-plan.md is excluded):\n"
         + "\n".join(offenders)
     )

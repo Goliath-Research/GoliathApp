@@ -2,7 +2,7 @@ unit WfEngine.GatewayService.Tests;
 
 {
   Service-layer tests for IGatewayService (no HTTP/DMVC).
-  Configure METHYLPIPELINE_DB when running integration cases.
+  Configure WF_DATABASE_URL or POSTGRES_* when running integration cases.
 }
 
 interface

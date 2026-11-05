@@ -3,7 +3,7 @@ unit WfEngine.Mvc.Service;
 {
   Windows service host for the DMVC workflow gateway (HTTP.sys backend).
 
-  Service name: MethylWfGateway
+  Service name: WfEngineGateway
   - Start    -> open DB-backed gateway state and HTTP.sys listener
   - Pause    -> unregister the HTTP.sys URL and stop accepting requests
                 (DB state kept)
@@ -25,7 +25,7 @@ uses
   WfEngine.Mvc.Server;
 
 type
-  TMethylWfGatewayService = class(TService)
+  TWfEngineGatewayService = class(TService)
     procedure ServiceStart(Sender: TService; var Started: Boolean);
     procedure ServiceStop(Sender: TService; var Stopped: Boolean);
     procedure ServicePause(Sender: TService; var Paused: Boolean);
@@ -37,7 +37,7 @@ type
   end;
 
 var
-  MethylWfGateway: TMethylWfGatewayService;
+  WfEngineGateway: TWfEngineGatewayService;
 
 implementation
 
@@ -48,15 +48,15 @@ uses
 
 procedure ServiceController(CtrlCode: DWORD); stdcall;
 begin
-  MethylWfGateway.Controller(CtrlCode);
+  WfEngineGateway.Controller(CtrlCode);
 end;
 
-function TMethylWfGatewayService.GetServiceController: TServiceController;
+function TWfEngineGatewayService.GetServiceController: TServiceController;
 begin
   Result := ServiceController;
 end;
 
-procedure TMethylWfGatewayService.ServiceStart(Sender: TService; var Started: Boolean);
+procedure TWfEngineGatewayService.ServiceStart(Sender: TService; var Started: Boolean);
 begin
   Started := False;
   try
@@ -68,28 +68,28 @@ begin
   except
     on E: Exception do
     begin
-      LogMessage(Format('MethylWfGateway start failed: %s: %s', [E.ClassName, E.Message]));
+      LogMessage(Format('WfEngineGateway start failed: %s: %s', [E.ClassName, E.Message]));
       FreeAndNil(FServer);
       ShutdownGatewayHost;
     end;
   end;
 end;
 
-procedure TMethylWfGatewayService.ServiceStop(Sender: TService; var Stopped: Boolean);
+procedure TWfEngineGatewayService.ServiceStop(Sender: TService; var Stopped: Boolean);
 begin
   FreeAndNil(FServer);
   ShutdownGatewayHost;
   Stopped := True;
 end;
 
-procedure TMethylWfGatewayService.ServicePause(Sender: TService; var Paused: Boolean);
+procedure TWfEngineGatewayService.ServicePause(Sender: TService; var Paused: Boolean);
 begin
   if Assigned(FServer) then
     FServer.Stop;
   Paused := True;
 end;
 
-procedure TMethylWfGatewayService.ServiceContinue(Sender: TService; var Continued: Boolean);
+procedure TWfEngineGatewayService.ServiceContinue(Sender: TService; var Continued: Boolean);
 begin
   if Assigned(FServer) then
     FServer.Start;

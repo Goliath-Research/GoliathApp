@@ -2,12 +2,12 @@ program WfEngineSrv;
 
 //{
 //  FROZEN REFERENCE (2026-06): Delphi workflow REST gateway (DelphiMVCFramework).
-//  Production gateway is Python methyl-gateway on Linux (see DELPHI_GATEWAY_STATUS.md).
+//  Production gateway is Python goliath-gateway on Linux (see DELPHI_GATEWAY_STATUS.md).
 //  No new routes or OpenAPI parity work is expected on this host.
 //
-//  MethylPipeline workflow REST gateway (DelphiMVCFramework, HTTP.sys backend).
+//  Goliath WfEngine workflow REST gateway (DelphiMVCFramework, HTTP.sys backend).
 //
-//  Default mode: Windows service (MethylWfGateway). Supports the standard
+//  Default mode: Windows service (WfEngineGateway). Supports the standard
 //  VCL service switches (/install, /uninstall) and SCM start/pause/continue/stop.
 //
 //  Development modes:
@@ -33,7 +33,7 @@ uses
   WfEngine.Mvc.WorkflowsController in 'src\WfEngine.Mvc.WorkflowsController.pas',
   WfEngine.Mvc.ActionsController in 'src\WfEngine.Mvc.ActionsController.pas',
   WfEngine.Mvc.Server in 'src\WfEngine.Mvc.Server.pas',
-  WfEngine.Mvc.Service in 'src\WfEngine.Mvc.Service.pas' {MethylWfGateway: TService};
+  WfEngine.Mvc.Service in 'src\WfEngine.Mvc.Service.pas' {WfEngineGateway: TService};
 
 function GetArgValue(const Name, Default: string): string;
 var
@@ -52,19 +52,20 @@ end;
 
 procedure PrintUsage;
 begin
-  Writeln('WfEngineSrv - MethylPipeline workflow REST gateway (Windows service, HTTP.sys)');
+  Writeln('WfEngineSrv - Goliath WfEngine workflow REST gateway (Windows service, HTTP.sys)');
   Writeln;
   Writeln('Service management:');
-  Writeln('  WfEngineSrv /install                      register service MethylWfGateway');
+  Writeln('  WfEngineSrv /install                      register service WfEngineGateway');
   Writeln('  WfEngineSrv /uninstall                    remove the service');
-  Writeln('  sc start|pause|continue|stop MethylWfGateway');
+  Writeln('  sc start|pause|continue|stop WfEngineGateway');
   Writeln;
   Writeln('Development:');
   Writeln('  WfEngineSrv /console [port=8080]          run gateway in the foreground (localhost)');
   Writeln('  WfEngineSrv /startinstance version=<id> [context={}]');
   Writeln;
   Writeln('Environment:');
-  Writeln('  METHYLPIPELINE_DB  UniDAC connection string (required)');
+  Writeln('  WF_DATABASE_URL / GOLIATH_DATABASE_URL  connection string (optional)');
+  Writeln('  POSTGRES_* / AZURE_SQL_*                libpq or Azure SQL pieces');
   Writeln('  BACKEND_DB         mssql | postgres (optional)');
   Writeln('  WF_GATEWAY_PORT    HTTP port (default 8080)');
   Writeln('  WF_GATEWAY_HOST    HTTP.sys host binding (service default ''+'', console ''localhost'')');
@@ -139,7 +140,7 @@ begin
     // (also handles /install and /uninstall).
     if not Application.DelayInitialize or Application.Installing then
       Application.Initialize;
-    Application.CreateForm(TMethylWfGatewayService, MethylWfGateway);
+    Application.CreateForm(TWfEngineGatewayService, WfEngineGateway);
     Application.Run;
   except
     on E: Exception do

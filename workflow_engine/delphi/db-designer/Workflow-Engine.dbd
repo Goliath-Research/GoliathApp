@@ -65,7 +65,7 @@
               <Height>241 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.cluster</Path>
+              <Path>GoliathWfRef.wf.cluster</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -88,7 +88,7 @@
               <Height>133 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.instance_cursor</Path>
+              <Path>GoliathWfRef.wf.instance_cursor</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -111,7 +111,7 @@
               <Height>187 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.loop_state</Path>
+              <Path>GoliathWfRef.wf.loop_state</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -134,7 +134,7 @@
               <Height>349 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.node_execution</Path>
+              <Path>GoliathWfRef.wf.node_execution</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -191,7 +191,7 @@
             </BendPoints>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.node_execution.FK_ne_parent_exec</Path>
+              <Path>GoliathWfRef.wf.node_execution.FK_ne_parent_exec</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -262,7 +262,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.loop_state.FK_ls_scope</Path>
+              <Path>GoliathWfRef.wf.loop_state.FK_ls_scope</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -309,7 +309,7 @@
               <Height>151 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.task_lease</Path>
+              <Path>GoliathWfRef.wf.task_lease</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -356,7 +356,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.task_lease.FK_tl_ne</Path>
+              <Path>GoliathWfRef.wf.task_lease.FK_tl_ne</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -403,7 +403,7 @@
               <Height>259 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.worker</Path>
+              <Path>GoliathWfRef.wf.worker</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -450,7 +450,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.worker.FK_worker_cluster</Path>
+              <Path>GoliathWfRef.wf.worker.FK_worker_cluster</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -521,7 +521,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.task_lease.FK_tl_worker</Path>
+              <Path>GoliathWfRef.wf.task_lease.FK_tl_worker</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -568,7 +568,7 @@
               <Height>223 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.worker_token</Path>
+              <Path>GoliathWfRef.wf.worker_token</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -615,7 +615,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.worker_token.FK_wt_worker</Path>
+              <Path>GoliathWfRef.wf.worker_token.FK_wt_worker</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -662,7 +662,7 @@
               <Height>151 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_action</Path>
+              <Path>GoliathWfRef.wf.workflow_action</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -685,7 +685,7 @@
               <Height>151 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_def</Path>
+              <Path>GoliathWfRef.wf.workflow_def</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -708,7 +708,7 @@
               <Height>223 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_edge</Path>
+              <Path>GoliathWfRef.wf.workflow_edge</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -731,7 +731,7 @@
               <Height>169 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_input_binding</Path>
+              <Path>GoliathWfRef.wf.workflow_input_binding</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -754,7 +754,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_input_template</Path>
+              <Path>GoliathWfRef.wf.workflow_input_template</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -777,7 +777,7 @@
               <Height>223 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_node</Path>
+              <Path>GoliathWfRef.wf.workflow_node</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -834,7 +834,7 @@
             </BendPoints>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_node.FK_wn_action</Path>
+              <Path>GoliathWfRef.wf.workflow_node.FK_wn_action</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -905,7 +905,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.loop_state.FK_ls_control</Path>
+              <Path>GoliathWfRef.wf.loop_state.FK_ls_control</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -982,7 +982,7 @@
             </BendPoints>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.node_execution.FK_ne_node</Path>
+              <Path>GoliathWfRef.wf.node_execution.FK_ne_node</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1053,7 +1053,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_edge.FK_we_child</Path>
+              <Path>GoliathWfRef.wf.workflow_edge.FK_we_child</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1124,7 +1124,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_edge.FK_we_parent</Path>
+              <Path>GoliathWfRef.wf.workflow_edge.FK_we_parent</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1195,7 +1195,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_input_binding.FK_wib_node</Path>
+              <Path>GoliathWfRef.wf.workflow_input_binding.FK_wib_node</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1266,7 +1266,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_input_template.FK_wit_node</Path>
+              <Path>GoliathWfRef.wf.workflow_input_template.FK_wit_node</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1313,7 +1313,7 @@
               <Height>187 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_version</Path>
+              <Path>GoliathWfRef.wf.workflow_version</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -1366,7 +1366,7 @@
             </BendPoints>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_version.FK_wfv_def</Path>
+              <Path>GoliathWfRef.wf.workflow_version.FK_wfv_def</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1437,7 +1437,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_version.FK_wfv_root</Path>
+              <Path>GoliathWfRef.wf.workflow_version.FK_wfv_root</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1508,7 +1508,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.workflow_node.FK_wn_version</Path>
+              <Path>GoliathWfRef.wf.workflow_node.FK_wn_version</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1593,7 +1593,7 @@
             </BendPoints>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.wf.node_execution.FK_node_execution_instance_cursor_workflow_instance_id</Path>
+              <Path>GoliathWfRef.wf.node_execution.FK_node_execution_instance_cursor_workflow_instance_id</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
