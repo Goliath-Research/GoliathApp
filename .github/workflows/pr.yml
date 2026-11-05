@@ -79,6 +79,9 @@ jobs:
             workflow_engine/tests/test_portal_client.py \
             workflow_engine/tests/test_portal_client_types.py \
             workflow_engine/tests/test_exograph_third_party.py \
+            workflow_engine/tests/test_worker_wake.py \
+            workflow_engine/tests/test_wake_auto_publish.py \
+            workflow_engine/tests/test_postgres_wake.py \
             -q
         env:
           POSTGRES_HOST: localhost
