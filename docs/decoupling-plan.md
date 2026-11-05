@@ -214,19 +214,26 @@ Each phase is intended as **one small PR** to GoliathApp unless noted. Order can
 
 ### D8 — Production database and service identifiers ⚠️
 
-**Requires David's confirmation before any apply to shared environments.**
+**David approved (2026-11-05).** Neon backup branch `backup-d8-20261105` was created before apply.
 
-**GoliathApp + infra**
+**GoliathApp (landed in this repository)**
 
-- Rename PostgreSQL database `methylpipeline` → `goliath` (or per-env standard) on Azure / exo hosts.
-- Rotate connection strings in Key Vault / deploy targets; keep read-only alias DB view or `METHYLPIPELINE_DB` env shim one release.
-- If any Windows host still runs Delphi `MethylWfGateway`, decommission or rename service — Python gateway is canonical per `DELPHI_GATEWAY_STATUS.md`.
+- Python gateway and workers default logical DB name `goliath` and prefer `GOLIATH_DATABASE_URL` / `WF_DATABASE_URL` with `METHYLPIPELINE_DB` fallback (D4). Non-Delphi code no longer defaults to `methylpipeline`.
+- PyPI distribution `goliath-gateway`; **`methyl-*` console-script aliases remain one release** (marked block in `workflow_engine/pyproject.toml`; `test_goliathapp_no_child_app_tokens.py` ignores that block until D10).
+- Token allowlist is **`workflow_engine/delphi/` only** (`pyproject.toml` removed from allowlist). Delphi `MethylWfGateway` / `WfEngineSrv` stay **deprecated and not deployed** (`DELPHI_GATEWAY_STATUS.md`); tree scrub or archive is **D9**.
+- **No Neon or shared PostgreSQL rename from GoliathApp** — infra apply is paired with GoliathOmics.
 
-**GoliathOmics**
+**Production naming (confirmed)**
 
-- Worker pools and `methyl-gateway` systemd units on omics targets renamed to `goliath-gateway` with matching env.
+| Target | Database / service note |
+|--------|-------------------------|
+| **GoliathOmics Neon** | Database name stays **`GoliathOmics`** (no rename). |
+| Exo / legacy App hosts | Where the logical DB was `methylpipeline`, operators may rename to `goliath`; rotate Key Vault / deploy targets; keep `METHYLPIPELINE_DB` env shim one release. |
+| **GoliathOmics deploy** | systemd/nginx/install path renames (`methyl-gateway` → `goliath-gateway`, matching env) land in **GoliathOmics**, not GoliathApp. |
 
-**Paired rollout**: maintenance window, backup, connection string swap, verify `goliath-gateway` health and worker claim.
+**Paired rollout**: maintenance window, backup (Neon branch above), connection string swap where applicable, verify `goliath-gateway` health and worker claim.
+
+**Allowlist**: `delphi/` subtree only until D9.
 
 ---
 
