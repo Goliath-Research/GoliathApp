@@ -39,6 +39,10 @@ def _request_schema_id(req: SemanticRequestSpec) -> str:
 
 
 def _pg_type_for_field(field_schema: dict[str, Any]) -> str:
+    if "anyOf" in field_schema:
+        for option in field_schema["anyOf"]:
+            if option.get("type") != "null":
+                return _pg_type_for_field(option)
     field_type = field_schema.get("type")
     if field_type == "integer":
         return "integer"
@@ -46,6 +50,8 @@ def _pg_type_for_field(field_schema: dict[str, Any]) -> str:
         return "boolean"
     if field_type == "number":
         return "double precision"
+    if field_schema.get("format") == "date-time":
+        return "timestamptz"
     return "text"
 
 
@@ -66,13 +72,16 @@ def export_row_types_sql(catalog: Sequence[SemanticEntitySpec]) -> str:
             continue
         model_schema = entity.row_model.model_json_schema(mode="serialization")
         props = model_schema.get("properties", {})
-        required = model_schema.get("required", list(props.keys()))
         type_name = _row_type_name(entity)
         field_parts: List[str] = []
-        for name in required:
+        for name in props:
             pg_t = _pg_type_for_field(props.get(name, {}))
             field_parts.append(f"  {name} {pg_t}")
         fields_sql = ",\n".join(field_parts)
+        alter_lines = [
+            f"ALTER TYPE portal.{type_name} ADD ATTRIBUTE IF NOT EXISTS {name} {_pg_type_for_field(props.get(name, {}))};"
+            for name in props
+        ]
         lines.extend(
             [
                 "DO $$",
@@ -87,6 +96,7 @@ def export_row_types_sql(catalog: Sequence[SemanticEntitySpec]) -> str:
                 "    );",
                 "  END IF;",
                 "END $$;",
+                *alter_lines,
                 "",
             ]
         )

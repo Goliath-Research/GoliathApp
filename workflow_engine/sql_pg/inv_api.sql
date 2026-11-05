@@ -71,7 +71,7 @@ DECLARE
   v_old_avg numeric;
   v_new_avg numeric;
 BEGIN
-  v_old_qty := inv.fn_item_qty_on_hand(p_item_id);
+  v_old_qty := inv.fn_item_qty_on_hand(p_item_id) - p_recv_qty;
   SELECT i.avg_unit_cost INTO v_old_avg FROM inv.item i WHERE i.item_id = p_item_id FOR UPDATE;
   IF v_old_qty + p_recv_qty = 0 THEN
     v_new_avg := 0;
@@ -239,6 +239,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = inv, portal, pg_temp
 AS $$
+#variable_conflict use_column
 DECLARE
   v_item_id integer;
   v_org_id integer;
@@ -311,6 +312,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = inv, portal, pg_temp
 AS $$
+#variable_conflict use_column
 DECLARE
   v_item_id integer;
   v_org_id integer;
@@ -371,6 +373,7 @@ AS $$
 DECLARE
   v_org_id integer;
   v_lot_qty numeric;
+  v_lot_item_id integer;
 BEGIN
   PERFORM inv.fn_assert_org_member(p_user_id, p_organization_id);
   IF p_qty IS NULL OR p_qty <= 0 THEN
@@ -383,13 +386,16 @@ BEGIN
   END IF;
 
   IF p_stock_lot_id IS NOT NULL THEN
-    SELECT s.qty_on_hand, s.organization_id
-    INTO v_lot_qty, v_org_id
+    SELECT s.qty_on_hand, s.organization_id, s.item_id
+    INTO v_lot_qty, v_org_id, v_lot_item_id
     FROM inv.stock_lot s
     WHERE s.stock_lot_id = p_stock_lot_id
     FOR UPDATE;
     IF v_org_id IS DISTINCT FROM p_organization_id THEN
       RAISE EXCEPTION 'stock lot not in organization';
+    END IF;
+    IF v_lot_item_id IS DISTINCT FROM p_item_id THEN
+      RAISE EXCEPTION 'stock lot item does not match reservation item';
     END IF;
     IF v_lot_qty < p_qty THEN
       RAISE EXCEPTION 'insufficient qty on lot';

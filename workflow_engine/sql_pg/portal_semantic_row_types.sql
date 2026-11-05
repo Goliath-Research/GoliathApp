@@ -17,6 +17,9 @@ BEGIN
     );
   END IF;
 END $$;
+ALTER TYPE portal.core_organization_row ADD ATTRIBUTE IF NOT EXISTS organization_id integer;
+ALTER TYPE portal.core_organization_row ADD ATTRIBUTE IF NOT EXISTS name text;
+ALTER TYPE portal.core_organization_row ADD ATTRIBUTE IF NOT EXISTS active boolean;
 
 DO $$
 BEGIN
@@ -38,6 +41,15 @@ BEGIN
     );
   END IF;
 END $$;
+ALTER TYPE portal.inv_item_row ADD ATTRIBUTE IF NOT EXISTS item_id integer;
+ALTER TYPE portal.inv_item_row ADD ATTRIBUTE IF NOT EXISTS organization_id integer;
+ALTER TYPE portal.inv_item_row ADD ATTRIBUTE IF NOT EXISTS item_number text;
+ALTER TYPE portal.inv_item_row ADD ATTRIBUTE IF NOT EXISTS description text;
+ALTER TYPE portal.inv_item_row ADD ATTRIBUTE IF NOT EXISTS base_unit text;
+ALTER TYPE portal.inv_item_row ADD ATTRIBUTE IF NOT EXISTS costing_method text;
+ALTER TYPE portal.inv_item_row ADD ATTRIBUTE IF NOT EXISTS qty_on_hand double precision;
+ALTER TYPE portal.inv_item_row ADD ATTRIBUTE IF NOT EXISTS avg_unit_cost double precision;
+ALTER TYPE portal.inv_item_row ADD ATTRIBUTE IF NOT EXISTS active boolean;
 
 DO $$
 BEGIN
@@ -52,10 +64,18 @@ BEGIN
   po_number text,
   supplier_code text,
   supplier_name text,
-  status text
+  status text,
+  ordered_at_utc timestamptz
     );
   END IF;
 END $$;
+ALTER TYPE portal.inv_purchase_order_row ADD ATTRIBUTE IF NOT EXISTS purchase_order_id integer;
+ALTER TYPE portal.inv_purchase_order_row ADD ATTRIBUTE IF NOT EXISTS organization_id integer;
+ALTER TYPE portal.inv_purchase_order_row ADD ATTRIBUTE IF NOT EXISTS po_number text;
+ALTER TYPE portal.inv_purchase_order_row ADD ATTRIBUTE IF NOT EXISTS supplier_code text;
+ALTER TYPE portal.inv_purchase_order_row ADD ATTRIBUTE IF NOT EXISTS supplier_name text;
+ALTER TYPE portal.inv_purchase_order_row ADD ATTRIBUTE IF NOT EXISTS status text;
+ALTER TYPE portal.inv_purchase_order_row ADD ATTRIBUTE IF NOT EXISTS ordered_at_utc timestamptz;
 
 DO $$
 BEGIN
@@ -71,11 +91,21 @@ BEGIN
   item_number text,
   location_code text,
   bin_code text,
+  lot_number text,
   qty_on_hand double precision,
   unit_cost double precision
     );
   END IF;
 END $$;
+ALTER TYPE portal.inv_stock_lot_row ADD ATTRIBUTE IF NOT EXISTS stock_lot_id integer;
+ALTER TYPE portal.inv_stock_lot_row ADD ATTRIBUTE IF NOT EXISTS organization_id integer;
+ALTER TYPE portal.inv_stock_lot_row ADD ATTRIBUTE IF NOT EXISTS item_id integer;
+ALTER TYPE portal.inv_stock_lot_row ADD ATTRIBUTE IF NOT EXISTS item_number text;
+ALTER TYPE portal.inv_stock_lot_row ADD ATTRIBUTE IF NOT EXISTS location_code text;
+ALTER TYPE portal.inv_stock_lot_row ADD ATTRIBUTE IF NOT EXISTS bin_code text;
+ALTER TYPE portal.inv_stock_lot_row ADD ATTRIBUTE IF NOT EXISTS lot_number text;
+ALTER TYPE portal.inv_stock_lot_row ADD ATTRIBUTE IF NOT EXISTS qty_on_hand double precision;
+ALTER TYPE portal.inv_stock_lot_row ADD ATTRIBUTE IF NOT EXISTS unit_cost double precision;
 
 DO $$
 BEGIN
@@ -92,7 +122,17 @@ BEGIN
   supplier_code text,
   supplier_part_number text,
   preferred boolean,
+  lead_time_days integer,
   active boolean
     );
   END IF;
 END $$;
+ALTER TYPE portal.inv_supplier_item_row ADD ATTRIBUTE IF NOT EXISTS supplier_item_id integer;
+ALTER TYPE portal.inv_supplier_item_row ADD ATTRIBUTE IF NOT EXISTS organization_id integer;
+ALTER TYPE portal.inv_supplier_item_row ADD ATTRIBUTE IF NOT EXISTS item_id integer;
+ALTER TYPE portal.inv_supplier_item_row ADD ATTRIBUTE IF NOT EXISTS item_number text;
+ALTER TYPE portal.inv_supplier_item_row ADD ATTRIBUTE IF NOT EXISTS supplier_code text;
+ALTER TYPE portal.inv_supplier_item_row ADD ATTRIBUTE IF NOT EXISTS supplier_part_number text;
+ALTER TYPE portal.inv_supplier_item_row ADD ATTRIBUTE IF NOT EXISTS preferred boolean;
+ALTER TYPE portal.inv_supplier_item_row ADD ATTRIBUTE IF NOT EXISTS lead_time_days integer;
+ALTER TYPE portal.inv_supplier_item_row ADD ATTRIBUTE IF NOT EXISTS active boolean;
