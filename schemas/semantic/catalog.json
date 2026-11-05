@@ -62,6 +62,402 @@
       "schema_id": "goliath.semantic/core/organization/1",
       "schema_version": "1",
       "storage_relation": "portal.\"Organizations\""
+    },
+    "inv.item": {
+      "attributes": [
+        {
+          "code": "item_id",
+          "column_name": "item_id",
+          "filterable_ops": [],
+          "json_type": "integer",
+          "role": "key"
+        },
+        {
+          "code": "organization_id",
+          "column_name": "organization_id",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "integer",
+          "role": "filter"
+        },
+        {
+          "code": "item_number",
+          "column_name": "item_number",
+          "filterable_ops": [
+            "eq",
+            "starts_with"
+          ],
+          "json_type": "string",
+          "role": "filter"
+        },
+        {
+          "code": "active",
+          "column_name": "active",
+          "filterable_ops": [],
+          "json_type": "boolean",
+          "role": "list"
+        }
+      ],
+      "catalog_type_name": null,
+      "code": "item",
+      "content_hash": "aad5e39a9392bead0689af31a21d81d2e654c7ec1057e7897fbda6614e445d3f",
+      "description": "Domain-neutral item master with on-hand quantity and costing.",
+      "display_name": "Item",
+      "meta_class_id": null,
+      "meta_class_name": null,
+      "namespace": "inv",
+      "row_schema": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "avg_unit_cost": {
+            "title": "Avg Unit Cost",
+            "type": "number"
+          },
+          "base_unit": {
+            "title": "Base Unit",
+            "type": "string"
+          },
+          "costing_method": {
+            "title": "Costing Method",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "item_number": {
+            "title": "Item Number",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "qty_on_hand": {
+            "title": "Qty On Hand",
+            "type": "number"
+          }
+        },
+        "required": [
+          "item_id",
+          "organization_id",
+          "item_number",
+          "description",
+          "base_unit",
+          "costing_method",
+          "qty_on_hand",
+          "avg_unit_cost",
+          "active"
+        ],
+        "title": "ItemRow",
+        "type": "object"
+      },
+      "row_type": "portal.inv_item_row",
+      "schema_id": "goliath.semantic/inv/item/1",
+      "schema_version": "1",
+      "storage_relation": "inv.v_item"
+    },
+    "inv.purchase_order": {
+      "attributes": [
+        {
+          "code": "purchase_order_id",
+          "column_name": "purchase_order_id",
+          "filterable_ops": [],
+          "json_type": "integer",
+          "role": "key"
+        },
+        {
+          "code": "organization_id",
+          "column_name": "organization_id",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "integer",
+          "role": "filter"
+        },
+        {
+          "code": "status",
+          "column_name": "status",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "string",
+          "role": "filter"
+        }
+      ],
+      "catalog_type_name": null,
+      "code": "purchase_order",
+      "content_hash": "df8856164450ac363627c4bec46153b3ae1d1139f6c64e3f8658ece0ce612ca2",
+      "description": "Supplier purchase order header.",
+      "display_name": "Purchase order",
+      "meta_class_id": null,
+      "meta_class_name": null,
+      "namespace": "inv",
+      "row_schema": {
+        "properties": {
+          "ordered_at_utc": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ordered At Utc"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "po_number": {
+            "title": "Po Number",
+            "type": "string"
+          },
+          "purchase_order_id": {
+            "title": "Purchase Order Id",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "supplier_code": {
+            "title": "Supplier Code",
+            "type": "string"
+          },
+          "supplier_name": {
+            "title": "Supplier Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purchase_order_id",
+          "organization_id",
+          "po_number",
+          "supplier_code",
+          "supplier_name",
+          "status"
+        ],
+        "title": "PurchaseOrderRow",
+        "type": "object"
+      },
+      "row_type": "portal.inv_purchase_order_row",
+      "schema_id": "goliath.semantic/inv/purchase_order/1",
+      "schema_version": "1",
+      "storage_relation": "inv.v_purchase_order"
+    },
+    "inv.stock_lot": {
+      "attributes": [
+        {
+          "code": "stock_lot_id",
+          "column_name": "stock_lot_id",
+          "filterable_ops": [],
+          "json_type": "integer",
+          "role": "key"
+        },
+        {
+          "code": "organization_id",
+          "column_name": "organization_id",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "integer",
+          "role": "filter"
+        },
+        {
+          "code": "item_id",
+          "column_name": "item_id",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "integer",
+          "role": "filter"
+        }
+      ],
+      "catalog_type_name": null,
+      "code": "stock_lot",
+      "content_hash": "6157112d042f5c11ed53e63a8513f8fbcd08bfc876fe8877138b32425482bdbb",
+      "description": "On-hand inventory lot in a bin.",
+      "display_name": "Stock lot",
+      "meta_class_id": null,
+      "meta_class_name": null,
+      "namespace": "inv",
+      "row_schema": {
+        "properties": {
+          "bin_code": {
+            "title": "Bin Code",
+            "type": "string"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "item_number": {
+            "title": "Item Number",
+            "type": "string"
+          },
+          "location_code": {
+            "title": "Location Code",
+            "type": "string"
+          },
+          "lot_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lot Number"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "qty_on_hand": {
+            "title": "Qty On Hand",
+            "type": "number"
+          },
+          "stock_lot_id": {
+            "title": "Stock Lot Id",
+            "type": "integer"
+          },
+          "unit_cost": {
+            "title": "Unit Cost",
+            "type": "number"
+          }
+        },
+        "required": [
+          "stock_lot_id",
+          "organization_id",
+          "item_id",
+          "item_number",
+          "location_code",
+          "bin_code",
+          "qty_on_hand",
+          "unit_cost"
+        ],
+        "title": "StockLotRow",
+        "type": "object"
+      },
+      "row_type": "portal.inv_stock_lot_row",
+      "schema_id": "goliath.semantic/inv/stock_lot/1",
+      "schema_version": "1",
+      "storage_relation": "inv.v_stock_lot"
+    },
+    "inv.supplier_item": {
+      "attributes": [
+        {
+          "code": "supplier_item_id",
+          "column_name": "supplier_item_id",
+          "filterable_ops": [],
+          "json_type": "integer",
+          "role": "key"
+        },
+        {
+          "code": "organization_id",
+          "column_name": "organization_id",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "integer",
+          "role": "filter"
+        },
+        {
+          "code": "item_id",
+          "column_name": "item_id",
+          "filterable_ops": [
+            "eq"
+          ],
+          "json_type": "integer",
+          "role": "filter"
+        }
+      ],
+      "catalog_type_name": null,
+      "code": "supplier_item",
+      "content_hash": "0955088b4caa996b617b18933abb6bace03e77a0860f1dc493bc665f8a9bdac1",
+      "description": "Supplier catalog line linked to an internal item.",
+      "display_name": "Supplier item",
+      "meta_class_id": null,
+      "meta_class_name": null,
+      "namespace": "inv",
+      "row_schema": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "item_number": {
+            "title": "Item Number",
+            "type": "string"
+          },
+          "lead_time_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lead Time Days"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "preferred": {
+            "title": "Preferred",
+            "type": "boolean"
+          },
+          "supplier_code": {
+            "title": "Supplier Code",
+            "type": "string"
+          },
+          "supplier_item_id": {
+            "title": "Supplier Item Id",
+            "type": "integer"
+          },
+          "supplier_part_number": {
+            "title": "Supplier Part Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "supplier_item_id",
+          "organization_id",
+          "item_id",
+          "item_number",
+          "supplier_code",
+          "supplier_part_number",
+          "preferred",
+          "active"
+        ],
+        "title": "SupplierItemRow",
+        "type": "object"
+      },
+      "row_type": "portal.inv_supplier_item_row",
+      "schema_id": "goliath.semantic/inv/supplier_item/1",
+      "schema_version": "1",
+      "storage_relation": "inv.v_supplier_item"
     }
   },
   "requests": {
@@ -279,6 +675,443 @@
       "schema_id": "goliath.semantic/core/core.restricted_probe/1",
       "target_kind": "function",
       "target_name": "portal.fn_semantic_core_list_organizations",
+      "version": "1"
+    },
+    "inv.item.list": {
+      "base_namespace": null,
+      "content_hash": "a5947d0e20db0721893ce995ad52f3b28e278bf459bb0db332da8872fb03b23f",
+      "entity_code": "item",
+      "filter_template": null,
+      "max_rows": 500,
+      "namespace": "inv",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Active"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 500,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Limit"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "ListItemsParams",
+        "type": "object"
+      },
+      "request_code": "inv.item.list",
+      "required_permission": null,
+      "result_schema": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "avg_unit_cost": {
+            "title": "Avg Unit Cost",
+            "type": "number"
+          },
+          "base_unit": {
+            "title": "Base Unit",
+            "type": "string"
+          },
+          "costing_method": {
+            "title": "Costing Method",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "item_number": {
+            "title": "Item Number",
+            "type": "string"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "qty_on_hand": {
+            "title": "Qty On Hand",
+            "type": "number"
+          }
+        },
+        "required": [
+          "item_id",
+          "organization_id",
+          "item_number",
+          "description",
+          "base_unit",
+          "costing_method",
+          "qty_on_hand",
+          "avg_unit_cost",
+          "active"
+        ],
+        "title": "ItemRow",
+        "type": "object"
+      },
+      "row_type": "portal.inv_item_row",
+      "schema_id": "goliath.semantic/inv/inv.item.list/1",
+      "target_kind": "function",
+      "target_name": "inv.fn_semantic_list_items",
+      "version": "1"
+    },
+    "inv.purchase_order.list": {
+      "base_namespace": null,
+      "content_hash": "117ae34eef443797dd24e3b021e5031a080e7fa415970725be268cbbce5d24cc",
+      "entity_code": "purchase_order",
+      "filter_template": null,
+      "max_rows": 500,
+      "namespace": "inv",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 500,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Limit"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "ListPurchaseOrdersParams",
+        "type": "object"
+      },
+      "request_code": "inv.purchase_order.list",
+      "required_permission": null,
+      "result_schema": {
+        "properties": {
+          "ordered_at_utc": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ordered At Utc"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "po_number": {
+            "title": "Po Number",
+            "type": "string"
+          },
+          "purchase_order_id": {
+            "title": "Purchase Order Id",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "supplier_code": {
+            "title": "Supplier Code",
+            "type": "string"
+          },
+          "supplier_name": {
+            "title": "Supplier Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purchase_order_id",
+          "organization_id",
+          "po_number",
+          "supplier_code",
+          "supplier_name",
+          "status"
+        ],
+        "title": "PurchaseOrderRow",
+        "type": "object"
+      },
+      "row_type": "portal.inv_purchase_order_row",
+      "schema_id": "goliath.semantic/inv/inv.purchase_order.list/1",
+      "target_kind": "function",
+      "target_name": "inv.fn_semantic_list_purchase_orders",
+      "version": "1"
+    },
+    "inv.stock_lot.by_item": {
+      "base_namespace": null,
+      "content_hash": "59ea2d769a73c8ebe809055fca1dffd7b686b535098bc6950f09c5e5cf5b1026",
+      "entity_code": "stock_lot",
+      "filter_template": null,
+      "max_rows": 500,
+      "namespace": "inv",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 500,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Limit"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "organization_id",
+          "item_id"
+        ],
+        "title": "StockLotsByItemParams",
+        "type": "object"
+      },
+      "request_code": "inv.stock_lot.by_item",
+      "required_permission": null,
+      "result_schema": {
+        "properties": {
+          "bin_code": {
+            "title": "Bin Code",
+            "type": "string"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "item_number": {
+            "title": "Item Number",
+            "type": "string"
+          },
+          "location_code": {
+            "title": "Location Code",
+            "type": "string"
+          },
+          "lot_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lot Number"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "qty_on_hand": {
+            "title": "Qty On Hand",
+            "type": "number"
+          },
+          "stock_lot_id": {
+            "title": "Stock Lot Id",
+            "type": "integer"
+          },
+          "unit_cost": {
+            "title": "Unit Cost",
+            "type": "number"
+          }
+        },
+        "required": [
+          "stock_lot_id",
+          "organization_id",
+          "item_id",
+          "item_number",
+          "location_code",
+          "bin_code",
+          "qty_on_hand",
+          "unit_cost"
+        ],
+        "title": "StockLotRow",
+        "type": "object"
+      },
+      "row_type": "portal.inv_stock_lot_row",
+      "schema_id": "goliath.semantic/inv/inv.stock_lot.by_item/1",
+      "target_kind": "function",
+      "target_name": "inv.fn_semantic_stock_lots_by_item",
+      "version": "1"
+    },
+    "inv.supplier_item.list": {
+      "base_namespace": null,
+      "content_hash": "3db5ef2130c76b1d3f9947dec0b996f4fb2a51dc2c74d2dd2c481b5ff7b0b5f7",
+      "entity_code": "supplier_item",
+      "filter_template": null,
+      "max_rows": 500,
+      "namespace": "inv",
+      "params_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "item_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Item Id"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "maximum": 500,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Limit"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "organization_id"
+        ],
+        "title": "ListSupplierItemsParams",
+        "type": "object"
+      },
+      "request_code": "inv.supplier_item.list",
+      "required_permission": null,
+      "result_schema": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "item_id": {
+            "title": "Item Id",
+            "type": "integer"
+          },
+          "item_number": {
+            "title": "Item Number",
+            "type": "string"
+          },
+          "lead_time_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Lead Time Days"
+          },
+          "organization_id": {
+            "title": "Organization Id",
+            "type": "integer"
+          },
+          "preferred": {
+            "title": "Preferred",
+            "type": "boolean"
+          },
+          "supplier_code": {
+            "title": "Supplier Code",
+            "type": "string"
+          },
+          "supplier_item_id": {
+            "title": "Supplier Item Id",
+            "type": "integer"
+          },
+          "supplier_part_number": {
+            "title": "Supplier Part Number",
+            "type": "string"
+          }
+        },
+        "required": [
+          "supplier_item_id",
+          "organization_id",
+          "item_id",
+          "item_number",
+          "supplier_code",
+          "supplier_part_number",
+          "preferred",
+          "active"
+        ],
+        "title": "SupplierItemRow",
+        "type": "object"
+      },
+      "row_type": "portal.inv_supplier_item_row",
+      "schema_id": "goliath.semantic/inv/inv.supplier_item.list/1",
+      "target_kind": "function",
+      "target_name": "inv.fn_semantic_list_supplier_items",
       "version": "1"
     }
   }

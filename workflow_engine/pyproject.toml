@@ -36,6 +36,7 @@ goliath-semantic-export = "goliath_app.semantic.export:main"
 [project.entry-points."goliath.action_catalogs"]
 engine = "goliath_app.engine.catalog:ACTION_CATALOG"
 core = "goliath_app.core.catalog:ACTION_CATALOG"
+inv = "goliath_app.inv.catalog:ACTION_CATALOG"
 
 [build-system]
 requires = ["setuptools>=61"]

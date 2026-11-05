@@ -19,7 +19,7 @@ An application that ships this engine applies the list once per release, to the 
 
 The script checks `current_user` and `version()`, applies each file with `psql -q -v ON_ERROR_STOP=1 -f`, then runs `workflow_engine/contract/validate_contract.py` when `python3` or `.venv/bin/python` is available. It does not set `check_function_bodies`.
 
-GoliathApp apply creates the portal navigation shell (`portal_shell_schema.sql`), organization tenancy (`portal_organization_schema.sql`), and `cfg.analyte` (`cfg_analyte_schema.sql`). Clinical portal tables (`portal."Customers"`, `portal."Samples"`, and related Omics domain DDL) are owned by descendant apps such as GoliathOmics and are not referenced from this tree.
+GoliathApp apply creates the portal navigation shell (`portal_shell_schema.sql`), organization tenancy (`portal_organization_schema.sql`), the optional **`inv`** inventory module (`inv_schema.sql`, `inv_api.sql`, `inv_semantic.sql` after generated row types), and `cfg.analyte` (`cfg_analyte_schema.sql`). Clinical portal tables (`portal."Customers"`, `portal."Samples"`, and related Omics domain DDL) are owned by descendant apps such as GoliathOmics and are not referenced from this tree.
 
 ## Order
 

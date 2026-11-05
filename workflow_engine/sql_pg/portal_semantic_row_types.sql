@@ -17,3 +17,82 @@ BEGIN
     );
   END IF;
 END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'portal' AND t.typname = 'inv_item_row'
+  ) THEN
+    CREATE TYPE portal.inv_item_row AS (
+  item_id integer,
+  organization_id integer,
+  item_number text,
+  description text,
+  base_unit text,
+  costing_method text,
+  qty_on_hand double precision,
+  avg_unit_cost double precision,
+  active boolean
+    );
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'portal' AND t.typname = 'inv_purchase_order_row'
+  ) THEN
+    CREATE TYPE portal.inv_purchase_order_row AS (
+  purchase_order_id integer,
+  organization_id integer,
+  po_number text,
+  supplier_code text,
+  supplier_name text,
+  status text
+    );
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'portal' AND t.typname = 'inv_stock_lot_row'
+  ) THEN
+    CREATE TYPE portal.inv_stock_lot_row AS (
+  stock_lot_id integer,
+  organization_id integer,
+  item_id integer,
+  item_number text,
+  location_code text,
+  bin_code text,
+  qty_on_hand double precision,
+  unit_cost double precision
+    );
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'portal' AND t.typname = 'inv_supplier_item_row'
+  ) THEN
+    CREATE TYPE portal.inv_supplier_item_row AS (
+  supplier_item_id integer,
+  organization_id integer,
+  item_id integer,
+  item_number text,
+  supplier_code text,
+  supplier_part_number text,
+  preferred boolean,
+  active boolean
+    );
+  END IF;
+END $$;

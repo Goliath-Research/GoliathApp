@@ -7,6 +7,7 @@ GoliathApp ships a **core** semantic catalog (`core.*` requests) in `goliath_app
 | Namespace | Owner | Purpose |
 |-----------|--------|---------|
 | `core` | GoliathApp | Platform tenancy reads (organizations today) |
+| `inv` | GoliathApp | Optional inventory & purchasing reads (`inv.item`, `inv.purchase_order`, …) |
 | `engine` | GoliathApp | Reserved for workflow-adjacent portal reads |
 
 Each namespace row lives in `portal.semantic_namespace`. Application apply scripts insert additional namespaces and registry rows, then run `seed_semantic_catalog.py` or an app-specific seeder that calls `portal.sp_semantic_register_*`.
