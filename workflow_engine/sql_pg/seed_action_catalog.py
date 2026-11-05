@@ -69,6 +69,19 @@ def seed(conn) -> int:
                         row.content_hash,
                     ),
                 )
+            if spec.input_catalog_type_name or spec.output_catalog_type_name:
+                cur.execute(
+                    """
+                    CALL wf.wf_repo_bind_action_data_types(
+                      %s, %s, NULL, %s, NULL
+                    )
+                    """,
+                    (
+                        spec.action_name,
+                        spec.input_catalog_type_name,
+                        spec.output_catalog_type_name,
+                    ),
+                )
             count += 1
     conn.commit()
     return count

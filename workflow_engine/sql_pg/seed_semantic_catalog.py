@@ -14,6 +14,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from goliath_app.semantic.catalog import SEMANTIC_CATALOG, SEMANTIC_REQUESTS
 from goliath_app.semantic.export import _entity_by_code, _schema_id, content_hash_for
+from goliath_app.semantic.meta_bridge import meta_class_schema_id, meta_class_storage_relation
 
 
 def _connect():
@@ -33,20 +34,28 @@ def seed(conn) -> int:
     entity_ids: dict[str, int] = {}
     with conn.cursor() as cur:
         for entity in SEMANTIC_CATALOG:
-            row_schema = entity.row_model.model_json_schema(mode="serialization")
+            if entity.meta_class_name:
+                row_schema = {"$ref": meta_class_schema_id(entity.meta_class_name)}
+            else:
+                row_schema = entity.row_model.model_json_schema(mode="serialization")
             entity_hash = content_hash_for(
                 {
                     "namespace": entity.namespace,
                     "code": entity.code,
                     "schema_version": entity.schema_version,
+                    "meta_class_id": entity.meta_class_id,
+                    "meta_class_name": entity.meta_class_name,
                     "row_schema": row_schema,
                     "attributes": [a.__dict__ for a in entity.attributes],
                 }
             )
+            storage = entity.storage_relation
+            if storage is None and entity.meta_class_name:
+                storage = meta_class_storage_relation(entity.meta_class_name)
             cur.execute(
                 """
                 CALL portal.sp_semantic_register_entity(
-                  %s, %s, %s, %s, %s, %s, %s, %s, NULL
+                  %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
                 """,
                 (
@@ -57,7 +66,8 @@ def seed(conn) -> int:
                     _schema_id(entity),
                     entity.schema_version,
                     entity_hash,
-                    entity.storage_relation,
+                    storage,
+                    entity.meta_class_id,
                 ),
             )
             cur.execute(

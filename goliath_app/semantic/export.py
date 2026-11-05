@@ -13,6 +13,11 @@ from pydantic import BaseModel
 
 from goliath_app.semantic.catalog import SEMANTIC_CATALOG, SEMANTIC_REQUESTS
 from goliath_app.semantic.spec import SemanticEntitySpec, SemanticRequestSpec
+from goliath_app.semantic.meta_bridge import (
+    meta_class_catalog_type_name,
+    meta_class_schema_id,
+    meta_class_storage_relation,
+)
 
 
 def _canonical_bytes(payload: Any) -> bytes:
@@ -24,6 +29,8 @@ def content_hash_for(payload: Any) -> str:
 
 
 def _schema_id(entity: SemanticEntitySpec) -> str:
+    if entity.meta_class_name:
+        return meta_class_schema_id(entity.meta_class_name)
     return f"goliath.semantic/{entity.namespace}/{entity.code}/{entity.schema_version}"
 
 
@@ -55,6 +62,8 @@ def export_row_types_sql(catalog: Sequence[SemanticEntitySpec]) -> str:
         "",
     ]
     for entity in catalog:
+        if entity.meta_class_name:
+            continue
         model_schema = entity.row_model.model_json_schema(mode="serialization")
         props = model_schema.get("properties", {})
         required = model_schema.get("required", list(props.keys()))
@@ -94,12 +103,27 @@ def _entity_by_code(code: str) -> SemanticEntitySpec:
 def export_catalog_document() -> Dict[str, Any]:
     entities: Dict[str, Any] = {}
     for entity in SEMANTIC_CATALOG:
-        row_schema = entity.row_model.model_json_schema(mode="serialization")
+        if entity.meta_class_name:
+            row_schema = {
+                "$ref": meta_class_schema_id(entity.meta_class_name),
+                "catalog_type": meta_class_catalog_type_name(entity.meta_class_name),
+            }
+            storage = entity.storage_relation or meta_class_storage_relation(
+                entity.meta_class_name
+            )
+            schema_version = entity.schema_version
+        else:
+            row_schema = entity.row_model.model_json_schema(mode="serialization")
+            storage = entity.storage_relation
+            schema_version = entity.schema_version
+
         entity_hash = content_hash_for(
             {
                 "namespace": entity.namespace,
                 "code": entity.code,
-                "schema_version": entity.schema_version,
+                "schema_version": schema_version,
+                "meta_class_id": entity.meta_class_id,
+                "meta_class_name": entity.meta_class_name,
                 "row_schema": row_schema,
                 "attributes": [a.__dict__ for a in entity.attributes],
             }
@@ -110,9 +134,16 @@ def export_catalog_document() -> Dict[str, Any]:
             "display_name": entity.display_name,
             "description": entity.description,
             "schema_id": _schema_id(entity),
-            "schema_version": entity.schema_version,
+            "schema_version": schema_version,
             "content_hash": entity_hash,
-            "storage_relation": entity.storage_relation,
+            "storage_relation": storage,
+            "meta_class_id": entity.meta_class_id,
+            "meta_class_name": entity.meta_class_name,
+            "catalog_type_name": (
+                meta_class_catalog_type_name(entity.meta_class_name)
+                if entity.meta_class_name
+                else None
+            ),
             "row_type": f"portal.{_row_type_name(entity)}",
             "row_schema": row_schema,
             "attributes": [
