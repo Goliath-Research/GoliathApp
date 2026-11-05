@@ -17,12 +17,13 @@ Helpers here cover both sides:
 - **Write path:** ``ensure_work_writable`` / ``open_work`` / ``append_work_text``
   share the parent tree and retry once on ``PermissionError``.
 - **Identity:** Align containers use ``--user 1000:1000`` (override
-  ``METHYL_ALIGN_DOCKER_USER``) so sister VMs share one numeric owner. Clara
+  ``GOLIATH_ALIGN_DOCKER_USER``) so sister VMs share one numeric owner. Clara
   may still ignore ``--user``; umask + ``share_work_tree`` remain the fallback.
 """
 
 from __future__ import annotations
 
+from goliath_worker.platform_env import _L_ALIGN_DOCKER, _L_SHARE_CHMOD, _L_WORK_ROOT, env_first
 import logging
 import os
 import shutil
@@ -42,13 +43,15 @@ def _docker_bin() -> str:
 
 
 def _chmod_image() -> str:
-    return (os.environ.get("METHYL_SHARE_CHMOD_IMAGE") or "").strip() or "alpine:3.20"
+    return (
+        env_first(("GOLIATH_SHARE_CHMOD_IMAGE", _L_SHARE_CHMOD)) or "alpine:3.20"
+    )
 
 
 def work_roots() -> tuple[Path, ...]:
     """Resolved ``/work``-equivalent roots (NFS bind mounts included)."""
     roots: list[Path] = []
-    extra = (os.environ.get("METHYL_WORK_ROOT") or "").strip()
+    extra = env_first(("GOLIATH_WORK_ROOT", _L_WORK_ROOT)) or ""
     if extra:
         try:
             roots.append(Path(extra).expanduser().resolve())
@@ -84,10 +87,12 @@ def align_docker_user() -> str:
 
     Prefer ``1000:1000`` so every sister sees the same owner (hosts are all
     named ``ubuntu`` but have different numeric uids). Override with
-    ``METHYL_ALIGN_DOCKER_USER=uid:gid``. Clara images may still ignore
+    Override with ``GOLIATH_ALIGN_DOCKER_USER=uid:gid``. Clara images may still ignore
     ``--user`` and write as root; pair with ``docker_umask_*``.
     """
-    explicit = (os.environ.get("METHYL_ALIGN_DOCKER_USER") or "").strip()
+    explicit = (
+        env_first(("GOLIATH_ALIGN_DOCKER_USER", _L_ALIGN_DOCKER)) or ""
+    ).strip()
     if explicit:
         return explicit
     return "1000:1000"

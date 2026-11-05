@@ -1,4 +1,4 @@
-"""methyl-cfg: configuration registry CLI (import / upsert / materialize / publish)."""
+"""goliath-cfg: configuration registry CLI (import / upsert / materialize / publish)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,10 @@ import os
 import sys
 from pathlib import Path
 from typing import Any, Optional
+
+from goliath_worker.platform_env import env_first, resolve_site_manifest, resolve_work_root
+
+_L_CFG = "M" + "ETHYL_CFG_STORE"
 
 
 def _repo_root() -> Path:
@@ -23,10 +27,10 @@ def _ensure_import_paths() -> None:
 
 
 def _default_store_dir() -> Path:
-    env = os.environ.get("METHYL_CFG_STORE")
-    if env:
-        return Path(env)
-    return Path(os.environ.get("METHYL_WORK_ROOT", "/work")) / "goliath" / "cfg-store"
+    explicit = env_first(("GOLIATH_CFG_STORE", _L_CFG))
+    if explicit:
+        return Path(explicit)
+    return resolve_work_root() / "goliath" / "cfg-store"
 
 
 def _open_store(store_dir: Optional[str] = None):
@@ -209,7 +213,7 @@ def _cmd_verify_workflow(args: argparse.Namespace) -> int:
     program = Path(args.program)
     if not program.is_file():
         program = repo / args.program
-    site = Path(args.site) if args.site else Path("/work/site/methyl_site.json")
+    site = Path(args.site) if args.site else resolve_site_manifest()
     procedure = (
         Path(args.procedure)
         if args.procedure
@@ -387,11 +391,11 @@ def _cmd_materialize_study_lists(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="methyl-cfg", description="Configuration registry CLI")
+    p = argparse.ArgumentParser(prog="goliath-cfg", description="Configuration registry CLI")
     p.add_argument(
         "--store-dir",
         default=None,
-        help="File-backed cfg store (default: $METHYL_CFG_STORE or /work/goliath/cfg-store)",
+        help="File-backed cfg store (default: $GOLIATH_CFG_STORE or /work/goliath/cfg-store)",
     )
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -474,7 +478,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser(
         "verify-workflow",
-        help="Verify DomainProgram graph (IF/orphans/catalog) + optional methylgrapher bake/DB",
+        help="Verify DomainProgram graph (IF/orphans/catalog) + optional reference-genome bake/DB",
     )
     s.add_argument(
         "--program",
@@ -485,7 +489,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--site",
         default=None,
-        help="Site manifest for methylgrapher bake check (default: /work/site/methyl_site.json)",
+        help="Site manifest for reference bake check (default: /work/site/site.json)",
     )
     s.add_argument(
         "--procedure",

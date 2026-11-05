@@ -13,17 +13,10 @@ docs/workflow-compiler.md
 goliath_app/actions/registry.py
 goliath_worker/client.py
 goliath_worker/postgres_wake.py
-goliath_worker/work_share.py
 scripts/default_methyl_site.json
 workers/WORKER_PROTOCOL.md
-workflow_engine/cfg/cli.py
-workflow_engine/cfg/import_fs.py
-workflow_engine/cfg/materialize.py
-workflow_engine/cfg/provision.py
 workflow_engine/cfg/reference_selection.py
-workflow_engine/cfg/store.py
 workflow_engine/cfg/sync_library_presets.py
-workflow_engine/cfg/sync_on_start.py
 workflow_engine/cfg/verify_workflow_cmd.py
 workflow_engine/contract/db_objects.md
 workflow_engine/contract/db_objects.yaml

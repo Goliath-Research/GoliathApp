@@ -291,7 +291,7 @@ def materialize_site_with_selection(
     work_root: Path | str,
     site_name: str = "default",
 ) -> Dict[str, Any]:
-    """Write ``/work/site/methyl_site.json`` with paths filled from reference_selection."""
+    """Write ``/work/site/site.json`` with paths filled from reference_selection."""
     work_root = Path(work_root)
     site = store.get("site", site_name, published_only=True) or store.get(
         "site", site_name, published_only=False
@@ -299,7 +299,7 @@ def materialize_site_with_selection(
     if site is None:
         raise KeyError(f"site not found: {site_name}")
     doc = apply_reference_selection(site.document, work_root=work_root, overwrite=False)
-    out = work_root / "site" / "methyl_site.json"
+    out = work_root / "site" / "site.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     import json
 

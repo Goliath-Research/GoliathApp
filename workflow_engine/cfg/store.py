@@ -37,7 +37,7 @@ class ConfigRecord:
 
 
 class ConfigStore:
-    """Abstract registry API used by methyl-cfg."""
+    """Abstract registry API used by goliath-cfg."""
 
     def upsert(
         self,

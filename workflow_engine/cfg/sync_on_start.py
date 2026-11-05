@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional
+
+from goliath_worker import platform_env
 
 from .store import FileConfigStore
 from .study_membership import materialize_study_membership
@@ -18,21 +19,13 @@ def resolve_work_root(context: Mapping[str, Any] | None = None) -> Path:
     raw = (
         ctx.get("workRoot")
         or ctx.get("work_root")
-        or os.environ.get("METHYL_WORK_ROOT")
-        or "/work"
+        or str(platform_env.resolve_work_root())
     )
     return Path(str(raw))
 
 
 def resolve_cfg_store_dir() -> Optional[Path]:
-    env = os.environ.get("METHYL_CFG_STORE")
-    if env:
-        return Path(env)
-    work = Path(os.environ.get("METHYL_WORK_ROOT", "/work"))
-    candidate = work / "goliath" / "cfg-store"
-    if candidate.is_dir():
-        return candidate
-    return None
+    return platform_env.resolve_cfg_store_dir()
 
 
 def resolve_study_name(context: Mapping[str, Any]) -> Optional[str]:

@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from goliath_worker.platform_env import resolve_site_manifest
+
 from .store import ConfigStore
 
 
@@ -159,7 +161,7 @@ def import_filesystem(
                 imported.append(f"domain_program:{name}")
 
     if include_site and work_root_p is not None:
-        site_path = work_root_p / "site" / "methyl_site.json"
+        site_path = resolve_site_manifest(work_root_p)
         if site_path.is_file():
             doc = _load_json(site_path)
             store.upsert("site", "default", doc, status=status)

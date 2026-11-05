@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .kinds import MATERIALIZABLE_KINDS, Kind
+from goliath_worker.platform_env import resolve_site_manifest
 from .store import ConfigStore
 
 
@@ -25,7 +26,7 @@ def materialize_paths(
         work_root / "goliath" / "current" / "runtime-bundle" / "domain"
     )
     return {
-        "site": work_root / "site" / "methyl_site.json",
+        "site": resolve_site_manifest(work_root),
         "storage_endpoints": work_root / "site" / "storage_endpoints",
         "storage_profiles": work_root / "site" / "storage_profiles",
         "profiles": bundle / "profiles",
