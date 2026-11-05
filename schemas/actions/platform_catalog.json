@@ -52,7 +52,7 @@
           "schema_version": "1"
         },
         "output": {
-          "content_hash": "44e7f540f665098ab0d33bd5c82a3a2e7dd86e61201b5a20f9d436ce45d56950",
+          "content_hash": "a02274628bff6177b90fdf9a7676426341bf7b0a4483bedde607da494bff8f19",
           "schema_id": "goliath.actions/inv/inv.stock.adjust/output/1",
           "schema_json": {
             "additionalProperties": false,
@@ -63,7 +63,7 @@
               },
               "qty_on_hand": {
                 "title": "Qty On Hand",
-                "type": "string"
+                "type": "number"
               },
               "result_code": {
                 "default": 0,
@@ -140,14 +140,14 @@
           "schema_version": "1"
         },
         "output": {
-          "content_hash": "19001730a77ff8ed5fbb271dd084f51caf2bcf99baeb8e920e6140e7bde6beb6",
+          "content_hash": "f9b65f9159bb36316912131399918147bd1679a389b720c1c13ce25c71a1f68d",
           "schema_id": "goliath.actions/inv/inv.stock.issue/output/1",
           "schema_json": {
             "additionalProperties": false,
             "properties": {
               "qty_on_hand": {
                 "title": "Qty On Hand",
-                "type": "string"
+                "type": "number"
               },
               "result_code": {
                 "default": 0,
@@ -247,14 +247,14 @@
           "schema_version": "1"
         },
         "output": {
-          "content_hash": "2c23d4c6642f22d5b63938d61683f0629c44d4c1c60a3e638df3dc2352e694ea",
+          "content_hash": "5d5fe48295e83fc477017dca7171f020b81c365e885851eb57528470f49f7ecd",
           "schema_id": "goliath.actions/inv/inv.stock.receive/output/1",
           "schema_json": {
             "additionalProperties": false,
             "properties": {
               "avg_unit_cost": {
                 "title": "Avg Unit Cost",
-                "type": "string"
+                "type": "number"
               },
               "receipt_id": {
                 "title": "Receipt Id",
