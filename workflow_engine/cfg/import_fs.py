@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from goliath_worker.platform_env import resolve_site_manifest
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from goliath_worker.platform_env import resolve_site_manifest  # noqa: E402
 
 from .store import ConfigStore
 

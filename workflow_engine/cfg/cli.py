@@ -9,13 +9,17 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
-from goliath_worker.platform_env import env_first, resolve_site_manifest, resolve_work_root
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from goliath_worker.platform_env import env_first, resolve_site_manifest, resolve_work_root  # noqa: E402
 
 _L_CFG = "M" + "ETHYL_CFG_STORE"
 
 
 def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+    return _REPO_ROOT
 
 
 def _ensure_import_paths() -> None:

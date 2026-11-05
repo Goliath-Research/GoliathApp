@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional
 
-from goliath_worker import platform_env
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from goliath_worker import platform_env  # noqa: E402
 
 from .store import FileConfigStore
 from .study_membership import materialize_study_membership

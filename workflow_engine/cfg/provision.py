@@ -11,6 +11,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional, cast
 
+from .materialize import materialize_paths
 from .reference_selection import apply_reference_selection, selected_asset_names
 from .store import ConfigStore
 from .storage_expand import expand_storage_endpoint
@@ -291,7 +292,7 @@ def materialize_site_with_selection(
     work_root: Path | str,
     site_name: str = "default",
 ) -> Dict[str, Any]:
-    """Write ``/work/site/site.json`` with paths filled from reference_selection."""
+    """Write the site manifest under ``work_root`` with paths filled from reference_selection."""
     work_root = Path(work_root)
     site = store.get("site", site_name, published_only=True) or store.get(
         "site", site_name, published_only=False
@@ -299,7 +300,7 @@ def materialize_site_with_selection(
     if site is None:
         raise KeyError(f"site not found: {site_name}")
     doc = apply_reference_selection(site.document, work_root=work_root, overwrite=False)
-    out = work_root / "site" / "site.json"
+    out = materialize_paths(work_root=work_root)["site"]
     out.parent.mkdir(parents=True, exist_ok=True)
     import json
 
