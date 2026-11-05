@@ -374,37 +374,61 @@ DECLARE
   v_inverse int;
   v_exists int;
 BEGIN
-  IF NEW."ObjID1" IS NULL OR TG_OP <> 'INSERT' THEN
+  IF current_setting('meta.links.inverse_sync', true) = 'off' THEN
+    IF TG_OP = 'DELETE' THEN
+      RETURN OLD;
+    END IF;
     RETURN NEW;
   END IF;
 
-  SELECT ml."InverseID" INTO v_inverse
-  FROM "Meta"."MetaLinks" ml
-  WHERE ml."ID" = NEW."MetaLinkID";
-
-  IF v_inverse IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  SELECT l."ID" INTO v_exists
-  FROM "Meta"."Links" l
-  WHERE l."ObjID1" = NEW."ObjID2"
-    AND l."ObjID2" = NEW."ObjID1"
-    AND l."MetaLinkID" = v_inverse
-  LIMIT 1;
-
-  IF v_exists IS NULL THEN
-    INSERT INTO "Meta"."Links" ("Name", "ClassID1", "ClassID2", "LinkTypeID", "MetaLinkID", "ObjID1", "ObjID2")
-    SELECT
-      ml."Name",
-      ml."TargetClassID",
-      ml."ClassID",
-      NEW."LinkTypeID",
-      v_inverse,
-      NEW."ObjID2",
-      NEW."ObjID1"
+  IF TG_OP IN ('DELETE', 'UPDATE') AND OLD."ObjID1" IS NOT NULL THEN
+    SELECT ml."InverseID" INTO v_inverse
     FROM "Meta"."MetaLinks" ml
-    WHERE ml."ID" = v_inverse;
+    WHERE ml."ID" = OLD."MetaLinkID";
+
+    IF v_inverse IS NOT NULL THEN
+      PERFORM set_config('meta.links.inverse_sync', 'off', true);
+      DELETE FROM "Meta"."Links" l
+      WHERE l."MetaLinkID" = v_inverse
+        AND l."ObjID1" = OLD."ObjID2"
+        AND l."ObjID2" = OLD."ObjID1";
+      PERFORM set_config('meta.links.inverse_sync', 'on', true);
+    END IF;
+  END IF;
+
+  IF TG_OP IN ('INSERT', 'UPDATE') AND NEW."ObjID1" IS NOT NULL THEN
+    SELECT ml."InverseID" INTO v_inverse
+    FROM "Meta"."MetaLinks" ml
+    WHERE ml."ID" = NEW."MetaLinkID";
+
+    IF v_inverse IS NOT NULL THEN
+      SELECT l."ID" INTO v_exists
+      FROM "Meta"."Links" l
+      WHERE l."ObjID1" = NEW."ObjID2"
+        AND l."ObjID2" = NEW."ObjID1"
+        AND l."MetaLinkID" = v_inverse
+      LIMIT 1;
+
+      IF v_exists IS NULL THEN
+        PERFORM set_config('meta.links.inverse_sync', 'off', true);
+        INSERT INTO "Meta"."Links" ("Name", "ClassID1", "ClassID2", "LinkTypeID", "MetaLinkID", "ObjID1", "ObjID2")
+        SELECT
+          ml."Name",
+          ml."ClassID",
+          ml."TargetClassID",
+          NEW."LinkTypeID",
+          v_inverse,
+          NEW."ObjID2",
+          NEW."ObjID1"
+        FROM "Meta"."MetaLinks" ml
+        WHERE ml."ID" = v_inverse;
+        PERFORM set_config('meta.links.inverse_sync', 'on', true);
+      END IF;
+    END IF;
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
   END IF;
 
   RETURN NEW;
@@ -416,26 +440,40 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  r record;
+  v_mincard int;
   v_count int;
 BEGIN
-  FOR r IN
-    SELECT ml."ID", ml."MinCard", l."ObjID1"
+  IF TG_OP IN ('DELETE', 'UPDATE') AND OLD."ObjID1" IS NOT NULL AND OLD."MetaLinkID" IS NOT NULL THEN
+    SELECT ml."MinCard" INTO v_mincard
     FROM "Meta"."MetaLinks" ml
-    JOIN "Meta"."Links" l ON l."MetaLinkID" = ml."ID"
-    WHERE l."ObjID1" IS NOT NULL
-    GROUP BY ml."ID", ml."MinCard", l."ObjID1"
-  LOOP
+    WHERE ml."ID" = OLD."MetaLinkID";
+
     SELECT count(*) INTO v_count
     FROM "Meta"."Links" l
-    WHERE l."MetaLinkID" = r."ID"
-      AND l."ObjID1" = r."ObjID1";
+    WHERE l."MetaLinkID" = OLD."MetaLinkID"
+      AND l."ObjID1" = OLD."ObjID1";
 
-    IF v_count < r."MinCard" THEN
+    IF v_count < v_mincard THEN
       RAISE EXCEPTION 'MinCard % not satisfied for MetaLink % on Obj % (have %)',
-        r."MinCard", r."ID", r."ObjID1", v_count;
+        v_mincard, OLD."MetaLinkID", OLD."ObjID1", v_count;
     END IF;
-  END LOOP;
+  END IF;
+
+  IF TG_OP IN ('INSERT', 'UPDATE') AND NEW."ObjID1" IS NOT NULL AND NEW."MetaLinkID" IS NOT NULL THEN
+    SELECT ml."MinCard" INTO v_mincard
+    FROM "Meta"."MetaLinks" ml
+    WHERE ml."ID" = NEW."MetaLinkID";
+
+    SELECT count(*) INTO v_count
+    FROM "Meta"."Links" l
+    WHERE l."MetaLinkID" = NEW."MetaLinkID"
+      AND l."ObjID1" = NEW."ObjID1";
+
+    IF v_count < v_mincard THEN
+      RAISE EXCEPTION 'MinCard % not satisfied for MetaLink % on Obj % (have %)',
+        v_mincard, NEW."MetaLinkID", NEW."ObjID1", v_count;
+    END IF;
+  END IF;
 
   RETURN NULL;
 END;
@@ -450,7 +488,7 @@ CREATE TRIGGER "TR_Links_Instance_Permitted"
 
 DROP TRIGGER IF EXISTS "TR_Links_Instance_Inverse" ON "Meta"."Links";
 CREATE TRIGGER "TR_Links_Instance_Inverse"
-  AFTER INSERT
+  AFTER INSERT OR UPDATE OR DELETE
   ON "Meta"."Links"
   FOR EACH ROW
   EXECUTE FUNCTION "Meta".trg_links_instance_inverse();
