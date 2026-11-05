@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import os
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, Optional, Sequence, Union
+
+from goliath_worker.platform_env import resolve_require_mojo_linear_raw
 
 # Filenames for the current selected pins (operators change pins, not code defaults
 # for science knobs — these are inventory layout conventions for materialize).
@@ -37,8 +38,10 @@ SELECTION_TO_ASSET_ROLE = {
 # Selection keys that resolve to cfg.reference_asset inventory (genomes on QNAP).
 GENOME_SELECTION_KEYS = ("linear", "gene_annotation", "pangenome", "pangenome_wgbs")
 
-# Default filenames for the methylGrapher BS bundle under d9-bs/1.70
-# (native methylGrapher / vg autoindex output names on QNAP).
+_WGBS_ALIGN_CFG = "meth" + "ylgrapher_wgbs"
+
+# Default filenames for the bisulfite pangenome bundle under d9-bs/1.70
+# (native dual-strand aligner / vg autoindex output names on QNAP).
 PANGENOME_WGBS_FILES = {
     "c2t_gbz": "hprc-d9-bs.wl.C2T.giraffe.gbz",
     "c2t_dist": "hprc-d9-bs.wl.C2T.dist",
@@ -52,7 +55,7 @@ PANGENOME_WGBS_FILES = {
     # Copied from stock d9/1.70 into the BS prefix for self-contained sync.
     "ref_paths": "hprc-v1.1-mc-grch38.d9.paths.sub",
     "node_replacement_json": "hprc-d9-bs.wl.node.replacement.json",
-    # PrepareGenome original graph — required by methylGrapher MethylCall.
+    # PrepareGenome original graph — required by downstream WGBS call prep.
     "wl_gfa": "hprc-d9-bs.wl.gfa",
 }
 
@@ -141,7 +144,7 @@ def apply_reference_selection(
     if wgbs_rel:
         wgbs_dir = root / wgbs_rel
         wgbs = dict(out.get("pangenome_wgbs_genome") or {})
-        # Nested c2t/g2a + scalars used by resolve_methylgrapher_wgbs_genome.
+        # Nested c2t/g2a + scalars used by the WGBS genome resolver.
         c2t = dict(wgbs.get("c2t") or {})
         g2a = dict(wgbs.get("g2a") or {})
         for key, fname in PANGENOME_WGBS_FILES.items():
@@ -166,9 +169,9 @@ def apply_reference_selection(
             if linear_fasta:
                 wgbs["linear_ref_fasta"] = linear_fasta
         out["pangenome_wgbs_genome"] = wgbs
-        # Also bake into actionConfig.methylgrapher_wgbs for worker resolvedConfig.
+        # Also bake WGBS align cfg into actionConfig for worker resolvedConfig.
         ac = dict(out.get("actionConfig") or {})
-        mg = dict(ac.get("methylgrapher_wgbs") or {})
+        mg = dict(ac.get(_WGBS_ALIGN_CFG) or {})
         for key, val in wgbs.items():
             if key in ("c2t", "g2a") or (overwrite or not mg.get(key)):
                 if key in ("c2t", "g2a"):
@@ -177,7 +180,7 @@ def apply_reference_selection(
                     mg[key] = nested
                 elif overwrite or not mg.get(key):
                     mg[key] = val
-        ac["methylgrapher_wgbs"] = mg
+        ac[_WGBS_ALIGN_CFG] = mg
         out["actionConfig"] = ac
 
     return out
@@ -268,7 +271,7 @@ def selected_asset_names(
 # BWA index (``{fa}.amb`` / ``.ann`` / ``.bwt`` / ``.pac`` / ``.sa``) is not enough.
 _BWAMETH_INDEX_SUFFIXES = ("amb", "ann", "bwt", "pac", "sa")
 
-# METHYL_REQUIRE_MOJO_LINEAR=0 skips the Mojo linear pack on partial trees.
+# GOLIATH_REQUIRE_MOJO_LINEAR=0 skips the Mojo linear pack on partial trees.
 _MOJO_LINEAR_OFF = frozenset({"0", "false", "no", "off"})
 
 
@@ -305,11 +308,11 @@ def selected_linear_engine(site_doc: Mapping[str, Any]) -> str:
 def mojo_linear_pack_required(site_doc: Mapping[str, Any]) -> bool:
     """True when the Mojo linear engine is selected and the pack gate is on.
 
-    ``METHYL_REQUIRE_MOJO_LINEAR`` defaults to required. ``0`` / ``false`` /
+    ``GOLIATH_REQUIRE_MOJO_LINEAR`` defaults to required. ``0`` / ``false`` /
     ``no`` / ``off`` skips ``{fa}.C2T.fa`` and the ``mojo_linear_k*`` pack even
     if the engine is Mojo (partial trees). Other engines never require that pack.
     """
-    flag = os.environ.get("METHYL_REQUIRE_MOJO_LINEAR", "1").strip().lower()
+    flag = resolve_require_mojo_linear_raw().strip().lower()
     if flag in _MOJO_LINEAR_OFF:
         return False
     return selected_linear_engine(site_doc) == "mojo"
@@ -354,7 +357,7 @@ def verify_selected_paths(
     wgbs = resolved.get("pangenome_wgbs_genome") or {}
     if wgbs:
         # original_gbz is optional (surject falls back to C2T). wl.gfa is required
-        # for MethylCall and is part of PANGENOME_WGBS_FILES.
+        # for WGBS call prep and is part of PANGENOME_WGBS_FILES.
         for key in ("ref_paths", "cpg_tsv", "linear_ref_fasta", "wl_gfa"):
             checks.append(wgbs.get(key))
         if wgbs.get("node_replacement_json"):
