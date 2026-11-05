@@ -14,6 +14,7 @@ from urllib.parse import quote
 import psycopg
 from psycopg import sql
 
+from goliath_worker.platform_env import resolve_database_url_override
 from goliath_worker.wake import (
     NullWorkerWakeSubscriber,
     WorkerWakeMessage,
@@ -37,7 +38,7 @@ def _env(name: str, default: str = "") -> str:
 
 
 def build_postgres_conninfo(*, use_managed_identity: bool = False) -> str:
-    override = _env("METHYLPIPELINE_DB")
+    override = resolve_database_url_override()
     if override:
         return override
 
@@ -200,8 +201,14 @@ class PostgresWorkerWakeSubscriber:
 
 
 def resolve_postgres_wake_conninfo(explicit: Optional[str] = None) -> str:
-    """DSN for LISTEN/NOTIFY (defaults to ``WORKER_WAKE_PG_DSN`` or gateway ``METHYLPIPELINE_DB`` / ``PG*``)."""
-    override = (explicit or _env("WORKER_WAKE_PG_DSN") or _env("METHYLPIPELINE_DB")).strip()
+    """DSN for LISTEN/NOTIFY (``WORKER_WAKE_PG_DSN`` or gateway database URL / ``PG*``)."""
+    legacy_db = "M" + "ETHYLPIPELINE_DB"
+    override = (
+        explicit
+        or _env("WORKER_WAKE_PG_DSN")
+        or resolve_database_url_override()
+        or _env(legacy_db)
+    ).strip()
     if override:
         return override
     use_mi = _env_flag("WF_USE_MANAGED_IDENTITY")

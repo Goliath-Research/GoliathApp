@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 
+from goliath_worker.platform_env import resolve_database_url_override
+
 
 @dataclass(frozen=True)
 class GatewayConnectionConfig:
@@ -35,7 +37,7 @@ def resolve_schema_name() -> str:
 def build_postgres_conninfo(*, use_managed_identity: bool = False) -> str:
     from urllib.parse import quote
 
-    override = _env("METHYLPIPELINE_DB")
+    override = resolve_database_url_override()
     if override:
         return override
 
@@ -56,7 +58,7 @@ def resolve_connection_config(
     connection_string: Optional[str] = None,
 ) -> GatewayConnectionConfig:
     use_mi = _env_flag("WF_USE_MANAGED_IDENTITY")
-    conn = connection_string or _env("METHYLPIPELINE_DB")
+    conn = connection_string or resolve_database_url_override()
     if not conn:
         conn = build_postgres_conninfo(use_managed_identity=use_mi)
     return GatewayConnectionConfig(

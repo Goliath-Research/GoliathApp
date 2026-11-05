@@ -72,7 +72,7 @@ class RestGateway:
         if method == "GET" and path in ("/", "/v1", "/v1/health"):
             return 200, {
                 "status": "ok",
-                "service": "methyl-workflow-gateway",
+                "service": "goliath-workflow-gateway",
                 "backend": self.backend,
                 "api_base": "/v1",
                 "identities": ["worker"],
@@ -225,7 +225,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     from .asgi import create_app
 
-    parser = argparse.ArgumentParser(description="MethylPipeline workflow REST gateway")
+    parser = argparse.ArgumentParser(description="GoliathApp workflow REST gateway")
     parser.add_argument(
         "--host",
         default=os.environ.get("WF_GATEWAY_HOST", os.environ.get("REST_HOST", "127.0.0.1")),

@@ -10,6 +10,7 @@ from typing import Any, Dict, Iterable, Optional
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from goliath_worker.platform_env import resolve_api_base, resolve_arc_env_path
 from goliath_worker.wake import (
     WorkerWakeSubscriber,
     wake_channel_for_capability,
@@ -67,7 +68,7 @@ def _load_arc_resource_id() -> Optional[str]:
     explicit = os.environ.get("ARC_RESOURCE_ID", "").strip()
     if explicit:
         return explicit
-    arc_env = Path(os.environ.get("METHYL_ARC_ENV", "/etc/methyl/arc.env"))
+    arc_env = resolve_arc_env_path()
     if not arc_env.is_file():
         return None
     for line in arc_env.read_text(encoding="utf-8").splitlines():
@@ -94,7 +95,7 @@ class WorkflowRestClient:
         timeout_seconds: float = 120.0,
         arc_resource_id: Optional[str] = None,
     ) -> None:
-        raw = base_url or os.environ.get("METHYL_API_BASE", "http://localhost:8080/v1")
+        raw = base_url or resolve_api_base()
         self.base_url = raw.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.arc_resource_id = arc_resource_id if arc_resource_id is not None else _load_arc_resource_id()
