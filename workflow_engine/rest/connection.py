@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import os
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
-from goliath_worker.platform_env import resolve_database_url_override
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from goliath_worker.platform_env import resolve_database_url_override  # noqa: E402
 
 
 @dataclass(frozen=True)
