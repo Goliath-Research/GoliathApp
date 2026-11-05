@@ -7,12 +7,14 @@ This module defines the wake message shape and channel naming only; no broker.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Iterable, Mapping, Optional, Protocol, runtime_checkable
 
 WAKE_CHANNEL_PREFIX = "goliath.wake.v1"
+PG_NOTIFY_PAYLOAD_MAX_BYTES = 8000
 """Postgres NOTIFY channel prefix (logical names use dots; NOTIFY identifiers do not)."""
 PG_NOTIFY_CHANNEL_PREFIX = "gw1_"
 PG_NOTIFY_CHANNEL_MAX_LEN = 63
@@ -151,6 +153,33 @@ class WorkerWakeMessage:
             if data.get("occurred_at_utc")
             else datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         )
+
+
+def pg_notify_payload_json(message: WorkerWakeMessage) -> str:
+    """Serialize a wake for ``pg_notify``, capped at Postgres payload limit."""
+    body = message.to_json()
+    payload = json.dumps(body, separators=(",", ":"))
+    if len(payload.encode("utf-8")) <= PG_NOTIFY_PAYLOAD_MAX_BYTES:
+        return payload
+    minimal = {
+        "wake_id": body["wake_id"],
+        "reason": body["reason"],
+        "occurred_at_utc": body["occurred_at_utc"],
+    }
+    for key in ("pool", "capability", "program_id"):
+        if key in body:
+            minimal[key] = body[key]
+    payload = json.dumps(minimal, separators=(",", ":"))
+    if len(payload.encode("utf-8")) <= PG_NOTIFY_PAYLOAD_MAX_BYTES:
+        return payload
+    minimal_wake = str(body["wake_id"])[:120]
+    payload = json.dumps(
+        {"wake_id": minimal_wake, "reason": str(body["reason"])[:200]},
+        separators=(",", ":"),
+    )
+    if len(payload.encode("utf-8")) <= PG_NOTIFY_PAYLOAD_MAX_BYTES:
+        return payload
+    return json.dumps({"wake_id": minimal_wake[:32], "reason": "wake"}, separators=(",", ":"))
 
 
 @runtime_checkable

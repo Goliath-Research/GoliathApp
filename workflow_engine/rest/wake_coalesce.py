@@ -7,9 +7,12 @@ import os
 import threading
 from typing import Optional
 
-from goliath_worker.wake import WorkerWakeMessage, WorkerWakePublisher
-
-PG_NOTIFY_PAYLOAD_MAX_BYTES = 8000
+from goliath_worker.wake import (
+    PG_NOTIFY_PAYLOAD_MAX_BYTES,
+    WorkerWakeMessage,
+    WorkerWakePublisher,
+    pg_notify_payload_json,
+)
 
 
 def _env_float(name: str, default: float) -> float:
@@ -23,29 +26,7 @@ def _env_float(name: str, default: float) -> float:
 
 
 def _truncate_payload(message: WorkerWakeMessage) -> str:
-    body = message.to_json()
-    payload = json.dumps(body, separators=(",", ":"))
-    if len(payload.encode("utf-8")) <= PG_NOTIFY_PAYLOAD_MAX_BYTES:
-        return payload
-    minimal = {
-        "wake_id": body["wake_id"],
-        "reason": body["reason"],
-        "occurred_at_utc": body["occurred_at_utc"],
-    }
-    for key in ("pool", "capability", "program_id"):
-        if key in body:
-            minimal[key] = body[key]
-    payload = json.dumps(minimal, separators=(",", ":"))
-    if len(payload.encode("utf-8")) <= PG_NOTIFY_PAYLOAD_MAX_BYTES:
-        return payload
-    minimal_wake = str(body["wake_id"])[:120]
-    payload = json.dumps(
-        {"wake_id": minimal_wake, "reason": str(body["reason"])[:200]},
-        separators=(",", ":"),
-    )
-    if len(payload.encode("utf-8")) <= PG_NOTIFY_PAYLOAD_MAX_BYTES:
-        return payload
-    return json.dumps({"wake_id": minimal_wake[:32], "reason": "wake"}, separators=(",", ":"))
+    return pg_notify_payload_json(message)
 
 
 class CoalescingWorkerWakePublisher:
@@ -95,8 +76,9 @@ class CoalescingWorkerWakePublisher:
         self._pending = {}
         count = 0
         for channel, message in pending.items():
-            _ = _truncate_payload(message)
-            self._inner.publish(channel, message)
+            payload = _truncate_payload(message)
+            safe_message = WorkerWakeMessage.from_json(json.loads(payload))
+            self._inner.publish(channel, safe_message)
             count += 1
         return count
 
