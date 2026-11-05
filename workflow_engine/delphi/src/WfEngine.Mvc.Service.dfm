@@ -1,6 +1,6 @@
-object MethylWfGateway: TMethylWfGatewayService
+object WfEngineGateway: TWfEngineGatewayService
   OldCreateOrder = False
-  DisplayName = 'MethylPipeline Workflow Gateway'
+  DisplayName = 'Goliath WfEngine Workflow Gateway'
   AllowPause = True
   AllowStop = True
   OnContinue = ServiceContinue

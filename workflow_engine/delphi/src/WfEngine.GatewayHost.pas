@@ -39,7 +39,7 @@ begin
   Result := ResolveConnectionConfig;
   if Result.ConnectionString = '' then
     raise Exception.Create(
-      'Set METHYLPIPELINE_DB or POSTGRES_*/AZURE_SQL_* environment variables.');
+      'Set WF_DATABASE_URL, GOLIATH_DATABASE_URL, or POSTGRES_*/AZURE_SQL_* environment variables.');
 end;
 
 function ResolveGatewayConnectionString: string;

@@ -2,9 +2,9 @@
 
 GoliathApp is the platform at the top of the product hierarchy. It must not depend on or name child applications (GoliathOmics, GoliathCrop, GoliathFactory, GoliathRealty, GoliathGroundStation) or standalone utilities (GoliathAlign, GoliathExtractor). Those products extend the platform; the platform ships neutral contracts, env vars, and service names only.
 
-Phase **D0** (this document and the repo-wide guard test) inventories every remaining reference and blocks **new** offenders. Phases **D1…Dn** are small, reviewable pull requests that shrink `workflow_engine/tests/child_app_token_allowlist.txt` until it is empty.
+Phase **D0** (this document and the repo-wide guard test) inventories every remaining reference and blocks **new** offenders. Phases **D1…D10** landed as small PRs; **D9** scrubbed the Delphi reference tree and **D10** removed the grandfather allowlist so CI fails on any token outside this plan file.
 
-## Audit snapshot (2026-11-05)
+## Audit snapshot (2026-11-05, D0 baseline — historical)
 
 | Metric | Value |
 |--------|------:|
@@ -73,11 +73,11 @@ The guard test scans `py`, `sql`, `md`, `pas`, `dbd`, `json`, `yaml`, `toml`, an
 | `METHYL_REQUIRE_MOJO_LINEAR` | config/env | `GOLIATH_REQUIRE_MOJO_LINEAR` (compat alias one release) |
 | Docs naming GoliathOmics / GroundStation | naming-only | Link out to child repos; platform docs describe extension points only |
 
-Existing guard: `workflow_engine/tests/test_goliathapp_sql_no_omics_domain.py` covers **SQL** references to Omics-owned portal tables only. Phase D adds the repo-wide token guard and this plan.
+Existing guard: `workflow_engine/tests/test_goliathapp_sql_no_extension_domain.py` covers **SQL** references to extension-app portal tables only. Phase D adds the repo-wide token guard and this plan.
 
-### Full file inventory
+### Full file inventory (D0 baseline)
 
-Every path that currently matches lives in `workflow_engine/tests/child_app_token_allowlist.txt` (103 paths). Use that file as the authoritative checklist; do not duplicate the list here.
+D0 tracked 103 allowlisted paths in `child_app_token_allowlist.txt` (removed in **D10**). The repo-wide guard now scans the tree with no grandfather list.
 
 ---
 
@@ -86,7 +86,7 @@ Every path that currently matches lives in `workflow_engine/tests/child_app_toke
 1. **One-release backward compatibility** for env vars, filesystem paths, and PyPI/console script aliases: read the new name first, fall back to the legacy name, emit a deprecation warning in logs where cheap.
 2. **No dual semantics**: neutral names must not encode methylation, crop, factory, or other child-domain meaning.
 3. **Paired GoliathOmics PRs**: whenever GoliathApp removes or relocates a contract (domain types, sample prep, validation planner, action names, JSON schemas), land the consuming change in GoliathOmics in the same release train (Omics PR linked from the App PR).
-4. **Allowlist hygiene**: each D PR must remove cleaned paths from `child_app_token_allowlist.txt` and keep `test_goliathapp_no_child_app_tokens.py` green.
+4. **Guard**: after **D10**, `test_goliathapp_no_child_app_tokens.py` must stay green with zero allowlist; only this plan documents legacy token names for archaeology.
 5. **Production renames** (database name, Windows service name, deployed systemd unit, Azure resource labels) require **David's confirmation before execution** — marked ⚠️ below.
 
 ---
@@ -214,6 +214,8 @@ Each phase is intended as **one small PR** to GoliathApp unless noted. Order can
 
 ### D8 — Production database and service identifiers ⚠️
 
+**Status:** GoliathApp-side renames and env shims landed in prior D phases; shared-environment database rename and GoliathOmics systemd/service renames may still be in flight separately.
+
 **Requires David's confirmation before any apply to shared environments.**
 
 **GoliathApp + infra**
@@ -232,7 +234,9 @@ Each phase is intended as **one small PR** to GoliathApp unless noted. Order can
 
 ### D9 — Delphi reference tree and `.dbd` designer artifacts (db/service-name)
 
-**GoliathApp**
+**Status: Done (2026-11-05).** In-repo scrub (no archive repo): neutral `WfEngine` / `GoliathWfRef` labels, `WfEngineGateway` service names, `WF_DATABASE_URL` / `GOLIATH_DATABASE_URL` in frozen Delphi connection helpers; designer `.dbd` / `.dcomp` filenames and paths scrubbed. Python `goliath-gateway` remains canonical per `DELPHI_GATEWAY_STATUS.md`. Live DDL is **not** generated from `.dbd` files (Python gateway + `sql_pg` are canonical).
+
+**GoliathApp (delivered)**
 
 - Either archive `workflow_engine/delphi/` to a separate repo or scrub all Methyl/Methylpipeline labels to neutral `WfEngine` reference names.
 - Designer files (`Portal.dbd`, `Workflow-Engine.dbd`, `MethylPipeline vs. EpiPortalDB …dcomp`) move to Omics or historical archive — not required for Python gateway operations.
@@ -249,7 +253,9 @@ Each phase is intended as **one small PR** to GoliathApp unless noted. Order can
 
 ### D10 — Guard allowlist empty and CI hardening
 
-**GoliathApp**
+**Status: Done (2026-11-05).** Deleted `child_app_token_allowlist.txt`; `test_goliathapp_no_child_app_tokens.py` fails on any child-app token in scanned extensions except this plan and the test module. Kept `test_goliathapp_sql_no_extension_domain.py` as the SQL-specific extension-table guard (complementary, not merged). Shell layout script `scripts/init_work_layout.sh` already avoids legacy env names in source via split literals; no extra scan added.
+
+**GoliathApp (delivered)**
 
 - Delete `child_app_token_allowlist.txt`; guard test fails on any token anywhere (except excluded plan/test files).
 - Extend `test_goliathapp_sql_no_omics_domain.py` or merge guards if redundant.
@@ -278,8 +284,8 @@ Use this in every App PR that touches contracts or actions:
 ## Verification
 
 - CI: `pytest workflow_engine/tests/test_goliathapp_no_child_app_tokens.py`
-- Existing: `test_goliathapp_sql_no_omics_domain.py`, gateway unit tests in `.github/workflows/pr.yml`
-- After D8: run schema apply + worker enroll/claim smoke on exo target
+- Existing: `test_goliathapp_sql_no_extension_domain.py`, gateway unit tests in `.github/workflows/pr.yml`
+- After D8 shared-env apply: run schema apply + worker enroll/claim smoke on exo target
 
 ---
 
@@ -293,4 +299,4 @@ Use this in every App PR that touches contracts or actions:
 
 ---
 
-*Phase D0 deliverables: this plan, `test_goliathapp_no_child_app_tokens.py`, and baseline allowlist. No renames in D0.*
+*Phase D0 deliverables: this plan, `test_goliathapp_no_child_app_tokens.py`, and baseline allowlist (allowlist removed in D10).*

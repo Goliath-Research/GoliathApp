@@ -2,7 +2,7 @@
 
 **Status:** Deprecated. The production middle tier is the Python gateway.
 
-The Delphi HTTP gateway (`WfEngineSrv` / `MethylWfGateway` Windows service) is not deployed. The supported gateway is Python `goliath-gateway` (`methyl-gateway` remains a one-cycle alias), implemented in [`../rest/gateway.py`](../rest/gateway.py). Do not add routes, OpenAPI parity work, or production installs for `WfEngineSrv`.
+The Delphi HTTP gateway (`WfEngineSrv` / `WfEngineGateway` Windows service) is not deployed. The supported gateway is Python `goliath-gateway`, implemented in [`../rest/gateway.py`](../rest/gateway.py). Do not add routes, OpenAPI parity work, or production installs for `WfEngineSrv`.
 
 ## Scope when frozen
 

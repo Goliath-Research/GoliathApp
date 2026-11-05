@@ -95,12 +95,14 @@ end;
 
 function BuildConnectionStringFromEnv: string;
 var
-  MethylDb, AzureServer, AzureDb: string;
+  DbUrl, AzureServer, AzureDb: string;
   PgHost, PgPort, PgDb, PgUser, PgPass: string;
 begin
-  MethylDb := GetEnvVar('METHYLPIPELINE_DB');
-  if MethylDb <> '' then
-    Exit(MethylDb);
+  DbUrl := GetEnvVar('WF_DATABASE_URL');
+  if DbUrl = '' then
+    DbUrl := GetEnvVar('GOLIATH_DATABASE_URL');
+  if DbUrl <> '' then
+    Exit(DbUrl);
 
   if GetDatabaseBackend = dbPostgres then
   begin
@@ -112,7 +114,7 @@ begin
       PgPort := '5432';
     PgDb := GetEnvVar('POSTGRES_DB');
     if PgDb = '' then
-      PgDb := 'methylpipeline';
+      PgDb := 'goliath';
     PgUser := GetEnvVar('POSTGRES_USER');
     if PgUser = '' then
       PgUser := 'postgres';
@@ -131,7 +133,7 @@ begin
     Exit;
   end;
 
-  Result := 'Provider Name=SQL Server;Data Source=localhost;Initial Catalog=MethylPipeline;Integrated Security=True';
+  Result := 'Provider Name=SQL Server;Data Source=localhost;Initial Catalog=GoliathWfRef;Integrated Security=True';
 end;
 
 function ResolveUseManagedIdentity: Boolean;
@@ -148,7 +150,9 @@ begin
     Result.ConnectionString := AConnectionStringOverride
   else
   begin
-    Result.ConnectionString := GetEnvVar('METHYLPIPELINE_DB');
+    Result.ConnectionString := GetEnvVar('WF_DATABASE_URL');
+    if Result.ConnectionString = '' then
+      Result.ConnectionString := GetEnvVar('GOLIATH_DATABASE_URL');
     if Result.ConnectionString = '' then
       Result.ConnectionString := BuildConnectionStringFromEnv;
   end;

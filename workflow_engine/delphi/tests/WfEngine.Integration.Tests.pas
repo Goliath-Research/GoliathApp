@@ -2,7 +2,7 @@ unit WfEngine.Integration.Tests;
 
 {
   Integration test skeleton for the Delphi REST gateway.
-  Configure METHYLPIPELINE_DB in the environment.
+  Configure WF_DATABASE_URL or POSTGRES_* in the environment.
   Requires: UniDAC, wf schema deployed (wf_sql_runtime_parity.sql or equivalent).
 }
 
@@ -26,7 +26,7 @@ begin
   begin
     Result.Backend := dbMssql;
     Result.ConnectionString :=
-      'Provider Name=SQL Server;Data Source=localhost;Initial Catalog=MethylPipeline;Integrated Security=True';
+      'Provider Name=SQL Server;Data Source=localhost;Initial Catalog=GoliathWfRef;Integrated Security=True';
     Result.SchemaName := ResolveSchemaName;
     Result.UseManagedIdentity := False;
   end;

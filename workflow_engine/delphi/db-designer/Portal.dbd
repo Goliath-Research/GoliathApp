@@ -66,7 +66,7 @@
               <Height>133 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.Diseases</Path>
+              <Path>GoliathWfRef.portal.Diseases</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -89,7 +89,7 @@
               <Height>151 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.Groups</Path>
+              <Path>GoliathWfRef.portal.Groups</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -112,7 +112,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.GroupSamples</Path>
+              <Path>GoliathWfRef.portal.GroupSamples</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -159,7 +159,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.GroupSamples.FK_GroupSamples_Groups</Path>
+              <Path>GoliathWfRef.portal.GroupSamples.FK_GroupSamples_Groups</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -206,7 +206,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.Institutions</Path>
+              <Path>GoliathWfRef.portal.Institutions</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -229,7 +229,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.Labs</Path>
+              <Path>GoliathWfRef.portal.Labs</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -252,7 +252,7 @@
               <Height>169 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.LabSamples</Path>
+              <Path>GoliathWfRef.portal.LabSamples</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -275,7 +275,7 @@
               <Height>205 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.Patients</Path>
+              <Path>GoliathWfRef.portal.Patients</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -322,7 +322,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.Patients.FK_Patients_Institutions</Path>
+              <Path>GoliathWfRef.portal.Patients.FK_Patients_Institutions</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -369,7 +369,7 @@
               <Height>259 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.Samples</Path>
+              <Path>GoliathWfRef.portal.Samples</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -426,7 +426,7 @@
             </BendPoints>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.Samples.FK_Samples_Patients</Path>
+              <Path>GoliathWfRef.portal.Samples.FK_Samples_Patients</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -497,7 +497,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.GroupSamples.FK_GroupSamples_Samples</Path>
+              <Path>GoliathWfRef.portal.GroupSamples.FK_GroupSamples_Samples</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -568,7 +568,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.LabSamples.FK_LabSamples_Samples</Path>
+              <Path>GoliathWfRef.portal.LabSamples.FK_LabSamples_Samples</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -615,7 +615,7 @@
               <Height>151 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.SamplesBreastCancer</Path>
+              <Path>GoliathWfRef.portal.SamplesBreastCancer</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -662,7 +662,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.SamplesBreastCancer.FK_SamplesBreastCancer_Samples</Path>
+              <Path>GoliathWfRef.portal.SamplesBreastCancer.FK_SamplesBreastCancer_Samples</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -709,7 +709,7 @@
               <Height>151 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.SamplesProstateCancer</Path>
+              <Path>GoliathWfRef.portal.SamplesProstateCancer</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -762,7 +762,7 @@
             </BendPoints>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.SamplesProstateCancer.FK_SamplesProstateCancer_Samples</Path>
+              <Path>GoliathWfRef.portal.SamplesProstateCancer.FK_SamplesProstateCancer_Samples</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -809,7 +809,7 @@
               <Height>133 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.Batches</Path>
+              <Path>GoliathWfRef.portal.Batches</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -856,7 +856,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.Batches.FK_Batches_Labs_ID</Path>
+              <Path>GoliathWfRef.portal.Batches.FK_Batches_Labs_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -927,7 +927,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.LabSamples.FK_LabSamples_Batches_ID</Path>
+              <Path>GoliathWfRef.portal.LabSamples.FK_LabSamples_Batches_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -974,7 +974,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.InstitutionLabs</Path>
+              <Path>GoliathWfRef.portal.InstitutionLabs</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -1021,7 +1021,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.InstitutionLabs.FK_InstitutionLabs</Path>
+              <Path>GoliathWfRef.portal.InstitutionLabs.FK_InstitutionLabs</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1092,7 +1092,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.InstitutionLabs.FK_InstitutionLabs_Labs_ID</Path>
+              <Path>GoliathWfRef.portal.InstitutionLabs.FK_InstitutionLabs_Labs_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1139,7 +1139,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.Customers</Path>
+              <Path>GoliathWfRef.portal.Customers</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -1162,7 +1162,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.portal.CustomerInstitutions</Path>
+              <Path>GoliathWfRef.portal.CustomerInstitutions</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -1209,7 +1209,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.CustomerInstitutions.FK_CustomerInstitutions_Customers_ID</Path>
+              <Path>GoliathWfRef.portal.CustomerInstitutions.FK_CustomerInstitutions_Customers_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1280,7 +1280,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.CustomerInstitutions.FK_CustomerInstitutions_Institutions_ID</Path>
+              <Path>GoliathWfRef.portal.CustomerInstitutions.FK_CustomerInstitutions_Institutions_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1361,7 +1361,7 @@
             </BendPoints>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.Samples.FK_Samples_Customers_ID</Path>
+              <Path>GoliathWfRef.portal.Samples.FK_Samples_Customers_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1432,7 +1432,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.Groups.FK_Groups_Customers_ID</Path>
+              <Path>GoliathWfRef.portal.Groups.FK_Groups_Customers_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1479,7 +1479,7 @@
               <Height>295 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.Contract.Contracts</Path>
+              <Path>GoliathWfRef.Contract.Contracts</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -1526,7 +1526,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.Contract.Contracts.FK_Contracts_Customers_ID</Path>
+              <Path>GoliathWfRef.Contract.Contracts.FK_Contracts_Customers_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1573,7 +1573,7 @@
               <Height>259 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.Contract.ContractLimits</Path>
+              <Path>GoliathWfRef.Contract.ContractLimits</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -1620,7 +1620,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.Contract.ContractLimits.FK_ContractLimits_ContractID</Path>
+              <Path>GoliathWfRef.Contract.ContractLimits.FK_ContractLimits_ContractID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -1691,7 +1691,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.portal.Samples.FK_Samples_Diseases_ID</Path>
+              <Path>GoliathWfRef.portal.Samples.FK_Samples_Diseases_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>

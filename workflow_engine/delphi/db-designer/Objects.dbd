@@ -65,7 +65,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.dbo.Batches</Path>
+              <Path>GoliathWfRef.dbo.Batches</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -88,7 +88,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.dbo.Diseases</Path>
+              <Path>GoliathWfRef.dbo.Diseases</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -111,7 +111,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.dbo.Groups</Path>
+              <Path>GoliathWfRef.dbo.Groups</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -134,7 +134,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.dbo.Institutions</Path>
+              <Path>GoliathWfRef.dbo.Institutions</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -157,7 +157,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.dbo.Labs</Path>
+              <Path>GoliathWfRef.dbo.Labs</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -180,7 +180,7 @@
               <Height>151 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.dbo.Patients</Path>
+              <Path>GoliathWfRef.dbo.Patients</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -203,7 +203,7 @@
               <Height>205 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.dbo.Samples</Path>
+              <Path>GoliathWfRef.dbo.Samples</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -226,7 +226,7 @@
               <Height>115 px</Height>
             </Size>
             <DbOid>
-              <Path>MethylPipeline.dbo.Objs</Path>
+              <Path>GoliathWfRef.dbo.Objs</Path>
               <TypeName>Table</TypeName>
             </DbOid>
             <Compartments>
@@ -283,7 +283,7 @@
             </BendPoints>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.dbo.Batches.FK_Batches_Objs_ID</Path>
+              <Path>GoliathWfRef.dbo.Batches.FK_Batches_Objs_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -354,7 +354,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.dbo.Diseases.FK_Diseases_Objs_ID</Path>
+              <Path>GoliathWfRef.dbo.Diseases.FK_Diseases_Objs_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -425,7 +425,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.dbo.Groups.FK_Groups_Objs_ID</Path>
+              <Path>GoliathWfRef.dbo.Groups.FK_Groups_Objs_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -502,7 +502,7 @@
             </BendPoints>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.dbo.Institutions.FK_Institutions_Objs_ID</Path>
+              <Path>GoliathWfRef.dbo.Institutions.FK_Institutions_Objs_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -573,7 +573,7 @@
             </PortAnchors>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.dbo.Labs.FK_Labs_Objs_ID</Path>
+              <Path>GoliathWfRef.dbo.Labs.FK_Labs_Objs_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -654,7 +654,7 @@
             </BendPoints>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.dbo.Patients.FK_Patients_Objs_ID</Path>
+              <Path>GoliathWfRef.dbo.Patients.FK_Patients_Objs_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>
@@ -735,7 +735,7 @@
             </BendPoints>
             <IsManuallyRouted>false</IsManuallyRouted>
             <DbOid>
-              <Path>MethylPipeline.dbo.Samples.FK_Samples_Objs_ID</Path>
+              <Path>GoliathWfRef.dbo.Samples.FK_Samples_Objs_ID</Path>
               <TypeName>ForeignKey</TypeName>
             </DbOid>
           </Model>

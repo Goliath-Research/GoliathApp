@@ -20,7 +20,7 @@ uses
 begin
   try
     Writeln('WfEngine tests');
-    Writeln('METHYLPIPELINE_DB = ', GetEnvironmentVariable('METHYLPIPELINE_DB'));
+    Writeln('WF_DATABASE_URL = ', GetEnvironmentVariable('WF_DATABASE_URL'));
     Writeln;
     RunGatewayServiceTests;
     Writeln;

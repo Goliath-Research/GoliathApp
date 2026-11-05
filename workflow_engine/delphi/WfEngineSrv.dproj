@@ -200,7 +200,7 @@
         <DCCReference Include="src\WfEngine.Mvc.ActionsController.pas"/>
         <DCCReference Include="src\WfEngine.Mvc.Server.pas"/>
         <DCCReference Include="src\WfEngine.Mvc.Service.pas">
-            <Form>MethylWfGateway</Form>
+            <Form>WfEngineGateway</Form>
             <DesignClass>TService</DesignClass>
         </DCCReference>
         <BuildConfiguration Include="Base">
