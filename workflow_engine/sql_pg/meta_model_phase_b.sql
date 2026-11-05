@@ -65,7 +65,7 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION "Meta".fn_class_json_schema(p_class_id int)
+CREATE OR REPLACE FUNCTION "Meta".fn_class_json_schema(p_class_id int, p_as_base boolean DEFAULT false)
 RETURNS jsonb
 LANGUAGE plpgsql
 STABLE
@@ -76,6 +76,7 @@ DECLARE
   v_props jsonb := '{}'::jsonb;
   v_required jsonb := '[]'::jsonb;
   v_allof jsonb := '[]'::jsonb;
+  v_schema jsonb;
   r record;
 BEGIN
   SELECT c."ID", c."Name", c."ParentID"
@@ -110,15 +111,18 @@ BEGIN
     END IF;
   END LOOP;
 
-  RETURN jsonb_build_object(
+  v_schema := jsonb_build_object(
     '$schema', 'https://json-schema.org/draft/2020-12/schema',
     '$id', "Meta".fn_class_schema_uri(p_class_id),
     'allOf', v_allof,
     'type', 'object',
     'properties', v_props,
-    'required', v_required,
-    'unevaluatedProperties', false
+    'required', v_required
   );
+  IF NOT p_as_base THEN
+    v_schema := v_schema || jsonb_build_object('unevaluatedProperties', false);
+  END IF;
+  RETURN v_schema;
 END;
 $$;
 
@@ -157,7 +161,7 @@ BEGIN
   LOOP
     v_defs := v_defs || jsonb_build_object(
       "Meta".fn_class_schema_uri(r.class_id),
-      "Meta".fn_class_json_schema(r.class_id)
+      "Meta".fn_class_json_schema(r.class_id, true)
     );
   END LOOP;
 
@@ -272,7 +276,7 @@ BEGIN
   END IF;
 
   v_schema := "Meta".fn_class_json_schema(p_class_id);
-  v_hash := "Meta".fn_meta_schema_content_hash(v_schema);
+  v_hash := "Meta".fn_meta_schema_content_hash("Meta".fn_class_json_schema_bundled(p_class_id));
   v_type_name := 'meta/class/' || v_class."Name";
 
   IF v_class."TypeID" IS NOT NULL THEN
@@ -317,7 +321,10 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION "Meta".sp_meta_publish_method_params_type(p_method_id int)
+CREATE OR REPLACE FUNCTION "Meta".sp_meta_publish_method_params_type(
+  p_method_id int,
+  p_breaking boolean DEFAULT false
+)
 RETURNS bigint
 LANGUAGE plpgsql
 AS $$
@@ -326,6 +333,9 @@ DECLARE
   v_schema jsonb;
   v_hash text;
   v_type_name text;
+  v_version text;
+  v_existing_version text;
+  v_existing_type_id bigint;
   v_type_id bigint;
 BEGIN
   SELECT m."ID", m."ClassID", m."Name", c."Name" AS class_name
@@ -342,10 +352,33 @@ BEGIN
   v_hash := "Meta".fn_meta_schema_content_hash(v_schema);
   v_type_name := format('meta/class/%s/%s.Params', v_method.class_name, v_method."Name");
 
+  SELECT t.id, t.version
+  INTO v_existing_type_id, v_existing_version
+  FROM wf.data_type t
+  WHERE t.name = v_type_name
+  ORDER BY
+    CASE WHEN t.version ~ '^[0-9]+\.[0-9]+$' THEN split_part(t.version, '.', 1)::int ELSE 0 END DESC,
+    CASE WHEN t.version ~ '^[0-9]+\.[0-9]+$' THEN split_part(t.version, '.', 2)::int ELSE 0 END DESC,
+    t.id DESC
+  LIMIT 1;
+
+  IF v_existing_type_id IS NOT NULL AND EXISTS (
+    SELECT 1 FROM wf.data_type t
+    WHERE t.id = v_existing_type_id AND t.content_hash IS NOT DISTINCT FROM v_hash
+  ) THEN
+    RETURN v_existing_type_id;
+  END IF;
+
+  IF v_existing_type_id IS NOT NULL THEN
+    v_version := "Meta".fn_bump_type_version(COALESCE(v_existing_version, '1.0'), p_breaking);
+  ELSE
+    v_version := '1.0';
+  END IF;
+
   SELECT dt.id INTO v_type_id
   FROM wf.wf_repo_upsert_data_type(
     v_type_name,
-    '1.0',
+    v_version,
     'published',
     'object',
     NULL,
