@@ -13,22 +13,17 @@ from pathlib import Path
 WF_ENGINE = Path(__file__).resolve().parents[1]
 SQL_PG = WF_ENGINE / "sql_pg"
 sys.path.insert(0, str(WF_ENGINE))
-_TESTS_DIR = Path(__file__).resolve().parent
-if str(_TESTS_DIR) not in sys.path:
-    sys.path.insert(0, str(_TESTS_DIR))
 
 from rest.db.base import EventIngestForbidden, WorkerCallAuth  # noqa: E402
 from rest.db.postgres import PostgresGatewayDb  # noqa: E402
+from tests.helpers import pg_integration  # noqa: E402
 
-# Reuse helpers from worker session tests (directory on path for pytest file collection)
-from test_worker_session_auth import (  # noqa: E402
-    _apply_schema_scripts,
-    _pg_dsn,
-    _pg_env,
-    _postgres_available,
-    _psql_query,
-    seed_minimal_workflow,
-)
+_apply_schema_scripts = pg_integration.apply_schema_scripts
+_pg_dsn = pg_integration.pg_dsn
+_pg_env = pg_integration.pg_env
+_postgres_available = pg_integration.postgres_available
+_psql_query = pg_integration.psql_query
+seed_minimal_workflow = pg_integration.seed_minimal_workflow
 
 
 def _digest_api_key(plaintext: str) -> str:
