@@ -123,8 +123,9 @@ def test_portal_rbac_api_survives_return_type_change() -> None:
         check=True,
     )
     # Simulate a prior release with a narrower RETURNS TABLE (repro Neon row-type error).
+    _psql("DROP FUNCTION IF EXISTS portal.sp_list_scopes(boolean)", env)
     stub = r"""
-    CREATE OR REPLACE FUNCTION portal.sp_list_scopes(p_include_inactive boolean DEFAULT false)
+    CREATE FUNCTION portal.sp_list_scopes(p_include_inactive boolean DEFAULT false)
     RETURNS TABLE (scope_id int)
     LANGUAGE sql
     STABLE
