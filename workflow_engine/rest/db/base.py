@@ -133,6 +133,18 @@ class GatewayDb(Protocol):
         occurred_at_utc: Optional[str] = None,
     ) -> dict[str, Any]: ...
 
+    def ingest_event_worker(
+        self,
+        auth: WorkerCallAuth,
+        *,
+        event_type: str,
+        source: str,
+        idempotency_key: str,
+        payload_json: Optional[dict[str, Any]] = None,
+        correlation_key: Optional[str] = None,
+        occurred_at_utc: Optional[str] = None,
+    ) -> dict[str, Any]: ...
+
     def create_workflow_instance(
         self,
         workflow_version_id: int,
@@ -353,6 +365,19 @@ class GatewayDbBase(ABC):
     @abstractmethod
     def ingest_event(
         self,
+        *,
+        event_type: str,
+        source: str,
+        idempotency_key: str,
+        payload_json: Optional[dict[str, Any]] = None,
+        correlation_key: Optional[str] = None,
+        occurred_at_utc: Optional[str] = None,
+    ) -> dict[str, Any]: ...
+
+    @abstractmethod
+    def ingest_event_worker(
+        self,
+        auth: WorkerCallAuth,
         *,
         event_type: str,
         source: str,

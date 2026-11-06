@@ -110,6 +110,9 @@ def worker_route_requires_session_headers(method: str, path: str) -> bool:
 
 
 def classify_route(method: str, path: str) -> RouteTier:
+    normalized = path.rstrip("/")
+    if normalized == "/v1/events" and method == "POST":
+        return RouteTier.WORKER
     if path.startswith("/v1/workers/"):
         return RouteTier.WORKER
     if method == "GET" and path in _PUBLIC_GET:

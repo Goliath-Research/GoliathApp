@@ -367,6 +367,51 @@ class PostgresGatewayDb(GatewayDbBase):
             "ignored_count": int(row["ignored_count"]),
         }
 
+    def ingest_event_worker(
+        self,
+        auth: WorkerCallAuth,
+        *,
+        event_type: str,
+        source: str,
+        idempotency_key: str,
+        payload_json: Optional[dict[str, Any]] = None,
+        correlation_key: Optional[str] = None,
+        occurred_at_utc: Optional[str] = None,
+    ) -> dict[str, Any]:
+        try:
+            row = self._fetch_one(
+                f"""
+                SELECT event_id, duplicate, applied_count, ignored_count
+                FROM {self._qual('sp_worker_ingest_event')}(
+                    %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s::timestamptz
+                )
+                """,
+                (
+                    auth.worker_id,
+                    auth.session_token,
+                    auth.identity_token,
+                    auth.client_ip,
+                    event_type,
+                    source,
+                    idempotency_key,
+                    json.dumps(payload_json or {}),
+                    correlation_key,
+                    occurred_at_utc,
+                ),
+            )
+        except Exception as exc:
+            if self._is_auth_error(exc):
+                raise WorkerAuthError(str(exc)) from exc
+            raise
+        if not row:
+            raise RuntimeError("wf.sp_worker_ingest_event returned no row")
+        return {
+            "event_id": int(row["event_id"]),
+            "duplicate": bool(row["duplicate"]),
+            "applied_count": int(row["applied_count"]),
+            "ignored_count": int(row["ignored_count"]),
+        }
+
     def fetch_worker_wake_hints_for_event(self, event_id: int) -> list[Any]:
         from rest.worker_wake import WorkerWakeHint
 

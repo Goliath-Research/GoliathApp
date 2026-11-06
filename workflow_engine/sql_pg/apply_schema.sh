@@ -106,6 +106,7 @@ SCRIPTS=(
   portal_guardrails_editor.sql
   cfg_study_start_request.sql
   wf_event_plane.sql
+  wf_worker_ingest_event.sql
   wf_worker_wake_hints.sql
   database_gateway_roles.sql
 )

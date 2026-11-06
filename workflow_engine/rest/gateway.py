@@ -7,8 +7,9 @@ workflow deploy, and study lifecycle use direct DB (``workflow_engine/ops``),
 portal SQL, or Cursor MCP — not this HTTP surface.
 
 The gateway is domain-agnostic: no pipeline knowledge, no catalog files on disk,
-and no config resolution at task claim. Adapters ingest typed events via
-``POST /v1/events`` (not the worker claim surface).
+and no config resolution at task claim. Enrolled adapters ingest typed events via
+``POST /v1/events`` using the **same worker session headers** as claim
+(``wf.sp_worker_ingest_event``).
 """
 
 from __future__ import annotations
@@ -35,7 +36,7 @@ from goliath_worker.wake import (
 
 from .db.base import GatewayDb, WorkerAuthError, WorkerCallAuth
 from .db_client import (
-    ingest_event,
+    ingest_event_worker,
     worker_enroll,
     worker_fail_task,
     worker_heartbeat,
@@ -201,8 +202,11 @@ class RestGateway:
                 payload = body.get("payload_json") or {}
             if payload is not None and not isinstance(payload, dict):
                 return 400, {"error": "payload must be a JSON object"}
-            result = ingest_event(
+            if worker_auth is None:
+                return 401, {"error": "worker session auth required for event ingest"}
+            result = ingest_event_worker(
                 self.db,
+                worker_auth,
                 event_type=event_type,
                 source=source,
                 idempotency_key=idempotency_key,

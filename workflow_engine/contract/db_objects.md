@@ -88,6 +88,7 @@ Capabilities are stored at enrollment. `portal.sp_upsert_worker_enrollment` prer
 | `wf.sp_worker_fail_task` | procedure | Fail task and instance |
 | `wf.sp_start_workflow_instance` | procedure | Start instance and activate root |
 | `wf.sp_ingest_event` | procedure/function | Insert event; start instances and/or complete `WAIT_EVENT` |
+| `wf.sp_worker_ingest_event` | function | Worker-authenticated ingest for `POST /v1/events` (calls `wf.wf_worker_authenticate` then `wf.sp_ingest_event`) |
 | `wf.fn_worker_wake_hints_for_event` | function | Claimable-task wake dimensions for instances touched by an event |
 | `wf.fn_worker_wake_hints_for_instances` | function | Claimable-task wake dimensions for workflow instances |
 | `wf.fn_worker_wake_hints_for_node_executions` | function | Wake dimensions after node executions become reclaimable |

@@ -33,6 +33,10 @@ sequenceDiagram
   opt long running
     Worker->>API: POST /v1/workers/tasks/{id}/heartbeat
   end
+  opt device / protocol adapter (telemetry)
+    Worker->>API: POST /v1/events (same session as claim)
+    API->>DB: wf.sp_worker_ingest_event → wf.sp_ingest_event
+  end
 ```
 
 Paths below are under the `/v1` prefix the gateway serves. The OpenAPI document lists them without that prefix, and the servers block includes `/v1`.

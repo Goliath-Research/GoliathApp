@@ -6,9 +6,9 @@ info:
     \ from a portal-preregistered public IP (no worker_token yet; gateway mints credentials once).\n\n\
     **EpiPortal never calls this API.** Catalog seed, workflow deploy, and study lifecycle use direct\
     \ DB (`workflow_engine/ops`, `seed_action_catalog.py`, `deploy_workflow_definitions.sh`) or portal\
-    \ SQL (`portal.sp_*`). Sensor/operator adapters POST `/events` (typed JSON ingest). Interactive inspection uses Cursor MCP.\n\nMaps to DB objects in `workflow_engine/contract/db_objects.yaml`.\n\
+    \ SQL (`portal.sp_*`). **Device adapters** POST `/events` with the **same worker session** as claim (`Authorization`, `X-Goliath-Worker-Token`, JSON `worker_id`); the gateway calls `wf.sp_worker_ingest_event` so credentials are verified before `wf.sp_ingest_event`. Interactive inspection uses Cursor MCP.\n\nMaps to DB objects in `workflow_engine/contract/db_objects.yaml`.\n\
     Production: Python gateway on Linux (`goliath-gateway`, systemd, uvicorn)."
-  version: 1.6.0
+  version: 1.7.0
 servers:
 - url: https://api.example.com/v1
   description: Production
@@ -211,13 +211,17 @@ paths:
     post:
       tags:
       - events
-      summary: Ingest an external event (wf.sp_ingest_event)
+      summary: Ingest an external event (wf.sp_worker_ingest_event)
       description: |
-        Adapters (MQTT, webhooks, operator apps) POST typed JSON. The engine
-        evaluates `wf.event_subscription` rows and either starts a workflow
-        instance or completes a READY `WAIT_EVENT` node. Duplicate
-        `(source, idempotency_key)` is a no-op. Not a worker claim route.
+        Device and protocol adapters POST typed JSON with **worker session auth**
+        (same headers and `worker_id` as `POST /workers/tasks/request`). The gateway
+        authenticates the worker, then evaluates `wf.event_subscription` via
+        `wf.sp_ingest_event`. Duplicate `(source, idempotency_key)` is a no-op.
+        **Do not** trust arbitrary scope fields in the payload; bind tenancy in
+        adapter configuration resolved on the host (secret refs), not from messages.
       operationId: ingestEvent
+      security:
+      - workerSession: []
       requestBody:
         required: true
         content:
@@ -457,15 +461,20 @@ components:
     EventIngestRequest:
       type: object
       required:
+      - worker_id
       - event_type
       - source
       - idempotency_key
       properties:
         event_type:
           type: string
+        worker_id:
+          type: integer
+          format: int64
+          description: Enrolled worker id (must match session); same as other worker routes.
         source:
           type: string
-          description: Adapter identity (gateway, portal, mqtt, …)
+          description: Stable adapter source label for `wf.event` (e.g. mqtt, homeassistant)
         idempotency_key:
           type: string
         payload:

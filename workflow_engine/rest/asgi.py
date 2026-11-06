@@ -73,7 +73,10 @@ def create_app(
             client_ip = extract_client_ip(scope, headers, config.trusted_proxy_cidrs)
             worker_auth: Optional[WorkerCallAuth] = None
             identity_token: Optional[str] = None
-            if worker_route_requires_session_headers(method, path):
+            normalized_path = path.rstrip("/")
+            if worker_route_requires_session_headers(method, path) or (
+                normalized_path == "/v1/events" and method == "POST"
+            ):
                 worker_auth = build_worker_call_auth(headers, body, client_ip)
             elif path.rstrip("/") == "/v1/workers/session":
                 for key, value in headers:

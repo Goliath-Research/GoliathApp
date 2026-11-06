@@ -283,6 +283,41 @@ class WorkerSessionAuthIntegrationTests(unittest.TestCase):
         with self.assertRaises(Exception):
             self.db.worker_open_session(self.identity, "198.51.100.1")
 
+    def test_worker_ingest_event_authenticated(self) -> None:
+        result = self.db.ingest_event_worker(
+            self.auth,
+            event_type="device.adapter.test.v1",
+            source="pytest-worker-ingest",
+            idempotency_key="idem-sp-worker-ingest-1",
+            payload_json={"probe": True},
+        )
+        self.assertIn("event_id", result)
+        self.assertFalse(result.get("duplicate", True))
+        dup = self.db.ingest_event_worker(
+            self.auth,
+            event_type="device.adapter.test.v1",
+            source="pytest-worker-ingest",
+            idempotency_key="idem-sp-worker-ingest-1",
+            payload_json={"probe": False},
+        )
+        self.assertTrue(dup.get("duplicate", False))
+
+    def test_worker_ingest_event_wrong_ip_fails(self) -> None:
+        bad = WorkerCallAuth(
+            worker_id=self.worker_id,
+            session_token=self.session,
+            identity_token=self.identity,
+            client_ip="198.51.100.1",
+        )
+        with self.assertRaises(Exception):
+            self.db.ingest_event_worker(
+                bad,
+                event_type="device.adapter.test.v1",
+                source="pytest-worker-ingest",
+                idempotency_key="idem-bad-ip",
+                payload_json={},
+            )
+
     def test_goliath_portal_has_no_cfg_schema_usage(self) -> None:
         roles_sql = SQL_PG / "database_gateway_roles.sql"
         if roles_sql.is_file():
