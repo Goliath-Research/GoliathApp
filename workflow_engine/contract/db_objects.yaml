@@ -100,6 +100,49 @@ objects:
           - { name: applied_count, type: int }
           - { name: ignored_count, type: int }
         cardinality: exactly_one
+    - name: wf.sp_worker_ingest_event
+      kind: function
+      required: true
+      notes: Gateway `POST /v1/events` — authenticates worker then delegates to wf.sp_ingest_event.
+      parameters:
+        - { name: p_worker_id, type: bigint, direction: in }
+        - { name: p_session_token, type: text, direction: in }
+        - { name: p_identity_token, type: text, direction: in }
+        - { name: p_client_ip, type: text, direction: in }
+        - { name: p_event_type, type: text, direction: in }
+        - { name: p_source, type: text, direction: in }
+        - { name: p_idempotency_key, type: text, direction: in }
+        - { name: p_payload_json, type: jsonb, direction: in, nullable: true }
+        - { name: p_correlation_key, type: text, direction: in, nullable: true }
+        - { name: p_occurred_at_utc, type: timestamptz, direction: in, nullable: true }
+      result_set:
+        columns:
+          - { name: event_id, type: bigint }
+          - { name: duplicate, type: boolean }
+          - { name: applied_count, type: int }
+          - { name: ignored_count, type: int }
+        cardinality: exactly_one
+    - name: wf.sp_ingest_event_with_api_key
+      kind: function
+      required: true
+      notes: |
+        Gateway `POST /v1/events` when `X-Goliath-Event-Ingest-Key` is set — hashes key, checks wf.event_ingest_api_key
+        row allowlists, then wf.sp_ingest_event. Does not authenticate a worker.
+      parameters:
+        - { name: p_key_hash, type: bytea, direction: in }
+        - { name: p_event_type, type: text, direction: in }
+        - { name: p_source, type: text, direction: in }
+        - { name: p_idempotency_key, type: text, direction: in }
+        - { name: p_payload_json, type: jsonb, direction: in, nullable: true }
+        - { name: p_correlation_key, type: text, direction: in, nullable: true }
+        - { name: p_occurred_at_utc, type: timestamptz, direction: in, nullable: true }
+      result_set:
+        columns:
+          - { name: event_id, type: bigint }
+          - { name: duplicate, type: boolean }
+          - { name: applied_count, type: int }
+          - { name: ignored_count, type: int }
+        cardinality: exactly_one
     - name: wf.sp_signal_wait
       kind: procedure
       required: true

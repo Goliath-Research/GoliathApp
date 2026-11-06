@@ -26,13 +26,16 @@ BEGIN
   ALTER TABLE wf.workflow_node
     ADD CONSTRAINT ck_wn_node_type CHECK (
       node_type IN (
-        'ACTION','SEQUENCE','PARALLEL','IF','SWITCH','REPEAT','WHILE','FOREACH','WAIT_EVENT'
+        'ACTION','SEQUENCE','PARALLEL','IF','SWITCH','REPEAT','WHILE','FOREACH','WAIT_EVENT','SCHEDULE'
       )
     );
 END $$;
 
 ALTER TABLE wf.workflow_node ADD COLUMN IF NOT EXISTS wait_event_type text;
 ALTER TABLE wf.workflow_node ADD COLUMN IF NOT EXISTS wait_correlation_var text;
+
+-- Inherited periodic work: one workflow SCHEDULE node re-enqueues after completion (no second scheduler).
+ALTER TABLE wf.workflow_node ADD COLUMN IF NOT EXISTS schedule_interval_seconds int NULL;
 
 CREATE TABLE IF NOT EXISTS wf.event_type (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

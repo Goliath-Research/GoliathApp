@@ -46,6 +46,9 @@ ALTER TABLE cfg.study
 ALTER TABLE cfg.study
   ADD COLUMN IF NOT EXISTS default_assay_procedure_id bigint NULL
     REFERENCES cfg.assay_procedure(id);
+ALTER TABLE cfg.study
+  ADD COLUMN IF NOT EXISTS default_analyte_id bigint NULL
+    REFERENCES cfg.analyte(id);
 
 ALTER TABLE cfg.study_instance_link
   ADD COLUMN IF NOT EXISTS assay_procedure_id bigint NULL

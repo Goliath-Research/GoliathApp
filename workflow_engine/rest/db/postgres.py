@@ -13,7 +13,14 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from ..azure_auth import get_database_access_token
-from .base import GatewayDbBase, WorkerAuthError, WorkerCallAuth, WorkerEnrollError, parse_json_value
+from .base import (
+    EventIngestForbidden,
+    GatewayDbBase,
+    WorkerAuthError,
+    WorkerCallAuth,
+    WorkerEnrollError,
+    parse_json_value,
+)
 
 
 class _PgPool:
@@ -360,6 +367,120 @@ class PostgresGatewayDb(GatewayDbBase):
         )
         if not row:
             raise RuntimeError("wf.sp_ingest_event returned no row")
+        return {
+            "event_id": int(row["event_id"]),
+            "duplicate": bool(row["duplicate"]),
+            "applied_count": int(row["applied_count"]),
+            "ignored_count": int(row["ignored_count"]),
+        }
+
+    def fetch_worker_event_ingest_overlay(self, worker_id: int) -> dict[str, str]:
+        row = self._fetch_one(
+            f"""
+            SELECT event_ingest_binding
+            FROM wf.worker WHERE id = %s
+            """,
+            (worker_id,),
+        )
+        if not row:
+            raise EventIngestForbidden("unknown worker for event ingest overlay")
+        raw = row.get("event_ingest_binding")
+        if raw is None:
+            return {}
+        binding = parse_json_value(raw) if not isinstance(raw, dict) else raw
+        if not isinstance(binding, dict):
+            return {}
+        out: dict[str, str] = {}
+        org = binding.get("org_key")
+        if org is not None and str(org).strip() and str(org).strip() != "*":
+            out["organization_key"] = str(org).strip()
+        dev = binding.get("device_id")
+        if dev is not None and str(dev).strip():
+            out["device_key"] = str(dev).strip()
+        return out
+
+    def ingest_event_worker(
+        self,
+        auth: WorkerCallAuth,
+        *,
+        event_type: str,
+        source: str,
+        idempotency_key: str,
+        payload_json: Optional[dict[str, Any]] = None,
+        correlation_key: Optional[str] = None,
+        occurred_at_utc: Optional[str] = None,
+    ) -> dict[str, Any]:
+        try:
+            row = self._fetch_one(
+                f"""
+                SELECT event_id, duplicate, applied_count, ignored_count
+                FROM {self._qual('sp_worker_ingest_event')}(
+                    %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s::timestamptz
+                )
+                """,
+                (
+                    auth.worker_id,
+                    auth.session_token,
+                    auth.identity_token,
+                    auth.client_ip,
+                    event_type,
+                    source,
+                    idempotency_key,
+                    json.dumps(payload_json or {}),
+                    correlation_key,
+                    occurred_at_utc,
+                ),
+            )
+        except Exception as exc:
+            if self._is_auth_error(exc):
+                raise WorkerAuthError(str(exc)) from exc
+            if self._is_event_ingest_forbidden(exc):
+                raise EventIngestForbidden(str(exc)) from exc
+            raise
+        if not row:
+            raise RuntimeError("wf.sp_worker_ingest_event returned no row")
+        return {
+            "event_id": int(row["event_id"]),
+            "duplicate": bool(row["duplicate"]),
+            "applied_count": int(row["applied_count"]),
+            "ignored_count": int(row["ignored_count"]),
+        }
+
+    def ingest_event_with_api_key(
+        self,
+        key_hash_hex: str,
+        *,
+        event_type: str,
+        source: str,
+        idempotency_key: str,
+        payload_json: Optional[dict[str, Any]] = None,
+        correlation_key: Optional[str] = None,
+        occurred_at_utc: Optional[str] = None,
+    ) -> dict[str, Any]:
+        try:
+            row = self._fetch_one(
+                f"""
+                SELECT event_id, duplicate, applied_count, ignored_count
+                FROM {self._qual('sp_ingest_event_with_api_key')}(
+                    decode(%s, 'hex'), %s, %s, %s, %s::jsonb, %s, %s::timestamptz
+                )
+                """,
+                (
+                    key_hash_hex.lower().strip(),
+                    event_type,
+                    source,
+                    idempotency_key,
+                    json.dumps(payload_json or {}),
+                    correlation_key,
+                    occurred_at_utc,
+                ),
+            )
+        except Exception as exc:
+            if self._is_event_ingest_forbidden(exc):
+                raise EventIngestForbidden(str(exc)) from exc
+            raise
+        if not row:
+            raise RuntimeError("wf.sp_ingest_event_with_api_key returned no row")
         return {
             "event_id": int(row["event_id"]),
             "duplicate": bool(row["duplicate"]),
@@ -775,3 +896,20 @@ class PostgresGatewayDb(GatewayDbBase):
             """,
             (worker_id,),
         )
+
+    def get_worker_capabilities(self, worker_id: int) -> list[str]:
+        row = self._fetch_one(
+            f"SELECT capabilities FROM {self._qual('worker')} WHERE id = %s",
+            (worker_id,),
+        )
+        if not row:
+            return []
+        raw = row.get("capabilities")
+        if raw is None:
+            return []
+        if isinstance(raw, list):
+            return [str(x) for x in raw]
+        parsed = parse_json_value(raw)
+        if isinstance(parsed, list):
+            return [str(x) for x in parsed]
+        return []

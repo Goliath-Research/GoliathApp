@@ -16,6 +16,7 @@ from typing import Any, Mapping, Optional, Sequence
 from .db.base import GatewayDb, WorkerCallAuth
 
 WORKER_IDENTITY_HEADER = "x-goliath-worker-token"
+EVENT_INGEST_API_KEY_HEADER = "x-goliath-event-ingest-key"
 _WORKER_SESSION_PATH = "/v1/workers/session"
 
 
@@ -109,7 +110,13 @@ def worker_route_requires_session_headers(method: str, path: str) -> bool:
     return True
 
 
+def event_ingest_uses_api_key(headers: Sequence[tuple[bytes, bytes]]) -> bool:
+    raw = _header_value(headers, EVENT_INGEST_API_KEY_HEADER)
+    return bool((raw or "").strip())
+
+
 def classify_route(method: str, path: str) -> RouteTier:
+    normalized = path.rstrip("/")
     if path.startswith("/v1/workers/"):
         return RouteTier.WORKER
     if method == "GET" and path in _PUBLIC_GET:
@@ -233,12 +240,31 @@ def authorize_request(
     scope: Mapping[str, Any],
 ) -> Optional[dict[str, Any]]:
     """Apply worker IP/Arc checks; return None (no JWT claims on worker-only gateway)."""
+    if method == "POST" and path.rstrip("/") == "/v1/events" and event_ingest_uses_api_key(headers):
+        return None
+
     tier = classify_route(method, path)
 
-    if tier == RouteTier.PUBLIC:
+    event_worker_session_path = (
+        method == "POST"
+        and path.rstrip("/") == "/v1/events"
+        and not event_ingest_uses_api_key(headers)
+    )
+
+    if tier == RouteTier.PUBLIC and not event_worker_session_path:
         return None
 
     client_ip = extract_client_ip(scope, headers, config.trusted_proxy_cidrs)
+
+    if event_worker_session_path:
+        build_worker_call_auth(headers, body, client_ip)
+        if body.get("worker_id") is not None:
+            wid = int(body["worker_id"])
+            if config.worker_ip_bind:
+                check_worker_ip_bind(db, wid, client_ip)
+            if config.require_arc_attest:
+                check_worker_arc_attest(db, wid, headers)
+        return None
 
     if tier == RouteTier.WORKER:
         normalized = path.rstrip("/")

@@ -64,6 +64,10 @@ Optional checks, off unless the environment flag is set:
 
 `WorkflowRestClient` also defines `create_workflow_instance`, `get_workflow_instance`, and `list_actions`. The gateway routes in this tree do not implement those paths.
 
+## Device adapters (event ingest)
+
+Protocol adapters (MQTT, Home Assistant, and similar) use the **same session** as claim to call **`POST /v1/events`**. The JSON body includes `worker_id`, `event_type`, `source`, `idempotency_key`, and optional `payload`. The gateway authenticates the worker and calls `wf.sp_worker_ingest_event` (which invokes `wf.sp_ingest_event` after `wf.wf_worker_authenticate`). Unauthenticated event ingest is not supported on the worker gateway. See [device-adapters.md](device-adapters.md) and `WorkflowRestClient.post_event`.
+
 ## Session authentication
 
 Workers use **gateway sessions**, not portal user sessions. After enrollment, `POST /v1/workers/session` exchanges the enrollment identity token (`X-Goliath-Worker-Token`) for a short-lived `session_token`. Subsequent claim, wake wait, heartbeat, submit, and fail calls send that bearer token (header `Authorization: Bearer …` on the client) plus `X-Goliath-Worker-Token`. The gateway hashes tokens at the database boundary (`wf.wf_worker_session_touch`, `wf.sp_worker_request_task`, and related procedures in `wf_worker_session_api.sql`).

@@ -23,6 +23,7 @@ NodeType = Literal[
     "WHILE",
     "FOREACH",
     "WAIT_EVENT",
+    "SCHEDULE",
 ]
 
 EventSubscriptionMode = Literal["start_instance", "signal_wait", "start_or_signal"]
@@ -57,6 +58,7 @@ class WorkflowNodeSpec(BaseModel):
     foreach_parallel: Optional[bool] = None
     wait_event_type: Optional[str] = None
     wait_correlation_var: Optional[str] = None
+    schedule_interval_seconds: Optional[int] = None
     input_template: Optional[Dict[str, Any]] = None
 
 

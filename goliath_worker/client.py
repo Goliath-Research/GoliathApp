@@ -411,3 +411,33 @@ class WorkflowRestClient:
     def list_actions(self) -> list[Dict[str, Any]]:
         body = self._get_json("/actions")
         return list(body.get("actions") or [])
+
+    def post_event(
+        self,
+        worker_id: int,
+        worker_token: str,
+        *,
+        event_type: str,
+        source: str,
+        idempotency_key: str,
+        payload: Optional[Dict[str, Any]] = None,
+        correlation_key: Optional[str] = None,
+        occurred_at_utc: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """POST /v1/events — authenticated device ingest (wf.sp_worker_ingest_event)."""
+        self._ensure_worker_session(worker_token)
+        if not self._session_token:
+            raise RuntimeError("worker session not open; call enroll or open_session")
+
+        body: Dict[str, Any] = {
+            "worker_id": worker_id,
+            "event_type": event_type,
+            "source": source,
+            "idempotency_key": idempotency_key,
+            "payload": payload or {},
+        }
+        if correlation_key is not None:
+            body["correlation_key"] = correlation_key
+        if occurred_at_utc is not None:
+            body["occurred_at_utc"] = occurred_at_utc
+        return self._post_json("/events", body)

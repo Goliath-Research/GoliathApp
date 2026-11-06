@@ -25,6 +25,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Start Mosquitto for protocol tests
+        run: |
+          docker run -d --name mosquitto-ci -p 1883:1883 \
+            -v "$GITHUB_WORKSPACE/.github/mosquitto_ci.conf:/mosquitto/config/mosquitto.conf:ro" \
+            eclipse-mosquitto:2
+
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
@@ -39,7 +45,7 @@ jobs:
         run: python workflow_engine/contract/validate_contract.py
 
       - name: Install the Python gateway
-        run: python -m pip install -e "workflow_engine/[dev]"
+        run: python -m pip install -e "workflow_engine/[dev,device_adapters]"
 
       - name: Type check with Pyrefly
         run: pyrefly check
@@ -83,6 +89,10 @@ jobs:
             workflow_engine/tests/test_worker_wake.py \
             workflow_engine/tests/test_wake_auto_publish.py \
             workflow_engine/tests/test_postgres_wake.py \
+            workflow_engine/tests/test_device_adapter_unit.py \
+            workflow_engine/tests/test_device_adapter_inheritance_flow.py \
+            workflow_engine/tests/test_device_adapter_protocol_integration.py \
+            workflow_engine/tests/test_pg_schema_schedule_wiring.py \
             -q
         env:
           POSTGRES_HOST: localhost
@@ -90,6 +100,9 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: goliath_ci
           POSTGRES_DB: goliathapp_schema_test
+          GOLIATH_PROTOCOL_TESTS: "1"
+          GOLIATH_MQTT_HOST: localhost
+          GOLIATH_MQTT_PORT: "1883"
 
   product-manifest:
     runs-on: ubuntu-latest

@@ -36,6 +36,7 @@ nav:
   - Workflow engine: workflow-engine.md
   - Actions: actions.md
   - Workers: workers.md
+  - Device adapters: device-adapters.md
   - Dual worker activation: dual-activation.md
   - RBAC: rbac.md
   - Pipeline profiles: pipeline-profiles.md
