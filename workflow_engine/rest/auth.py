@@ -16,6 +16,7 @@ from typing import Any, Mapping, Optional, Sequence
 from .db.base import GatewayDb, WorkerCallAuth
 
 WORKER_IDENTITY_HEADER = "x-goliath-worker-token"
+EVENT_INGEST_API_KEY_HEADER = "x-goliath-event-ingest-key"
 _WORKER_SESSION_PATH = "/v1/workers/session"
 
 
@@ -109,10 +110,13 @@ def worker_route_requires_session_headers(method: str, path: str) -> bool:
     return True
 
 
+def event_ingest_uses_api_key(headers: Sequence[tuple[bytes, bytes]]) -> bool:
+    raw = _header_value(headers, EVENT_INGEST_API_KEY_HEADER)
+    return bool((raw or "").strip())
+
+
 def classify_route(method: str, path: str) -> RouteTier:
     normalized = path.rstrip("/")
-    if normalized == "/v1/events" and method == "POST":
-        return RouteTier.WORKER
     if path.startswith("/v1/workers/"):
         return RouteTier.WORKER
     if method == "GET" and path in _PUBLIC_GET:
@@ -236,6 +240,9 @@ def authorize_request(
     scope: Mapping[str, Any],
 ) -> Optional[dict[str, Any]]:
     """Apply worker IP/Arc checks; return None (no JWT claims on worker-only gateway)."""
+    if method == "POST" and path.rstrip("/") == "/v1/events" and event_ingest_uses_api_key(headers):
+        return None
+
     tier = classify_route(method, path)
 
     if tier == RouteTier.PUBLIC:

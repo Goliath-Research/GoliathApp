@@ -122,6 +122,7 @@ BEGIN
     PERFORM * FROM wf.sp_reclaim_expired_leases(NULL::bigint, 60, true);
   END IF;
 
+  -- SCHEDULE: after an observe ACTION completes, reopen the composite so the next tick enqueues work.
   SELECT w.capabilities, coalesce(w.desired_state, 'ACTIVE')
   INTO v_worker_capabilities, v_desired_state
   FROM wf.worker w

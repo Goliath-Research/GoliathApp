@@ -25,7 +25,7 @@ DECLARE
   v_name text;
   v_root_key text;
   v_allowed_node_types text[] := ARRAY[
-    'ACTION','SEQUENCE','PARALLEL','IF','SWITCH','REPEAT','WHILE','FOREACH','WAIT_EVENT'
+    'ACTION','SEQUENCE','PARALLEL','IF','SWITCH','REPEAT','WHILE','FOREACH','WAIT_EVENT','SCHEDULE'
   ];
   v_allowed_branch_kinds text[] := ARRAY[
     'SEQUENCE','PARALLEL','THEN','ELSE','CASE','DEFAULT','BODY'
@@ -94,7 +94,8 @@ BEGIN
       foreach_index_var,
       foreach_parallel,
       wait_event_type,
-      wait_correlation_var
+      wait_correlation_var,
+      schedule_interval_seconds
     )
     VALUES (
       v_ver_id,
@@ -114,7 +115,8 @@ BEGIN
         ELSE NULL
       END,
       NULLIF(v_node->>'wait_event_type', ''),
-      NULLIF(v_node->>'wait_correlation_var', '')
+      NULLIF(v_node->>'wait_correlation_var', ''),
+      NULLIF(v_node->>'schedule_interval_seconds', '')::int
     )
     RETURNING id INTO v_node_id;
 

@@ -19,6 +19,12 @@ from goliath_app.engine.models import (
     JsonPathIntOutput,
     JsonPathStringOutput,
 )
+from goliath_app.device_adapter.command_models import (
+    DeviceAdapterCommandInput,
+    DeviceAdapterCommandOutput,
+    DeviceAdapterObserveInput,
+    DeviceAdapterObserveOutput,
+)
 
 _SCHEMA_VERSION = "1"
 
@@ -111,5 +117,36 @@ ACTION_CATALOG = [
         FsStatInput,
         FsStatOutput,
         "goliath_app.engine.handlers:handle_fs_stat",
+    ),
+    ActionSpec(
+        action_name="workflow.device_adapter.command",
+        namespace="engine",
+        level=ActionLevel.ENGINE,
+        entity_code="workflow",
+        display_name="Device adapter command (generic safety)",
+        description=(
+            "Workflow-to-adapter command with typed ack_kind (never treat protocol_accepted as physical). "
+            "Default deny unless GOLIATH_ADAPTER_COMMAND_SAFETY points to a policy hook."
+        ),
+        input_model=DeviceAdapterCommandInput,
+        output_model=DeviceAdapterCommandOutput,
+        schema_version=_SCHEMA_VERSION,
+        capability="device.adapter",
+        tool="device.adapter.command",
+        in_process_handler="goliath_app.device_adapter.command_handler:handle_device_adapter_command",
+    ),
+    ActionSpec(
+        action_name="workflow.device_adapter.observe",
+        namespace="engine",
+        level=ActionLevel.ENGINE,
+        entity_code="workflow",
+        display_name="Device adapter observe (claimed read)",
+        description="Scheduled or follow-on protocol read after telemetry (simulation by default).",
+        input_model=DeviceAdapterObserveInput,
+        output_model=DeviceAdapterObserveOutput,
+        schema_version=_SCHEMA_VERSION,
+        capability="device.adapter",
+        tool="device.adapter.observe",
+        in_process_handler="goliath_app.device_adapter.command_handler:handle_device_adapter_observe",
     ),
 ]

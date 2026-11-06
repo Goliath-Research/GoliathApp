@@ -56,8 +56,9 @@ CREATE TABLE IF NOT EXISTS wf.workflow_node (
   foreach_parallel boolean NULL,
   wait_event_type text NULL,
   wait_correlation_var text NULL,
+  schedule_interval_seconds int NULL,
   UNIQUE (workflow_version_id, node_key),
-  CHECK (node_type IN ('ACTION','SEQUENCE','PARALLEL','IF','SWITCH','REPEAT','WHILE','FOREACH','WAIT_EVENT'))
+  CHECK (node_type IN ('ACTION','SEQUENCE','PARALLEL','IF','SWITCH','REPEAT','WHILE','FOREACH','WAIT_EVENT','SCHEDULE'))
 );
 
 DO $$

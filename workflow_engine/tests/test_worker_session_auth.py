@@ -202,6 +202,15 @@ class WorkerSessionAuthIntegrationTests(unittest.TestCase):
             self.dsn,
             f"UPDATE wf.worker_token SET bound_client_ip = '127.0.0.1' WHERE worker_id = {self.worker_id};",
         )
+        _psql_query(
+            self.dsn,
+            f"""
+            UPDATE wf.worker
+            SET capabilities = '["test-cap", "device.adapter.ingest"]'::jsonb,
+                event_ingest_binding = '{{"source": "pytest-worker-ingest", "org_key": "*", "event_types": ["*"]}}'::jsonb
+            WHERE id = {self.worker_id};
+            """,
+        )
         self.db = PostgresGatewayDb(self.dsn)
         opened = self.db.worker_open_session(self.identity, "127.0.0.1")
         self.session = str(opened["session_token"])
@@ -289,7 +298,7 @@ class WorkerSessionAuthIntegrationTests(unittest.TestCase):
             event_type="device.adapter.test.v1",
             source="pytest-worker-ingest",
             idempotency_key="idem-sp-worker-ingest-1",
-            payload_json={"probe": True},
+            payload_json={"probe": True, "organization_key": "org-a"},
         )
         self.assertIn("event_id", result)
         self.assertFalse(result.get("duplicate", True))
@@ -298,9 +307,37 @@ class WorkerSessionAuthIntegrationTests(unittest.TestCase):
             event_type="device.adapter.test.v1",
             source="pytest-worker-ingest",
             idempotency_key="idem-sp-worker-ingest-1",
-            payload_json={"probe": False},
+            payload_json={"probe": False, "organization_key": "org-a"},
         )
         self.assertTrue(dup.get("duplicate", False))
+
+    def test_worker_ingest_event_binding_mismatch_denied(self) -> None:
+        from rest.db.base import EventIngestForbidden
+
+        with self.assertRaises(EventIngestForbidden):
+            self.db.ingest_event_worker(
+                self.auth,
+                event_type="device.adapter.test.v1",
+                source="wrong-source",
+                idempotency_key="idem-binding",
+                payload_json={"organization_key": "org-a"},
+            )
+
+    def test_worker_ingest_event_missing_capability_denied(self) -> None:
+        from rest.db.base import EventIngestForbidden
+
+        _psql_query(
+            self.dsn,
+            f"UPDATE wf.worker SET capabilities = '[]'::jsonb WHERE id = {self.worker_id};",
+        )
+        with self.assertRaises(EventIngestForbidden):
+            self.db.ingest_event_worker(
+                self.auth,
+                event_type="device.adapter.test.v1",
+                source="pytest-worker-ingest",
+                idempotency_key="idem-cap",
+                payload_json={"organization_key": "org-a"},
+            )
 
     def test_worker_ingest_event_wrong_ip_fails(self) -> None:
         bad = WorkerCallAuth(
@@ -315,7 +352,7 @@ class WorkerSessionAuthIntegrationTests(unittest.TestCase):
                 event_type="device.adapter.test.v1",
                 source="pytest-worker-ingest",
                 idempotency_key="idem-bad-ip",
-                payload_json={},
+                payload_json={"organization_key": "org-a"},
             )
 
     def test_goliath_portal_has_no_cfg_schema_usage(self) -> None:

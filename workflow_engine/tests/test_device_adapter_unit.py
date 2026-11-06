@@ -8,12 +8,6 @@ from goliath_app.device_adapter.contract import AdapterCapability
 from goliath_app.device_adapter.ha_adapter import HomeAssistantAdapterConfig, HomeAssistantDeviceAdapter
 from goliath_app.device_adapter.mqtt_adapter import MqttAdapterConfig, MqttDeviceAdapter
 from goliath_app.device_adapter.secrets import SecretRef
-from rest.auth import classify_route, RouteTier
-
-
-class DeviceAdapterRouteTests(unittest.TestCase):
-    def test_events_post_is_worker_tier(self) -> None:
-        self.assertEqual(classify_route("POST", "/v1/events"), RouteTier.WORKER)
 
 
 class SecretRefTests(unittest.TestCase):

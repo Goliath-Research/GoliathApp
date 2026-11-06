@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any, Callable, Optional
 
@@ -10,15 +11,17 @@ from anyio.to_thread import run_sync
 from .auth import (
     AuthError,
     AuthForbidden,
+    EVENT_INGEST_API_KEY_HEADER,
     GatewayAuthConfig,
     WORKER_IDENTITY_HEADER,
     authorize_request,
     build_worker_call_auth,
+    event_ingest_uses_api_key,
     extract_client_ip,
     worker_route_requires_session_headers,
 )
 from .db.base import WorkerCallAuth
-from .db.base import GatewayDb, WorkerAuthError, WorkerEnrollError
+from .db.base import EventIngestForbidden, GatewayDb, WorkerAuthError, WorkerEnrollError
 from .gateway import RestGateway
 
 
@@ -73,9 +76,19 @@ def create_app(
             client_ip = extract_client_ip(scope, headers, config.trusted_proxy_cidrs)
             worker_auth: Optional[WorkerCallAuth] = None
             identity_token: Optional[str] = None
+            event_ingest_api_key_hex: Optional[str] = None
             normalized_path = path.rstrip("/")
-            if worker_route_requires_session_headers(method, path) or (
-                normalized_path == "/v1/events" and method == "POST"
+            if normalized_path == "/v1/events" and method == "POST" and event_ingest_uses_api_key(headers):
+                raw_key = ""
+                for key, value in headers:
+                    if key.decode("latin-1").lower() == EVENT_INGEST_API_KEY_HEADER:
+                        raw_key = value.decode("latin-1").strip()
+                        break
+                if raw_key:
+                    event_ingest_api_key_hex = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+            elif worker_route_requires_session_headers(method, path) or (
+                normalized_path == "/v1/events"
+                and method == "POST"
             ):
                 worker_auth = build_worker_call_auth(headers, body, client_ip)
             elif path.rstrip("/") == "/v1/workers/session":
@@ -93,6 +106,7 @@ def create_app(
                     client_ip=client_ip,
                     worker_auth=worker_auth,
                     identity_token=identity_token,
+                    event_ingest_api_key_hex=event_ingest_api_key_hex,
                 )
 
             status, payload = await run_sync(_dispatch)
@@ -105,6 +119,8 @@ def create_app(
             payload = {"error": exc.message}
         except WorkerAuthError as exc:
             status, payload = 401, {"error": str(exc)}
+        except EventIngestForbidden as exc:
+            status, payload = 403, {"error": exc.message}
         except KeyError as exc:
             status = 404 if method == "GET" else 400
             payload = {

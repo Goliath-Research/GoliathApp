@@ -22,6 +22,10 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      mosquitto:
+        image: eclipse-mosquitto:2
+        ports:
+          - 1883:1883
     steps:
       - uses: actions/checkout@v6
 
@@ -84,6 +88,8 @@ jobs:
             workflow_engine/tests/test_wake_auto_publish.py \
             workflow_engine/tests/test_postgres_wake.py \
             workflow_engine/tests/test_device_adapter_unit.py \
+            workflow_engine/tests/test_device_adapter_inheritance_flow.py \
+            workflow_engine/tests/test_device_adapter_protocol_integration.py \
             -q
         env:
           POSTGRES_HOST: localhost
@@ -91,6 +97,9 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: goliath_ci
           POSTGRES_DB: goliathapp_schema_test
+          GOLIATH_PROTOCOL_TESTS: "1"
+          GOLIATH_MQTT_HOST: localhost
+          GOLIATH_MQTT_PORT: "1883"
 
   product-manifest:
     runs-on: ubuntu-latest

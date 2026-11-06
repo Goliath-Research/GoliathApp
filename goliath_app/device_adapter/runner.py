@@ -37,7 +37,7 @@ def run_adapter_process(
     """
     Run ``blocking_fn`` (typically protocol ``loop_forever``) and optionally emit
     periodic heartbeat events for observability. **Scheduling** belongs in
-    workflow definitions (``WAIT_TIMER`` / capability-scoped tasks); this is
+    workflow definitions (``SCHEDULE`` composite + capability-scoped lease claims); this is
     only a coarse process-level pulse when you do not yet have a scheduled graph.
     """
     if cfg.wake_http:

@@ -37,6 +37,14 @@ class GatewayDbError(Exception):
     """Generic database gateway failure."""
 
 
+class EventIngestForbidden(Exception):
+    """Event ingest rejected by server-side authorization policy (HTTP 403)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
 def parse_json_value(value: Any) -> Any:
     if value is None:
         return None
@@ -144,6 +152,22 @@ class GatewayDb(Protocol):
         correlation_key: Optional[str] = None,
         occurred_at_utc: Optional[str] = None,
     ) -> dict[str, Any]: ...
+
+    def ingest_event_with_api_key(
+        self,
+        key_hash_hex: str,
+        *,
+        event_type: str,
+        source: str,
+        idempotency_key: str,
+        payload_json: Optional[dict[str, Any]] = None,
+        correlation_key: Optional[str] = None,
+        occurred_at_utc: Optional[str] = None,
+    ) -> dict[str, Any]: ...
+
+    def get_worker_capabilities(self, worker_id: int) -> list[str]: ...
+
+    def fetch_worker_event_ingest_overlay(self, worker_id: int) -> dict[str, str]: ...
 
     def create_workflow_instance(
         self,
@@ -267,6 +291,10 @@ class GatewayDb(Protocol):
 
     def get_worker_cluster_security(self, worker_id: int) -> Optional[dict[str, Any]]: ...
 
+    def get_worker_capabilities(self, worker_id: int) -> list[str]: ...
+
+    def fetch_worker_event_ingest_overlay(self, worker_id: int) -> dict[str, str]: ...
+
 
 class GatewayDbBase(ABC):
     backend: str
@@ -286,6 +314,15 @@ class GatewayDbBase(ABC):
             return True
         sqlstate = getattr(exc, "sqlstate", None) or getattr(exc, "pgcode", None)
         return sqlstate == "50003"
+
+    @staticmethod
+    def _is_event_ingest_forbidden(exc: BaseException) -> bool:
+        """SQLSTATE 42501 — permission denied (event ingest policy)."""
+        sqlstate = getattr(exc, "sqlstate", None) or getattr(exc, "pgcode", None)
+        if sqlstate == "42501":
+            return True
+        msg = str(exc).lower()
+        return "event ingest denied" in msg
 
     @staticmethod
     def _is_enroll_forbidden(exc: BaseException) -> bool:
@@ -388,6 +425,19 @@ class GatewayDbBase(ABC):
     ) -> dict[str, Any]: ...
 
     @abstractmethod
+    def ingest_event_with_api_key(
+        self,
+        key_hash_hex: str,
+        *,
+        event_type: str,
+        source: str,
+        idempotency_key: str,
+        payload_json: Optional[dict[str, Any]] = None,
+        correlation_key: Optional[str] = None,
+        occurred_at_utc: Optional[str] = None,
+    ) -> dict[str, Any]: ...
+
+    @abstractmethod
     def create_workflow_instance(
         self,
         workflow_version_id: int,
@@ -454,6 +504,12 @@ class GatewayDbBase(ABC):
 
     @abstractmethod
     def get_worker_cluster_security(self, worker_id: int) -> Optional[dict[str, Any]]: ...
+
+    @abstractmethod
+    def get_worker_capabilities(self, worker_id: int) -> list[str]: ...
+
+    @abstractmethod
+    def fetch_worker_event_ingest_overlay(self, worker_id: int) -> dict[str, str]: ...
 
     def _format_task_claim(self, row: Optional[dict[str, Any]]) -> dict[str, Any]:
         desired = "ACTIVE"

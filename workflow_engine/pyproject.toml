@@ -15,7 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pyrefly>=1.3.2,<2"]
-device_adapters = ["paho-mqtt>=2.1.0", "websocket-client>=1.7.0"]
+device_adapters = ["paho-mqtt>=2.1.0", "websocket-client>=1.7.0", "websockets>=12.0"]
 
 [project.entry-points."goliath.auth_providers"]
 rbac_identity_providers = "goliath_app.auth.providers:default_rbac_identity_provider"
@@ -42,8 +42,9 @@ build-backend = "setuptools.build_meta"
 # and wheel include it. Searching ".." drops those files from the release tree.
 [tool.setuptools.packages.find]
 where = [".", ".."]
-include = ["rest*", "local*", "admin*", "ops*", "cfg*", "domain*", "contract*", "goliath_app*"]
+include = ["rest*", "local*", "admin*", "ops*", "cfg*", "domain*", "contract*", "goliath_app*", "goliath_worker*"]
 
 [tool.setuptools.package-dir]
 "" = "."
 "goliath_app" = "../goliath_app"
+"goliath_worker" = "../goliath_worker"

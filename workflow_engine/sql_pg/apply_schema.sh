@@ -40,6 +40,7 @@ SCRIPTS=(
   05_runtime_parity.sql
   06_scope_writepath_parity.sql
   07_scope_encoding_parity.sql
+  wf_schedule_support.sql
   08_foreach_support.sql
   wf_reclaim_expired_leases.sql
   wf_worker_desired_state.sql
@@ -106,7 +107,7 @@ SCRIPTS=(
   portal_guardrails_editor.sql
   cfg_study_start_request.sql
   wf_event_plane.sql
-  wf_worker_ingest_event.sql
+  wf_event_ingest_authorization.sql
   wf_worker_wake_hints.sql
   database_gateway_roles.sql
 )

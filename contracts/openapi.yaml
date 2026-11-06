@@ -6,7 +6,7 @@ info:
     \ from a portal-preregistered public IP (no worker_token yet; gateway mints credentials once).\n\n\
     **EpiPortal never calls this API.** Catalog seed, workflow deploy, and study lifecycle use direct\
     \ DB (`workflow_engine/ops`, `seed_action_catalog.py`, `deploy_workflow_definitions.sh`) or portal\
-    \ SQL (`portal.sp_*`). **Device adapters** POST `/events` with the **same worker session** as claim (`Authorization`, `X-Goliath-Worker-Token`, JSON `worker_id`); the gateway calls `wf.sp_worker_ingest_event` so credentials are verified before `wf.sp_ingest_event`. Interactive inspection uses Cursor MCP.\n\nMaps to DB objects in `workflow_engine/contract/db_objects.yaml`.\n\
+    \ SQL (`portal.sp_*`). **Device adapters** POST `/events` either with the **same worker session** as claim (`Authorization`, `X-Goliath-Worker-Token`, JSON `worker_id`) or with header `X-Goliath-Event-Ingest-Key` (SHA-256 of key is stored server-side; see `docs/device-adapters.md`). Worker path calls `wf.sp_worker_ingest_event` (authenticate + bind + capability + `wf.sp_ingest_event`); API-key path calls `wf.sp_ingest_event_with_api_key`. Interactive inspection uses Cursor MCP.\n\nMaps to DB objects in `workflow_engine/contract/db_objects.yaml`.\n\
     Production: Python gateway on Linux (`goliath-gateway`, systemd, uvicorn)."
   version: 1.7.0
 servers:
@@ -211,17 +211,24 @@ paths:
     post:
       tags:
       - events
-      summary: Ingest an external event (wf.sp_worker_ingest_event)
+      summary: Ingest an external event (worker session or API key)
       description: |
-        Device and protocol adapters POST typed JSON with **worker session auth**
-        (same headers and `worker_id` as `POST /workers/tasks/request`). The gateway
-        authenticates the worker, then evaluates `wf.event_subscription` via
-        `wf.sp_ingest_event`. Duplicate `(source, idempotency_key)` is a no-op.
-        **Do not** trust arbitrary scope fields in the payload; bind tenancy in
-        adapter configuration resolved on the host (secret refs), not from messages.
+        **Worker session:** same headers and JSON `worker_id` as `POST /workers/tasks/request`.
+        The gateway merges server-side `event_ingest_binding` org/device into the payload,
+        requires capability `device.adapter.ingest`, then calls `wf.sp_worker_ingest_event`.
+
+        **API key (portal/BFF):** send header `X-Goliath-Event-Ingest-Key` with the plaintext key.
+        The gateway hashes it and calls `wf.sp_ingest_event_with_api_key`, which enforces allowed
+        org/source/event types on the key row. Body must include `organization_key` (validated
+        against the key allowlist). This path does not use `worker_id`.
+
+        Both paths evaluate `wf.event_subscription` via `wf.sp_ingest_event`. Duplicate
+        `(source, idempotency_key)` is a no-op for new inserts.
       operationId: ingestEvent
       security:
+      - {}
       - workerSession: []
+      - eventIngestApiKey: []
       requestBody:
         required: true
         content:
@@ -237,6 +244,10 @@ paths:
                 $ref: '#/components/schemas/EventIngestResponse'
         '400':
           description: Missing required fields
+        '401':
+          description: Missing or invalid authentication
+        '403':
+          description: Event ingest denied (binding, capability, or API key policy)
 components:
   schemas:
     WorkerEnrollRequest:
@@ -461,7 +472,6 @@ components:
     EventIngestRequest:
       type: object
       required:
-      - worker_id
       - event_type
       - source
       - idempotency_key
@@ -471,10 +481,13 @@ components:
         worker_id:
           type: integer
           format: int64
-          description: Enrolled worker id (must match session); same as other worker routes.
+          description: Required for worker-session ingest (must match open session); omit when using X-Goliath-Event-Ingest-Key.
         source:
           type: string
           description: Stable adapter source label for `wf.event` (e.g. mqtt, homeassistant)
+        organization_key:
+          type: string
+          description: Required for API-key ingest; must match key allowlist and usually matches worker binding org.
         idempotency_key:
           type: string
         payload:
@@ -510,4 +523,9 @@ components:
       scheme: bearer
       bearerFormat: session
       description: Gateway session from POST /workers/session; also send X-Goliath-Worker-Token (enrollment identity).
+    eventIngestApiKey:
+      type: apiKey
+      in: header
+      name: X-Goliath-Event-Ingest-Key
+      description: Plaintext event-ingest key; server stores SHA-256 only. Requires JSON organization_key in body.
 security: []

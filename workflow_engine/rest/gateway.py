@@ -34,8 +34,9 @@ from goliath_worker.wake import (
     wake_channel_for_program,
 )
 
-from .db.base import GatewayDb, WorkerAuthError, WorkerCallAuth
+from .db.base import EventIngestForbidden, GatewayDb, WorkerAuthError, WorkerCallAuth
 from .db_client import (
+    ingest_event_with_api_key,
     ingest_event_worker,
     worker_enroll,
     worker_fail_task,
@@ -76,6 +77,7 @@ class RestGateway:
         client_ip: Optional[str] = None,
         worker_auth: Optional[WorkerCallAuth] = None,
         identity_token: Optional[str] = None,
+        event_ingest_api_key_hex: Optional[str] = None,
     ) -> tuple[int, Any]:
         _ = query  # worker routes do not use query params today
 
@@ -202,26 +204,60 @@ class RestGateway:
                 payload = body.get("payload_json") or {}
             if payload is not None and not isinstance(payload, dict):
                 return 400, {"error": "payload must be a JSON object"}
-            if worker_auth is None:
-                return 401, {"error": "worker session auth required for event ingest"}
-            result = ingest_event_worker(
-                self.db,
-                worker_auth,
-                event_type=event_type,
-                source=source,
-                idempotency_key=idempotency_key,
-                payload_json=payload,
-                correlation_key=(
-                    str(body["correlation_key"])
-                    if body.get("correlation_key") is not None
-                    else None
-                ),
-                occurred_at_utc=(
-                    str(body["occurred_at_utc"])
-                    if body.get("occurred_at_utc")
-                    else None
-                ),
-            )
+            payload_dict = dict(payload) if isinstance(payload, dict) else {}
+            try:
+                if event_ingest_api_key_hex:
+                    key_hex = event_ingest_api_key_hex.strip().lower()
+                    result = ingest_event_with_api_key(
+                        self.db,
+                        key_hex,
+                        event_type=event_type,
+                        source=source,
+                        idempotency_key=idempotency_key,
+                        payload_json=payload_dict,
+                        correlation_key=(
+                            str(body["correlation_key"])
+                            if body.get("correlation_key") is not None
+                            else None
+                        ),
+                        occurred_at_utc=(
+                            str(body["occurred_at_utc"])
+                            if body.get("occurred_at_utc")
+                            else None
+                        ),
+                    )
+                else:
+                    if worker_auth is None:
+                        return 401, {"error": "worker session auth required for event ingest"}
+                    caps = self.db.get_worker_capabilities(worker_auth.worker_id)
+                    if "*" not in caps and "device.adapter.ingest" not in caps:
+                        return 403, {"error": "worker lacks device.adapter.ingest capability for event ingest"}
+                    overlay = self.db.fetch_worker_event_ingest_overlay(worker_auth.worker_id)
+                    for k, v in overlay.items():
+                        existing = payload_dict.get(k)
+                        if existing is not None and str(existing) != str(v):
+                            return 403, {"error": f"payload {k} does not match worker binding"}
+                        payload_dict[k] = v
+                    result = ingest_event_worker(
+                        self.db,
+                        worker_auth,
+                        event_type=event_type,
+                        source=source,
+                        idempotency_key=idempotency_key,
+                        payload_json=payload_dict,
+                        correlation_key=(
+                            str(body["correlation_key"])
+                            if body.get("correlation_key") is not None
+                            else None
+                        ),
+                        occurred_at_utc=(
+                            str(body["occurred_at_utc"])
+                            if body.get("occurred_at_utc")
+                            else None
+                        ),
+                    )
+            except EventIngestForbidden as exc:
+                return 403, {"error": exc.message}
             # Dual activation (tier 1): notify idle workers; claim still owns the lease.
             publish_wakes_after_event_ingest(
                 self._wake_publisher,
@@ -229,7 +265,7 @@ class RestGateway:
                 ingest_result=result,
                 event_type=event_type,
                 idempotency_key=idempotency_key,
-                payload=payload if isinstance(payload, dict) else {},
+                payload=payload_dict,
             )
             return 200, result
 

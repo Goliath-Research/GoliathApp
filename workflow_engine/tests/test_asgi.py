@@ -31,9 +31,17 @@ class _StubDb:
     def get_worker_cluster_security(self, worker_id: int) -> None:
         return None
 
+    def get_worker_capabilities(self, worker_id: int) -> list[str]:
+        _ = worker_id
+        return ["device.adapter.ingest", "test-cap"]
+
     def fetch_worker_wake_hints_for_event(self, event_id: int) -> list[dict[str, object]]:
         _ = event_id
         return []
+
+    def fetch_worker_event_ingest_overlay(self, worker_id: int) -> dict[str, str]:
+        _ = worker_id
+        return {}
 
     def ingest_event_worker(
         self,
@@ -52,6 +60,25 @@ class _StubDb:
             "duplicate": False,
             "applied_count": 0,
             "ignored_count": 1,
+        }
+
+    def ingest_event_with_api_key(
+        self,
+        key_hash_hex: str,
+        *,
+        event_type: str,
+        source: str,
+        idempotency_key: str,
+        payload_json: dict[str, object] | None = None,
+        correlation_key: str | None = None,
+        occurred_at_utc: str | None = None,
+    ) -> dict[str, object]:
+        _ = key_hash_hex, correlation_key, occurred_at_utc
+        return {
+            "event_id": 101,
+            "duplicate": False,
+            "applied_count": 0,
+            "ignored_count": 0,
         }
 
 
@@ -87,7 +114,7 @@ class AsgiGatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 401)
         self.assertIn("invalid token", response.json()["error"])
 
-    async def test_events_requires_worker_auth_headers(self) -> None:
+    async def test_events_requires_worker_auth_or_key_headers(self) -> None:
         app = create_app(RestGateway(_stub_db()))
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:

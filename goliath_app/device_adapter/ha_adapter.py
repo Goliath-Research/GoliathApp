@@ -35,6 +35,10 @@ class HomeAssistantAdapterConfig(DeviceAdapterConfig):
         description="domain.service entries permitted for command relay (default none).",
     )
     verify_tls: bool = True
+    websocket_netloc: Optional[str] = Field(
+        default=None,
+        description="Override host:port for /api/websocket when it differs from base_url (lab/tests only).",
+    )
 
 
 class HomeAssistantDeviceAdapter(DeviceAdapterBase):
@@ -98,7 +102,7 @@ class HomeAssistantDeviceAdapter(DeviceAdapterBase):
 
         parsed = urlparse(self._ha.base_url)
         scheme = "wss" if parsed.scheme == "https" else "ws"
-        netloc = parsed.netloc or parsed.path
+        netloc = self._ha.websocket_netloc or (parsed.netloc or parsed.path)
         path = "/api/websocket"
         ws_url = f"{scheme}://{netloc}{path}"
 
