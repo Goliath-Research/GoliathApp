@@ -4,8 +4,12 @@
 
   EpiPortal Admin screens call portal.sp_* only — not "RBAC".* write functions.
   Quoted PascalCase tables from rbac_schema.sql / onboarding_schema.sql.
+
+  Uses portal._drop_if_proc (portal_modern_api_parity.sql) so CREATE OR REPLACE survives
+  RETURNS TABLE / OUT row shape changes across releases.
 */
 
+SELECT portal._drop_if_proc('portal','sp_list_users');
 CREATE OR REPLACE FUNCTION portal.sp_list_users(p_include_inactive boolean DEFAULT false)
 RETURNS TABLE (
   user_id int,
@@ -22,6 +26,7 @@ AS $$
   ORDER BY u."FullName", u.email;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_get_user');
 CREATE OR REPLACE FUNCTION portal.sp_get_user(p_user_id int)
 RETURNS TABLE (
   user_id int,
@@ -37,6 +42,7 @@ AS $$
   WHERE u."ID" = p_user_id;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_upsert_user');
 CREATE OR REPLACE FUNCTION portal.sp_upsert_user(
   p_email text,
   p_full_name text,
@@ -70,6 +76,7 @@ BEGIN
 END;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_list_user_identities');
 CREATE OR REPLACE FUNCTION portal.sp_list_user_identities(p_user_id int)
 RETURNS TABLE (
   identity_id int,
@@ -97,6 +104,7 @@ AS $$
   ORDER BY ei."ID";
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_list_roles');
 CREATE OR REPLACE FUNCTION portal.sp_list_roles()
 RETURNS TABLE (
   role_id int,
@@ -111,6 +119,7 @@ AS $$
   ORDER BY r."Name";
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_list_permissions');
 CREATE OR REPLACE FUNCTION portal.sp_list_permissions(p_role_id int DEFAULT NULL)
 RETURNS TABLE (
   permission_id int,
@@ -135,6 +144,7 @@ AS $$
   ORDER BY p."Name";
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_list_scopes');
 CREATE OR REPLACE FUNCTION portal.sp_list_scopes(p_include_inactive boolean DEFAULT false)
 RETURNS TABLE (
   scope_id int,
@@ -159,6 +169,7 @@ AS $$
   ORDER BY s."Name";
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_get_scope');
 CREATE OR REPLACE FUNCTION portal.sp_get_scope(p_scope_id int)
 RETURNS TABLE (
   scope_id int,
@@ -182,6 +193,7 @@ AS $$
   WHERE s."ScopeID" = p_scope_id;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_grant_user_role');
 CREATE OR REPLACE FUNCTION portal.sp_grant_user_role(
   p_user_id int,
   p_role_id int,
@@ -253,6 +265,7 @@ BEGIN
 END;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_list_user_role_grants');
 CREATE OR REPLACE FUNCTION portal.sp_list_user_role_grants(p_user_id int)
 RETURNS TABLE (
   grant_id int,
@@ -289,6 +302,7 @@ AS $$
   ORDER BY g."Active" DESC, r."Name";
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_revoke_user_role');
 CREATE OR REPLACE FUNCTION portal.sp_revoke_user_role(
   p_user_id int,
   p_role_id int,
@@ -312,6 +326,7 @@ BEGIN
 END;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_list_user_groups');
 CREATE OR REPLACE FUNCTION portal.sp_list_user_groups()
 RETURNS TABLE (group_id int, name text)
 LANGUAGE sql
@@ -322,6 +337,7 @@ AS $$
   ORDER BY g."Name";
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_set_user_group_members');
 CREATE OR REPLACE FUNCTION portal.sp_set_user_group_members(
   p_group_id int,
   p_user_ids jsonb
@@ -341,6 +357,7 @@ BEGIN
 END;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_set_user_group_roles');
 CREATE OR REPLACE FUNCTION portal.sp_set_user_group_roles(
   p_group_id int,
   p_role_ids jsonb
@@ -360,6 +377,7 @@ BEGIN
 END;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_list_user_sessions');
 CREATE OR REPLACE FUNCTION portal.sp_list_user_sessions(p_user_id int)
 RETURNS TABLE (
   session_id int,
@@ -386,6 +404,7 @@ AS $$
   ORDER BY s."Created" DESC;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_list_role_nav_nodes');
 CREATE OR REPLACE FUNCTION portal.sp_list_role_nav_nodes(
   p_role_id int,
   p_scope_id int DEFAULT NULL
@@ -408,6 +427,7 @@ AS $$
   ORDER BY n."Caption";
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_grant_role_nav_node');
 CREATE OR REPLACE FUNCTION portal.sp_grant_role_nav_node(
   p_role_id int,
   p_node_id int,
@@ -424,6 +444,7 @@ BEGIN
 END;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_deny_role_nav_node');
 CREATE OR REPLACE FUNCTION portal.sp_deny_role_nav_node(
   p_role_id int,
   p_node_id int,
@@ -441,6 +462,7 @@ BEGIN
 END;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_create_invitation_batch');
 CREATE OR REPLACE FUNCTION portal.sp_create_invitation_batch(
   p_scope_id int,
   p_created_by_user_id int
@@ -457,6 +479,7 @@ BEGIN
 END;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_create_invitation');
 CREATE OR REPLACE FUNCTION portal.sp_create_invitation(
   p_scope_id int,
   p_email text,
@@ -488,6 +511,7 @@ BEGIN
 END;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_list_invitations');
 CREATE OR REPLACE FUNCTION portal.sp_list_invitations(
   p_scope_id int DEFAULT NULL,
   p_status text DEFAULT NULL
@@ -526,6 +550,7 @@ AS $$
   ORDER BY i."CreatedAtUtc" DESC;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_revoke_invitation');
 CREATE OR REPLACE FUNCTION portal.sp_revoke_invitation(p_invitation_id bigint)
 RETURNS TABLE (rows_updated bigint)
 LANGUAGE plpgsql
@@ -540,6 +565,7 @@ BEGIN
 END;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_list_bypass_scope_approvals');
 CREATE OR REPLACE FUNCTION portal.sp_list_bypass_scope_approvals(
   p_user_id int DEFAULT NULL,
   p_status text DEFAULT NULL
@@ -584,6 +610,7 @@ AS $$
   ORDER BY a."CreatedAtUtc" DESC;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_create_bypass_scope_approval');
 CREATE OR REPLACE FUNCTION portal.sp_create_bypass_scope_approval(
   p_user_id int,
   p_role_id int,
@@ -616,6 +643,7 @@ BEGIN
 END;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_decide_bypass_scope_approval');
 CREATE OR REPLACE FUNCTION portal.sp_decide_bypass_scope_approval(
   p_approval_id bigint,
   p_decision text,
@@ -651,6 +679,7 @@ BEGIN
 END;
 $$;
 
+SELECT portal._drop_if_proc('portal','sp_revoke_user_session');
 CREATE OR REPLACE FUNCTION portal.sp_revoke_user_session(p_session_id int)
 RETURNS TABLE (rows_deleted bigint)
 LANGUAGE plpgsql
