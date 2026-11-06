@@ -109,6 +109,19 @@ def test_portal_rbac_api_survives_return_type_change() -> None:
     """Re-applying portal_rbac_api.sql must replace an older row shape (CREATE OR REPLACE is not enough)."""
     env = _pg_test_env()
     subprocess.run(["bash", str(APPLY_SH)], env=env, check=True)
+    # PostgreSQL rejects CREATE OR REPLACE when the row type changes; drop first like an older DB would after upgrade mismatch.
+    subprocess.run(
+        [
+            "psql",
+            "-q",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-c",
+            "DROP FUNCTION IF EXISTS portal.sp_list_scopes(boolean);",
+        ],
+        env=env,
+        check=True,
+    )
     # Simulate a prior release with a narrower RETURNS TABLE (repro Neon row-type error).
     stub = r"""
     CREATE OR REPLACE FUNCTION portal.sp_list_scopes(p_include_inactive boolean DEFAULT false)
