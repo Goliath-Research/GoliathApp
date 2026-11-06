@@ -74,6 +74,10 @@ BEGIN
 END;
 $$;
 
+-- Remove legacy single-argument overload so CALL with one argument is not ambiguous
+-- against (bigint, boolean) when the second parameter has a default.
+DROP PROCEDURE IF EXISTS wf.wf_schedule_continue(bigint);
+
 CREATE OR REPLACE PROCEDURE wf.wf_schedule_continue(
   IN p_schedule_execution_id bigint,
   IN p_delay_first boolean DEFAULT false
