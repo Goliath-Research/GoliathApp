@@ -2,13 +2,13 @@ openapi: 3.0.3
 info:
   title: Goliath Workflow Gateway API
   description: "REST contract for the workflow **gateway** (worker-only):\n\n- **Workers** \u2014 `/workers/*`\
-    \ with `Authorization: Bearer <session>`, header `X-Goliath-Worker-Token` (enrollment identity), proxy-derived IP, and JSON `worker_id`.\n- **Session** \u2014 `POST /workers/session` opens a bearer session from the identity token.\n- **Enroll** \u2014 `POST /workers/enroll`\
+    \ with `Authorization: Bearer <session>`, header `X-Goliath-Worker-Token` (enrollment identity), proxy-derived IP, and JSON `worker_id`.\n- **Session** \u2014 `POST /workers/session` opens a bearer session from the identity token.\n- **Wakes** \u2014 optional `POST /workers/wakes/wait` long-polls for `WorkerWakeMessage` (same auth as claim).\n- **Enroll** \u2014 `POST /workers/enroll`\
     \ from a portal-preregistered public IP (no worker_token yet; gateway mints credentials once).\n\n\
     **EpiPortal never calls this API.** Catalog seed, workflow deploy, and study lifecycle use direct\
     \ DB (`workflow_engine/ops`, `seed_action_catalog.py`, `deploy_workflow_definitions.sh`) or portal\
     \ SQL (`portal.sp_*`). Sensor/operator adapters POST `/events` (typed JSON ingest). Interactive inspection uses Cursor MCP.\n\nMaps to DB objects in `workflow_engine/contract/db_objects.yaml`.\n\
     Production: Python gateway on Linux (`goliath-gateway`, systemd, uvicorn)."
-  version: 1.5.0
+  version: 1.6.0
 servers:
 - url: https://api.example.com/v1
   description: Production
@@ -51,6 +51,37 @@ paths:
                 $ref: '#/components/schemas/WorkerSessionResponse'
         '401':
           description: Invalid identity or IP lockout
+  /workers/wakes/wait:
+    post:
+      tags:
+      - workers
+      summary: Long-poll for a worker wake hint (gateway-mediated; session auth)
+      description: |
+        Blocks until a wake matches this worker's pool/capability/program channels (derived from enrollment)
+        or until `timeout_seconds` elapses. Same trust boundary as task claim: bearer session + identity header + `worker_id`.
+        On timeout, callers should `POST /workers/tasks/request` as the safety net.
+      operationId: workerWaitWake
+      security:
+      - workerSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkerWaitWakeRequest'
+      responses:
+        '200':
+          description: Wake payload or idle timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkerWaitWakeResponse'
+        '401':
+          description: Invalid or expired session
+        '403':
+          description: worker_id does not match session
+        '409':
+          description: Concurrent wake wait for this worker
   /workers/enroll:
     post:
       tags:
@@ -255,6 +286,62 @@ components:
         expires_at_utc:
           type: string
           format: date-time
+    WorkerWaitWakeRequest:
+      type: object
+      required:
+      - worker_id
+      properties:
+        worker_id:
+          type: integer
+          format: int64
+        timeout_seconds:
+          type: number
+          description: Long-poll duration (seconds); server clamps (for example max 120).
+        program_id:
+          type: string
+          nullable: true
+          description: Optional extra `goliath.wake.v1.program.{id}` channel for this wait.
+    WorkerWaitWakeResponse:
+      type: object
+      required:
+      - timed_out
+      properties:
+        timed_out:
+          type: boolean
+        wake:
+          $ref: '#/components/schemas/WorkerWakeMessage'
+          nullable: true
+    WorkerWakeMessage:
+      type: object
+      required:
+      - wake_id
+      - reason
+      properties:
+        wake_id:
+          type: string
+        reason:
+          type: string
+        pool:
+          type: string
+          nullable: true
+        capability:
+          type: string
+          nullable: true
+        program_id:
+          type: string
+          nullable: true
+        event_id:
+          type: integer
+          format: int64
+          nullable: true
+        workflow_instance_id:
+          type: integer
+          format: int64
+          nullable: true
+        occurred_at_utc:
+          type: string
+          format: date-time
+          nullable: true
     WorkerRequestTaskRequest:
       type: object
       required:

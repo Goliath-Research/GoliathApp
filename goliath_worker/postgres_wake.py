@@ -1,26 +1,18 @@
-"""Postgres LISTEN/NOTIFY broker for dual worker activation."""
+"""Postgres NOTIFY publisher for gateway-side dual worker activation (NOT workers)."""
 
 from __future__ import annotations
 
-import json
 import os
-import queue
 import sys
 import threading
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 from urllib.parse import quote
 
 import psycopg
-from psycopg import sql
 
 from goliath_worker.platform_env import resolve_database_url_override
-from goliath_worker.wake import (
-    NullWorkerWakeSubscriber,
-    WorkerWakeMessage,
-    logical_wake_channel_to_pg_notify,
-    pg_notify_payload_json,
-)
+from goliath_worker.wake import WorkerWakeMessage, logical_wake_channel_to_pg_notify, pg_notify_payload_json
 
 
 def _env_flag(name: str) -> bool:
@@ -28,13 +20,13 @@ def _env_flag(name: str) -> bool:
     return value in ("1", "true", "yes")
 
 
-def postgres_wake_enabled() -> bool:
-    """True when worker or gateway should use Postgres NOTIFY for wakes."""
-    return _env_flag("WF_WAKE_POSTGRES") or _env_flag("WORKER_WAKE_POSTGRES")
-
-
 def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
+
+
+def postgres_wake_publisher_enabled() -> bool:
+    """True when the gateway should use Postgres NOTIFY for publishing wakes."""
+    return _env_flag("WF_WAKE_POSTGRES")
 
 
 def build_postgres_conninfo(*, use_managed_identity: bool = False) -> str:
@@ -106,120 +98,12 @@ class PostgresWorkerWakePublisher:
             self._conn = None
 
 
-class PostgresWorkerWakeSubscriber:
-    """Worker-side ``LISTEN`` on a dedicated connection (never blocks gateway claim paths)."""
+# Back-compat: older imports referred to these names; worker LISTEN path is removed.
+postgres_wake_enabled = postgres_wake_publisher_enabled
 
-    def __init__(
-        self,
-        conninfo: str,
-        *,
-        use_managed_identity: bool = False,
-    ) -> None:
-        self._conninfo = conninfo
-        self._use_managed_identity = use_managed_identity
-        self._wake_queue: queue.Queue[WorkerWakeMessage] = queue.Queue()
-        self._conn: Optional[psycopg.Connection[Any]] = None
-        self._listener_thread: Optional[threading.Thread] = None
-        self._stop_event = threading.Event()
-
-    def subscribe(
-        self,
-        channels: Iterable[str],
-        *,
-        session_token: str,
-        worker_id: int,
-    ) -> None:
-        if not (session_token or "").strip():
-            raise ValueError("subscribe requires a non-empty worker session_token")
-        if worker_id <= 0:
-            raise ValueError("subscribe requires a positive worker_id")
-
-        notify_channels = [logical_wake_channel_to_pg_notify(ch) for ch in channels]
-        if not notify_channels:
-            return
-
-        self.unsubscribe()
-        self._stop_event.clear()
-        while not self._wake_queue.empty():
-            try:
-                self._wake_queue.get_nowait()
-            except queue.Empty:
-                break
-
-        conn = _connect(self._conninfo, use_managed_identity=self._use_managed_identity)
-        conn.autocommit = True
-        with conn.cursor() as cur:
-            for notify_ch in notify_channels:
-                cur.execute(sql.SQL("LISTEN {}").format(sql.Identifier(notify_ch)))
-
-        self._conn = conn
-        self._listener_thread = threading.Thread(
-            target=self._listen_loop,
-            name="goliath-wake-listener",
-            daemon=True,
-        )
-        self._listener_thread.start()
-
-    def _listen_loop(self) -> None:
-        conn = self._conn
-        if conn is None:
-            return
-        try:
-            for notify in conn.notifies():
-                if self._stop_event.is_set():
-                    break
-                try:
-                    data = json.loads(notify.payload)
-                    self._wake_queue.put(WorkerWakeMessage.from_json(data))
-                except (json.JSONDecodeError, KeyError, TypeError, ValueError):
-                    continue
-        except psycopg.OperationalError:
-            pass
-
-    def unsubscribe(self) -> None:
-        self._stop_event.set()
-        thread = self._listener_thread
-        conn = self._conn
-        self._listener_thread = None
-        self._conn = None
-        if thread is not None and thread.is_alive() and thread is not threading.current_thread():
-            thread.join(timeout=2.0)
-        if conn is not None and not conn.closed:
-            try:
-                conn.close()
-            except psycopg.Error:
-                pass
-
-    def wait_for_wake(self, *, timeout_seconds: Optional[float] = None) -> Optional[WorkerWakeMessage]:
-        try:
-            return self._wake_queue.get(timeout=timeout_seconds)
-        except queue.Empty:
-            return None
-
-    def close(self) -> None:
-        self.unsubscribe()
-
-
-def resolve_postgres_wake_conninfo(explicit: Optional[str] = None) -> str:
-    """DSN for LISTEN/NOTIFY (``WORKER_WAKE_PG_DSN`` or gateway database URL / ``PG*``)."""
-    legacy_db = "M" + "ETHYLPIPELINE_DB"
-    override = (
-        explicit
-        or _env("WORKER_WAKE_PG_DSN")
-        or resolve_database_url_override()
-        or _env(legacy_db)
-    ).strip()
-    if override:
-        return override
-    use_mi = _env_flag("WF_USE_MANAGED_IDENTITY")
-    return build_postgres_conninfo(use_managed_identity=use_mi)
-
-
-def resolve_worker_wake_subscriber() -> PostgresWorkerWakeSubscriber | NullWorkerWakeSubscriber:
-    if not postgres_wake_enabled():
-        return NullWorkerWakeSubscriber()
-    use_mi = _env_flag("WF_USE_MANAGED_IDENTITY")
-    return PostgresWorkerWakeSubscriber(
-        resolve_postgres_wake_conninfo(),
-        use_managed_identity=use_mi,
-    )
+__all__ = [
+    "PostgresWorkerWakePublisher",
+    "build_postgres_conninfo",
+    "postgres_wake_enabled",
+    "postgres_wake_publisher_enabled",
+]

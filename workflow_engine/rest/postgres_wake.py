@@ -16,19 +16,33 @@ from goliath_worker.wake import NullWorkerWakePublisher, WorkerWakePublisher  # 
 
 from .connection import GatewayConnectionConfig, _env_flag  # noqa: E402
 from .wake_coalesce import CoalescingWorkerWakePublisher  # noqa: E402
+from .worker_wake_hub import FanOutWorkerWakePublisher, WorkerWakeHub  # noqa: E402
 
 
 def resolve_wake_publisher(
     config: GatewayConnectionConfig,
+    *,
+    wake_hub: WorkerWakeHub | None = None,
 ) -> WorkerWakePublisher:
-    """Return Postgres NOTIFY publisher when ``WF_WAKE_POSTGRES=1``, else no-op."""
+    """Return Postgres NOTIFY publisher when ``WF_WAKE_POSTGRES=1``, else no-op.
+
+    When ``wake_hub`` is set, each publish also fans out to in-process HTTP waiters. Postgres publishes
+    are wrapped in :class:`CoalescingWorkerWakePublisher`; pure in-memory fan-out skips coalescing.
+    """
     if not _env_flag("WF_WAKE_POSTGRES"):
-        return NullWorkerWakePublisher()
-    inner = PostgresWorkerWakePublisher(
-        config.connection_string,
-        use_managed_identity=config.use_managed_identity,
-    )
-    return CoalescingWorkerWakePublisher(inner)
+        inner_pub: WorkerWakePublisher = NullWorkerWakePublisher()
+    else:
+        inner_pub = PostgresWorkerWakePublisher(
+            config.connection_string,
+            use_managed_identity=config.use_managed_identity,
+        )
+
+    if wake_hub is not None:
+        inner_pub = FanOutWorkerWakePublisher(inner_pub, wake_hub)
+
+    if _env_flag("WF_WAKE_POSTGRES"):
+        return CoalescingWorkerWakePublisher(inner_pub)
+    return inner_pub
 
 
 def resolve_wake_publisher_from_env(

@@ -50,6 +50,9 @@ class RouteClassificationTests(unittest.TestCase):
     def test_worker_route(self) -> None:
         self.assertEqual(classify_route("POST", "/v1/workers/tasks/request"), RouteTier.WORKER)
 
+    def test_wake_wait_route_is_worker(self) -> None:
+        self.assertEqual(classify_route("POST", "/v1/workers/wakes/wait"), RouteTier.WORKER)
+
     def test_unknown_is_public(self) -> None:
         self.assertEqual(classify_route("POST", "/v1/admin/catalog/seed"), RouteTier.PUBLIC)
 

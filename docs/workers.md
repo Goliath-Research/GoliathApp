@@ -28,15 +28,14 @@ HTTP 200 returns `worker_id`, `worker_token` (plaintext, once), `external_worker
 
 ## Dual activation (push wake + claim)
 
-Idle workers use the claim loop below as the **safety net**. **Wakes** are hints that **ready work may exist**: the **gateway** publishes `WorkerWakeMessage` after events or workflow starts (implementation may use Postgres `NOTIFY` **inside the gateway only**). Workers must receive wakes **through the gateway** on the authenticated worker session (subscribe API **required design** — see [dual-activation.md](dual-activation.md)); they **must not** open Postgres `LISTEN` or hold a wake DSN. **Claim** remains `POST /v1/workers/tasks/request`.
-
-**Superseded:** env flags that turned on **`PostgresWorkerWakeSubscriber`** / worker-side `LISTEN` — **do not adopt** for new child apps (same page). With wakes disabled, behavior is **poll-only** as before. Helpers such as `WorkflowRestClient.wake_channels_for_enrollment` build **logical** channel names for use once gateway subscribe lands in `contracts/openapi.yaml`.
+Idle workers use the claim loop below as the **safety net**. **Wakes** are hints that **ready work may exist**: the **gateway** publishes `WorkerWakeMessage` after events or workflow starts (it may use Postgres `NOTIFY` **inside the gateway only** when `WF_WAKE_POSTGRES=1`). Workers receive wakes **only through the gateway**: **`POST /v1/workers/wakes/wait`** (long-poll, same session headers as claim) or `WorkflowRestClient.wait_idle_then_request_task` with **`WORKER_WAKE_HTTP=1`**. They **must not** open Postgres `LISTEN` or hold a wake DSN (**removed**: `WORKER_WAKE_POSTGRES`, `WORKER_WAKE_PG_DSN`). **Claim** remains `POST /v1/workers/tasks/request`. See [dual-activation.md](dual-activation.md). Helpers: `WorkflowRestClient.wait_idle_then_request_task`, `wake_channels_for_enrollment`. With `WORKER_WAKE_HTTP` unset, behavior is **poll-only** as before.
 
 ## Claim loop
 
 | Call | Gateway path | Database |
 |------|----------------|----------|
-| Authenticate | `POST /v1/workers/authenticate` | `wf.wf_worker_authenticate` |
+| Open session | `POST /v1/workers/session` | `wf.sp_worker_open_session` |
+| Long-poll wake (optional) | `POST /v1/workers/wakes/wait` | `wf.fn_worker_resolve_session_for_wake` + in-gateway fan-out |
 | Claim | `POST /v1/workers/tasks/request` | `wf.sp_worker_request_task` |
 | Submit | `POST /v1/workers/tasks/{id}/submit` | `wf.sp_worker_submit_result` |
 | Heartbeat | `POST /v1/workers/tasks/{id}/heartbeat` | `wf.sp_worker_heartbeat` |
@@ -67,7 +66,7 @@ Optional checks, off unless the environment flag is set:
 
 ## Session authentication
 
-Workers use **gateway sessions**, not portal user sessions. After enrollment, `POST /v1/workers/authenticate` exchanges `worker_id` and `worker_token` for a short-lived `session_token`. Subsequent claim, heartbeat, submit, and fail calls send that bearer token (header `Authorization: Bearer …` on the client). The gateway hashes tokens at the database boundary (`wf.wf_worker_session_touch`, `wf.sp_worker_request_task`, and related procedures in `wf_worker_session_api.sql`).
+Workers use **gateway sessions**, not portal user sessions. After enrollment, `POST /v1/workers/session` exchanges the enrollment identity token (`X-Goliath-Worker-Token`) for a short-lived `session_token`. Subsequent claim, wake wait, heartbeat, submit, and fail calls send that bearer token (header `Authorization: Bearer …` on the client) plus `X-Goliath-Worker-Token`. The gateway hashes tokens at the database boundary (`wf.wf_worker_session_touch`, `wf.sp_worker_request_task`, and related procedures in `wf_worker_session_api.sql`).
 
 | Concern | Portal user | Worker |
 |---------|-------------|--------|
