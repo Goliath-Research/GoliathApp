@@ -29,7 +29,20 @@ flowchart TB
 | **3. Org + RBAC** | Organizations, users, roles, scopes, navigation entitlements | `portal.sp_organization_*`, `portal.sp_*` RBAC procedures ([rbac.md](rbac.md)) | Tenant admin / bootstrap job |
 | **4. Descendant extension** | Domain namespaces, semantic entities/requests, NavTree nodes, workflows, Meta classes | Your SQL + Python catalogs (`goliath.action_catalogs`, etc.) | Application team |
 
-**Mandatory vs optional:** The **schema** layer is **mandatory** for a working engine. **Semantic** and **action** seeds are **required for a functioning portal semantic layer and default platform actions** in most deployments; the scripts are idempotent and safe to re-run. **Org/RBAC** and **descendant data** are **environment-specific**.
+**Mandatory vs optional (precise):**
+
+| Item | Required for | Seeded / authored by |
+|------|----------------|----------------------|
+| **`apply_schema.sh`** (DDL) | Any PostgreSQL surface in this repo | Platform release / DBA |
+| **`seed_action_catalog.py --use-db`** | **Any** workflow graph whose nodes reference **`action_name`** values (including engine actions such as `workflow.const_string`) — `wf_repo_create_workflow_graph` fails on unknown names | Platform release automation (`goliath.action_catalogs` in `workflow_engine/pyproject.toml` → `goliath_app/actions/registry.py`) |
+| **`seed_semantic_catalog.py`** | Portal semantic registry as shipped; not required to create `wf.*` graphs alone | Platform release automation |
+| **Org + RBAC** (`portal.sp_organization_*`, sessions, roles) | **Interactive portal** and RBAC-gated operations | Tenant admin / bootstrap |
+| **`portal.semantic_*` + `Meta.*`** | Semantic UI, Meta validation, typed catalogs that tie to portal | Platform seeds + **descendant** registrations |
+| **`wf.workflow_*` graph rows** | Runnable workflow instances | **Product** (SQL, `portal.sp_create_workflow_graph`, gateway, or `ops` deploy tools — not DDL) |
+| **`cfg.domain_program`** | **Storing** a DomainProgram JSON document and optional links to a compiled graph | **Product** (see `cfg_registry_tables.sql`, FKs in `cfg_wf_relationships.sql`) |
+| **`wf.worker` / `wf.worker_token` / sessions** | **Claiming** READY tasks via `wf.sp_worker_request_task` (gateway path in production) | Enrollment / ops (see [workers.md](workers.md)) |
+
+**Runtime gap (do not paper over):** `wf.wf_build_input_json_for_action` in `03_engine_core.sql` returns only `workflow_input_template` merged to JSON. **`05_runtime_parity.sql` replaces** that function with placeholder resolution and `workflow_input_binding` merge ([workflow-engine.md](workflow-engine.md) describes the richer path). **Python in-process execution** uses a different input build (`workflow_engine/local/`). Treat **hand-written template JSON** as the **portable** contract unless you rely on the parity overload and binding tables.
 
 ## Execution model: `psql` with `ON_ERROR_STOP`
 
@@ -80,6 +93,50 @@ These scripts call **`portal.sp_semantic_register_*`** and **`wf.wf_repo_upsert_
 
 - **Bootstrap / migrations** typically run as **`postgres`** or a dedicated owner role with **`CREATE`** on schemas.
 - **Semantic registration internals** (`portal.sp_semantic_register_*`) are **`REVOKE`**d from `goliath_portal`; registration belongs to **release automation**, not end users ([rbac.md](rbac.md)).
+
+## Entity and dependency inventory (from code — no invented names)
+
+The following lists **tables and procedures actually referenced** when persisting and running workflows. Names are taken from `workflow_engine/sql_pg/*.sql`, `workflow_engine/contract/workflow_definition_spec.py`, and `workflow_engine/rest/db/postgres.py`.
+
+### DomainProgram (source) vs compiled graph (database)
+
+| Stage | Where it lives | Contract / code |
+|-------|----------------|-------------------|
+| **Authoring JSON** | Files or `cfg.domain_program.document_json` | `workflow_engine/domain/program.py` (`DomainProgram` — `programVersion`, `name`, `variables`, `body`, …) |
+| **Compiled graph spec** | JSON matching `WorkflowDefinitionSpec` | `workflow_engine/contract/workflow_definition_spec.py` |
+| **Insert graph** | `wf.workflow_def`, `wf.workflow_version`, `wf.workflow_node`, `wf.workflow_edge`, optional `wf.workflow_input_template`, bindings, `wf.workflow_collection_binding`, `wf.event_subscription` | `wf.wf_repo_create_workflow_graph` (`wf_repo_create_workflow_graph.sql`, JSON field **`action_name`** on ACTION nodes); portal wrapper `portal.sp_create_workflow_graph` (`portal_workflow_api.sql`) optionally checks **`nodes[].action`** (not `action_name` — if you rely on portal pre-checks, align with that key or call `wf.wf_repo_create_workflow_graph` directly) |
+| **Link document → graph (optional)** | `cfg.domain_program.workflow_def_id`, `cfg.domain_program.compiled_workflow_version_id` | `cfg_registry_tables.sql`, FKs `fk_cfg_dp_workflow_def` / `fk_cfg_dp_compiled_version` in `cfg_wf_relationships.sql` |
+| **Start instance** | `wf.workflow_instance`, `wf.node_execution`, … | `wf.wf_repo_create_workflow_instance` + `wf.sp_start_workflow_instance` (`02_repository_api.sql`, `01_worker_api.sql`) → `wf.wf_engine_activate` (`03_engine_core.sql`) |
+
+**Child extension contract (DomainProgram → DB):** Ship **`ActionSpec`** rows through **`goliath.action_catalogs`** so `seed_action_catalog.py --use-db` (or your migration calling `wf.wf_repo_upsert_semantic_action` / schemas / `wf.wf_repo_bind_action_data_types`) registers **`wf.workflow_action`** names your program uses. Compile with **`compile_domain_program_file`** (`workflow_engine/domain/compiler.py`) or your pipeline, then persist with **`wf_repo_create_workflow_graph`** (or `portal.sp_create_workflow_graph`). Optionally store the source JSON and set **`cfg.domain_program`** FKs to the created definition/version.
+
+### Typed actions and handlers (registration)
+
+- **DB:** `wf.workflow_action`, `wf.workflow_action_schema`; optional `wf.data_type` + `wf.wf_repo_bind_action_data_types` for catalog typing (`seed_action_catalog.py`).
+- **Python catalog:** `goliath_app/actions/spec.py` (`ActionSpec`), merged by `goliath_app/actions/registry.py` from entry points declared in `workflow_engine/pyproject.toml`.
+
+### Workflow graph tables (required shape)
+
+`wf_repo_create_workflow_graph` **requires** `name`, `root_node_key`, and `nodes` (see `workflow_engine/sql_pg/wf_repo_create_workflow_graph.sql`). Each **ACTION** node may set **`action_name`**; that name **must** exist in `wf.workflow_action`. **Optional** JSON arrays in the same spec: `edges`, `input_bindings`, `output_bindings`, `scope_defaults`, `collection_bindings`, `event_triggers`, `variable_schemas` — each maps to the tables named in that function.
+
+### Schedules, subscriptions, capabilities
+
+| Mechanism | Persistence | Code / SQL |
+|-----------|-------------|------------|
+| **Event-driven start / wait** | `wf.event_subscription`, `wf.event_type` | `event_triggers` in `WorkflowDefinitionSpec` → `wf.wf_ensure_event_type` inside `wf_repo_create_workflow_graph.sql`; delivery in `wf_event_plane.sql` |
+| **SCHEDULE nodes** | `wf.workflow_node` (`node_type = 'SCHEDULE'`, `schedule_interval_seconds`) | Allowed node types in `wf_repo_create_workflow_graph.sql`; continuation `wf_schedule_support.sql` |
+| **Worker capability filter** | `wf.workflow_action.capability`, `wf.worker.capabilities` JSON array | Claim query `wf.sp_worker_request_task` (`01_worker_api.sql`); dispatch columns documented in [workflow-engine.md](workflow-engine.md) |
+
+### Semantic / Meta / org / nav (portal — product-specific)
+
+- **Semantic:** `portal.semantic_namespace`, `portal.semantic_entity`, attributes, requests — procedures `portal.sp_semantic_register_*` (`portal_semantic_api.sql`). Requests need generated **composite types** in schema **`portal`** ([semantic-extensions.md](semantic-extensions.md)).
+- **Meta:** class/object APIs under **`"Meta"`** schema ([meta-model.md](meta-model.md)); optional bridge to `wf.data_type` / semantic entities.
+- **Nav:** `portal."NavTree"`, `portal.sp_nav_register_node` ([rbac.md](rbac.md)); **Role2Node** grants are separate RBAC steps.
+- **Org / scope:** organization and scope procedures as in [rbac.md](rbac.md) — **not** implied by `wf_repo_create_workflow_graph` alone.
+
+### Disposable DB: minimal runnable + claimable configuration
+
+[`docs_bootstrap_minimal_workflow.sql`](https://github.com/Goliath-Research/GoliathApp/blob/main/workflow_engine/sql_pg/examples/docs_bootstrap_minimal_workflow.sql) (not in `apply_schema.sh`) runs after **`apply_schema.sh`** + **`seed_action_catalog.py --use-db`**. It builds a **SEQUENCE → ACTION** graph using engine action **`workflow.const_string`**, inserts **`cfg.domain_program`** with FKs to `wf.workflow_def` / `wf.workflow_version`, starts an instance, and leaves a **READY** `node_execution` row claimable by a worker whose **`wf.worker.capabilities`** include **`workflow.compute`** (seeded for that action). It does **not** start pods or workers.
 
 ## Descendant registration (neutral example)
 
@@ -137,11 +194,12 @@ Expect **zero** `wf.workflow_action` rows until **`seed_action_catalog.py --use-
 
 - **`seed_action_catalog.py`** without `--use-db` does **not** write rows — easy to mistake for success.
 - **Semantic requests** need **generated `portal` row types**; ad‑hoc `CALL portal.sp_semantic_register_request` without those types will raise — follow `goliath-semantic-export` ([semantic-extensions.md](semantic-extensions.md)).
-- **Workflow graph rows** (`wf.workflow_definition`, instances) are not created by `apply_schema.sh`; use **`goliath-cfg`**, portal APIs, or your product’s writer — see [workflow-engine.md](workflow-engine.md).
+- **Workflow graph rows** (`wf.workflow_def`, instances) are **not** created by `apply_schema.sh`; persist via **`wf.wf_repo_create_workflow_graph`**, **`portal.sp_create_workflow_graph`**, **`goliath-cfg`**, or product writers — see [workflow-engine.md](workflow-engine.md).
+- **`deploy_test_bed.sh`** stops when expected seed files are **missing** from this repository ([workflow-engine.md](workflow-engine.md) §Test bed script).
 
 ## Evidence (local disposable PostgreSQL 16)
 
-On a **throwaway** database used only to validate documentation, this repository’s `apply_schema.sh` completed successfully and `SELECT count(*) FROM wf.workflow_action` returned **0** until `seed_action_catalog.py --use-db` was run (then **14** rows). **`descendant_acme_child_register_demo.sql`** completed and produced `portal.semantic_entity` id **7** for `acme_child.demo_part` with NavTree caption **AcmeChild Demo**. These numbers are **environment-specific** — use them as examples of *what to query*, not as guarantees.
+On a **throwaway** database used only to validate documentation, this repository’s `apply_schema.sh` completed successfully and `SELECT count(*) FROM wf.workflow_action` returned **0** until `seed_action_catalog.py --use-db` was run (then **14** rows). **`descendant_acme_child_register_demo.sql`** completed and produced `portal.semantic_entity` id **7** for `acme_child.demo_part` with NavTree caption **AcmeChild Demo**. **`docs_bootstrap_minimal_workflow.sql`** produced `wf.workflow_def` / `cfg.domain_program` name **`docs_bootstrap_const_echo`**, a **RUNNING** instance, and a **READY** `node_execution` for **`workflow.const_string`**. These numbers are **environment-specific** — use them as examples of *what to query*, not as guarantees.
 
 ## See also
 
