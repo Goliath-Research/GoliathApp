@@ -13,6 +13,10 @@ GoliathApp provides:
 
 The platform **never** embeds your domain. That boundary is enforced in development by repository guard tests (see `workflow_engine/tests/test_goliathapp_no_child_app_tokens.py` and [decoupling-plan.md](decoupling-plan.md)).
 
+### Workers and the database
+
+**Worker processes must not open PostgreSQL** — not for claims, not for wakes. They call **`goliath-gateway`** only (`contracts/openapi.yaml`). The gateway holds database credentials, runs `wf.sp_*` and `portal.sp_*` on behalf of trusted callers, and publishes **wakes** after event ingest and workflow start. Workers receive wakes **through gateway-authenticated HTTP** (long-poll / SSE / WebSocket or equivalent — **required design**; wire format follow-up until it appears in OpenAPI). **Do not** adopt worker-side Postgres `LISTEN` or `WORKER_WAKE_PG_DSN`; that path is **superseded** ([dual-activation.md](dual-activation.md)).
+
 ## Child application vs standalone utility
 
 | Build | Depends on `goliath-gateway` / platform DB? | Typical artifact |
@@ -95,9 +99,11 @@ When instances should be **schema-validated** document payloads:
 2. Worker calls **`POST /v1/workers/enroll`** on `goliath-gateway` ([workers.md](workers.md), `contracts/openapi.yaml`).
 3. After claim, **your** handler runs (CLI, in-process import, etc.); `goliath_worker` only performs HTTP.
 
+**No DSN on worker hosts** — fleet machines must not receive credentials for the primary database; wakes are not an exception ([dual-activation.md](dual-activation.md)).
+
 ## 7. Dual activation (optional fast path)
 
-Enable **wake then claim** so subscribers interrupt idle wait after events or workflow starts; see [dual-activation.md](dual-activation.md). Environment variables `WF_WAKE_POSTGRES` / `WORKER_WAKE_POSTGRES` gate the Postgres `NOTIFY` path.
+Use **wake then claim** so idle workers react sooner after events or workflow starts: the **gateway** publishes `WorkerWakeMessage` hints; workers **subscribe via the gateway** (same session as claim), then call **`POST /v1/workers/tasks/request`** as today. See [dual-activation.md](dual-activation.md) for the DTO, logical channel names, and the **superseded** worker `LISTEN` / `WORKER_WAKE_POSTGRES` pattern (do **not** inherit). **`WF_WAKE_POSTGRES`** applies to **gateway-side** internal `NOTIFY` when used; it does **not** grant workers a database connection.
 
 ## 8. Schema apply and CI parity
 

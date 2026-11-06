@@ -2,6 +2,10 @@
 
 GoliathApp is a **database-governed platform**: workflow state, RBAC, semantic definitions, Meta classes, and portal navigation live in PostgreSQL; **`goliath-gateway`** exposes the worker REST API; optional façades (for example Exograph) call the same `portal.sp_*` entry points as application code. This page orients adopters before the deeper topic guides.
 
+## Worker isolation (non-negotiable)
+
+**Workers never open PostgreSQL.** They use **only** the gateway HTTP API (`contracts/openapi.yaml`): enrollment, session, **optional wake subscription (gateway-mediated)**, **claim** (`POST /v1/workers/tasks/request`), heartbeat, submit, fail. **Event-triggered wakes** are produced after gateway-side ingest/start; workers must receive them **through the gateway** on an authenticated channel — **not** via `LISTEN` on a worker-held DSN. Legacy `PostgresWorkerWakeSubscriber` is documented as **superseded** in [dual-activation.md](dual-activation.md).
+
 ## Platform, descendant application, standalone utility
 
 The platform repository **does not import or branch on** any specialized product. You integrate at **data** (SQL apply + seeds), **Python entry points** (installed alongside `goliath-gateway`), and **deployment** wiring.
@@ -31,6 +35,8 @@ flowchart TB
   WH --> GW
   util -.->|"no dependency"| platform
 ```
+
+Worker hosts talk **only** to `goliath-gateway` (thick arrow). They do **not** hold `PGHOST` / `PGDATABASE` for wakes or claims.
 
 - **Platform** — Neutral mechanics: workflow engine, actions as rows, worker enrollment, semantic runner, Meta model, portal shell, inventory module, schema apply order, contracts in `contracts/openapi.yaml`.
 - **Descendant application** — Adds domain tables, semantic namespaces, `ActionSpec` rows at `ActionLevel.DOMAIN`, NavTree nodes, optional Meta classes, worker processes, and (when needed) a `goliath.application_profiles` module so pipeline profile resolution can load JSON from your layout.
@@ -108,7 +114,24 @@ flowchart LR
 
 ## Dual activation (wake + claim)
 
-Idle workers still **own** work only through **claim**. Optional **wake** messages reduce latency after events or starts; workers subscribe to channels derived from enrollment, then call claim ([dual-activation.md](dual-activation.md)).
+Workers **own** work only through **`POST /v1/workers/tasks/request`**. Optional **wake** hints shorten idle time after events or starts: the **gateway** publishes wakes (internal implementation may use Postgres `NOTIFY` or other transport); workers **receive wakes only through the gateway** (authenticated session). **Direct worker `LISTEN` on Postgres is superseded** — see [dual-activation.md](dual-activation.md).
+
+```mermaid
+sequenceDiagram
+  participant GW as goliath-gateway
+  participant PG as PostgreSQL
+  participant W as Worker
+
+  GW->>PG: wf.sp_ingest_event / start hooks
+  GW->>GW: publish WorkerWakeMessage
+  opt internal NOTIFY
+    GW->>PG: NOTIFY (gateway connection only)
+  end
+  W->>GW: wake subscribe (auth session; future / in-progress HTTP API)
+  GW-->>W: WorkerWakeMessage
+  W->>GW: POST /v1/workers/tasks/request
+  GW->>PG: wf.sp_worker_request_task
+```
 
 ## Where to go next
 

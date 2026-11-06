@@ -28,7 +28,9 @@ HTTP 200 returns `worker_id`, `worker_token` (plaintext, once), `external_worker
 
 ## Dual activation (push wake + claim)
 
-Idle workers use the claim loop below as the **safety net**. Tier 1 **push wake** is the fast path when enabled: after events or workflow starts, the gateway publishes NOTIFY hints derived from READY work (capability / program / optional pool); workers subscribed on their enrollment channels call `wait_idle_then_request_task`, then **claim** so only one worker owns the lease. With `WF_WAKE_POSTGRES` / `WORKER_WAKE_POSTGRES` unset, behavior is poll-only as before. See [dual-activation.md](dual-activation.md). Client helpers: `WorkflowRestClient.wait_idle_then_request_task` and `wake_channels_for_enrollment`.
+Idle workers use the claim loop below as the **safety net**. **Wakes** are hints that **ready work may exist**: the **gateway** publishes `WorkerWakeMessage` after events or workflow starts (implementation may use Postgres `NOTIFY` **inside the gateway only**). Workers must receive wakes **through the gateway** on the authenticated worker session (subscribe API **required design** — see [dual-activation.md](dual-activation.md)); they **must not** open Postgres `LISTEN` or hold a wake DSN. **Claim** remains `POST /v1/workers/tasks/request`.
+
+**Superseded:** env flags that turned on **`PostgresWorkerWakeSubscriber`** / worker-side `LISTEN` — **do not adopt** for new child apps (same page). With wakes disabled, behavior is **poll-only** as before. Helpers such as `WorkflowRestClient.wake_channels_for_enrollment` build **logical** channel names for use once gateway subscribe lands in `contracts/openapi.yaml`.
 
 ## Claim loop
 
