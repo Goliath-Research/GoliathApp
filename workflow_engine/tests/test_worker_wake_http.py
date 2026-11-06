@@ -7,7 +7,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 WF_ENGINE = Path(__file__).resolve().parents[1]
 REPO_ROOT = WF_ENGINE.parent
@@ -15,7 +15,7 @@ sys.path.insert(0, str(WF_ENGINE))
 sys.path.insert(0, str(REPO_ROOT))
 
 from goliath_worker.wake import WorkerWakeMessage, wake_channel_for_pool  # noqa: E402
-from rest.db.base import WorkerCallAuth  # noqa: E402
+from rest.db.base import GatewayDb, WorkerCallAuth  # noqa: E402
 from rest.gateway import RestGateway  # noqa: E402
 from rest.worker_wake_hub import WorkerWakeHub, WorkerWakeWaitConflict  # noqa: E402
 
@@ -62,7 +62,7 @@ class WorkerWakeHubTests(unittest.TestCase):
 class GatewayWorkerWakeWaitTests(unittest.TestCase):
     def test_wait_rejects_missing_worker_auth(self) -> None:
         hub = WorkerWakeHub()
-        gw = RestGateway(_MinimalDb(), wake_hub=hub)
+        gw = RestGateway(cast(GatewayDb, _MinimalDb()), wake_hub=hub)
         status, _body = gw.dispatch(
             "POST",
             "/v1/workers/wakes/wait",
@@ -74,7 +74,7 @@ class GatewayWorkerWakeWaitTests(unittest.TestCase):
 
     def test_wait_returns_wake_json(self) -> None:
         hub = WorkerWakeHub()
-        gw = RestGateway(_MinimalDb(), wake_hub=hub)
+        gw = RestGateway(cast(GatewayDb, _MinimalDb()), wake_hub=hub)
         logical = wake_channel_for_pool("pool-a")
         msg = WorkerWakeMessage(wake_id="e", reason="ingest", pool="pool-a")
 
@@ -99,7 +99,7 @@ class GatewayWorkerWakeWaitTests(unittest.TestCase):
 
     def test_timeout_returns_null_wake(self) -> None:
         hub = WorkerWakeHub()
-        gw = RestGateway(_MinimalDb(), wake_hub=hub)
+        gw = RestGateway(cast(GatewayDb, _MinimalDb()), wake_hub=hub)
         status, body = gw.dispatch(
             "POST",
             "/v1/workers/wakes/wait",

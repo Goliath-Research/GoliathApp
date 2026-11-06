@@ -74,6 +74,13 @@ class GatewayDb(Protocol):
 
     def worker_open_session(self, identity_token: str, client_ip: str) -> dict[str, Any]: ...
 
+    def worker_resolve_session_for_wake(
+        self,
+        session_token: str,
+        identity_token: str,
+        client_ip: str,
+    ) -> dict[str, Any]: ...
+
     def worker_enroll(
         self,
         *,
