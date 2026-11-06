@@ -262,7 +262,11 @@ class WorkflowRestClient:
             worker_id=wid,
         )
         try:
-            active_subscriber.wait_for_wake(timeout_seconds=timeout)
+            try:
+                active_subscriber.wait_for_wake(timeout_seconds=timeout)
+            except Exception:
+                # Wake long-poll is a hint only; always fall through to claim.
+                pass
         finally:
             active_subscriber.unsubscribe()
 
