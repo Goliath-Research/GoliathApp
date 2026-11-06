@@ -208,13 +208,17 @@ class RestGateway:
             try:
                 if event_ingest_api_key_hex:
                     key_hex = event_ingest_api_key_hex.strip().lower()
+                    api_payload = dict(payload_dict)
+                    top_org = body.get("organization_key")
+                    if top_org is not None and str(top_org).strip():
+                        api_payload["organization_key"] = str(top_org).strip()
                     result = ingest_event_with_api_key(
                         self.db,
                         key_hex,
                         event_type=event_type,
                         source=source,
                         idempotency_key=idempotency_key,
-                        payload_json=payload_dict,
+                        payload_json=api_payload,
                         correlation_key=(
                             str(body["correlation_key"])
                             if body.get("correlation_key") is not None
@@ -229,15 +233,6 @@ class RestGateway:
                 else:
                     if worker_auth is None:
                         return 401, {"error": "worker session auth required for event ingest"}
-                    caps = self.db.get_worker_capabilities(worker_auth.worker_id)
-                    if "*" not in caps and "device.adapter.ingest" not in caps:
-                        return 403, {"error": "worker lacks device.adapter.ingest capability for event ingest"}
-                    overlay = self.db.fetch_worker_event_ingest_overlay(worker_auth.worker_id)
-                    for k, v in overlay.items():
-                        existing = payload_dict.get(k)
-                        if existing is not None and str(existing) != str(v):
-                            return 403, {"error": f"payload {k} does not match worker binding"}
-                        payload_dict[k] = v
                     result = ingest_event_worker(
                         self.db,
                         worker_auth,

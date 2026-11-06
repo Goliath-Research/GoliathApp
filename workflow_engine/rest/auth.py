@@ -245,10 +245,26 @@ def authorize_request(
 
     tier = classify_route(method, path)
 
-    if tier == RouteTier.PUBLIC:
+    event_worker_session_path = (
+        method == "POST"
+        and path.rstrip("/") == "/v1/events"
+        and not event_ingest_uses_api_key(headers)
+    )
+
+    if tier == RouteTier.PUBLIC and not event_worker_session_path:
         return None
 
     client_ip = extract_client_ip(scope, headers, config.trusted_proxy_cidrs)
+
+    if event_worker_session_path:
+        build_worker_call_auth(headers, body, client_ip)
+        if body.get("worker_id") is not None:
+            wid = int(body["worker_id"])
+            if config.worker_ip_bind:
+                check_worker_ip_bind(db, wid, client_ip)
+            if config.require_arc_attest:
+                check_worker_arc_attest(db, wid, headers)
+        return None
 
     if tier == RouteTier.WORKER:
         normalized = path.rstrip("/")

@@ -406,7 +406,7 @@ BEGIN
   ELSIF v_ptype = 'FOREACH' THEN
     CALL wf.wf_foreach_route_continue(p_parent_node_execution_id);
   ELSIF v_ptype = 'SCHEDULE' THEN
-    CALL wf.wf_schedule_continue(p_parent_node_execution_id);
+    CALL wf.wf_schedule_continue(p_parent_node_execution_id, true);
   END IF;
 END;
 $$;
@@ -494,7 +494,7 @@ BEGIN
   ELSIF v_ptype = 'FOREACH' THEN
     CALL wf.wf_foreach_route_continue(v_parent);
   ELSIF v_ptype = 'SCHEDULE' THEN
-    CALL wf.wf_schedule_continue(v_parent);
+    CALL wf.wf_schedule_continue(v_parent, true);
   END IF;
 END;
 $$;

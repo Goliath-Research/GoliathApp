@@ -58,7 +58,7 @@ AS $$
     OR EXISTS (
       SELECT 1
       FROM jsonb_array_elements_text(coalesce(p_allowed, '[]'::jsonb)) AS t(pref)
-      WHERE p_source = t.pref OR p_source LIKE (t.pref || '%')
+      WHERE t.pref = p_source
     );
 $$;
 
@@ -236,13 +236,48 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = wf, "RBAC", cfg, pg_temp
 AS $$
+DECLARE
+  v_bind jsonb;
+  v_org text;
+  v_dev text;
+  v_overlay jsonb := '{}'::jsonb;
+  k text;
+  v_val text;
+  v_existing text;
 BEGIN
   CALL wf.wf_worker_authenticate(
     p_worker_id, p_session_token, p_identity_token, p_client_ip
   );
 
+  SELECT w.event_ingest_binding INTO v_bind
+  FROM wf.worker w
+  WHERE w.id = p_worker_id;
+
+  v_org := NULLIF(btrim(coalesce(v_bind->>'org_key', '')), '');
+  v_dev := NULLIF(btrim(coalesce(v_bind->>'device_id', '')), '');
+
+  IF v_org IS NOT NULL AND v_org <> '*' THEN
+    v_overlay := v_overlay || jsonb_build_object('organization_key', v_org);
+  END IF;
+  IF v_dev IS NOT NULL THEN
+    v_overlay := v_overlay || jsonb_build_object('device_key', v_dev);
+  END IF;
+
+  p_payload_json := coalesce(p_payload_json, '{}'::jsonb);
+  FOR k, v_val IN
+    SELECT * FROM jsonb_each_text(v_overlay)
+  LOOP
+    v_existing := p_payload_json->>k;
+    IF v_existing IS NOT NULL AND btrim(v_existing) <> '' AND v_existing IS DISTINCT FROM v_val THEN
+      RAISE EXCEPTION 'event ingest denied: payload % does not match worker binding', k USING ERRCODE = '42501';
+    END IF;
+    p_payload_json := jsonb_set(
+      p_payload_json, ARRAY[k], to_jsonb(v_val), true
+    );
+  END LOOP;
+
   PERFORM wf.wf_authorize_worker_event_ingest(
-    p_worker_id, btrim(p_event_type), btrim(p_source), coalesce(p_payload_json, '{}'::jsonb)
+    p_worker_id, btrim(p_event_type), btrim(p_source), p_payload_json
   );
 
   RETURN QUERY

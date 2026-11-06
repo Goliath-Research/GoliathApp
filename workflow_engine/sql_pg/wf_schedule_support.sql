@@ -74,7 +74,10 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE PROCEDURE wf.wf_schedule_continue(IN p_schedule_execution_id bigint)
+CREATE OR REPLACE PROCEDURE wf.wf_schedule_continue(
+  IN p_schedule_execution_id bigint,
+  IN p_delay_first boolean DEFAULT false
+)
 LANGUAGE plpgsql
 AS $$
 DECLARE
@@ -117,7 +120,11 @@ BEGIN
   END IF;
 
   v_now := (now() AT TIME ZONE 'utc');
-  v_avail := v_now + make_interval(secs => v_interval);
+  IF p_delay_first THEN
+    v_avail := v_now + make_interval(secs => v_interval);
+  ELSE
+    v_avail := v_now;
+  END IF;
 
   CALL wf.wf_engine_enqueue_scheduled_action(
     v_inst, v_child, p_schedule_execution_id, 1, v_avail

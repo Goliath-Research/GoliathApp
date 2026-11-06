@@ -22,12 +22,14 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      mosquitto:
-        image: eclipse-mosquitto:2
-        ports:
-          - 1883:1883
     steps:
       - uses: actions/checkout@v6
+
+      - name: Start Mosquitto for protocol tests
+        run: |
+          docker run -d --name mosquitto-ci -p 1883:1883 \
+            -v "$GITHUB_WORKSPACE/.github/mosquitto_ci.conf:/mosquitto/config/mosquitto.conf:ro" \
+            eclipse-mosquitto:2
 
       - uses: actions/setup-python@v6
         with:
