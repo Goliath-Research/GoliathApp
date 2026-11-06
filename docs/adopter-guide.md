@@ -41,6 +41,8 @@ your-repo/
 
 You apply GoliathApp’s scripts first ([schema-apply.md](schema-apply.md)), then your migrations that register **new** `portal`/`wf`/`Meta` rows. Keep platform upgrade paths explicit: fork or pin the GoliathApp revision you tested.
 
+For **how to run `psql` / seeds / bootstrap vs descendant rows**, see [database-population.md](database-population.md) (workers still never hold SQL credentials).
+
 ## Packaging: depend on `goliath-gateway`
 
 The installable name on PyPI / in this tree is **`goliath-gateway`** (`workflow_engine/pyproject.toml`). Console scripts include `goliath-gateway`, `goliath-workflow-run`, and `goliath-cfg`. Your package should list `goliath-gateway` as a dependency and expose entry points into the groups below.

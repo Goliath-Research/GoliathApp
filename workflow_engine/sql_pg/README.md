@@ -4,6 +4,8 @@ PostgreSQL 15+ scripts for the workflow engine (17+ recommended for SQL/JSON). `
 
 Apply order, defaults, and which files are re-runnable are documented in [`docs/schema-apply.md`](../../docs/schema-apply.md). The ordered list is the `SCRIPTS` array in [`apply_schema.sh`](apply_schema.sh). Run that script to apply every file. It is safe to run again on a database that already has the objects. One invocation always applies the whole list. There is no skip-if-applied marker.
 
+After DDL, **seeds and bootstrap** are a separate step — see [`docs/database-population.md`](../../docs/database-population.md). Neutral **example** SQL for descendant registration (not applied automatically) lives under [`examples/`](examples/README.md).
+
 ```bash
 export PGHOST=localhost
 export PGPORT=5432

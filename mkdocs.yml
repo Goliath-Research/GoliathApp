@@ -29,6 +29,7 @@ nav:
       - Adopter guide: adopter-guide.md
       - Architecture: architecture.md
       - Feature catalog: feature-catalog.md
+      - Database population: database-population.md
   - Platform: platform.md
   - Decoupling plan (Phase D): decoupling-plan.md
   - Repository layout: workspace-index.md

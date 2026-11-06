@@ -24,6 +24,7 @@ Use this page as a **map**: short intent for each major capability, when to adop
 | **Application profile entry point** | `goliath.application_profiles` supplies profile/procedure loaders | Resolve named presets when not DB-only | `workflow_engine/domain/application_extension.py`, [pipeline-profiles.md](pipeline-profiles.md) |
 | **Config CLI** | `goliath-cfg` file-backed registry (`cfg` kinds) | Import/materialize site + program artifacts | [platform.md](platform.md#config-cli), `workflow_engine/cfg/` |
 | **Schema apply** | Ordered, re-runnable `workflow_engine/sql_pg` apply | Deploy and upgrade PostgreSQL | [schema-apply.md](schema-apply.md), `workflow_engine/sql_pg/apply_schema.sh` |
+| **Database population** | DDL vs seeds vs org bootstrap vs descendant registration (`psql`, `seed_*.py`) | Know what runs as DBA vs runtime | [database-population.md](database-population.md) |
 | **Deployment (Exograph target)** | Optional read/query façade over the same portal entry points | GraphQL/MCP alongside portal | [deployment.md](deployment.md), `exo/` |
 | **HTTP / ASGI** | uvicorn-hosted gateway; health routes | Operate gateway behind a reverse proxy | [platform.md](platform.md#gateway-and-database-defaults), `workflow_engine/rest/gateway.py` |
 | **Contract & export checks** | `validate_contract.py`, JSON schema exports for actions/semantics | CI parity for catalogs | `.github/workflows/pr.yml`, `workflow_engine/contract/` |
@@ -32,6 +33,7 @@ Use this page as a **map**: short intent for each major capability, when to adop
 
 1. **Read** [architecture.md](architecture.md) and [platform.md](platform.md).  
 2. **Apply** schema with [schema-apply.md](schema-apply.md).  
+2b. **Populate** seeds and know bootstrap order — [database-population.md](database-population.md).  
 3. **Register** semantics ([semantic-extensions.md](semantic-extensions.md)) and **actions** ([actions.md](actions.md)) — Python specs + SQL seeds.  
 4. **Wire** `goliath.action_catalogs` (and optional `goliath.application_profiles`) in **your** `pyproject.toml`.  
 5. **Enroll** workers ([workers.md](workers.md)); optionally enable **dual activation** ([dual-activation.md](dual-activation.md)).  

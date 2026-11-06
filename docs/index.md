@@ -7,6 +7,7 @@ Specialized applications extend it with their own actions, profiles, and worker 
 ## Start here (adopters)
 
 - [Adopter guide](adopter-guide.md) — when to extend the platform vs ship a standalone tool, entry points, enrollment, schema apply, neutral examples  
+- [Database population](database-population.md) — `psql` apply, seeds, bootstrap vs descendant registrations, worker vs DBA boundaries  
 - [Architecture](architecture.md) — diagrams: platform vs descendant vs utility; semantic reads vs worker claims; Meta; NavTree  
 - [Feature catalog](feature-catalog.md) — every major capability with links into the deeper guides below  
 
