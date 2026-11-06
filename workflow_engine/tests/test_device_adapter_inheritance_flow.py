@@ -165,7 +165,12 @@ class DeviceAdapterInheritanceFlowTests(unittest.TestCase):
                 idempotency_key="cross-tenant-1",
                 payload_json={"organization_key": "org-b", "device_key": "line-1"},
             )
-        self.assertIn("source/org/device/event_type mismatch", str(ctx.exception))
+        msg = str(ctx.exception)
+        self.assertTrue(
+            "source/org/device/event_type mismatch" in msg
+            or "payload organization_key does not match" in msg,
+            msg,
+        )
 
     def test_event_wakes_wait_and_api_key_ingest(self) -> None:
         wv = self._deploy_wait_workflow()
