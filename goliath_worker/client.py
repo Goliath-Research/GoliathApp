@@ -11,6 +11,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from goliath_worker.platform_env import resolve_api_base, resolve_arc_env_path
+from goliath_worker.http_wake import resolve_http_worker_wake_subscriber
 from goliath_worker.wake import (
     WorkerWakeSubscriber,
     wake_channel_for_capability,
@@ -189,10 +190,13 @@ class WorkflowRestClient:
             self.open_session(identity)
         return body
 
-    def _require_worker_id(self) -> int:
+    def require_worker_id(self) -> int:
         if self._worker_id is None:
             raise RuntimeError("worker_id unset; enroll or open_session first")
         return self._worker_id
+
+    def _require_worker_id(self) -> int:
+        return self.require_worker_id()
 
     @property
     def worker_id(self) -> Optional[int]:
@@ -241,21 +245,30 @@ class WorkflowRestClient:
             if poll_timeout_seconds is not None
             else float(os.environ.get("WORKER_WAKE_POLL_SECONDS", "30"))
         )
-        wid = self._require_worker_id()
+        wid = self.require_worker_id()
         self._ensure_worker_session(worker_token)
         if not self._session_token:
             raise RuntimeError("worker session not open; call enroll or open_session")
 
         channel_list = list(wake_channels)
-        subscriber.subscribe(
+        active_subscriber = subscriber
+        http_sub = resolve_http_worker_wake_subscriber(self)
+        if type(http_sub).__name__ != "NullWorkerWakeSubscriber":
+            active_subscriber = http_sub
+
+        active_subscriber.subscribe(
             channel_list,
             session_token=self._session_token,
             worker_id=wid,
         )
         try:
-            subscriber.wait_for_wake(timeout_seconds=timeout)
+            try:
+                active_subscriber.wait_for_wake(timeout_seconds=timeout)
+            except Exception:
+                # Wake long-poll is a hint only; always fall through to claim.
+                pass
         finally:
-            subscriber.unsubscribe()
+            active_subscriber.unsubscribe()
 
         return self.request_task(
             capability=capability,
@@ -279,7 +292,7 @@ class WorkflowRestClient:
         *,
         max_lease_seconds: Optional[int] = None,
     ) -> TaskPollResult:
-        wid = worker_id if worker_id is not None else self._require_worker_id()
+        wid = worker_id if worker_id is not None else self.require_worker_id()
         self._ensure_worker_session(worker_token)
         if not self._session_token or not self._identity_token:
             raise RuntimeError("worker session not open; call enroll or open_session")

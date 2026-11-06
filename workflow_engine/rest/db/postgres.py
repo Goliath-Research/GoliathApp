@@ -158,6 +158,41 @@ class PostgresGatewayDb(GatewayDbBase):
             "expires_at_utc": row.get("expires_at_utc"),
         }
 
+    def worker_resolve_session_for_wake(
+        self,
+        session_token: str,
+        identity_token: str,
+        client_ip: str,
+    ) -> dict[str, Any]:
+        try:
+            row = self._fetch_one(
+                f"""
+                SELECT worker_id, cluster_key, capabilities
+                FROM {self._qual('fn_worker_resolve_session_for_wake')}(%s, %s, %s)
+                """,
+                (session_token, identity_token, client_ip),
+            )
+        except Exception as exc:
+            if self._is_auth_error(exc):
+                raise WorkerAuthError(str(exc)) from exc
+            raise
+        if not row or row.get("worker_id") is None:
+            raise WorkerAuthError("worker session resolve failed")
+        caps_raw = row.get("capabilities")
+        caps: list[Any]
+        if caps_raw is None:
+            caps = []
+        elif isinstance(caps_raw, list):
+            caps = caps_raw
+        else:
+            parsed = parse_json_value(caps_raw)
+            caps = parsed if isinstance(parsed, list) else []
+        return {
+            "worker_id": int(row["worker_id"]),
+            "cluster_key": str(row["cluster_key"]),
+            "capabilities": caps,
+        }
+
     def worker_enroll(
         self,
         *,

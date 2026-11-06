@@ -16,9 +16,10 @@ sequenceDiagram
   API->>DB: wf.sp_worker_enroll
   DB-->>API: worker_id
   API-->>Worker: worker_id and worker_token
-  opt wake hint (gateway-mediated; same auth as claim)
-    API-->>Worker: WorkerWakeMessage (subscribe via gateway only — no DB LISTEN on worker)
-    Note over Worker: interrupt idle wait; claim still required
+  opt push wake (gateway-mediated; HTTP long-poll)
+    Worker->>API: POST /v1/workers/wakes/wait (same session as claim)
+    API-->>Worker: WorkerWakeMessage or timeout
+    Note over Worker: no DB LISTEN on worker; claim still required
   end
   loop poll / post-wake claim
     Worker->>API: POST /v1/workers/tasks/request
@@ -46,9 +47,16 @@ Paths below are under the `/v1` prefix the gateway serves. The OpenAPI document 
 
 ## Push wake (notify only)
 
-Dual activation adds an optional **wake** path alongside claim. Wakes do **not** replace claim: they only hint that a worker should call `POST /v1/workers/tasks/request` sooner. **Workers receive wakes only through goliath-gateway** (authenticated session); they **must not** use Postgres `LISTEN` or a database DSN for pub/sub. Legacy worker-side `LISTEN` is **superseded** — see [../docs/dual-activation.md](../docs/dual-activation.md).
+Dual activation adds an optional **wake** path alongside claim. Wakes do **not** replace claim: they only hint that a worker should call `POST /v1/workers/tasks/request` sooner. **Workers receive wakes only through goliath-gateway** on **`POST /v1/workers/wakes/wait`** (long-poll, same `Authorization` + `X-Goliath-Worker-Token` + JSON `worker_id` as claim). Set **`WORKER_WAKE_HTTP=1`** to use `WorkflowRestClient.wait_idle_then_request_task`. They **must not** use Postgres `LISTEN` or a database DSN (**removed** `WORKER_WAKE_POSTGRES`, `WORKER_WAKE_PG_DSN`). See [../docs/dual-activation.md](../docs/dual-activation.md).
 
-### Wake message (bus payload)
+### Wait response
+
+| Field | Meaning |
+|-------|---------|
+| `wake` | `WorkerWakeMessage` object when a matching hint arrived, or `null` on timeout. |
+| `timed_out` | `true` when no wake matched before `timeout_seconds`. |
+
+### Wake message (payload)
 
 | Field | Required | Notes |
 |-------|----------|-------|
@@ -63,15 +71,16 @@ Dual activation adds an optional **wake** path alongside claim. Wakes do **not**
 
 Channel names: `goliath.wake.v1.pool.{pool}`, `goliath.wake.v1.capability.{name}`, `goliath.wake.v1.program.{program_id}` (see `goliath_worker.wake`).
 
-Event adapters may include optional overrides under `payload.worker_wake`. After ingest with `applied_count > 0`, the gateway publishes wakes from subscription-derived READY work (`wf.fn_worker_wake_hints_for_event`) merged with any override. When the gateway uses Postgres `NOTIFY` internally, `WF_WAKE_POSTGRES=1` enables that **gateway-side** path; workers still **never** connect to Postgres for wakes.
+Event adapters may include optional overrides under `payload.worker_wake`. After ingest with `applied_count > 0`, the gateway publishes wakes from subscription-derived READY work (`wf.fn_worker_wake_hints_for_event`) merged with any override. Optional **`WF_WAKE_POSTGRES=1`** enables Postgres `NOTIFY` **inside the gateway process only**; workers still receive wakes over **`POST /v1/workers/wakes/wait`**.
 
-Subscribing to wakes **through the gateway** requires an authenticated **worker session** (same bearer session as claim; HTTP subscribe API **follow-up**). Lost wakes fall back to poll; duplicate wakes cause multiple claim attempts but at most one lease.
+Subscribing to wakes **through the gateway** requires an authenticated **worker session** (same bearer session as claim). Lost wakes fall back to poll; duplicate wakes cause multiple claim attempts but at most one lease.
 
 ## Claim, submit, heartbeat, fail
 
 | Call | Path |
 |------|------|
-| Authenticate | `POST /v1/workers/authenticate` |
+| Open session | `POST /v1/workers/session` |
+| Long-poll wake (optional) | `POST /v1/workers/wakes/wait` |
 | Claim one task | `POST /v1/workers/tasks/request` |
 | Submit | `POST /v1/workers/tasks/{nodeExecutionId}/submit` |
 | Heartbeat | `POST /v1/workers/tasks/{nodeExecutionId}/heartbeat` |

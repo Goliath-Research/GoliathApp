@@ -343,3 +343,109 @@ BEGIN
   RETURN QUERY SELECT v_token, v_worker_id, v_now + make_interval(secs => v_ttl);
 END;
 $$;
+
+-- Gateway long-poll worker wakes: resolve session to worker identity for HTTP subscribe.
+CREATE OR REPLACE FUNCTION wf.fn_worker_resolve_session_for_wake(
+  p_session_token text,
+  p_identity_token text,
+  p_client_ip text
+)
+RETURNS TABLE (
+  worker_id bigint,
+  cluster_key text,
+  capabilities jsonb
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = wf, "RBAC", cfg, pg_temp
+AS $$
+DECLARE
+  v_hash_session bytea;
+  v_hash_identity bytea;
+  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_ttl int := wf.fn_worker_session_ttl_seconds();
+  v_uid int;
+  v_sid int;
+  v_last timestamptz;
+  v_revoked timestamptz;
+  v_bound_ip text;
+  v_locked timestamptz;
+  v_status text;
+  v_worker_id bigint;
+BEGIN
+  IF NULLIF(btrim(p_session_token), '') IS NULL THEN
+    RAISE EXCEPTION 'session token is required' USING ERRCODE = '50002';
+  END IF;
+  IF NULLIF(btrim(p_identity_token), '') IS NULL THEN
+    RAISE EXCEPTION 'identity token is required' USING ERRCODE = '50002';
+  END IF;
+  IF NULLIF(btrim(p_client_ip), '') IS NULL THEN
+    RAISE EXCEPTION 'client_ip is required' USING ERRCODE = '50002';
+  END IF;
+
+  v_hash_session := wf.wf_sha256_text(btrim(p_session_token));
+  v_hash_identity := wf.wf_sha256_text(btrim(p_identity_token));
+
+  SELECT w.id, w.status, w.rbac_user_id
+  INTO v_worker_id, v_status, v_uid
+  FROM wf.worker_token wt
+  INNER JOIN wf.worker w ON w.id = wt.worker_id
+  INNER JOIN wf.cluster c ON c.id = w.cluster_id
+  WHERE wt.token_hash = v_hash_identity
+    AND wt.status = 'ACTIVE'
+    AND c.status = 'ACTIVE';
+
+  IF v_worker_id IS NULL OR v_uid IS NULL THEN
+    RAISE EXCEPTION 'Invalid or unauthorized worker credentials' USING ERRCODE = '50003';
+  END IF;
+  IF v_status = 'DISABLED' THEN
+    RAISE EXCEPTION 'Worker is disabled' USING ERRCODE = '50003';
+  END IF;
+
+  SELECT wt.bound_client_ip, wt.locked_until_utc
+  INTO v_bound_ip, v_locked
+  FROM wf.worker_token wt
+  WHERE wt.worker_id = v_worker_id
+    AND wt.token_hash = v_hash_identity
+    AND wt.status = 'ACTIVE';
+
+  IF v_bound_ip IS NULL THEN
+    RAISE EXCEPTION 'Invalid or unauthorized worker credentials' USING ERRCODE = '50003';
+  END IF;
+  IF v_locked IS NOT NULL AND v_locked > v_now THEN
+    RAISE EXCEPTION 'Worker identity locked; re-enroll required' USING ERRCODE = '50003';
+  END IF;
+  IF NULLIF(btrim(v_bound_ip), '') IS NULL THEN
+    RAISE EXCEPTION 'Worker identity requires re-enrollment (no bound IP)' USING ERRCODE = '50003';
+  END IF;
+  IF btrim(p_client_ip) <> btrim(v_bound_ip)
+     AND btrim(p_client_ip) <> split_part(btrim(v_bound_ip), '/', 1) THEN
+    RAISE EXCEPTION 'client IP does not match enrolled worker IP' USING ERRCODE = '50003';
+  END IF;
+
+  SELECT st."SessionID", st."LastRefreshedAtUtc", st."RevokedAtUtc"
+  INTO v_sid, v_last, v_revoked
+  FROM "RBAC"."SessionTokens" st
+  INNER JOIN "RBAC"."Sessions" s ON s."ID" = st."SessionID"
+  WHERE st."TokenHash" = v_hash_session
+    AND s."UserID" = v_uid;
+
+  IF v_sid IS NULL OR v_revoked IS NOT NULL THEN
+    RAISE EXCEPTION 'Invalid or expired worker session' USING ERRCODE = '50003';
+  END IF;
+  IF v_last + make_interval(secs => v_ttl) < v_now THEN
+    RAISE EXCEPTION 'Invalid or expired worker session' USING ERRCODE = '50003';
+  END IF;
+
+  PERFORM wf.wf_worker_session_touch(p_session_token);
+
+  RETURN QUERY
+  SELECT
+    v_worker_id,
+    c.cluster_key,
+    coalesce(w.capabilities, '[]'::jsonb)
+  FROM wf.worker w
+  INNER JOIN wf.cluster c ON c.id = w.cluster_id
+  WHERE w.id = v_worker_id;
+END;
+$$;

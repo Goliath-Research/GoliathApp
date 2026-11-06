@@ -27,7 +27,13 @@ if __name__ == "__main__" and __package__ is None:
 
 from .connection import resolve_connection_config
 from .db import open_gateway_db
-from .db.base import GatewayDb, WorkerCallAuth
+from goliath_worker.wake import (
+    wake_channel_for_capability,
+    wake_channel_for_pool,
+    wake_channel_for_program,
+)
+
+from .db.base import GatewayDb, WorkerAuthError, WorkerCallAuth
 from .db_client import (
     ingest_event,
     worker_enroll,
@@ -39,6 +45,7 @@ from .db_client import (
 )
 from .postgres_wake import resolve_wake_publisher
 from .worker_wake import NullWorkerWakePublisher, WorkerWakePublisher, bind_worker_wake_publisher, publish_wakes_after_event_ingest
+from .worker_wake_hub import WorkerWakeHub, WorkerWakeWaitConflict
 
 
 class RestGateway:
@@ -47,9 +54,11 @@ class RestGateway:
         db: GatewayDb,
         *,
         wake_publisher: Optional[WorkerWakePublisher] = None,
+        wake_hub: Optional[WorkerWakeHub] = None,
     ) -> None:
         self.db = db
         self._wake_publisher: WorkerWakePublisher = wake_publisher or NullWorkerWakePublisher()
+        self._wake_hub: WorkerWakeHub = wake_hub if wake_hub is not None else WorkerWakeHub()
         bind_worker_wake_publisher(self._wake_publisher)
 
     @property
@@ -114,6 +123,9 @@ class RestGateway:
                 return 400, {"error": "X-Goliath-Worker-Token header is required"}
             payload = worker_open_session(self.db, token, ip)
             return 200, payload
+
+        if method == "POST" and path == "/v1/workers/wakes/wait":
+            return self._worker_wait_for_wake(body, client_ip=client_ip or "", worker_auth=worker_auth)
 
         if method == "POST" and path == "/v1/workers/tasks/request":
             if worker_auth is None:
@@ -219,6 +231,77 @@ class RestGateway:
 
         return 404, {"error": "not found", "path": path}
 
+    def _worker_wait_for_wake(
+        self,
+        body: dict[str, Any],
+        *,
+        client_ip: str,
+        worker_auth: Optional[WorkerCallAuth],
+    ) -> tuple[int, Any]:
+        """Long-poll until a matching wake or timeout (HTTP subscribe path for workers)."""
+        if worker_auth is None:
+            return 401, {"error": "worker session auth required"}
+
+        raw_timeout = body.get("timeout_seconds")
+        if raw_timeout is None:
+            timeout = 30.0
+        else:
+            try:
+                timeout = float(raw_timeout)
+            except (TypeError, ValueError):
+                return 400, {"error": "timeout_seconds must be a number"}
+        timeout = max(0.0, min(timeout, 120.0))
+
+        program_id = body.get("program_id")
+        if program_id is not None and program_id != "":
+            if not isinstance(program_id, str):
+                return 400, {"error": "program_id must be a string when set"}
+
+        try:
+            resolved = self.db.worker_resolve_session_for_wake(
+                worker_auth.session_token,
+                worker_auth.identity_token,
+                client_ip,
+            )
+        except WorkerAuthError as exc:
+            return 401, {"error": str(exc)}
+
+        wid = int(resolved["worker_id"])
+        if wid != worker_auth.worker_id:
+            return 403, {"error": "worker_id does not match session"}
+
+        cluster_key = str(resolved["cluster_key"])
+        caps_raw = resolved.get("capabilities") or []
+        caps: list[str] = []
+        if isinstance(caps_raw, list):
+            for c in caps_raw:
+                if c is not None:
+                    caps.append(str(c))
+
+        channels: set[str] = {wake_channel_for_pool(cluster_key)}
+        for cap in caps:
+            name = cap.strip()
+            if name and name != "*":
+                channels.add(wake_channel_for_capability(name))
+
+        if program_id not in (None, ""):
+            prog = str(program_id).strip()
+            if prog:
+                channels.add(wake_channel_for_program(prog))
+
+        try:
+            msg = self._wake_hub.wait_for_wake(
+                wid,
+                frozenset(channels),
+                timeout_seconds=timeout,
+            )
+        except WorkerWakeWaitConflict:
+            return 409, {"error": "concurrent wake wait for this worker"}
+
+        if msg is None:
+            return 200, {"wake": None, "timed_out": True}
+        return 200, {"wake": msg.to_json(), "timed_out": False}
+
 
 def main(argv: Optional[list[str]] = None) -> int:
     import uvicorn
@@ -239,8 +322,9 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     config = resolve_connection_config()
     db = open_gateway_db(config)
-    wake_publisher = resolve_wake_publisher(config)
-    gateway = RestGateway(db, wake_publisher=wake_publisher)
+    wake_hub = WorkerWakeHub()
+    wake_publisher = resolve_wake_publisher(config, wake_hub=wake_hub)
+    gateway = RestGateway(db, wake_publisher=wake_publisher, wake_hub=wake_hub)
     app = create_app(gateway)
     print(
         f"REST gateway on http://{args.host}:{args.port}/v1 (backend={gateway.backend})",

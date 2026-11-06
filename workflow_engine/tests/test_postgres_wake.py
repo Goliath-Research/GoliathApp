@@ -15,10 +15,7 @@ sys.path.insert(0, str(WF_ENGINE))
 sys.path.insert(0, str(REPO_ROOT))
 
 from goliath_worker.client import TaskPollResult, WorkflowRestClient  # noqa: E402
-from goliath_worker.postgres_wake import (  # noqa: E402
-    PostgresWorkerWakePublisher,
-    PostgresWorkerWakeSubscriber,
-)
+from goliath_worker.postgres_wake import PostgresWorkerWakePublisher  # noqa: E402
 from goliath_worker.wake import (  # noqa: E402
     WorkerWakeMessage,
     logical_wake_channel_to_pg_notify,
@@ -79,15 +76,6 @@ class PostgresWakePublisherTests(unittest.TestCase):
         payload = json.loads(captured["params"][1])
         self.assertEqual(payload["wake_id"], "w1")
         self.assertEqual(payload["pool"], "p1")
-
-
-class PostgresWakeSubscriberTests(unittest.TestCase):
-    def test_subscribe_requires_session(self) -> None:
-        sub = PostgresWorkerWakeSubscriber("postgresql://localhost/test")
-        with self.assertRaises(ValueError):
-            sub.subscribe([], session_token="", worker_id=1)
-        with self.assertRaises(ValueError):
-            sub.subscribe([], session_token="tok", worker_id=0)
 
 
 class _RecordingSubscriber:
