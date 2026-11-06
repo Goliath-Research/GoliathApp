@@ -169,9 +169,13 @@ def mqtt_main() -> None:
 
     def handle_raw(raw: dict[str, Any]) -> None:
         for ev in adapter.translate_to_events(raw):
-            h = hashlib.sha256(
-                json.dumps({"t": raw.get("topic"), "p": raw.get("payload")}, sort_keys=True).encode()
-            ).hexdigest()[:56]
+            topic = str(raw.get("topic") or "")
+            payload_raw = raw.get("payload") or b""
+            if isinstance(payload_raw, str):
+                body = payload_raw.encode("utf-8")
+            else:
+                body = bytes(payload_raw)
+            h = hashlib.sha256(f"{topic}\0".encode("utf-8") + body).hexdigest()[:56]
             transport.ingest(
                 worker_id,
                 worker_token,

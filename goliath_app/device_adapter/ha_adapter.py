@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections import deque
 import ssl
 import threading
 import time
@@ -166,6 +167,8 @@ def ha_main() -> None:
     adapter = HomeAssistantDeviceAdapter(ha_cfg)
     source = adapter.normalized_event_sources()[0]
     seen: set[str] = set()
+    seen_lru: deque[str] = deque()
+    max_seen = 100_000
     lock = threading.Lock()
 
     def ingest(ev: DeviceNormalizedEvent, dedupe_material: str) -> None:
@@ -173,7 +176,11 @@ def ha_main() -> None:
         with lock:
             if ikey in seen:
                 return
+            while len(seen_lru) >= max_seen:
+                oldest = seen_lru.popleft()
+                seen.discard(oldest)
             seen.add(ikey)
+            seen_lru.append(ikey)
         transport.ingest(
             worker_id,
             worker_token,
