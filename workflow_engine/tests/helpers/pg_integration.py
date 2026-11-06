@@ -9,7 +9,8 @@ from pathlib import Path
 from shutil import which
 from typing import Any
 
-WF_ENGINE = Path(__file__).resolve().parents[1]
+# This module lives under workflow_engine/tests/helpers/; parents[1] is tests/, not workflow_engine/.
+WF_ENGINE = Path(__file__).resolve().parents[2]
 SQL_PG = WF_ENGINE / "sql_pg"
 
 
