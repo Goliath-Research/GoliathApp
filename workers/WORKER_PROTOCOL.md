@@ -16,10 +16,10 @@ sequenceDiagram
   API->>DB: wf.sp_worker_enroll
   DB-->>API: worker_id
   API-->>Worker: worker_id and worker_token
-  opt push wake (gateway-mediated; HTTP long-poll)
+  opt push wake (gateway-mediated HTTP long-poll)
     Worker->>API: POST /v1/workers/wakes/wait (same session as claim)
     API-->>Worker: WorkerWakeMessage or timeout
-    Note over Worker: no DB LISTEN on worker; claim still required
+    Note over Worker: no DB LISTEN on worker, claim still required
   end
   loop poll / post-wake claim
     Worker->>API: POST /v1/workers/tasks/request

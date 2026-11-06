@@ -6,6 +6,17 @@ repo_name: Goliath-Research/GoliathApp
 docs_dir: docs
 strict: true
 
+plugins:
+  - search
+  - mermaid2:
+      # Mermaid 9 + non-custom superfence: plugin emits div.mermaid and initializes
+      # (Mermaid 10 + fence_mermaid_custom leaves diagrams uninitialized in 1.2.3).
+      version: 9.4.3
+      arguments:
+        theme: default
+        securityLevel: loose
+        startOnLoad: true
+
 theme:
   name: material
   features:
@@ -43,7 +54,7 @@ markdown_extensions:
       custom_fences:
         - name: mermaid
           class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
+          format: !!python/name:mermaid2.fence_mermaid
 
 validation:
   omitted_files: warn

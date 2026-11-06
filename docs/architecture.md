@@ -127,7 +127,7 @@ sequenceDiagram
   opt internal NOTIFY
     GW->>PG: NOTIFY (gateway connection only)
   end
-  W->>GW: wake subscribe (auth session; future / in-progress HTTP API)
+  W->>GW: wake subscribe (auth session, use POST /v1/workers/wakes/wait when available)
   GW-->>W: WorkerWakeMessage
   W->>GW: POST /v1/workers/tasks/request
   GW->>PG: wf.sp_worker_request_task

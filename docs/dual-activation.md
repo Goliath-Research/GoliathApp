@@ -47,13 +47,13 @@ sequenceDiagram
 
   Source->>GW: POST /v1/events (or authorized start path)
   GW->>GW: wf.sp_ingest_event (and DB hooks)
-  GW->>GW: publish WorkerWakeMessage (in-process fan-out; optional internal NOTIFY)
-  Note over GW: Wake is gateway-originated; workers never LISTEN on Postgres
+  GW->>GW: publish WorkerWakeMessage (in-process fan-out, optional internal NOTIFY)
+  Note over GW: Wake is gateway-originated (workers never LISTEN on Postgres)
   W->>GW: POST /v1/workers/wakes/wait (long-poll, authenticated session)
   GW-->>W: WorkerWakeMessage when matched (or timeout)
   W->>GW: POST /v1/workers/tasks/request (claim)
   GW->>GW: wf.sp_worker_request_task
-  Note over W,GW: Loser on claim returns idle; winner runs action
+  Note over W,GW: Loser on claim returns idle, winner runs action
 ```
 
 - **Notify**: cheap, idempotent-friendly signal that *something* may be claimable for a pool/capability/program.
