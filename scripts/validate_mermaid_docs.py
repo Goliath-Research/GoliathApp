@@ -23,6 +23,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # Keep in sync with mkdocs.yml -> plugins -> mermaid2 -> version (major).
 MERMAID_CLI_VERSION = "10.9.1"
 
+_PUPPETEER_CONFIG = REPO_ROOT / "scripts" / "puppeteer-mermaid-ci.json"
+
 MERMAID_FENCE = re.compile(r"^```mermaid\s*\n(?P<body>.*?)^```\s*$", re.MULTILINE | re.DOTALL)
 
 PATHS = (
@@ -62,6 +64,8 @@ def main() -> int:
                         "--yes",
                         f"@mermaid-js/mermaid-cli@{MERMAID_CLI_VERSION}",
                         "mmdc",
+                        "-p",
+                        str(_PUPPETEER_CONFIG),
                         "-i",
                         str(src),
                         "-o",
