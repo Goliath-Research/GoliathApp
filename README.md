@@ -4,6 +4,8 @@
 
 It keeps application behavior in a database: a Meta object model (see [docs/meta-model.md](docs/meta-model.md)), RBAC, portal SQL, a workflow engine, and user-defined actions. A REST gateway enrolls distributed workers that carry out the actions. This repository ships the engine, the compiler, and the claim client.
 
+**Documentation for adopters:** the full site lives under `docs/` and publishes to <https://goliath-research.github.io/GoliathApp/>. Start with [docs/adopter-guide.md](docs/adopter-guide.md) (building a descendant application), [docs/architecture.md](docs/architecture.md) (diagrams and layers), and [docs/feature-catalog.md](docs/feature-catalog.md) (capability map with links).
+
 Repository layout: [docs/workspace-index.md](docs/workspace-index.md). A catalog site can read [`.goliath/product.json`](.goliath/product.json) at build time.
 
 ## Read next

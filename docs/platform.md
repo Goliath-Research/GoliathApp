@@ -2,6 +2,8 @@
 
 GoliathApp is a database-governed application platform. A specialized application stores its workflow as data: action rows, data types, and a graph. The engine activates nodes, leases ACTION nodes to workers, and continues the graph from result codes. Domain meaning stays in the application that extends the platform.
 
+**New to building on GoliathApp?** Read [adopter-guide.md](adopter-guide.md), skim the diagrams in [architecture.md](architecture.md), and use [feature-catalog.md](feature-catalog.md) as a navigation index.
+
 The repository map is [workspace-index.md](workspace-index.md). Apply order is [schema-apply.md](schema-apply.md). The HTTP contract is [`contracts/openapi.yaml`](https://github.com/Goliath-Research/GoliathApp/blob/main/contracts/openapi.yaml).
 
 ## Schemas
