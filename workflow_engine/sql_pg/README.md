@@ -37,7 +37,7 @@ After SQL, actions are rows in `wf.workflow_action` and types are rows in `wf.da
 |------|------|
 | `wf_test_bed_schema.sql`, `wf_test_bed_worker.sql`, `wf_test_bed_run.sql` | Test-bed tables and `wf.sp_test_bed_run_workflow` |
 | `deploy_test_bed.sh` | Applies the test-bed scripts plus `wf_two_group_test_seed.sql` and `wf_mc_two_group_test_seed.sql`, which are not in this repository, so the script stops at the first missing file |
-| [`migrations/`](migrations/README.md) | Optional operator migrations (NavTree Meta backfill + read-only verify scripts indexed there). Not in `SCRIPTS` |
+| [`migrations/`](migrations/README.md) | Optional operator migrations (NavTree Meta backfill; true read-only preflight/verify `.sql` indexed there). Not in `SCRIPTS` |
 
 ## Contract check
 

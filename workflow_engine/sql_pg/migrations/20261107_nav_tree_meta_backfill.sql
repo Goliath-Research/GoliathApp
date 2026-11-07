@@ -7,8 +7,10 @@
 -- Safe re-run: skips portal."NavTree" rows that already have MetaObjID.
 --
 -- Before this file:
---   migrations/20261107_nav_tree_meta__00_preflight_readonly.sql
---   SELECT * FROM portal.sp_nav_backfill_meta(true);   -- dry-run
+--   migrations/20261107_nav_tree_meta__00_preflight_readonly.sql  (SELECT-only)
+--   Optional: SELECT * FROM portal.sp_nav_backfill_meta(true);
+--     Navigation dry-run only; still calls sp_nav_ensure_meta_catalog() (may write catalog).
+--     Not read-only — not a substitute for the preflight .sql file.
 -- After this file:
 --   migrations/20261107_nav_tree_meta__99_verify_readonly.sql
 

@@ -31,7 +31,7 @@ Workers remain **gateway-only**; no worker holds DSN for schema migration.
 3. **Deploy App commit** — checkout **merged SHA**; run full `workflow_engine/sql_pg/apply_schema.sh` (must include `meta_model_tree_maintenance.sql` + `portal_nav_meta.sql`).
 4. **Preflight (read-only)** —  
    `psql … -v ON_ERROR_STOP=1 -f workflow_engine/sql_pg/migrations/20261107_nav_tree_meta__00_preflight_readonly.sql`
-5. **Dry-run** — `SELECT * FROM portal.sp_nav_backfill_meta(true);` (read-only).
+5. **Backfill dry-run (not read-only)** — `SELECT * FROM portal.sp_nav_backfill_meta(true);` — reports rows that would backfill; **always** runs `portal.sp_nav_ensure_meta_catalog()` (may write Meta catalog state). Does **not** perform navigation backfill. Requires the same backup/mutation authorization as step 6; use step 4 for true read-only checks.
 6. **Backfill** (only if preflight OK and backup verified) —  
    `psql … -v ON_ERROR_STOP=1 -f workflow_engine/sql_pg/migrations/20261107_nav_tree_meta_backfill.sql`  
    or `SELECT * FROM portal.sp_nav_backfill_meta(false);`

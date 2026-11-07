@@ -42,10 +42,12 @@ Operator script index (exact repo paths): `workflow_engine/sql_pg/migrations/REA
 | Order | File (under repo root) | Read-only? |
 | --- | --- | --- |
 | DDL | `workflow_engine/sql_pg/apply_schema.sh` | DDL only |
-| 1 | `workflow_engine/sql_pg/migrations/20261107_nav_tree_meta__00_preflight_readonly.sql` | Yes |
-| 2 | `SELECT * FROM portal.sp_nav_backfill_meta(true);` | Yes |
-| 3 | `workflow_engine/sql_pg/migrations/20261107_nav_tree_meta_backfill.sql` | No (idempotent) |
-| 4 | `workflow_engine/sql_pg/migrations/20261107_nav_tree_meta__99_verify_readonly.sql` | Yes |
+| 1 | `workflow_engine/sql_pg/migrations/20261107_nav_tree_meta__00_preflight_readonly.sql` | **Yes** (`SELECT` only) |
+| 2 | `SELECT * FROM portal.sp_nav_backfill_meta(true);` | **No** — see below |
+| 3 | `workflow_engine/sql_pg/migrations/20261107_nav_tree_meta_backfill.sql` | No (nav backfill; idempotent) |
+| 4 | `workflow_engine/sql_pg/migrations/20261107_nav_tree_meta__99_verify_readonly.sql` | **Yes** (`SELECT` only) |
+
+**Dry-run vs read-only SQL:** `sp_nav_backfill_meta(true)` returns a `would_create` report and does **not** assign `MetaObjID` or insert navigation `Meta.Objs`/links. It always calls `portal.sp_nav_ensure_meta_catalog()` first, which may **write** the platform `portal/NavNode` catalog (`Meta`, `wf.data_type`, related views). Treat it like a **mutation-authorized** step (backup first), not a substitute for the `*_preflight_readonly.sql` / `*_verify_readonly.sql` scripts.
 
 Quick ad-hoc checks:
 
