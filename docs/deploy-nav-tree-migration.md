@@ -1,36 +1,34 @@
 # Deploy: NavTree Meta bridge (backup-first)
 
-Use this runbook **after** PR [#55](https://github.com/Goliath-Research/GoliathApp/pull/55) is merged to `main` and the coordinator deploys the **exact merged commit**. This document does not perform deploy steps itself; it records order, script paths, and access assumptions from repository docs and prior integration context.
+Use this runbook **after** PR [#55](https://github.com/Goliath-Research/GoliathApp/pull/55) is merged to `main` and the coordinator deploys the **exact merged commit**. This document does not perform deploy steps itself; it records order, script paths, and access assumptions from [deployment.md](deployment.md) and [decoupling-plan.md](decoupling-plan.md).
 
 **Do not** apply backfill before a verified backup. **Do not** drop legacy `portal."NavTree"` or `Role2Node`.
 
 ## Intended environment (integration / `goliath-test`)
 
-From [deployment.md](deployment.md):
-
 | Layer | Documented owner | Notes |
 | --- | --- | --- |
-| PostgreSQL + GoliathApp DDL | GoliathApp `apply_schema.sh` | Neon-hosted DB name **`GoliathOmics`** retained per [decoupling-plan.md](decoupling-plan.md) D8 |
-| Gateway + workers + `/work` | Extension app **`goliath-test`** profile | Playbook lives in the extension repository, not GoliathApp |
+| PostgreSQL + GoliathApp DDL | GoliathApp `apply_schema.sh` | Hosted Postgres (e.g. Neon); database naming per decoupling **D8** in [decoupling-plan.md](decoupling-plan.md) |
+| Gateway + workers + `/work` | Extension app **`goliath-test`** profile | Playbook lives in the **extension application repository**, not GoliathApp |
 | Exograph / portal-only | **`goliath-exo`** | `deploy/targets/goliath-exo.json` |
 
-Prior integration context (not stored in this repo): gateway on **`45.76.21.8`**, unit **`goliath-gateway.service`**, install path **`/opt/goliath-gateway`**, Omics release tag **`v2026.11.6`** may **not** include NavTree Meta DDL until the coordinator pins a newer App commit after merge. Treat production/integration as **not upgraded** until DDL + backfill + verify complete.
+The coordinator holds integration-specific hostnames, libpq URLs, release tag pins, and gateway unit names outside this neutral platform doc. Treat the live integration stack as **not upgraded** until DDL, backfill, and verify scripts succeed on the **merged App SHA**.
 
 ## Access (use existing approved infra only)
 
-| Target | How operators reach it (no new credentials in docs) |
+| Target | How operators reach it |
 | --- | --- |
-| Neon `GoliathOmics` | Console branch/snapshot + `psql` with existing org libpq secrets (same as prior D8 apply; see decoupling plan Neon backup pattern) |
-| Gateway host | SSH to integration VPS (address above) using team-approved keys; restart **`goliath-gateway.service`** only **after** DB verify passes — gateway is not a schema apply path |
-| CI disposable Postgres | PR workflow `postgres` service + `POSTGRES_*` env (validation only) |
+| Hosted Postgres | Provider console (branch/snapshot) + `psql` with existing org libpq secrets (same pattern as decoupling D8 Neon backup) |
+| Integration gateway | SSH to the integration VPS using team-approved keys; restart the gateway unit only **after** DB verify passes — gateway is not a schema apply path |
+| CI disposable Postgres | PR workflow service + `POSTGRES_*` env (validation only) |
 
-GoliathApp workers remain **gateway-only**; no worker holds DSN for schema migration.
+Workers remain **gateway-only**; no worker holds DSN for schema migration.
 
 ## Ordered procedure
 
 1. **Freeze writes (coordination)** — pause portal nav registration jobs if any; no destructive DDL.
-2. **Backup** — Neon branch or snapshot (name e.g. `backup-nav-tree-meta-YYYYMMDD`) **before** any backfill.
-3. **Deploy App commit** — checkout **merged SHA**; run full `workflow_engine/sql_pg/apply_schema.sh` against the target database (must include `meta_model_tree_maintenance.sql` + `portal_nav_meta.sql`).
+2. **Backup** — provider branch or snapshot (name e.g. `backup-nav-tree-meta-YYYYMMDD`) **before** any backfill.
+3. **Deploy App commit** — checkout **merged SHA**; run full `workflow_engine/sql_pg/apply_schema.sh` (must include `meta_model_tree_maintenance.sql` + `portal_nav_meta.sql`).
 4. **Preflight (read-only)** —  
    `psql … -v ON_ERROR_STOP=1 -f workflow_engine/sql_pg/migrations/20261107_nav_tree_meta__00_preflight_readonly.sql`
 5. **Dry-run** — `SELECT * FROM portal.sp_nav_backfill_meta(true);` (read-only).
@@ -40,12 +38,12 @@ GoliathApp workers remain **gateway-only**; no worker holds DSN for schema migra
 7. **Verify (read-only)** —  
    `psql … -v ON_ERROR_STOP=1 -f workflow_engine/sql_pg/migrations/20261107_nav_tree_meta__99_verify_readonly.sql`  
    Expect `navtree_missing_metaobjid = 0`, `orphan_metaobj = 0`, `nav_without_treenode = 0`.
-8. **Extension app** — Omics (or other descendants) **no code change required** for nav registration APIs; optional: run descendant smoke (`portal.sp_nav_register_node` + RBAC grant) on a throwaway branch first.
-9. **Gateway** — bounce `goliath-gateway.service` only if a release artifact pin changes; schema is DB-side.
+8. **Extension apps** — descendant repositories require **no API change** for `portal.sp_nav_register_node`; optional smoke on a throwaway provider branch first.
+9. **Gateway** — bounce the gateway service only if a release artifact pin changes; schema is DB-side.
 
 ## Rollback
 
-Restore the Neon branch/snapshot from step 2. `MetaObjID` backfill is forward-only; rollback is **restore**, not inverse SQL.
+Restore the provider branch/snapshot from step 2. `MetaObjID` backfill is forward-only; rollback is **restore**, not inverse SQL.
 
 ## Script index
 
@@ -58,7 +56,7 @@ Canonical index: `workflow_engine/sql_pg/migrations/README.md` in the repository
 - [ ] `apply_schema.sh` succeeded on target
 - [ ] Preflight SQL OK
 - [ ] Verify SQL shows zero missing `MetaObjID` after backfill
-- [ ] Omics/gateway pin bumped to include merged App commit (if using release tags)
+- [ ] Extension-app release pin includes merged App commit (if using version tags)
 
 ## Related
 
