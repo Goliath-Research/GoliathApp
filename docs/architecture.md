@@ -94,7 +94,7 @@ flowchart TB
   C --> VW
 ```
 
-NavTree today remains the **portal shell** (`portal."NavTree"`, `portal.sp_nav_register_node`); adopting Meta **`Tree`** for navigation is a documented follow-up ([meta-model.md](meta-model.md) §11).
+New nodes register through **`portal/NavNode`** Meta objects and the hierarchical **`Parent`** link; legacy **`portal."NavTree"`** + **`Role2Node`** remain for RBAC compatibility ([nav-tree-meta.md](nav-tree-meta.md)).
 
 ## NavTree extension
 

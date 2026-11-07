@@ -131,7 +131,7 @@ The following lists **tables and procedures actually referenced** when persistin
 
 - **Semantic:** `portal.semantic_namespace`, `portal.semantic_entity`, attributes, requests — procedures `portal.sp_semantic_register_*` (`portal_semantic_api.sql`). Requests need generated **composite types** in schema **`portal`** ([semantic-extensions.md](semantic-extensions.md)).
 - **Meta:** class/object APIs under **`"Meta"`** schema ([meta-model.md](meta-model.md)); optional bridge to `wf.data_type` / semantic entities.
-- **Nav:** `portal."NavTree"`, `portal.sp_nav_register_node` ([rbac.md](rbac.md)); **Role2Node** grants are separate RBAC steps.
+- **Nav:** `portal.sp_nav_register_node` (Meta `portal/NavNode` + legacy `portal."NavTree"` row; [nav-tree-meta.md](nav-tree-meta.md)); **Role2Node** grants are separate RBAC steps.
 - **Org / scope:** organization and scope procedures as in [rbac.md](rbac.md) — **not** implied by `wf_repo_create_workflow_graph` alone.
 
 ### Disposable DB: minimal runnable + claimable configuration

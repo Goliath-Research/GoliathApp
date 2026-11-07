@@ -64,6 +64,7 @@ Files on disk that the array does not apply:
 - `migrations/20260822_drop_e_portal.sql`
 - `migrations/20260824_data_type_schema_json.sql`
 - `migrations/20261105_meta_model_phase_a.sql`
+- `migrations/20261107_nav_tree_meta_backfill.sql` (optional NavTree → Meta backfill; see [nav-tree-meta.md](nav-tree-meta.md))
 
 ## PL/pgSQL name clashes
 

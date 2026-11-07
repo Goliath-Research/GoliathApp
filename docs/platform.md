@@ -17,7 +17,7 @@ The repository map is [workspace-index.md](workspace-index.md). Apply order is [
 | `cfg` | Sites, pipeline profiles, assay procedures, domain programs, studies, credentials, storage, and reference-asset registry tables. |
 | `Contract`, `Onboarding` | Contract and onboarding tables and parity APIs. |
 
-`cfg.analyte` is defined in `cfg_analyte_schema.sql`. The portal navigation shell (`portal."NavTree"`, `portal."Role2Node"`, and related tables) is in `portal_shell_schema.sql`. NavTree is not yet backed by Meta `Tree` ([Meta model](meta-model.md) §6, §11). Generic tenancy uses `portal."Organizations"` in `portal_organization_schema.sql`. Clinical and customer domain tables are owned by specialized applications that extend GoliathApp.
+`cfg.analyte` is defined in `cfg_analyte_schema.sql`. The portal navigation shell (`portal."NavTree"`, `portal."Role2Node"`, and related tables) is in `portal_shell_schema.sql`. NavTree rows are bridged to Meta `portal/NavNode` tree links ([nav-tree-meta.md](nav-tree-meta.md)). Generic tenancy uses `portal."Organizations"` in `portal_organization_schema.sql`. Clinical and customer domain tables are owned by specialized applications that extend GoliathApp.
 
 There is no separate `obj` schema. Object identity is `"Meta"."Objs"`.
 

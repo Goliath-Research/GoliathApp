@@ -15,7 +15,8 @@ Status: **implemented** in PostgreSQL and Python (PRs [#28](https://github.com/G
 | Python | Pydantic models from class schema (`goliath_app/meta/validation.py`); semantic export uses Meta catalog types for `meta_class_name` entities | `meta_model_phase_d.sql`, `goliath_app/semantic/export.py`, `meta_bridge.py` |
 | Parity APIs | `Meta.spinsertobject` / `spupdateobject` route through ObjValues when the class (or an ancestor) has `Fields` | `meta_model_phase_e.sql` |
 | Semantic / actions | `Meta.sp_semantic_sync_class_entity`, `wf.wf_repo_bind_action_data_types`; FK from `portal.semantic_entity.meta_class_id` | `meta_model_semantic.sql` |
-| Trees | Catalog types `meta/Tree` and `meta/TreeRef`; `"Meta"."TreeNodes"` + GiST on `Path` | `meta_model_phase_c.sql` |
+| Trees | Catalog types `meta/Tree` and `meta/TreeRef`; `"Meta"."TreeNodes"` + GiST on `Path`; path maintenance triggers | `meta_model_phase_c.sql`, `meta_model_tree_maintenance.sql` |
+| Portal nav | Platform `portal/NavNode` + `Parent` hierarchical link; `NavTree.MetaObjID` bridge | `portal_nav_meta.sql`, [nav-tree-meta.md](nav-tree-meta.md) |
 | Tests | pgTAP + pytest for hierarchy, schema, views, validation, fixtures | `workflow_engine/tests/test_meta_model_*.py`, `workflow_engine/sql_pg/tap/` |
 
 **Follow-ups** (designed but not fully built) are listed in §11.
@@ -276,8 +277,9 @@ JOIN "Meta"."ObjValues" v ON v."ObjID" = p."ID" AND v."ClassID" = 12;
 
 - Declare a meta link with `IsHierarchical = true` (self or ancestor target, `MaxCard=1` toward the parent).
 - Catalog types **`meta/Tree`** and **`meta/TreeRef`** are published in `wf.data_type`. `"Meta"."TreeNodes"(ObjID, MetaLinkID, Path ltree)` exists with a GiST index on `Path`. **Triggers that maintain `Path` on hierarchical link changes** (cycle rejection, subtree rewrite) are **not** shipped yet (§11).
-- **`TreeRef`** integrity triggers are also follow-up work.
-- **`portal."NavTree"`** still uses the portal shell tables; migrating navigation onto Meta `Tree` is a **follow-up** (§11).
+- **`TreeRef`** field-level integrity triggers remain follow-up work (`Meta.fn_tree_ref_validate` is available for callers).
+- Path maintenance for hierarchical links ships in `meta_model_tree_maintenance.sql`.
+- **`portal."NavTree"`** remains for RBAC compatibility; new nodes are backed by Meta `portal/NavNode` + `TreeNodes` ([nav-tree-meta.md](nav-tree-meta.md)).
 
 ## 7. Integration
 
@@ -291,7 +293,7 @@ Greenfield classes declare `"Meta"."Fields"` and store values in `"Meta"."ObjVal
 
 - `"Meta".spinsertobject` / `spupdateobject` (`meta_model_phase_e.sql`) call `sp_obj_insert` / `sp_obj_update` when the target class or any ancestor has `Fields`; otherwise they use the legacy typed-table implementations.
 - Automated **backfill** from typed tables into `ObjValues` (report mode, compatibility views, dropping old tables) is **not** part of the shipped apply scripts—plan that per installation (§11).
-- Decision D1 stands: `Classes.ParentID` is inheritance only; portal navigation trees are separate until NavTree adopts Meta `Tree`.
+- Decision D1 stands: `Classes.ParentID` is inheritance only; portal navigation uses Meta hierarchical links, with legacy `NavTree` for RBAC IDs ([nav-tree-meta.md](nav-tree-meta.md)).
 
 ## 9. Tests
 
@@ -311,7 +313,7 @@ pgTAP (Neon) plus pytest in this repository:
 
 ## 10. Decisions (David)
 
-- **D1 (was Q5):** No existing `ParentID` rows are trees; `ParentID` is inheritance only. Portal `NavTree` remains on shell tables until it adopts Meta `Tree` (§11).
+- **D1 (was Q5):** No existing `ParentID` rows are trees; `ParentID` is inheritance only. Portal navigation is backed by Meta `portal/NavNode` + `TreeNodes` with a `NavTree` compatibility bridge (§6, [nav-tree-meta.md](nav-tree-meta.md)).
 - **D2 (was Q3):** Methods are declared in Meta (`Meta.Methods` + `Meta.MethodParams`, §2.3), inherited and overridable by name, with signature-compatibility rules. Each method is implemented by a SQL proc, an ActionSpec or a Python handler, and generates a JSON Schema for its parameters.
 - **D3 (was Q1):** Values stay in the single JSONB table `Meta.ObjValues`, not partitioned by root class. Indexes: B-tree on `(ObjID, ClassID)` and `(ClassID)`, GIN on `Data`. Generated STORED columns for hot fields are follow-up (§11).
 - **D4:** Primary validation happens before Postgres: Pydantic models generated from the class schema (Python) and UI validation of captured values. Postgres validation is a backstop, mainly for internal writers. An always-on SQL unknown/required-key check, plus an optional `pg_jsonschema` trigger toggled per class (`PgValidate`) and per environment (`goliath.meta_pg_validate`). All layers use the single generated schema (§4.4). Parameter types in method overrides stay strictly invariant (§2.3), as approved.
@@ -328,8 +330,7 @@ pgTAP (Neon) plus pytest in this repository:
 | Field/method override narrowing triggers | Rules in §2.1–§2.3; not all enforcement triggers are present |
 | `ObjValuesHistory` | Replace per-class history DDL; unify with `HasHistory` |
 | Hot-field generated columns | `IsHot` → STORED columns + partial indexes on `ObjValues` |
-| Tree path maintenance | ltree `Path` maintenance and `TreeRef` integrity on hierarchical links |
-| NavTree on Meta `Tree` | Portal navigation migration |
+| TreeRef integrity on field values | Validate `meta/TreeRef` in ObjValues when used as field types |
 | Bulk typed-table → ObjValues migration | Operational tooling for existing class tables |
 | `fn_jsonschema_capabilities()` | Formal migration-time probe (runtime fallback exists today) |
 | Exograph model generation | Single catalog-driven `.exo` generation |

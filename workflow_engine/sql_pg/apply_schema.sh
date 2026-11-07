@@ -68,6 +68,7 @@ SCRIPTS=(
   meta_model_phase_a.sql
   meta_model_phase_b.sql
   meta_model_phase_c.sql
+  meta_model_tree_maintenance.sql
   meta_model_phase_d.sql
   contract_schema.sql
   onboarding_schema.sql
@@ -102,6 +103,7 @@ SCRIPTS=(
   inv_semantic.sql
   portal_semantic_api.sql
   meta_model_semantic.sql
+  portal_nav_meta.sql
   portal_contract_api.sql
   portal_study_ops_api.sql
   portal_guardrails_editor.sql
