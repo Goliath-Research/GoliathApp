@@ -8,7 +8,10 @@ from pathlib import Path
 
 import pytest
 
+from workflow_engine.tests.pg_require_ci import require_postgres_reachable, require_psql
+
 SQL_PG = Path(__file__).resolve().parents[1] / "sql_pg"
+MIGRATIONS = SQL_PG / "migrations"
 APPLY_SH = SQL_PG / "apply_schema.sh"
 PORTAL_RBAC_SQL = SQL_PG / "portal_rbac_api.sql"
 
@@ -38,16 +41,15 @@ def _psql(sql: str, env: dict[str, str]) -> str:
 
 
 def _pg_test_env() -> dict[str, str]:
-    """Libpq env with localhost default password; skips when psql or DB is unavailable."""
-    if not shutil_which("psql"):
-        pytest.skip("psql not installed")
+    """Libpq env with localhost default password; fails in CI when psql or DB is unavailable."""
+    require_psql()
     env = _pg_env()
     if not env.get("PGPASSWORD") and env.get("PGHOST", "localhost") in ("localhost", "127.0.0.1"):
         env.setdefault("PGPASSWORD", os.environ.get("POSTGRES_PASSWORD", "goliath"))
-    try:
+    def _probe() -> None:
         _psql("SELECT 1", env)
-    except RuntimeError:
-        pytest.skip("PostgreSQL not reachable for schema apply test")
+
+    require_postgres_reachable(_probe)
     return env
 
 
@@ -103,6 +105,31 @@ def test_nav_register_node(pg_schema_applied: dict[str, str]) -> None:
         env,
     )
     assert int(node_id) > 0
+    meta_obj_id = _psql(
+        f'SELECT "MetaObjID" FROM portal."NavTree" WHERE "ID" = {node_id}',
+        env,
+    )
+    assert int(meta_obj_id) > 0
+
+
+def test_portal_nav_meta_catalog_installed(pg_schema_applied: dict[str, str]) -> None:
+    env = pg_schema_applied
+    class_id = _psql("SELECT portal.fn_nav_node_class_id()", env)
+    link_id = _psql("SELECT portal.fn_nav_parent_metalink_id()", env)
+    assert int(class_id) > 0
+    assert int(link_id) > 0
+
+
+def test_nav_tree_migration_readonly_scripts_execute(pg_schema_applied: dict[str, str]) -> None:
+    env = pg_schema_applied
+    preflight = MIGRATIONS / "20261107_nav_tree_meta__00_preflight_readonly.sql"
+    verify = MIGRATIONS / "20261107_nav_tree_meta__99_verify_readonly.sql"
+    for path in (preflight, verify):
+        subprocess.run(
+            ["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(path)],
+            env=env,
+            check=True,
+        )
 
 
 def test_portal_rbac_api_survives_return_type_change() -> None:

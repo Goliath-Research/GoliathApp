@@ -82,7 +82,7 @@ Your worker executable matches **`capability`** strings to claimable tasks ([wor
 
 ## 3. NavTree menu nodes
 
-Use **`portal.sp_nav_register_node`** to insert into `portal."NavTree"` (and link **`portal."Role2Node"`** for RBAC) — see `workflow_engine/sql_pg/portal_shell_schema.sql` and [rbac.md](rbac.md).
+Use **`portal.sp_nav_register_node`** (creates Meta `portal/NavNode` + legacy `portal."NavTree"` row; grant **`portal."Role2Node"`** for RBAC) — see [nav-tree-meta.md](nav-tree-meta.md), `workflow_engine/sql_pg/portal_nav_meta.sql`, and [rbac.md](rbac.md).
 
 ## 4. Meta classes and validation
 

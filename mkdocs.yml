@@ -42,6 +42,8 @@ nav:
   - RBAC: rbac.md
   - Pipeline profiles: pipeline-profiles.md
   - Schema apply: schema-apply.md
+  - Portal nav (Meta Tree): nav-tree-meta.md
+  - Deploy NavTree Meta bridge: deploy-nav-tree-migration.md
   - Meta model (design): meta-model.md
   - Semantic layer: semantic-layer.md
   - Semantic extensions: semantic-extensions.md
