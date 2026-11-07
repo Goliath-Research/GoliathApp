@@ -358,6 +358,14 @@ BEGIN
       CONTINUE;
     END IF;
 
+    IF p_dry_run THEN
+      nav_id := r."ID";
+      meta_obj_id := NULL;
+      action := 'would_create';
+      RETURN NEXT;
+      CONTINUE;
+    END IF;
+
     v_parent_obj := NULL;
     IF r."ParentID" IS NOT NULL THEN
       SELECT n."MetaObjID" INTO v_parent_obj
@@ -366,14 +374,6 @@ BEGIN
       IF v_parent_obj IS NULL THEN
         RAISE EXCEPTION 'nav node % parent % is not backfilled yet', r."ID", r."ParentID";
       END IF;
-    END IF;
-
-    IF p_dry_run THEN
-      nav_id := r."ID";
-      meta_obj_id := NULL;
-      action := 'would_create';
-      RETURN NEXT;
-      CONTINUE;
     END IF;
 
     v_doc := jsonb_strip_nulls(jsonb_build_object(

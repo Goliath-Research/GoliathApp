@@ -163,7 +163,6 @@ BEGIN
      AND "Meta".fn_tree_metalink_hierarchical(OLD."MetaLinkID")
      AND (
        NEW."ObjID1" IS DISTINCT FROM OLD."ObjID1"
-       OR NEW."ObjID2" IS DISTINCT FROM OLD."ObjID2"
        OR NEW."MetaLinkID" IS DISTINCT FROM OLD."MetaLinkID"
      ) THEN
     PERFORM "Meta".sp_tree_detach_child(OLD."ObjID1", OLD."MetaLinkID");
