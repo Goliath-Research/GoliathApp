@@ -93,6 +93,7 @@ jobs:
             workflow_engine/tests/test_device_adapter_inheritance_flow.py \
             workflow_engine/tests/test_device_adapter_protocol_integration.py \
             workflow_engine/tests/test_pg_schema_schedule_wiring.py \
+            workflow_engine/tests/test_meta_model_tree.py \
             -q
         env:
           POSTGRES_HOST: localhost
