@@ -1,15 +1,16 @@
--- Optional one-shot migration: backfill portal."NavTree".MetaObjID from Meta portal/NavNode + Parent link.
--- Not run by apply_schema.sh; safe to re-run (skips rows that already have MetaObjID).
--- Prerequisites: apply_schema.sh through portal_nav_meta.sql (or full SCRIPTS list on this branch).
+-- NavTree → Meta bridge — BACKFILL APPLY (mutating; idempotent)
+-- Path: workflow_engine/sql_pg/migrations/20261107_nav_tree_meta_backfill.sql
+-- Index: workflow_engine/sql_pg/migrations/README.md
+-- Runbook: docs/deploy-nav-tree-migration.md
 --
--- Verify (report mode):
---   SELECT * FROM portal.sp_nav_backfill_meta(true);
--- Apply:
---   SELECT * FROM portal.sp_nav_backfill_meta(false);
--- Post-check:
---   SELECT count(*) AS missing FROM portal."NavTree" WHERE "MetaObjID" IS NULL;
---   SELECT count(*) AS nodes FROM "Meta"."TreeNodes" tn
---     JOIN portal."NavTree" n ON n."MetaObjID" = tn."ObjID";
+-- Prerequisites: successful apply_schema.sh including portal_nav_meta.sql; backup taken first.
+-- Safe re-run: skips portal."NavTree" rows that already have MetaObjID.
+--
+-- Before this file:
+--   migrations/20261107_nav_tree_meta__00_preflight_readonly.sql
+--   SELECT * FROM portal.sp_nav_backfill_meta(true);   -- dry-run
+-- After this file:
+--   migrations/20261107_nav_tree_meta__99_verify_readonly.sql
 
 BEGIN;
 

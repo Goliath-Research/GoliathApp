@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from workflow_engine.tests.pg_require_ci import require_postgres_reachable, require_psql
+
 SQL_PG = Path(__file__).resolve().parents[1] / "sql_pg"
 
 
@@ -40,16 +42,16 @@ def _psql(sql: str, env: dict[str, str]) -> str:
 
 @pytest.fixture(scope="module")
 def pg_env() -> dict[str, str]:
-    from shutil import which
-
-    if not which("psql"):
-        pytest.skip("psql not installed")
+    require_psql()
     env = _pg_env()
-    try:
-        _psql("SELECT 1", env)
-    except RuntimeError:
-        pytest.skip("PostgreSQL not reachable")
-    subprocess.run(["bash", str(SQL_PG / "apply_schema.sh")], env=env, check=True)
+    require_postgres_reachable(lambda: _psql("SELECT 1", env))
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        # CI job already applied schema; avoid duplicate full apply when same DB name.
+        class_id = _psql("SELECT portal.fn_nav_node_class_id()", env)
+        if not class_id:
+            subprocess.run(["bash", str(SQL_PG / "apply_schema.sh")], env=env, check=True)
+    else:
+        subprocess.run(["bash", str(SQL_PG / "apply_schema.sh")], env=env, check=True)
     return env
 
 
@@ -174,9 +176,14 @@ def test_hierarchical_tree_rejects_cycle(pg_env: dict[str, str]) -> None:
 
 
 def test_sp_nav_backfill_meta_idempotent(pg_env: dict[str, str]) -> None:
-    _psql("SELECT count(*) FROM portal.sp_nav_backfill_meta(false) WHERE action = 'created'", pg_env)
-    skipped = _psql(
-        "SELECT count(*) FROM portal.sp_nav_backfill_meta(false) WHERE action = 'skip'",
+    dry = _psql(
+        "SELECT count(*) FROM portal.sp_nav_backfill_meta(true) WHERE action = 'would_create'",
         pg_env,
     )
-    assert int(skipped) >= 0
+    assert int(dry) >= 0
+    _psql("SELECT count(*) FROM portal.sp_nav_backfill_meta(false) WHERE action = 'created'", pg_env)
+    missing = _psql(
+        'SELECT count(*) FROM portal."NavTree" WHERE "MetaObjID" IS NULL',
+        pg_env,
+    )
+    assert int(missing) == 0

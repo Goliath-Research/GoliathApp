@@ -37,11 +37,17 @@ Each call creates a `portal/NavNode` object, a `Parent` link when `p_parent_id` 
 
 Legacy rows without `MetaObjID` continue to work until backfilled. **`portal."NavTree"` is not dropped.**
 
-1. Apply schema through `portal_nav_meta.sql`.
-2. Report: `SELECT * FROM portal.sp_nav_backfill_meta(true);`
-3. Apply: `SELECT * FROM portal.sp_nav_backfill_meta(false);`  
-   Or run `workflow_engine/sql_pg/migrations/20261107_nav_tree_meta_backfill.sql`.
-4. Verify:
+Operator script index (exact paths): [`workflow_engine/sql_pg/migrations/README.md`](../workflow_engine/sql_pg/migrations/README.md). Backup-first deploy order: [deploy-nav-tree-migration.md](deploy-nav-tree-migration.md).
+
+| Order | File | Read-only? |
+| --- | --- | --- |
+| DDL | [`workflow_engine/sql_pg/apply_schema.sh`](../workflow_engine/sql_pg/apply_schema.sh) | DDL only |
+| 1 | [`migrations/20261107_nav_tree_meta__00_preflight_readonly.sql`](../workflow_engine/sql_pg/migrations/20261107_nav_tree_meta__00_preflight_readonly.sql) | Yes |
+| 2 | `SELECT * FROM portal.sp_nav_backfill_meta(true);` | Yes |
+| 3 | [`migrations/20261107_nav_tree_meta_backfill.sql`](../workflow_engine/sql_pg/migrations/20261107_nav_tree_meta_backfill.sql) | No (idempotent) |
+| 4 | [`migrations/20261107_nav_tree_meta__99_verify_readonly.sql`](../workflow_engine/sql_pg/migrations/20261107_nav_tree_meta__99_verify_readonly.sql) | Yes |
+
+Quick ad-hoc checks:
 
 ```sql
 SELECT count(*) AS missing_meta FROM portal."NavTree" WHERE "MetaObjID" IS NULL;
