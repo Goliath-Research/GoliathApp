@@ -24,11 +24,12 @@ WHERE n."MetaObjID" IS NOT NULL
   );
 
 SELECT count(*) AS treenode_nav_mismatch
-FROM portal."NavTree" n
-JOIN "Meta"."TreeNodes" tn
-  ON tn."ObjID" = n."MetaObjID"
- AND tn."MetaLinkID" = portal.fn_nav_parent_metalink_id()
-WHERE n."MetaObjID" IS NULL;
+FROM "Meta"."TreeNodes" tn
+WHERE tn."MetaLinkID" = portal.fn_nav_parent_metalink_id()
+  AND NOT EXISTS (
+    SELECT 1 FROM portal."NavTree" n
+    WHERE n."MetaObjID" = tn."ObjID"
+  );
 
 SELECT n."ID", n."Caption", n."MetaObjID", tn."Path"::text AS meta_path
 FROM portal."NavTree" n
