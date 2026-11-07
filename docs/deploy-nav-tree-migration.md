@@ -30,7 +30,7 @@ GoliathApp workers remain **gateway-only**; no worker holds DSN for schema migra
 
 1. **Freeze writes (coordination)** — pause portal nav registration jobs if any; no destructive DDL.
 2. **Backup** — Neon branch or snapshot (name e.g. `backup-nav-tree-meta-YYYYMMDD`) **before** any backfill.
-3. **Deploy App commit** — checkout **merged SHA**; run full [`workflow_engine/sql_pg/apply_schema.sh`](../workflow_engine/sql_pg/apply_schema.sh) against the target database (must include `meta_model_tree_maintenance.sql` + `portal_nav_meta.sql`).
+3. **Deploy App commit** — checkout **merged SHA**; run full `workflow_engine/sql_pg/apply_schema.sh` against the target database (must include `meta_model_tree_maintenance.sql` + `portal_nav_meta.sql`).
 4. **Preflight (read-only)** —  
    `psql … -v ON_ERROR_STOP=1 -f workflow_engine/sql_pg/migrations/20261107_nav_tree_meta__00_preflight_readonly.sql`
 5. **Dry-run** — `SELECT * FROM portal.sp_nav_backfill_meta(true);` (read-only).
@@ -49,7 +49,7 @@ Restore the Neon branch/snapshot from step 2. `MetaObjID` backfill is forward-on
 
 ## Script index
 
-Canonical index: [`workflow_engine/sql_pg/migrations/README.md`](../workflow_engine/sql_pg/migrations/README.md).
+Canonical index: `workflow_engine/sql_pg/migrations/README.md` in the repository.
 
 ## Blockers checklist (pre-deploy)
 

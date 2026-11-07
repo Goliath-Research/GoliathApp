@@ -64,7 +64,7 @@ Files on disk that the array does not apply:
 - `migrations/20260822_drop_e_portal.sql`
 - `migrations/20260824_data_type_schema_json.sql`
 - `migrations/20261105_meta_model_phase_a.sql`
-- `workflow_engine/sql_pg/migrations/` — operator index in [migrations/README.md](../workflow_engine/sql_pg/migrations/README.md); NavTree bridge runbook [deploy-nav-tree-migration.md](deploy-nav-tree-migration.md)
+- `workflow_engine/sql_pg/migrations/` — operator index in `workflow_engine/sql_pg/migrations/README.md`; NavTree bridge runbook [deploy-nav-tree-migration.md](deploy-nav-tree-migration.md)
 
 ## PL/pgSQL name clashes
 
