@@ -310,6 +310,9 @@ BEGIN
 END;
 $$;
 
+-- Navigation backfill for legacy NavTree rows. Always runs sp_nav_ensure_meta_catalog() (may
+-- INSERT/UPDATE Meta catalog). When p_dry_run is true, returns would_create/skip rows only and
+-- does not set MetaObjID or create nav Meta objects; dry-run is NOT read-only.
 CREATE OR REPLACE FUNCTION portal.sp_nav_backfill_meta(
   p_dry_run boolean DEFAULT false
 )

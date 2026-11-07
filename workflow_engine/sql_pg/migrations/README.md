@@ -13,7 +13,7 @@ Introduced in PR [#55](https://github.com/Goliath-Research/GoliathApp/pull/55).
 | 0 — Backup | *Provider snapshot / branch* (see deploy guide) | No | Mandatory before step 2 on shared DBs |
 | 1 — DDL | [`../apply_schema.sh`](../apply_schema.sh) (includes `portal_nav_meta.sql`) | DDL only | Install `portal/NavNode`, bridge column, APIs |
 | 2a — Preflight (read-only) | [`20261107_nav_tree_meta__00_preflight_readonly.sql`](20261107_nav_tree_meta__00_preflight_readonly.sql) | **No** | Catalog present, counts, sample rows |
-| 2b — Dry-run report | `SELECT * FROM portal.sp_nav_backfill_meta(true);` | **No** | Rows that would be created |
+| 2b — Backfill dry-run (not read-only) | `SELECT * FROM portal.sp_nav_backfill_meta(true);` | **Yes** (catalog; see below) | Report `would_create` rows; **does not** backfill `MetaObjID` |
 | 3 — Backfill apply | [`20261107_nav_tree_meta_backfill.sql`](20261107_nav_tree_meta_backfill.sql) or `SELECT * FROM portal.sp_nav_backfill_meta(false);` | **Yes** (inserts Meta objs + links; updates `MetaObjID`) | One-time / idempotent backfill |
 | 4 — Verify (read-only) | [`20261107_nav_tree_meta__99_verify_readonly.sql`](20261107_nav_tree_meta__99_verify_readonly.sql) | **No** | Post-check invariants |
 
@@ -21,15 +21,19 @@ Introduced in PR [#55](https://github.com/Goliath-Research/GoliathApp/pull/55).
 
 - PostgreSQL **15+** (17+ recommended); `ltree` extension (created by platform DDL).
 - Full `apply_schema.sh` completed successfully on the target database **at the merge commit** (must include `meta_model_tree_maintenance.sql` and `portal_nav_meta.sql`).
-- Role with rights to `INSERT`/`UPDATE` on `Meta.*` and `portal."NavTree"` for backfill; read-only roles may run preflight/verify scripts only.
+- Role with rights to `INSERT`/`UPDATE` on `Meta.*` and `portal."NavTree"` for backfill and for `sp_nav_backfill_meta` (including dry-run). **Read-only database roles** may run only the preflight/verify `.sql` files.
+
+### `sp_nav_backfill_meta(true)` is not read-only
+
+Every call runs `portal.sp_nav_ensure_meta_catalog()` first, which may **insert or update** platform catalog state (`Meta.Classes` / `Fields` / `MetaLinks`, `wf.data_type`, class view regeneration). Dry-run mode (`true`) **only** skips navigation backfill (`MetaObjID`, `Meta.Objs`, tree links); it is **not** equivalent to the true read-only scripts in step 2a/4. Run it only after backup on targets that authorize catalog writes, or after DDL (`apply_schema.sh` / `portal_nav_meta.sql`) has already ensured the catalog.
 
 ### Safe re-run
 
 | Script / call | Re-run safety |
 | --- | --- |
 | `apply_schema.sh` | Idempotent (CREATE OR REPLACE / IF NOT EXISTS) |
-| Preflight / verify `.sql` | Read-only; unlimited |
-| `sp_nav_backfill_meta(true)` | Read-only report |
+| Preflight / verify `.sql` | Read-only `SELECT`; unlimited |
+| `sp_nav_backfill_meta(true)` | Idempotent catalog ensure + report; may write catalog |
 | `sp_nav_backfill_meta(false)` / backfill `.sql` | Skips rows that already have `MetaObjID`; safe to repeat |
 
 ### Backup guidance
