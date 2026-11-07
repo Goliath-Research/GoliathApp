@@ -32,7 +32,7 @@ Child apps override or wrap these actions (same `action_name` + `overrides`) to 
 
 1. Apply GoliathApp schema (`workflow_engine/sql_pg/apply_schema.sh` includes `inv_*.sql`).
 2. Seed semantics: `python3 workflow_engine/sql_pg/seed_semantic_catalog.py`.
-3. Seed actions: `python3 workflow_engine/sql_pg/seed_action_catalog.py`.
+3. Seed actions: `python3 workflow_engine/sql_pg/seed_action_catalog.py --use-db` (without `--use-db` the script only prints the catalog — see [database-population.md](database-population.md)).
 4. Grant RBAC permissions (`inv.stock.*`) to storekeeper roles in the child app.
 
 Child application repositories register **`mfg.*` / app namespaces** that alias or extend `inv.*` entities; they do not fork the `inv` tables.

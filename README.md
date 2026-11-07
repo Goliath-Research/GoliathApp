@@ -20,6 +20,7 @@ Repository layout: [docs/workspace-index.md](docs/workspace-index.md). A catalog
 | RBAC | [docs/rbac.md](docs/rbac.md) |
 | Pipeline profiles | [docs/pipeline-profiles.md](docs/pipeline-profiles.md) |
 | Schema apply (`sql_pg`) | [docs/schema-apply.md](docs/schema-apply.md) |
+| Database population (seeds, bootstrap) | [docs/database-population.md](docs/database-population.md) |
 | PostgreSQL deploy script | [workflow_engine/sql_pg/README.md](workflow_engine/sql_pg/README.md) |
 | HTTP contract | [contracts/openapi.yaml](contracts/openapi.yaml) |
 | Worker protocol | [workers/WORKER_PROTOCOL.md](workers/WORKER_PROTOCOL.md) |
