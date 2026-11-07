@@ -1,6 +1,6 @@
 # Portal navigation on Meta Tree links
 
-Platform navigation is modeled as **Meta `portal/NavNode`** objects connected by the hierarchical **`Parent`** meta link (`IsHierarchical = true`). Tree paths live in `"Meta"."TreeNodes"` (ltree, maintained by `meta_model_tree_maintenance.sql`). Legacy **`portal."NavTree"`** and **`portal."Role2Node"`** remain the compatibility surface for RBAC and descendant apps (Omics, Crop, Factory, and others): each shell row stores **`MetaObjID`** after registration or backfill.
+Platform navigation is modeled as **Meta `portal/NavNode`** objects connected by the hierarchical **`Parent`** meta link (`IsHierarchical = true`). Tree paths live in `"Meta"."TreeNodes"` (ltree, maintained by `meta_model_tree_maintenance.sql`). Legacy **`portal."NavTree"`** and **`portal."Role2Node"`** remain the compatibility surface for RBAC and descendant applications: each shell row stores **`MetaObjID`** after registration or backfill.
 
 ## Contract (do not duplicate)
 
@@ -60,7 +60,7 @@ LIMIT 50;
 
 ## Downstream apps
 
-Omics, Crop, Factory, Ground Station, and Realty plans assume **additive** NavTree nodes and Role2Node grants. No framework rebuild is required in those repos after this platform change; adopt the new apply list and run backfill once per environment.
+Descendant application plans assume **additive** NavTree nodes and Role2Node grants. No framework rebuild is required in child repositories after this platform change; adopt the new apply list and run backfill once per environment.
 
 ## Workers
 
