@@ -46,7 +46,10 @@ def _pg_test_env() -> dict[str, str]:
     env = _pg_env()
     if not env.get("PGPASSWORD") and env.get("PGHOST", "localhost") in ("localhost", "127.0.0.1"):
         env.setdefault("PGPASSWORD", os.environ.get("POSTGRES_PASSWORD", "goliath"))
-    require_postgres_reachable(lambda: _psql("SELECT 1", env))
+    def _probe() -> None:
+        _psql("SELECT 1", env)
+
+    require_postgres_reachable(_probe)
     return env
 
 

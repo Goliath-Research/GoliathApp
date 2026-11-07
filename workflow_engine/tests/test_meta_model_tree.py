@@ -44,7 +44,10 @@ def _psql(sql: str, env: dict[str, str]) -> str:
 def pg_env() -> dict[str, str]:
     require_psql()
     env = _pg_env()
-    require_postgres_reachable(lambda: _psql("SELECT 1", env))
+    def _probe() -> None:
+        _psql("SELECT 1", env)
+
+    require_postgres_reachable(_probe)
     if os.environ.get("GITHUB_ACTIONS") == "true":
         # CI job already applied schema; avoid duplicate full apply when same DB name.
         class_id = _psql("SELECT portal.fn_nav_node_class_id()", env)
