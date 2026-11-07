@@ -10,16 +10,49 @@
 -- Run (operator / superuser), non-interactive:
 --   psql -v ON_ERROR_STOP=1 "$DSN" -f docs_bootstrap_minimal_workflow.sql
 --
--- Idempotent: deletes prior workflow def by name via wf.sp_delete_workflow_def.
+-- Idempotent: clears cfg.domain_program FKs, removes demo instances/edges, then deletes the def.
+--
+-- Note: wf.sp_delete_workflow_def deletes wf.workflow_version before wf.workflow_node, but
+-- wf.workflow_edge rows reference node ids without ON DELETE CASCADE (00_schema.sql), so a
+-- naive delete fails on re-run. Delete edges (and instances) first; then use sp_delete with
+-- p_delete_instances = false.
 
 BEGIN;
 
--- Remove previous demo graph if re-run (sp_delete_workflow_def errors when the name is missing)
+UPDATE cfg.domain_program
+SET workflow_def_id = NULL,
+    compiled_workflow_version_id = NULL
+WHERE name = 'docs_bootstrap_const_echo' AND version = '1';
+
 DO $$
+DECLARE
+  v_def_id bigint;
 BEGIN
-  IF EXISTS (SELECT 1 FROM wf.workflow_def WHERE name = 'DocsBootstrapConstEcho') THEN
-    PERFORM * FROM wf.sp_delete_workflow_def(NULL, 'DocsBootstrapConstEcho', true);
+  SELECT id INTO v_def_id FROM wf.workflow_def WHERE name = 'DocsBootstrapConstEcho' LIMIT 1;
+  IF v_def_id IS NULL THEN
+    RETURN;
   END IF;
+
+  DELETE FROM wf.loop_state ls
+  WHERE ls.workflow_instance_id IN (
+    SELECT wi.id
+    FROM wf.workflow_instance wi
+    INNER JOIN wf.workflow_version wv ON wv.id = wi.workflow_version_id
+    WHERE wv.workflow_def_id = v_def_id
+  );
+
+  DELETE FROM wf.workflow_instance wi
+  USING wf.workflow_version wv
+  WHERE wi.workflow_version_id = wv.id AND wv.workflow_def_id = v_def_id;
+
+  DELETE FROM wf.workflow_edge e
+  USING wf.workflow_node n
+  WHERE (e.parent_node_id = n.id OR e.child_node_id = n.id)
+    AND n.workflow_version_id IN (
+      SELECT id FROM wf.workflow_version WHERE workflow_def_id = v_def_id
+    );
+
+  PERFORM * FROM wf.sp_delete_workflow_def(v_def_id, NULL, false);
 END $$;
 
 -- Single ACTION (workflow.const_string) under a SEQUENCE root; input built from workflow_input_template only.
