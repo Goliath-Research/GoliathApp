@@ -9,7 +9,7 @@ import {
   PortalSessionDeniedError,
   type ResolvedPortalSession,
 } from "../portal/bridge";
-import { SESSION_COOKIE_NAME, sessionCookieStoreOptions } from "./cookies";
+import { SESSION_COOKIE_NAME } from "./cookies";
 
 export async function requirePortalSession(): Promise<ResolvedPortalSession> {
   if (!isPortalBridgeConfigured()) {
@@ -28,7 +28,6 @@ export async function requirePortalSession(): Promise<ResolvedPortalSession> {
   if (!touched) {
     throw new PortalSessionDeniedError("session expired");
   }
-  cookieStore.set(SESSION_COOKIE_NAME, token, sessionCookieStoreOptions());
   return session;
 }
 
