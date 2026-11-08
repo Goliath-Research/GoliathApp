@@ -4,7 +4,12 @@ import {
   getAuthProvider,
 } from "@/server/auth/registry";
 import { buildOidcAuthorizationUrl } from "@/server/auth/oidc";
-import { buildOidcTransactionCookie, createOidcTransaction } from "@/server/auth/state-cookie";
+import {
+  buildOidcTransactionCookie,
+  createOidcTransaction,
+  isAuthStateSigningConfigured,
+} from "@/server/auth/state-cookie";
+import { requestOriginFromRequest } from "@/server/http/request-origin";
 
 export async function GET(
   request: Request,
@@ -15,11 +20,11 @@ export async function GET(
   if (!cfg || cfg.method !== "oidc_authorization_code") {
     return NextResponse.json({ error: "provider not found" }, { status: 404 });
   }
-  if (!process.env.GOLIATH_AUTH_STATE_SECRET?.trim()) {
+  if (!isAuthStateSigningConfigured()) {
     return NextResponse.json({ error: "auth is not configured" }, { status: 503 });
   }
 
-  const origin = new URL(request.url).origin;
+  const origin = requestOriginFromRequest(request);
   try {
     assertRedirectOriginAllowed(origin, cfg);
   } catch {

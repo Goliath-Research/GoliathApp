@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { listPublicAuthProviders } from "@/server/auth/registry";
+import { requestOriginFromRequest } from "@/server/http/request-origin";
 
 export async function GET(request: Request) {
-  const origin = new URL(request.url).origin;
+  const origin = requestOriginFromRequest(request);
   return NextResponse.json({
     providers: listPublicAuthProviders(origin),
     supportedMethods: {

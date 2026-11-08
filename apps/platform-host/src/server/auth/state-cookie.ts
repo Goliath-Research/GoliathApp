@@ -11,9 +11,13 @@ export type OidcTransaction = {
   exp: number;
 };
 
-function signingKey(): string | null {
+export function isAuthStateSigningConfigured(): boolean {
   const key = process.env.GOLIATH_AUTH_STATE_SECRET?.trim();
-  return key && key.length >= 16 ? key : null;
+  return !!key && key.length >= 16;
+}
+
+function signingKey(): string | null {
+  return isAuthStateSigningConfigured() ? process.env.GOLIATH_AUTH_STATE_SECRET!.trim() : null;
 }
 
 function sign(payloadB64: string): string {
