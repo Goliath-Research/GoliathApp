@@ -1,0 +1,30 @@
+import { expect, test } from "@playwright/test";
+
+test.describe("platform host (fixture-only)", () => {
+  test("health endpoint returns build metadata", async ({ request }) => {
+    const res = await request.get("/api/health");
+    expect(res.ok()).toBeTruthy();
+    const body = (await res.json()) as { status: string; service: string; packages: string[] };
+    expect(body.status).toBe("ok");
+    expect(body.service).toBe("goliath-platform-host");
+    expect(body.packages).toContain("@goliath/ui");
+  });
+
+  test("home and fixture routes render icons with accessible labels", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Platform UI foundation (P0)" })).toBeVisible();
+    await expect(page.getByRole("img").first()).toBeVisible();
+
+    await page.goto("/fixture");
+    await expect(page.getByText("[Fixture data only]")).toBeVisible();
+    await expect(page.getByText("Platform presentation fixture (P0)")).toBeVisible();
+    const images = page.getByRole("img");
+    await expect(images.first()).toBeVisible();
+    expect(await images.count()).toBeGreaterThan(10);
+
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.screenshot({ path: "/opt/cursor/artifacts/platform-host-fixture-light.png", fullPage: true });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.screenshot({ path: "/opt/cursor/artifacts/platform-host-fixture-dark.png", fullPage: true });
+  });
+});

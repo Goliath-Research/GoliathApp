@@ -18,6 +18,7 @@ This repository is the platform. Specialized applications extend it with actions
 | `scripts/` | Layout init, SQL twin check, schema inventory |
 | `docs/` | This documentation set |
 | `packages/` | Platform UI monorepo (`@goliath/ui`, `@goliath/client`, `@goliath/platform-ui`) — see [visualization.md](visualization.md) |
+| `apps/platform-host/` | GoliathApp-owned runnable UI host (fixture shell) — [deploy/platform-host.md](deploy/platform-host.md) |
 | `package.json` | npm workspaces root; CI job `frontend` |
 | `.goliath/product.json` | Machine-readable product summary |
 

@@ -164,3 +164,11 @@ jobs:
 
       - name: Verify npm pack consumer install
         run: npm run verify:consumer
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Platform host end-to-end smoke
+        run: npm run test:e2e:host
+        env:
+          CI: "1"

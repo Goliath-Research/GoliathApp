@@ -2,12 +2,16 @@
   "name": "goliathapp-monorepo",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @goliath/ui --workspace @goliath/client --workspace @goliath/platform-ui",
-    "typecheck": "npm run typecheck --workspace @goliath/ui --workspace @goliath/client --workspace @goliath/platform-ui",
-    "test": "npm run test --workspace @goliath/ui --workspace @goliath/platform-ui",
+    "build": "npm run build --workspace @goliath/ui --workspace @goliath/client --workspace @goliath/platform-ui && npm run build --workspace @goliath/platform-host",
+    "build:host": "npm run build --workspace @goliath/platform-host",
+    "start:host": "npm run start --workspace @goliath/platform-host",
+    "typecheck": "npm run typecheck --workspace @goliath/ui --workspace @goliath/client --workspace @goliath/platform-ui && npm run typecheck --workspace @goliath/platform-host",
+    "test": "npm run test --workspace @goliath/ui --workspace @goliath/platform-ui && npm run test --workspace @goliath/platform-host",
+    "test:e2e:host": "npm run test:e2e --workspace @goliath/platform-host",
     "verify:consumer": "node scripts/verify_frontend_consumer.mjs"
   },
   "engines": {
