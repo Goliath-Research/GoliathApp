@@ -1,10 +1,93 @@
 /*
-  Session-bound Meta class read APIs (P2 foundation).
+  Session-bound Meta APIs (P2).
   Callable by goliath_portal only — platform host BFF forwards session cookie server-side.
 
-  P2 slice: read-only hierarchy, resolved fields, flattened JSON Schema, wrapped data types.
-  Fine-grained Meta RBAC permissions are not enforced yet (valid session required).
+  Authorization: valid session is necessary but not sufficient — Meta permissions are enforced.
 */
+
+DO $meta_perm_seed$
+DECLARE
+  v_class_id int;
+  v_obj_id int;
+  v_op_id int;
+  v_perm_name text;
+BEGIN
+  SELECT c."ID" INTO v_class_id
+  FROM "Meta"."Classes" c
+  WHERE c."Name" = 'portal/NavNode'
+  LIMIT 1;
+
+  IF v_class_id IS NULL THEN
+    RAISE NOTICE 'meta permission seed skipped — portal/NavNode class missing';
+    RETURN;
+  END IF;
+
+  SELECT o."ID" INTO v_obj_id FROM "Meta"."Objs" o ORDER BY o."ID" LIMIT 1;
+  IF v_obj_id IS NULL THEN
+    INSERT INTO "Meta"."Objs" ("ClassID") VALUES (v_class_id)
+    RETURNING "ID" INTO v_obj_id;
+  END IF;
+
+  SELECT op."ID" INTO v_op_id
+  FROM "Meta"."Operations" op
+  WHERE op."Name" = 'meta.permission_anchor'
+  LIMIT 1;
+
+  IF v_op_id IS NULL THEN
+    INSERT INTO "Meta"."Operations" ("Name", "ClassID")
+    VALUES ('meta.permission_anchor', v_class_id)
+    RETURNING "ID" INTO v_op_id;
+  END IF;
+
+  FOREACH v_perm_name IN ARRAY ARRAY[
+    'meta.schema.read',
+    'meta.object.read',
+    'meta.object.write'
+  ]
+  LOOP
+    INSERT INTO "RBAC"."Permissions" ("Name", "ObjID", "OperationID")
+    SELECT v_perm_name, v_obj_id, v_op_id
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "RBAC"."Permissions" p WHERE p."Name" = v_perm_name
+    );
+  END LOOP;
+END
+$meta_perm_seed$;
+
+CREATE OR REPLACE FUNCTION portal.fn_session_meta_require(
+  p_session_token text,
+  p_permission text
+)
+RETURNS TABLE (
+  session_id integer,
+  user_id integer,
+  active_scope_id integer
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+AS $$
+DECLARE
+  v_sess record;
+BEGIN
+  SELECT *
+  INTO v_sess
+  FROM portal.fn_session_resolve(p_session_token)
+  LIMIT 1;
+
+  IF v_sess.session_id IS NULL OR COALESCE(v_sess.revoked, false) THEN
+    PERFORM portal.fn_semantic_raise('GS401', 'session denied');
+  END IF;
+
+  IF NOT portal.fn_semantic_session_has_permission(v_sess.user_id, p_permission) THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied');
+  END IF;
+
+  RETURN QUERY
+  SELECT v_sess.session_id, v_sess.user_id, v_sess.active_scope_id;
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION portal.sp_session_meta_resolve_class(
   p_session_token text,
@@ -17,17 +100,10 @@ SECURITY DEFINER
 SET search_path = portal, "Meta", wf, "RBAC", pg_temp
 AS $$
 DECLARE
-  v_sess record;
   v_class_id int;
+  v_ctx record;
 BEGIN
-  SELECT *
-  INTO v_sess
-  FROM portal.fn_session_resolve(p_session_token)
-  LIMIT 1;
-
-  IF v_sess.session_id IS NULL OR COALESCE(v_sess.revoked, false) THEN
-    PERFORM portal.fn_semantic_raise('GS401', 'session denied');
-  END IF;
+  SELECT * INTO v_ctx FROM portal.fn_session_meta_require(p_session_token, 'meta.schema.read') LIMIT 1;
 
   SELECT c."ID"
   INTO v_class_id
@@ -232,19 +308,89 @@ STABLE
 SECURITY DEFINER
 SET search_path = portal, "Meta", wf, "RBAC", pg_temp
 AS $$
-DECLARE
-  v_sess record;
 BEGIN
-  SELECT *
-  INTO v_sess
-  FROM portal.fn_session_resolve(p_session_token)
-  LIMIT 1;
-
-  IF v_sess.session_id IS NULL OR COALESCE(v_sess.revoked, false) THEN
-    PERFORM portal.fn_semantic_raise('GS401', 'session denied');
-  END IF;
+  PERFORM portal.fn_session_meta_require(p_session_token, 'meta.schema.read');
 
   RETURN QUERY
   SELECT * FROM portal.sp_get_data_type(p_name, p_version);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION portal.sp_session_meta_obj_insert(
+  p_session_token text,
+  p_class_name text,
+  p_document jsonb
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+AS $$
+DECLARE
+  v_ctx record;
+  v_class_id int;
+  v_obj_id int;
+BEGIN
+  SELECT * INTO v_ctx FROM portal.fn_session_meta_require(p_session_token, 'meta.object.write') LIMIT 1;
+  IF v_ctx.active_scope_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta object write');
+  END IF;
+
+  v_class_id := portal.sp_session_meta_resolve_class(p_session_token, p_class_name);
+  v_obj_id := "Meta".sp_obj_insert(v_class_id, COALESCE(p_document, '{}'::jsonb));
+  RETURN v_obj_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION portal.sp_session_meta_obj_update(
+  p_session_token text,
+  p_obj_id integer,
+  p_document jsonb
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+AS $$
+DECLARE
+  v_ctx record;
+BEGIN
+  SELECT * INTO v_ctx FROM portal.fn_session_meta_require(p_session_token, 'meta.object.write') LIMIT 1;
+  IF v_ctx.active_scope_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta object write');
+  END IF;
+
+  PERFORM portal.fn_session_meta_require(p_session_token, 'meta.schema.read');
+  PERFORM "Meta".sp_obj_update(p_obj_id, COALESCE(p_document, '{}'::jsonb));
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION portal.sp_session_meta_obj_get(
+  p_session_token text,
+  p_obj_id integer
+)
+RETURNS TABLE (
+  obj_id integer,
+  class_id integer,
+  class_name text,
+  document jsonb
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+AS $$
+BEGIN
+  PERFORM portal.fn_session_meta_require(p_session_token, 'meta.object.read');
+
+  RETURN QUERY
+  SELECT
+    o."ID"::integer,
+    o."ClassID"::integer,
+    c."Name"::text,
+    "Meta".fn_merged_obj_document(o."ID")
+  FROM "Meta"."Objs" o
+  JOIN "Meta"."Classes" c ON c."ID" = o."ClassID"
+  WHERE o."ID" = p_obj_id;
 END;
 $$;

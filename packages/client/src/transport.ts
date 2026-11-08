@@ -1,4 +1,9 @@
-import type { MetaClassField, MetaClassLineageNode, MetaClassSummary } from "./meta.js";
+import type {
+  MetaClassField,
+  MetaClassLineageNode,
+  MetaClassSummary,
+  MetaObjectDocument,
+} from "./meta.js";
 import type { OperatorNavNode } from "./nav.js";
 import { coercePresentationKind } from "./nav.js";
 import type { PlatformSessionSnapshot } from "./session.js";
@@ -92,6 +97,42 @@ export function createPlatformBffClient(options: PlatformBffClientOptions = {}) 
       );
       const body = await readJson<{ fields: MetaClassField[] }>(res);
       return body.fields;
+    },
+
+    async createMetaObject(
+      className: string,
+      document: Record<string, unknown>,
+    ): Promise<{ objId: number }> {
+      const res = await fetchFn(
+        `${base}/api/meta/classes/${encodeURIComponent(className)}/objects`,
+        {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify({ document }),
+        },
+      );
+      return readJson<{ objId: number }>(res);
+    },
+
+    async getMetaObject(objId: number): Promise<MetaObjectDocument> {
+      const res = await fetchFn(`${base}/api/meta/objects/${objId}`, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      const body = await readJson<{ object: MetaObjectDocument }>(res);
+      return body.object;
+    },
+
+    async updateMetaObject(objId: number, document: Record<string, unknown>): Promise<void> {
+      const res = await fetchFn(`${base}/api/meta/objects/${objId}`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ document }),
+      });
+      await readJson<{ ok: boolean }>(res);
     },
 
     async getOperatorNavigation(): Promise<OperatorNavNode[]> {

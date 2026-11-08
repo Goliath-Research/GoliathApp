@@ -29,3 +29,10 @@ export type MetaClassField = {
   definedAtDepth: number;
   isLocal: boolean;
 };
+
+export type MetaObjectDocument = {
+  objId: number;
+  classId: number;
+  className: string;
+  document: Record<string, unknown>;
+};

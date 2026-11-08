@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { MetaClassExplorer } from "@goliath/platform-ui";
-import { MetaJsonDocumentEditor } from "@/components/MetaJsonDocumentEditor";
+import { MetaInstanceWorkbench } from "@/components/MetaInstanceWorkbench";
+import { EXAMPLE_CHILD_EXTENSION } from "@/lib/child-extension";
+import { resolveMetaEditorComponent } from "@/lib/meta-editor-registry";
 import {
   PortalBridgeMisconfiguredError,
+  PortalForbiddenError,
   PortalMetaNotFoundError,
   PortalSessionDeniedError,
   portalSessionMetaClassFields,
@@ -42,14 +45,28 @@ export default async function MetaExplorerPage({
         <p className="kicker">[P2 Meta hierarchy — session-gated]</p>
         <h2>Inherited Meta class browser</h2>
         <p className="g-host-home__lead">
-          Reads <code>portal.sp_session_meta_*</code> on the server. Hierarchy, field origins, and flattened
-          JSON Schema come from PostgreSQL — not client-invented structure.
+          Reads and writes through <code>portal.sp_session_meta_*</code> with <code>meta.*</code> RBAC (session
+          alone is not authorization). Unknown top-level JSON keys are rejected server-side (
+          <code>Meta.fn_reject_unknown_document_keys</code>).
         </p>
         <MetaClassExplorer
           summary={summary}
           lineage={lineage}
           fields={fields}
-          editorSlot={<MetaJsonDocumentEditor flattenedSchema={summary.schemaFlattenedJson} />}
+          classIconOverrides={EXAMPLE_CHILD_EXTENSION.manifest.classIconOverrides}
+          editorSlot={
+            <>
+              {resolveMetaEditorComponent(
+                EXAMPLE_CHILD_EXTENSION.manifest.editorComponents?.[className],
+                { className, fields },
+              )}
+              <MetaInstanceWorkbench
+                className={className}
+                fields={fields}
+                flattenedSchema={summary.schemaFlattenedJson}
+              />
+            </>
+          }
         />
       </div>
     );
@@ -59,6 +76,16 @@ export default async function MetaExplorerPage({
     }
     if (err instanceof PortalSessionDeniedError) {
       redirect("/login");
+    }
+    if (err instanceof PortalForbiddenError) {
+      return (
+        <div className="g-host-app" role="alert">
+          <h2>Meta access denied</h2>
+          <p>
+            Signed in, but this session lacks <code>meta.schema.read</code> (and related) permissions.
+          </p>
+        </div>
+      );
     }
     if (err instanceof PortalMetaNotFoundError) {
       return (

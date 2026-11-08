@@ -15,6 +15,7 @@ export const EXAMPLE_CHILD_EXTENSION: PlatformHostChildExtension = {
     appId: "example_child",
     classIconOverrides: {
       "child_app/EnrollmentRow": "platform:circuit",
+      "portal/NavNode": "platform:layout-grid",
     },
     editorComponents: {
       "child_app/StudyManifest": "ExampleStudyManifestEditor",

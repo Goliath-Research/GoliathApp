@@ -8,3 +8,4 @@ export { DemoObjectTable } from "./components/DemoObjectTable.js";
 export { PlatformFixtureDemo, FIXTURE_NAV_TREE, FIXTURE_PLATFORM_ROWS } from "./fixture/index.js";
 export { OperatorNavList } from "./shell/OperatorNavList.js";
 export { MetaClassExplorer } from "./meta/MetaClassExplorer.js";
+export { MetaGeneratedFieldForm } from "./meta/MetaGeneratedFieldForm.js";

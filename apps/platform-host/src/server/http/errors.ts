@@ -3,7 +3,9 @@ import "server-only";
 import { NextResponse } from "next/server";
 import {
   PortalBridgeMisconfiguredError,
+  PortalForbiddenError,
   PortalMetaNotFoundError,
+  PortalMetaValidationError,
   PortalSessionDeniedError,
 } from "../portal/bridge";
 
@@ -20,6 +22,12 @@ export function mapPortalError(err: unknown) {
   }
   if (err instanceof PortalMetaNotFoundError) {
     return jsonError(404, err.message);
+  }
+  if (err instanceof PortalForbiddenError) {
+    return jsonError(403, err.message);
+  }
+  if (err instanceof PortalMetaValidationError) {
+    return jsonError(400, err.message);
   }
   return jsonError(500, "internal error");
 }

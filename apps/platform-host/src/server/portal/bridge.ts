@@ -60,6 +60,27 @@ export class PortalMetaNotFoundError extends Error {
   }
 }
 
+export class PortalForbiddenError extends Error {
+  constructor(message = "forbidden") {
+    super(message);
+    this.name = "PortalForbiddenError";
+  }
+}
+
+export class PortalMetaValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PortalMetaValidationError";
+  }
+}
+
+export type MetaObjectDocumentRow = {
+  objId: number;
+  classId: number;
+  className: string;
+  document: unknown;
+};
+
 export type MetaClassSummaryRow = {
   classId: number;
   className: string;
@@ -99,8 +120,14 @@ function mapPgPortalError(err: unknown): never {
   if (pgCode === "GS401" || message.includes("GS401") || message.includes("session denied")) {
     throw new PortalSessionDeniedError();
   }
+  if (pgCode === "GS403" || message.includes("GS403") || message.includes("permission denied")) {
+    throw new PortalForbiddenError(message.includes("meta permission") ? "meta permission denied" : "forbidden");
+  }
   if (pgCode === "GS404" || message.includes("GS404") || message.includes("not found")) {
     throw new PortalMetaNotFoundError();
+  }
+  if (message.includes("unknown field") || message.includes("ValidationError")) {
+    throw new PortalMetaValidationError(message);
   }
   throw err;
 }
@@ -310,6 +337,73 @@ export async function portalSessionMetaClassFields(
         definedAtDepth: Number(row.defined_at_depth),
         isLocal: Boolean(row.is_local),
       }));
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionMetaObjInsert(
+  sessionToken: string,
+  className: string,
+  document: unknown,
+): Promise<number> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT portal.sp_session_meta_obj_insert($1, $2, $3::jsonb) AS obj_id`,
+        [sessionToken, className, JSON.stringify(document ?? {})],
+      );
+      const objId = result.rows[0]?.obj_id;
+      if (objId == null) {
+        throw new Error("sp_session_meta_obj_insert returned no row");
+      }
+      return Number(objId);
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionMetaObjUpdate(
+  sessionToken: string,
+  objId: number,
+  document: unknown,
+): Promise<void> {
+  return withClient(async (client) => {
+    try {
+      await client.query(`SELECT portal.sp_session_meta_obj_update($1, $2, $3::jsonb)`, [
+        sessionToken,
+        objId,
+        JSON.stringify(document ?? {}),
+      ]);
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionMetaObjGet(
+  sessionToken: string,
+  objId: number,
+): Promise<MetaObjectDocumentRow> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT obj_id, class_id, class_name, document
+         FROM portal.sp_session_meta_obj_get($1, $2)`,
+        [sessionToken, objId],
+      );
+      const row = result.rows[0];
+      if (!row) {
+        throw new PortalMetaNotFoundError("meta object not found");
+      }
+      return {
+        objId: Number(row.obj_id),
+        classId: Number(row.class_id),
+        className: String(row.class_name),
+        document: row.document,
+      };
     } catch (err) {
       mapPgPortalError(err);
     }
