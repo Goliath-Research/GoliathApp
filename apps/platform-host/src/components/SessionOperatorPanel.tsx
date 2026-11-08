@@ -41,7 +41,12 @@ export function SessionOperatorPanel() {
     return (
       <section className="g-host-card" aria-labelledby="session-panel-guest">
         <h3 id="session-panel-guest">Authentication (P1)</h3>
-        <p>No platform session cookie. Use your identity provider integration or operator bootstrap.</p>
+        <p>
+          {error
+            ? "Session transport failed — see error below."
+            : "No platform session cookie. Use your identity provider integration or operator bootstrap."}
+        </p>
+        {error ? <p role="alert">{error}</p> : null}
         <p>
           <a href="/app">Try protected /app route</a> (server redirect when unauthenticated).
         </p>

@@ -30,6 +30,24 @@ export function buildSessionSetCookie(sessionToken: string): string {
   return parts.join("; ");
 }
 
+/** Refreshes Max-Age after portal.sp_session_touch (sliding idle expiry). */
+export function sessionCookieStoreOptions(): {
+  httpOnly: true;
+  secure: boolean;
+  sameSite: "lax";
+  path: string;
+  maxAge: number;
+} {
+  const { secure, maxAgeSeconds } = sessionCookieOptions();
+  return {
+    httpOnly: true,
+    secure,
+    sameSite: "lax",
+    path: SESSION_COOKIE_PATH,
+    maxAge: maxAgeSeconds,
+  };
+}
+
 export function buildSessionClearCookie(): string {
   const { secure } = sessionCookieOptions();
   const parts = [
