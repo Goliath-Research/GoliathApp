@@ -14,9 +14,9 @@ Install path for child repos: depend on **published semver tarballs** (`npm pack
 
 ### Icon contract
 
-- Every [`PlatformObjectKind`](../packages/ui/src/kinds.ts) has a deterministic default icon key; [`platform_generic`](../packages/ui/src/kinds.ts) is the final fallback.
-- Icons are **allowlisted keys** → Lucide components ([`ICON_ALLOWLIST`](../packages/ui/src/icons/allowlist.ts)). No SVG/JS/CSS from the database.
-- Class-specific icons: child **build-time manifest** maps Meta class FQN → allowlisted key. Resolution order: explicit key → exact class → nearest ancestor → kind default → generic ([`resolvePresentation`](../packages/ui/src/icons/resolve.ts)).
+- Every `PlatformObjectKind` (see `packages/ui/src/kinds.ts`) has a deterministic default icon key; `platform_generic` is the final fallback.
+- Icons are **allowlisted keys** → Lucide components (`packages/ui/src/icons/allowlist.ts`). No SVG/JS/CSS from the database.
+- Class-specific icons: child **build-time manifest** maps Meta class FQN → allowlisted key. Resolution order: explicit key → exact class → nearest ancestor → kind default → generic (`packages/ui/src/icons/resolve.ts`).
 - Invalid keys and ancestry cycles produce diagnostics and safe fallbacks (`platform:unknown` / kind default).
 
 ### Child extension (no Python→React loading)
@@ -36,7 +36,7 @@ Validate overrides with `diagnoseUiManifest` from `@goliath/client` in CI. Edito
 
 ### Licensing
 
-`@goliath/ui` renders icons via **lucide-react** (ISC). See [`packages/ui/NOTICE`](../packages/ui/NOTICE).
+`@goliath/ui` renders icons via **lucide-react** (ISC). See `packages/ui/NOTICE`.
 
 ## Phased roadmap
 
