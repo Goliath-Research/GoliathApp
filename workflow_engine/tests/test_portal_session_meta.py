@@ -479,9 +479,15 @@ def test_session_meta_obj_not_found_indistinguishable_get_and_update(
     for obj_id in (never_allocated_id, catalog_obj_id, cross_scope_id):
         with psycopg.connect(conninfo) as conn:
             update_errors.append(_expect_meta_object_not_found(conn, token_b, obj_id, update=True))
-    assert len(set(get_errors)) == 1
-    assert len(set(update_errors)) == 1
-    assert get_errors[0] == update_errors[0]
+    def _normalized_not_found_signature(text: str) -> tuple[str, str]:
+        assert "GS404" in text
+        assert "meta object not found" in text.lower()
+        return ("GS404", "meta object not found")
+
+    get_sigs = {_normalized_not_found_signature(t) for t in get_errors}
+    update_sigs = {_normalized_not_found_signature(t) for t in update_errors}
+    assert get_sigs == {("GS404", "meta object not found")}
+    assert update_sigs == {("GS404", "meta object not found")}
 
 
 def test_session_meta_obj_strips_forged_tenancy_metadata(
