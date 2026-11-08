@@ -3,7 +3,6 @@ import {
   KIND_DEFAULT_LABELS,
   PLATFORM_GENERIC_KIND,
   PLATFORM_OBJECT_KINDS,
-  type PlatformObjectKind,
   type PresentationKind,
 } from "../kinds.js";
 import {
@@ -18,7 +17,7 @@ import { defaultIconKeyForKind } from "./kind-defaults.js";
 export type ClassIconOverrideManifest = Readonly<Record<string, IconKey | string>>;
 
 export type ResolvePresentationInput = {
-  kind: PlatformObjectKind;
+  kind: PresentationKind;
   /** Meta class FQN, e.g. `portal/NavNode`. */
   classFqn?: string | null;
   /**

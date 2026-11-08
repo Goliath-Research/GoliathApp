@@ -51,6 +51,7 @@ nav:
   - Inventory module: inventory-module.md
   - Deployment: deployment.md
   - Platform UI host: deploy/platform-host.md
+  - Platform host P1 auth: deploy/platform-host-p1-auth.md
 
 markdown_extensions:
   - tables

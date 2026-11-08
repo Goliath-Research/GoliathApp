@@ -98,6 +98,7 @@ SCRIPTS=(
   portal_ops_recovery_api.sql
   portal_rbac_api.sql
   portal_session_api.sql
+  portal_session_nav_api.sql
   portal_semantic_schema.sql
   portal_semantic_row_types.sql
   inv_semantic.sql

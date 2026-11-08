@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ObjectBadge } from "@goliath/ui";
 import { platformHostRevision, platformHostVersion } from "@/lib/build-info";
+import { SessionOperatorPanel } from "@/components/SessionOperatorPanel";
 
 export default function HomePage() {
   return (
@@ -25,9 +26,8 @@ export default function HomePage() {
           <ObjectBadge kind="semantic_entity" label="Semantic layer (roadmap)" fixture />
           <p>Registry-driven screens are P4; this host only demonstrates static fixture rows.</p>
         </article>
-        <article className="g-host-card">
-          <ObjectBadge kind="user" label="Admin / auth (roadmap)" fixture />
-          <p>No sign-in and no operational APIs. Health endpoint is read-only metadata.</p>
+        <article className="g-host-card g-host-card--wide">
+          <SessionOperatorPanel />
         </article>
         <article className="g-host-card">
           <h3>Build identity</h3>

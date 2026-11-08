@@ -1,9 +1,9 @@
-import type { PlatformObjectKind } from "../kinds.js";
+import type { PresentationKind } from "../kinds.js";
 import { resolvePresentation, type ClassIconOverrideManifest } from "../icons/resolve.js";
 import { PlatformIcon } from "./PlatformIcon.js";
 
 export type ObjectBadgeProps = {
-  kind: PlatformObjectKind;
+  kind: PresentationKind;
   label?: string | null;
   classFqn?: string | null;
   classAncestry?: readonly string[];
