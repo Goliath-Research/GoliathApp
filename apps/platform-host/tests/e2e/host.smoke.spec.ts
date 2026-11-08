@@ -1,6 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("platform host", () => {
+  test("auth provider discovery is public metadata only", async ({ request }) => {
+    const res = await request.get("/api/auth/providers");
+    expect(res.ok()).toBeTruthy();
+    const body = (await res.json()) as { providers: unknown[]; supportedMethods: Record<string, unknown> };
+    expect(Array.isArray(body.providers)).toBeTruthy();
+    expect(body.supportedMethods.oidc_authorization_code).toBeTruthy();
+  });
+
   test("dev-establish is not a production login surface", async ({ request }) => {
     const res = await request.post("/api/session/dev-establish");
     expect(res.status()).toBe(404);

@@ -52,6 +52,7 @@ nav:
   - Deployment: deployment.md
   - Platform UI host: deploy/platform-host.md
   - Platform host P1 auth: deploy/platform-host-p1-auth.md
+  - Platform host auth methods: deploy/platform-host-auth-methods.md
 
 markdown_extensions:
   - tables

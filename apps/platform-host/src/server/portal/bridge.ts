@@ -122,6 +122,43 @@ export async function portalSessionRevoke(sessionToken: string): Promise<boolean
   });
 }
 
+export async function portalSessionOpenForScopeIdentity(
+  scopeId: number,
+  issuer: string,
+  subject: string,
+  authSubjectSnapshot: string,
+): Promise<{ sessionToken: string; expiresAtUtc: Date; userId: number }> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT session_token, expires_at_utc, user_id
+         FROM portal.sp_session_open_for_scope_identity($1, $2, $3, $4)`,
+        [scopeId, issuer, subject, authSubjectSnapshot],
+      );
+      const row = result.rows[0];
+      if (!row?.session_token) {
+        throw new PortalSessionDeniedError("login denied");
+      }
+      return {
+        sessionToken: String(row.session_token),
+        expiresAtUtc: new Date(String(row.expires_at_utc)),
+        userId: Number(row.user_id),
+      };
+    } catch (err) {
+      const pgCode =
+        err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
+      const message = err instanceof Error ? err.message : String(err);
+      if (pgCode === "GS403" || message.includes("GS403") || message.includes("not linked")) {
+        throw new PortalSessionDeniedError("external identity is not linked");
+      }
+      if (pgCode === "GS401" || message.includes("GS401")) {
+        throw new PortalSessionDeniedError();
+      }
+      throw err;
+    }
+  });
+}
+
 export async function portalOperatorNavTree(sessionToken: string): Promise<OperatorNavRow[]> {
   return withClient(async (client) => {
     try {
