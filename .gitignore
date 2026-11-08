@@ -13,6 +13,9 @@ exo/generated/
 exo/node_modules/
 node_modules/
 packages/*/dist/
+apps/platform-host/.next/
+apps/platform-host/test-results/
+apps/platform-host/playwright-report/
 packages/*/*.tgz
 **/*.tsbuildinfo
 exo/src/*.deno.lock

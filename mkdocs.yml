@@ -50,6 +50,7 @@ nav:
   - Semantic extensions: semantic-extensions.md
   - Inventory module: inventory-module.md
   - Deployment: deployment.md
+  - Platform UI host: deploy/platform-host.md
 
 markdown_extensions:
   - tables

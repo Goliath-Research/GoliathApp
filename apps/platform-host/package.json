@@ -1,0 +1,30 @@
+{
+  "name": "@goliath/platform-host",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GoliathApp-owned platform UI host (fixture shell; no DB/auth)",
+  "scripts": {
+    "dev": "next dev --port 3400",
+    "build": "next build",
+    "start": "next start --port 3400",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@goliath/client": "0.1.0",
+    "@goliath/platform-ui": "0.1.0",
+    "@goliath/ui": "0.1.0",
+    "next": "16.4.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

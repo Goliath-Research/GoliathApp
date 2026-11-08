@@ -9,6 +9,7 @@ GoliathApp ships shared UI packages for descendant operator applications. Backen
 | `@goliath/ui` | **P0** | Allowlisted Lucide icons, kind defaults, class override resolution, `ObjectBadge`, theme CSS |
 | `@goliath/client` | **P0 stub** | `GoliathUiManifest` + override diagnostics (transport in P1) |
 | `@goliath/platform-ui` | **P0** | Fixture demo table/tree using shared badges (not descendant product screens) |
+| `@goliath/platform-host` (`apps/platform-host`) | **P0** | Runnable Next.js shell: `/`, `/fixture`, `/api/health` — see [deploy/platform-host.md](deploy/platform-host.md) |
 
 Install path for child repos: depend on **published semver tarballs** (`npm pack` / future registry). In this monorepo, `npm ci` + workspace builds apply. Run `npm run verify:consumer` to simulate an external child install.
 

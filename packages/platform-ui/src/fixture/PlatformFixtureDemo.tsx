@@ -10,7 +10,7 @@ const CHILD_DEMO_OVERRIDES = {
 
 export function PlatformFixtureDemo() {
   return (
-    <main className="g-fixture-demo">
+    <div className="g-fixture-demo">
       <h1>Platform presentation fixture (P0)</h1>
       <p>Sample rows for Meta, workflow, semantic, admin, and config kinds — not live database data.</p>
       <section aria-labelledby="fixture-table-heading">
@@ -21,6 +21,6 @@ export function PlatformFixtureDemo() {
         <h2 id="fixture-tree-heading">Navigation tree</h2>
         <DemoNavTree root={FIXTURE_NAV_TREE} />
       </section>
-    </main>
+    </div>
   );
 }
