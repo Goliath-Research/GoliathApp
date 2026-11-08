@@ -89,6 +89,150 @@ BEGIN
 END;
 $$;
 
+/*
+  Instance data tenancy (generic GoliathApp contract):
+  - Meta schema/classes remain global catalog reads (meta.schema.read).
+  - Mutable instances created through session APIs are bound to the session active scope.
+  - Legacy/catalog Meta.Objs without a portal.ScopedMetaObjects row are not exposed via instance APIs.
+*/
+CREATE TABLE IF NOT EXISTS portal."ScopedMetaObjects" (
+  "ObjID" integer NOT NULL,
+  "ScopeID" integer NOT NULL,
+  "CreatedAtUtc" timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  CONSTRAINT "PK_portal_ScopedMetaObjects" PRIMARY KEY ("ObjID"),
+  CONSTRAINT "FK_portal_ScopedMetaObjects_Obj" FOREIGN KEY ("ObjID")
+    REFERENCES "Meta"."Objs" ("ID") ON DELETE CASCADE,
+  CONSTRAINT "FK_portal_ScopedMetaObjects_Scope" FOREIGN KEY ("ScopeID")
+    REFERENCES "RBAC"."Scopes" ("ScopeID")
+);
+
+CREATE INDEX IF NOT EXISTS "IX_portal_ScopedMetaObjects_ScopeID"
+  ON portal."ScopedMetaObjects" ("ScopeID");
+
+CREATE OR REPLACE FUNCTION portal.fn_session_meta_permission_in_active_scope(
+  p_user_id integer,
+  p_permission text,
+  p_active_scope_id integer
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "RBAC", pg_temp
+AS $$
+  SELECT
+    p_active_scope_id IS NOT NULL
+    AND EXISTS (
+      SELECT 1
+      FROM "RBAC"."UserRoleGrants" g
+      INNER JOIN "RBAC"."Roles" r ON r."ID" = g."RoleID"
+      INNER JOIN "RBAC"."Role_Permissions" rp ON rp."RoleID" = g."RoleID"
+      INNER JOIN "RBAC"."Permissions" p ON p."ID" = rp."PermissionID"
+      WHERE g."UserID" = p_user_id
+        AND g."Active"
+        AND p."Name" = p_permission
+        AND (
+          COALESCE(r."BypassScope", false)
+          OR g."ScopeID" = p_active_scope_id
+        )
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION portal.fn_session_meta_require_instance(
+  p_session_token text,
+  p_permission text
+)
+RETURNS TABLE (
+  session_id integer,
+  user_id integer,
+  active_scope_id integer
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+AS $$
+DECLARE
+  v_sess record;
+BEGIN
+  SELECT *
+  INTO v_sess
+  FROM portal.fn_session_resolve(p_session_token)
+  LIMIT 1;
+
+  IF v_sess.session_id IS NULL OR COALESCE(v_sess.revoked, false) THEN
+    PERFORM portal.fn_semantic_raise('GS401', 'session denied');
+  END IF;
+
+  IF v_sess.active_scope_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta instance access');
+  END IF;
+
+  IF NOT portal.fn_session_meta_permission_in_active_scope(
+    v_sess.user_id,
+    p_permission,
+    v_sess.active_scope_id
+  ) THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied for active scope');
+  END IF;
+
+  RETURN QUERY
+  SELECT v_sess.session_id, v_sess.user_id, v_sess.active_scope_id;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION portal.fn_session_meta_strip_tenancy_keys(p_document jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+DECLARE
+  v_doc jsonb := COALESCE(p_document, '{}'::jsonb);
+  v_key text;
+BEGIN
+  FOREACH v_key IN ARRAY ARRAY[
+    'ScopeID', 'scopeId', 'scope_id',
+    'OrganizationID', 'organizationId', 'organization_id',
+    'OwnerScopeID', 'ownerScopeId', 'owner_scope_id',
+    '__scope', '_scope', 'tenantScopeId', 'TenantScopeID'
+  ]
+  LOOP
+    IF v_doc ? v_key THEN
+      v_doc := v_doc - v_key;
+    END IF;
+  END LOOP;
+  RETURN v_doc;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION portal.fn_session_meta_assert_obj_in_active_scope(
+  p_obj_id integer,
+  p_active_scope_id integer
+)
+RETURNS void
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "Meta", pg_temp
+AS $$
+DECLARE
+  v_scope_id int;
+BEGIN
+  SELECT sm."ScopeID"
+  INTO v_scope_id
+  FROM portal."ScopedMetaObjects" sm
+  WHERE sm."ObjID" = p_obj_id;
+
+  IF v_scope_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'meta object not found');
+  END IF;
+
+  IF v_scope_id IS DISTINCT FROM p_active_scope_id THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'meta object scope denied');
+  END IF;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION portal.sp_session_meta_resolve_class(
   p_session_token text,
   p_class_name text
@@ -334,14 +478,17 @@ DECLARE
   v_ctx record;
   v_class_id int;
   v_obj_id int;
+  v_doc jsonb;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_meta_require(p_session_token, 'meta.object.write') LIMIT 1;
-  IF v_ctx.active_scope_id IS NULL THEN
-    PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta object write');
-  END IF;
+  SELECT * INTO v_ctx FROM portal.fn_session_meta_require_instance(p_session_token, 'meta.object.write') LIMIT 1;
 
   v_class_id := portal.sp_session_meta_resolve_class(p_session_token, p_class_name);
-  v_obj_id := "Meta".sp_obj_insert(v_class_id, COALESCE(p_document, '{}'::jsonb));
+  v_doc := portal.fn_session_meta_strip_tenancy_keys(p_document);
+  v_obj_id := "Meta".sp_obj_insert(v_class_id, COALESCE(v_doc, '{}'::jsonb));
+
+  INSERT INTO portal."ScopedMetaObjects" ("ObjID", "ScopeID")
+  VALUES (v_obj_id, v_ctx.active_scope_id);
+
   RETURN v_obj_id;
 END;
 $$;
@@ -358,14 +505,15 @@ SET search_path = portal, "Meta", wf, "RBAC", pg_temp
 AS $$
 DECLARE
   v_ctx record;
+  v_doc jsonb;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_meta_require(p_session_token, 'meta.object.write') LIMIT 1;
-  IF v_ctx.active_scope_id IS NULL THEN
-    PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta object write');
-  END IF;
+  SELECT * INTO v_ctx FROM portal.fn_session_meta_require_instance(p_session_token, 'meta.object.write') LIMIT 1;
 
+  PERFORM portal.fn_session_meta_assert_obj_in_active_scope(p_obj_id, v_ctx.active_scope_id);
   PERFORM portal.fn_session_meta_require(p_session_token, 'meta.schema.read');
-  PERFORM "Meta".sp_obj_update(p_obj_id, COALESCE(p_document, '{}'::jsonb));
+
+  v_doc := portal.fn_session_meta_strip_tenancy_keys(p_document);
+  PERFORM "Meta".sp_obj_update(p_obj_id, COALESCE(v_doc, '{}'::jsonb));
 END;
 $$;
 
@@ -384,8 +532,12 @@ STABLE
 SECURITY DEFINER
 SET search_path = portal, "Meta", wf, "RBAC", pg_temp
 AS $$
+DECLARE
+  v_ctx record;
 BEGIN
-  PERFORM portal.fn_session_meta_require(p_session_token, 'meta.object.read');
+  SELECT * INTO v_ctx FROM portal.fn_session_meta_require_instance(p_session_token, 'meta.object.read') LIMIT 1;
+
+  PERFORM portal.fn_session_meta_assert_obj_in_active_scope(p_obj_id, v_ctx.active_scope_id);
 
   RETURN QUERY
   SELECT

@@ -1,47 +1,56 @@
 # Platform host — P2 Meta hierarchy (slice 2)
 
-Stacked on slice 1 (read APIs + explorer). Adds **server-authoritative RBAC** and **instance create/read/update** via real `Meta.sp_obj_*` contracts.
+Stacked on slice 1. **Catalog reads** stay global; **instance data** is scope-bound on the server.
 
-## Server contract (PostgreSQL)
+## Tenancy model (code-only DDL in `portal_session_meta_api.sql`)
 
-| Permission | Used by |
-|------------|---------|
-| `meta.schema.read` | class get, lineage, fields, `sp_session_get_data_type`, class resolution on writes |
-| `meta.object.read` | `sp_session_meta_obj_get` |
-| `meta.object.write` | `sp_session_meta_obj_insert`, `sp_session_meta_obj_update` (requires **active scope** on session) |
+| Layer | Scope behavior |
+|--------|----------------|
+| **Catalog** (`meta.schema.read`) | `Meta.Classes`, hierarchy, fields, `wf.data_type` — global; session + permission only (no active scope required). |
+| **Instances** (`meta.object.*`) | Rows in `portal.ScopedMetaObjects` bind `Meta.Objs.ID` → `RBAC.Scopes.ScopeID` at create time. |
+| **Legacy/catalog `Meta.Objs`** | No `ScopedMetaObjects` row → **not visible** via `sp_session_meta_obj_get` (`GS404`). |
 
-| Procedure | Purpose |
-|-----------|---------|
-| `portal.fn_session_meta_require` | Valid session + named permission (`GS401` / `GS403`) |
-| `portal.sp_session_meta_obj_insert` | `Meta.sp_obj_insert` after RBAC |
-| `portal.sp_session_meta_obj_update` | `Meta.sp_obj_update` after RBAC |
-| `portal.sp_session_meta_obj_get` | `Meta.fn_merged_obj_document` after RBAC |
+Instance authorization flow:
 
-Valid session is **necessary but not sufficient**. Permissions are seeded idempotently in `portal_session_meta_api.sql` (requires `portal/NavNode` catalog).
+1. `fn_session_meta_require_instance` — valid session, **non-null `ActiveScopeID`**, permission effective **in that scope** (`UserRoleGrants.ScopeID = active scope` or `BypassScope` role). **Global grants (`ScopeID` NULL) do not authorize instances.**
+2. `fn_session_meta_strip_tenancy_keys` — remove forged `scope_id`, `OrganizationID`, etc. from JSON **before** `Meta.sp_obj_*`.
+3. `fn_session_meta_assert_obj_in_active_scope` — `ScopedMetaObjects.ScopeID` must equal session active scope (`GS403` cross-tenant, `GS404` missing tenancy / ID guessing).
 
-**Gaps (honest):**
+**Not claimed:** org membership checks beyond RBAC grants; row-level scope inside merged JSON; preserving unknown top-level keys (rejected explicitly by phase D).
 
-- Object reads are not filtered by organization scope yet (permission-only).
-- Unknown top-level keys are **rejected**, not preserved (`Meta.fn_reject_unknown_document_keys`).
-- Generated forms cover primitive string/int fields only; nested refs need child `editorComponents`.
-- Playwright CI has no Postgres — authenticated object smoke is Python integration + optional local host.
+## Permissions
 
-## BFF routes (cookie session)
+| Permission | Scope rule |
+|------------|------------|
+| `meta.schema.read` | Any matching grant (incl. global NULL `ScopeID`). |
+| `meta.object.read` / `meta.object.write` | Grant must match **active session scope** (or `BypassScope`). |
 
-- `GET /api/meta/classes/:className` (+ lineage, fields) — 403 when `meta.schema.read` missing
-- `POST /api/meta/classes/:className/objects` — 403 without write permission or active scope
-- `GET|PATCH /api/meta/objects/:objId` — 400 validation / 403 permission
+## BFF routes
 
-## UI
+Same procedures as slice 1; BFF is a thin cookie forwarder — isolation is enforced in PostgreSQL.
 
-- `/app/meta?class=portal/NavNode` — `MetaClassExplorer` with child `classIconOverrides`, `MetaGeneratedFieldForm` + BFF create/round-trip, AJV textarea.
-- `GoliathUiManifest.editorComponents` keys resolve via host `meta-editor-registry.tsx` at build time.
+- `POST /api/meta/classes/:className/objects`
+- `GET|PATCH /api/meta/objects/:objId`
+
+## UI limitations
+
+- `MetaGeneratedFieldForm`: primitive string/int/checkbox inference only.
+- AJV textarea validates flattened schema only; server may reject additional keys.
+- Authenticated host smoke requires local Postgres + `GOLIATH_PLATFORM_HOST_DEV_LOGIN=1` (integration header); CI Playwright stays unauthenticated.
 
 ## Tests
 
-- `workflow_engine/tests/test_portal_session_meta.py` — GS403, scope on write, roundtrip, unknown field, revocation
-- Playwright: meta class/object APIs 401 without cookie
+`workflow_engine/tests/test_portal_session_meta.py`:
+
+- Same-scope insert/get roundtrip
+- Cross-scope read/update `GS403`
+- Null active scope on instance read/write `GS403`
+- Global (unscoped) grant + active scope session → instance `GS403`
+- Forged tenancy keys stripped; tenancy from session only
+- Catalog object without tenancy → `GS404`
+- Permission revocation → `GS403`
+- Session revocation → `GS401` (schema)
 
 ## Remaining P2+
 
-- Scope-isolated object reads, full generated form parity, workflow hooks (P3 roadmap unchanged)
+Full generated form parity, nested editors, optional org-membership assertion, P3 workflows unchanged.

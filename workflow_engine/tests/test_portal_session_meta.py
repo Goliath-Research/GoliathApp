@@ -50,7 +50,17 @@ def _psql(sql: str, env: dict[str, str]) -> str:
     return proc.stdout.strip()
 
 
-def _grant_meta_permissions(env: dict[str, str], user_id: int, permissions: tuple[str, ...] = META_PERMISSIONS) -> int:
+def _create_org_scope(env: dict[str, str], label: str) -> int:
+    org_row = _psql(f"SELECT * FROM portal.sp_organization_create('{label}')", env)
+    return int(org_row.split("|")[1])
+
+
+def _grant_meta_permissions(
+    env: dict[str, str],
+    user_id: int,
+    permissions: tuple[str, ...] = META_PERMISSIONS,
+    scope_id: int | None = None,
+) -> int:
     role_name = f"meta_test_{uuid.uuid4().hex[:8]}"
     escaped_role = role_name.replace("'", "''")
     role_id = int(
@@ -85,11 +95,34 @@ def _grant_meta_permissions(env: dict[str, str], user_id: int, permissions: tupl
         INSERT INTO "RBAC"."UserRoleGrants" (
           "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc"
         )
-        VALUES ({user_id}, {role_id}, 'DIRECT', NULL, true, now() AT TIME ZONE 'utc')
+        VALUES ({user_id}, {role_id}, 'DIRECT', {scope_id if scope_id is not None else 'NULL'}, true, now() AT TIME ZONE 'utc')
         """,
         env,
     )
     return role_id
+
+
+def _grant_meta_permissions_scoped(
+    env: dict[str, str],
+    user_id: int,
+    scope_id: int,
+    permissions: tuple[str, ...] = META_PERMISSIONS,
+) -> int:
+    return _grant_meta_permissions(env, user_id, permissions, scope_id=scope_id)
+
+
+def _meta_obj_insert(
+    conninfo: str,
+    token: str,
+    document: dict[str, object],
+) -> int:
+    with psycopg.connect(conninfo) as conn:
+        insert_row = conn.execute(
+            "SELECT portal.sp_session_meta_obj_insert(%s, %s, %s::jsonb)",
+            (token, "portal/NavNode", json.dumps(document)),
+        ).fetchone()
+        assert insert_row is not None
+        return int(insert_row[0])
 
 
 def _create_user(env: dict[str, str], label: str) -> int:
@@ -237,7 +270,8 @@ def test_session_meta_obj_write_requires_scope(
     portal_meta_env: dict[str, str],
 ) -> None:
     user_id = _create_user(portal_meta_env, "MetaWriteNoScope")
-    _grant_meta_permissions(portal_meta_env, user_id)
+    scope_id = _create_org_scope(portal_meta_env, f"MetaWriteNoScope-{user_id}")
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_id)
     token = _open_session_scoped(portal_client, user_id, scope_id=None)
     doc = json.dumps({"Caption": "ScopedWrite", "Seq": 7})
     conninfo = build_portal_conninfo()
@@ -255,19 +289,13 @@ def test_session_meta_obj_insert_get_roundtrip(
     portal_meta_env: dict[str, str],
 ) -> None:
     user_id = _create_user(portal_meta_env, "MetaRoundtrip")
-    _grant_meta_permissions(portal_meta_env, user_id)
-    org_row = _psql(f"SELECT * FROM portal.sp_organization_create('MetaOrg-{user_id}')", portal_meta_env)
-    scope_id = int(org_row.split("|")[1])
+    scope_id = _create_org_scope(portal_meta_env, f"MetaOrg-{user_id}")
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_id)
     token = _open_session_scoped(portal_client, user_id, scope_id=scope_id)
     doc = {"Caption": "RoundTripNode", "Seq": 42}
     conninfo = build_portal_conninfo()
+    obj_id = _meta_obj_insert(conninfo, token, doc)
     with psycopg.connect(conninfo) as conn:
-        insert_row = conn.execute(
-            "SELECT portal.sp_session_meta_obj_insert(%s, %s, %s::jsonb)",
-            (token, "portal/NavNode", json.dumps(doc)),
-        ).fetchone()
-        assert insert_row is not None
-        obj_id = insert_row[0]
         merge_row = conn.execute(
             "SELECT document FROM portal.sp_session_meta_obj_get(%s, %s)",
             (token, obj_id),
@@ -283,9 +311,8 @@ def test_session_meta_obj_rejects_unknown_field(
     portal_meta_env: dict[str, str],
 ) -> None:
     user_id = _create_user(portal_meta_env, "MetaBadKey")
-    _grant_meta_permissions(portal_meta_env, user_id)
-    org_row = _psql(f"SELECT * FROM portal.sp_organization_create('MetaBad-{user_id}')", portal_meta_env)
-    scope_id = int(org_row.split("|")[1])
+    scope_id = _create_org_scope(portal_meta_env, f"MetaBad-{user_id}")
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_id)
     token = _open_session_scoped(portal_client, user_id, scope_id=scope_id)
     conninfo = build_portal_conninfo()
     with psycopg.connect(conninfo) as conn:
@@ -313,3 +340,166 @@ def test_session_meta_revoked_session_denied(
                 (opened.session_token, "portal/NavNode"),
             )
         assert "GS401" in str(excinfo.value)
+
+
+def test_session_meta_obj_global_grant_does_not_authorize_instances(
+    portal_client: PortalClient,
+    portal_meta_env: dict[str, str],
+) -> None:
+    user_id = _create_user(portal_meta_env, "MetaGlobalGrant")
+    scope_id = _create_org_scope(portal_meta_env, f"MetaGlobal-{user_id}")
+    _grant_meta_permissions(portal_meta_env, user_id, META_PERMISSIONS, scope_id=None)
+    token = _open_session_scoped(portal_client, user_id, scope_id=scope_id)
+    conninfo = build_portal_conninfo()
+    with psycopg.connect(conninfo) as conn:
+        with pytest.raises(psycopg.Error) as excinfo:
+            conn.execute(
+                "SELECT portal.sp_session_meta_obj_insert(%s, %s, %s::jsonb)",
+                (token, "portal/NavNode", json.dumps({"Caption": "X", "Seq": 1})),
+            )
+        assert "GS403" in str(excinfo.value)
+
+
+def test_session_meta_obj_read_denied_without_active_scope(
+    portal_client: PortalClient,
+    portal_meta_env: dict[str, str],
+) -> None:
+    user_id = _create_user(portal_meta_env, "MetaReadNoScope")
+    scope_id = _create_org_scope(portal_meta_env, f"MetaReadNs-{user_id}")
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_id)
+    token_scoped = _open_session_scoped(portal_client, user_id, scope_id=scope_id)
+    conninfo = build_portal_conninfo()
+    obj_id = _meta_obj_insert(conninfo, token_scoped, {"Caption": "ScopeRead", "Seq": 3})
+    token_null_scope = _open_session_scoped(portal_client, user_id, scope_id=None)
+    with psycopg.connect(conninfo) as conn:
+        with pytest.raises(psycopg.Error) as excinfo:
+            conn.execute(
+                "SELECT document FROM portal.sp_session_meta_obj_get(%s, %s)",
+                (token_null_scope, obj_id),
+            )
+        assert "GS403" in str(excinfo.value)
+
+
+def test_session_meta_obj_cross_scope_read_denied(
+    portal_client: PortalClient,
+    portal_meta_env: dict[str, str],
+) -> None:
+    user_id = _create_user(portal_meta_env, "MetaCrossRead")
+    scope_a = _create_org_scope(portal_meta_env, f"MetaScopeA-{user_id}")
+    scope_b = _create_org_scope(portal_meta_env, f"MetaScopeB-{user_id}")
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_a)
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_b)
+    token_a = _open_session_scoped(portal_client, user_id, scope_id=scope_a)
+    conninfo = build_portal_conninfo()
+    obj_id = _meta_obj_insert(conninfo, token_a, {"Caption": "TenantA", "Seq": 9})
+    token_b = _open_session_scoped(portal_client, user_id, scope_id=scope_b)
+    with psycopg.connect(conninfo) as conn:
+        with pytest.raises(psycopg.Error) as excinfo:
+            conn.execute(
+                "SELECT document FROM portal.sp_session_meta_obj_get(%s, %s)",
+                (token_b, obj_id),
+            )
+        assert "GS403" in str(excinfo.value)
+
+
+def test_session_meta_obj_cross_scope_update_denied(
+    portal_client: PortalClient,
+    portal_meta_env: dict[str, str],
+) -> None:
+    user_id = _create_user(portal_meta_env, "MetaCrossUpd")
+    scope_a = _create_org_scope(portal_meta_env, f"MetaUpdA-{user_id}")
+    scope_b = _create_org_scope(portal_meta_env, f"MetaUpdB-{user_id}")
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_a)
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_b)
+    token_a = _open_session_scoped(portal_client, user_id, scope_id=scope_a)
+    conninfo = build_portal_conninfo()
+    obj_id = _meta_obj_insert(conninfo, token_a, {"Caption": "UpdA", "Seq": 4})
+    token_b = _open_session_scoped(portal_client, user_id, scope_id=scope_b)
+    with psycopg.connect(conninfo) as conn:
+        with pytest.raises(psycopg.Error) as excinfo:
+            conn.execute(
+                "SELECT portal.sp_session_meta_obj_update(%s, %s, %s::jsonb)",
+                (token_b, obj_id, json.dumps({"Caption": "Hijack", "Seq": 99})),
+            )
+        assert "GS403" in str(excinfo.value)
+
+
+def test_session_meta_obj_strips_forged_tenancy_metadata(
+    portal_client: PortalClient,
+    portal_meta_env: dict[str, str],
+) -> None:
+    user_id = _create_user(portal_meta_env, "MetaForgeMeta")
+    scope_a = _create_org_scope(portal_meta_env, f"MetaForgeA-{user_id}")
+    scope_b = _create_org_scope(portal_meta_env, f"MetaForgeB-{user_id}")
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_a)
+    token_a = _open_session_scoped(portal_client, user_id, scope_id=scope_a)
+    conninfo = build_portal_conninfo()
+    obj_id = _meta_obj_insert(
+        conninfo,
+        token_a,
+        {
+            "Caption": "Forge",
+            "Seq": 5,
+            "scope_id": scope_b,
+            "OrganizationID": 99999,
+        },
+    )
+    tenancy = _psql(
+        f'SELECT "ScopeID" FROM portal."ScopedMetaObjects" WHERE "ObjID" = {obj_id}',
+        portal_meta_env,
+    )
+    assert int(tenancy) == scope_a
+
+
+def test_session_meta_obj_unscoped_catalog_obj_not_addressable(
+    portal_client: PortalClient,
+    portal_meta_env: dict[str, str],
+) -> None:
+    user_id = _create_user(portal_meta_env, "MetaCatalogHole")
+    scope_id = _create_org_scope(portal_meta_env, f"MetaCat-{user_id}")
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_id)
+    catalog_obj_id = int(
+        _psql(
+            'SELECT o."ID" FROM "Meta"."Objs" o ORDER BY o."ID" LIMIT 1',
+            portal_meta_env,
+        )
+    )
+    has_tenancy = _psql(
+        f'SELECT COUNT(*) FROM portal."ScopedMetaObjects" WHERE "ObjID" = {catalog_obj_id}',
+        portal_meta_env,
+    )
+    if has_tenancy != "0":
+        pytest.skip("catalog anchor obj is tenanted in this environment")
+    token = _open_session_scoped(portal_client, user_id, scope_id=scope_id)
+    conninfo = build_portal_conninfo()
+    with psycopg.connect(conninfo) as conn:
+        with pytest.raises(psycopg.Error) as excinfo:
+            conn.execute(
+                "SELECT document FROM portal.sp_session_meta_obj_get(%s, %s)",
+                (token, catalog_obj_id),
+            )
+        assert "GS404" in str(excinfo.value)
+
+
+def test_session_meta_obj_permission_revocation_denies_read(
+    portal_client: PortalClient,
+    portal_meta_env: dict[str, str],
+) -> None:
+    user_id = _create_user(portal_meta_env, "MetaRevokeObj")
+    scope_id = _create_org_scope(portal_meta_env, f"MetaRevObj-{user_id}")
+    role_id = _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_id)
+    token = _open_session_scoped(portal_client, user_id, scope_id=scope_id)
+    conninfo = build_portal_conninfo()
+    obj_id = _meta_obj_insert(conninfo, token, {"Caption": "RevokeMe", "Seq": 8})
+    _psql(
+        f'UPDATE "RBAC"."UserRoleGrants" SET "Active" = false '
+        f'WHERE "UserID" = {user_id} AND "RoleID" = {role_id}',
+        portal_meta_env,
+    )
+    with psycopg.connect(conninfo) as conn:
+        with pytest.raises(psycopg.Error) as excinfo:
+            conn.execute(
+                "SELECT document FROM portal.sp_session_meta_obj_get(%s, %s)",
+                (token, obj_id),
+            )
+        assert "GS403" in str(excinfo.value)
