@@ -8,9 +8,9 @@ import {
   PortalMetaValidationError,
   PortalSessionDeniedError,
 } from "../portal/bridge";
-import { resolvePortalNotFoundBody } from "./errors-normalization";
+import { resolvePortalForbiddenBody, resolvePortalNotFoundBody } from "./errors-normalization";
 
-export { resolvePortalNotFoundBody } from "./errors-normalization";
+export { resolvePortalForbiddenBody, resolvePortalNotFoundBody } from "./errors-normalization";
 
 export function jsonError(status: number, error: string) {
   return NextResponse.json({ error }, { status });
@@ -27,7 +27,7 @@ export function mapPortalError(err: unknown) {
     return jsonError(404, resolvePortalNotFoundBody(err.message));
   }
   if (err instanceof PortalForbiddenError) {
-    return jsonError(403, err.message);
+    return jsonError(403, resolvePortalForbiddenBody(err.message));
   }
   if (err instanceof PortalMetaValidationError) {
     return jsonError(400, err.message);

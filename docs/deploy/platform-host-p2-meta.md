@@ -12,9 +12,9 @@ Stacked on slice 1. **Catalog reads** stay global; **instance data** is scope-bo
 
 Instance authorization flow:
 
-1. `fn_session_meta_require_instance` — valid session, **non-null `ActiveScopeID`**, permission effective **in that scope** (`UserRoleGrants.ScopeID = active scope` or `BypassScope` role). **Global grants (`ScopeID` NULL) do not authorize instances.**
+1. **Identity-independent checks first** — session, active scope, and all required permissions (`fn_session_meta_require_instance` / `fn_session_meta_require_instance_write` includes `meta.object.write` + `meta.schema.read`) **before any `ObjID` lookup**.
 2. `fn_session_meta_strip_tenancy_keys` — remove forged `scope_id`, `OrganizationID`, etc. from JSON **before** `Meta.sp_obj_*`.
-3. `fn_session_meta_assert_obj_in_active_scope` — `ScopedMetaObjects.ScopeID` must equal session active scope. **Cross-tenant, unmapped, and never-allocated IDs all raise `GS404` / `meta object not found`** (no existence oracle). Permission failures without object identity remain `GS403`.
+3. `fn_session_meta_assert_obj_in_active_scope` — only after (1). **Cross-tenant, unmapped, and never-allocated IDs → `GS404` / `meta object not found`**. Missing permissions → **`GS403` / `meta permission denied`** with the same body regardless of `ObjID` (BFF `resolvePortalForbiddenBody`).
 
 **Not claimed:** org membership checks beyond RBAC grants; row-level scope inside merged JSON; preserving unknown top-level keys (rejected explicitly by phase D).
 

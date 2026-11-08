@@ -111,6 +111,31 @@ def _grant_meta_permissions_scoped(
     return _grant_meta_permissions(env, user_id, permissions, scope_id=scope_id)
 
 
+def _expect_meta_object_permission_denied(
+    conn: psycopg.Connection,
+    token: str,
+    obj_id: int,
+    *,
+    update: bool = False,
+) -> str:
+    with pytest.raises(psycopg.Error) as excinfo:
+        if update:
+            conn.execute(
+                "SELECT portal.sp_session_meta_obj_update(%s, %s, %s::jsonb)",
+                (token, obj_id, json.dumps({"Caption": "X", "Seq": 1})),
+            )
+        else:
+            conn.execute(
+                "SELECT document FROM portal.sp_session_meta_obj_get(%s, %s)",
+                (token, obj_id),
+            )
+    text = str(excinfo.value)
+    assert "GS403" in text
+    assert "meta permission denied" in text.lower()
+    conn.rollback()
+    return text
+
+
 def _expect_meta_object_not_found(
     conn: psycopg.Connection,
     token: str,
@@ -437,6 +462,66 @@ def test_session_meta_obj_cross_scope_update_denied(
     token_b = _open_session_scoped(portal_client, user_id, scope_id=scope_b)
     with psycopg.connect(conninfo) as conn:
         _expect_meta_object_not_found(conn, token_b, obj_id, update=True)
+
+
+def test_session_meta_obj_writer_without_schema_read_indistinguishable_patch(
+    portal_client: PortalClient,
+    portal_meta_env: dict[str, str],
+) -> None:
+    user_id = _create_user(portal_meta_env, "MetaWriterNoSchema")
+    scope_a = _create_org_scope(portal_meta_env, f"MetaWnsA-{user_id}")
+    scope_b = _create_org_scope(portal_meta_env, f"MetaWnsB-{user_id}")
+    admin_id = _create_user(portal_meta_env, "MetaWriterAdmin")
+    _grant_meta_permissions_scoped(portal_meta_env, admin_id, scope_a)
+    admin_token = _open_session_scoped(portal_client, admin_id, scope_id=scope_a)
+    conninfo = build_portal_conninfo()
+    in_scope_id = _meta_obj_insert(conninfo, admin_token, {"Caption": "InScope", "Seq": 2})
+    _grant_meta_permissions_scoped(
+        portal_meta_env,
+        user_id,
+        scope_b,
+        ("meta.object.write",),
+    )
+    _grant_meta_permissions_scoped(
+        portal_meta_env,
+        user_id,
+        scope_a,
+        ("meta.object.write",),
+    )
+    writer_token = _open_session_scoped(portal_client, user_id, scope_id=scope_a)
+    never_allocated_id = int(
+        _psql(
+            'SELECT COALESCE(MAX(o."ID"), 0) + 50001 FROM "Meta"."Objs" o',
+            portal_meta_env,
+        )
+    )
+    catalog_obj_id = int(
+        _psql(
+            'SELECT o."ID" FROM "Meta"."Objs" o ORDER BY o."ID" LIMIT 1',
+            portal_meta_env,
+        )
+    )
+    if _psql(
+        f'SELECT COUNT(*) FROM portal."ScopedMetaObjects" WHERE "ObjID" = {catalog_obj_id}',
+        portal_meta_env,
+    ) != "0":
+        pytest.skip("catalog anchor obj is tenanted in this environment")
+
+    errors: list[str] = []
+    for obj_id in (in_scope_id, never_allocated_id, catalog_obj_id, in_scope_id + 1):
+        with psycopg.connect(conninfo) as conn:
+            errors.append(_expect_meta_object_permission_denied(conn, writer_token, obj_id, update=True))
+
+    def _sig(text: str) -> tuple[str, str]:
+        assert "GS403" in text
+        assert "meta permission denied" in text.lower()
+        return ("GS403", "meta permission denied")
+
+    assert {_sig(t) for t in errors} == {("GS403", "meta permission denied")}
+
+    cross_token = _open_session_scoped(portal_client, user_id, scope_id=scope_b)
+    with psycopg.connect(conninfo) as conn:
+        _expect_meta_object_permission_denied(conn, cross_token, in_scope_id, update=True)
 
 
 def test_session_meta_obj_not_found_indistinguishable_get_and_update(

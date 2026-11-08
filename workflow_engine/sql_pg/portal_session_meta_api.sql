@@ -181,6 +181,33 @@ BEGIN
 END;
 $$;
 
+/*
+  Identity-independent permissions for instance writes — must run before any ObjID lookup
+  (sp_session_meta_obj_update previously checked meta.schema.read after scope assert → oracle).
+*/
+CREATE OR REPLACE FUNCTION portal.fn_session_meta_require_instance_write(
+  p_session_token text
+)
+RETURNS TABLE (
+  session_id integer,
+  user_id integer,
+  active_scope_id integer
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+AS $$
+DECLARE
+  v_sess record;
+BEGIN
+  SELECT * INTO v_sess FROM portal.fn_session_meta_require_instance(p_session_token, 'meta.object.write') LIMIT 1;
+  PERFORM portal.fn_session_meta_require(p_session_token, 'meta.schema.read');
+  RETURN QUERY
+  SELECT v_sess.session_id, v_sess.user_id, v_sess.active_scope_id;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION portal.fn_session_meta_strip_tenancy_keys(p_document jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -481,7 +508,7 @@ DECLARE
   v_obj_id int;
   v_doc jsonb;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_meta_require_instance(p_session_token, 'meta.object.write') LIMIT 1;
+  SELECT * INTO v_ctx FROM portal.fn_session_meta_require_instance_write(p_session_token) LIMIT 1;
 
   v_class_id := portal.sp_session_meta_resolve_class(p_session_token, p_class_name);
   v_doc := portal.fn_session_meta_strip_tenancy_keys(p_document);
@@ -508,10 +535,9 @@ DECLARE
   v_ctx record;
   v_doc jsonb;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_meta_require_instance(p_session_token, 'meta.object.write') LIMIT 1;
+  SELECT * INTO v_ctx FROM portal.fn_session_meta_require_instance_write(p_session_token) LIMIT 1;
 
   PERFORM portal.fn_session_meta_assert_obj_in_active_scope(p_obj_id, v_ctx.active_scope_id);
-  PERFORM portal.fn_session_meta_require(p_session_token, 'meta.schema.read');
 
   v_doc := portal.fn_session_meta_strip_tenancy_keys(p_document);
   PERFORM "Meta".sp_obj_update(p_obj_id, COALESCE(v_doc, '{}'::jsonb));

@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { resolvePortalNotFoundBody } from "./errors-normalization";
+import { resolvePortalForbiddenBody, resolvePortalNotFoundBody } from "./errors-normalization";
 
 describe("resolvePortalNotFoundBody", () => {
   it("keeps class-not-found messaging distinct from instance APIs", () => {
     expect(resolvePortalNotFoundBody("meta class not found")).toBe("meta class not found");
+  });
+
+  it("normalizes identity-independent Meta permission failures", () => {
+    expect(resolvePortalForbiddenBody("meta permission denied for active scope")).toBe(
+      "meta permission denied",
+    );
+    expect(resolvePortalForbiddenBody("active scope required for meta instance access")).toBe(
+      "meta permission denied",
+    );
   });
 
   it("normalizes every instance-not-found path to the same body", () => {

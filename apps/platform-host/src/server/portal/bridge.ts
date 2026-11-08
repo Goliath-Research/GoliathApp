@@ -122,7 +122,13 @@ function mapPgPortalError(err: unknown): never {
     throw new PortalSessionDeniedError();
   }
   if (pgCode === "GS403" || message.includes("GS403") || message.includes("permission denied")) {
-    throw new PortalForbiddenError(message.includes("meta permission") ? "meta permission denied" : "forbidden");
+    if (
+      message.includes("meta permission denied") ||
+      message.includes("active scope required for meta instance")
+    ) {
+      throw new PortalForbiddenError("meta permission denied");
+    }
+    throw new PortalForbiddenError("forbidden");
   }
   if (
     pgCode === "GS404" ||
