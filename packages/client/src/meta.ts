@@ -23,6 +23,7 @@ export type MetaClassField = {
   fieldName: string;
   typeId: number | null;
   typeName: string | null;
+  typeKind: string | null;
   required: boolean;
   declaredOnClassId: number;
   declaredOnClassName: string;

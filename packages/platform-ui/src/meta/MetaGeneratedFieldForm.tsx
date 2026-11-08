@@ -12,7 +12,20 @@ export type MetaGeneratedFieldFormProps = {
   disabled?: boolean;
 };
 
-function inferInputKind(typeName: string | null): "text" | "number" | "checkbox" {
+function inferInputKind(
+  typeKind: string | null | undefined,
+  typeName: string | null,
+): "text" | "number" | "checkbox" {
+  const kind = typeKind?.toLowerCase();
+  if (kind === "int" || kind === "number") {
+    return "number";
+  }
+  if (kind === "bool") {
+    return "checkbox";
+  }
+  if (kind) {
+    return "text";
+  }
   if (!typeName) return "text";
   const lower = typeName.toLowerCase();
   if (lower.includes("int") || lower.includes("number") || lower.includes("decimal")) {
@@ -53,7 +66,7 @@ export function MetaGeneratedFieldForm({
     const document: Record<string, unknown> = {};
     for (const field of orderedFields) {
       const raw = values[field.fieldName] ?? "";
-      const kind = inferInputKind(field.typeName);
+      const kind = inferInputKind(field.typeKind, field.typeName);
       if (kind === "checkbox") {
         document[field.fieldName] = raw === "true";
         continue;
@@ -71,7 +84,11 @@ export function MetaGeneratedFieldForm({
           setError(`Field ${field.fieldName} must be a number`);
           return;
         }
-        document[field.fieldName] = Math.trunc(n);
+        const typeKind = field.typeKind?.toLowerCase();
+        document[field.fieldName] =
+          typeKind === "int" || (typeKind == null && field.typeName?.toLowerCase().includes("int"))
+            ? Math.trunc(n)
+            : n;
         continue;
       }
       document[field.fieldName] = raw;
@@ -93,7 +110,7 @@ export function MetaGeneratedFieldForm({
         still require JSON or a child <code>editorComponents</code> override.
       </p>
       {orderedFields.map((field) => {
-        const kind = inferInputKind(field.typeName);
+        const kind = inferInputKind(field.typeKind, field.typeName);
         const id = `meta-field-${field.fieldName}`;
         return (
           <p key={field.fieldName} className="g-meta-field-row">

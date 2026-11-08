@@ -100,13 +100,13 @@ SCRIPTS=(
   portal_session_api.sql
   portal_session_nav_api.sql
   portal_session_identity_api.sql
+  portal_nav_meta.sql
   portal_session_meta_api.sql
   portal_semantic_schema.sql
   portal_semantic_row_types.sql
   inv_semantic.sql
   portal_semantic_api.sql
   meta_model_semantic.sql
-  portal_nav_meta.sql
   portal_contract_api.sql
   portal_study_ops_api.sql
   portal_guardrails_editor.sql

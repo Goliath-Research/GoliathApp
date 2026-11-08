@@ -106,6 +106,7 @@ export type MetaClassFieldRow = {
   fieldName: string;
   typeId: number | null;
   typeName: string | null;
+  typeKind: string | null;
   required: boolean;
   declaredOnClassId: number;
   declaredOnClassName: string;
@@ -126,7 +127,11 @@ function mapPgPortalError(err: unknown): never {
   if (pgCode === "GS404" || message.includes("GS404") || message.includes("not found")) {
     throw new PortalMetaNotFoundError();
   }
-  if (message.includes("unknown field") || message.includes("ValidationError")) {
+  if (
+    message.includes("unknown field") ||
+    message.includes("missing required field") ||
+    message.includes("ValidationError")
+  ) {
     throw new PortalMetaValidationError(message);
   }
   throw err;
@@ -322,7 +327,7 @@ export async function portalSessionMetaClassFields(
   return withClient(async (client) => {
     try {
       const result = await client.query(
-        `SELECT field_name, type_id, type_name, required, declared_on_class_id,
+        `SELECT field_name, type_id, type_name, type_kind, required, declared_on_class_id,
                 declared_on_class_name, defined_at_depth, is_local
          FROM portal.sp_session_meta_class_fields($1, $2)`,
         [sessionToken, className],
@@ -331,6 +336,7 @@ export async function portalSessionMetaClassFields(
         fieldName: String(row.field_name),
         typeId: row.type_id == null ? null : Number(row.type_id),
         typeName: row.type_name == null ? null : String(row.type_name),
+        typeKind: row.type_kind == null ? null : String(row.type_kind),
         required: Boolean(row.required),
         declaredOnClassId: Number(row.declared_on_class_id),
         declaredOnClassName: String(row.declared_on_class_name),
