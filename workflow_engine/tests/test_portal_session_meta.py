@@ -132,6 +132,7 @@ def _expect_meta_object_not_found(
     text = str(excinfo.value)
     assert "GS404" in text
     assert "meta object not found" in text.lower()
+    conn.rollback()
     return text
 
 
