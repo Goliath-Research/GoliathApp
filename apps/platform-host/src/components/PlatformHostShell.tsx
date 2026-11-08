@@ -7,6 +7,7 @@ import type { HostNavItem } from "@/lib/child-extension";
 
 const CORE_NAV: HostNavItem[] = [
   { id: "home", label: "Platform host", href: "/", kind: "config" },
+  { id: "app", label: "Operator shell (P1)", href: "/app", kind: "user" },
   { id: "fixture", label: "P0 presentation fixture", href: "/fixture", kind: "view" },
 ];
 
@@ -50,7 +51,10 @@ export function PlatformHostShell({
       </nav>
       <main className="g-host__main">{children}</main>
       <footer className="g-host__footer">
-        <p>Static demonstration — not an operator portal. Authentication and live data are P1.</p>
+        <p>
+          Fixture route is public example data. <code>/app</code> requires a server-side portal session (P1). Schema
+          editors (P2) and workflow designer (P3) are not implemented here.
+        </p>
       </footer>
     </div>
   );

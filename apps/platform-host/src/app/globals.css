@@ -63,6 +63,30 @@
   padding: var(--g-host-pad);
 }
 
+.g-host-button {
+  margin-top: 0.75rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--g-host-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.g-operator-nav {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.g-host-card--wide {
+  grid-column: 1 / -1;
+}
+
 .g-host__footer {
   margin-top: 2rem;
   padding: var(--g-host-pad);

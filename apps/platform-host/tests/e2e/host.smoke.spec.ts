@@ -1,6 +1,23 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("platform host (fixture-only)", () => {
+test.describe("platform host", () => {
+  test("dev-establish is not a production login surface", async ({ request }) => {
+    const res = await request.post("/api/session/dev-establish");
+    expect(res.status()).toBe(404);
+  });
+
+  test("protected navigation API fails closed without a session", async ({ request }) => {
+    const res = await request.get("/api/navigation");
+    expect([401, 503]).toContain(res.status());
+    const body = (await res.json()) as { error: string };
+    expect(body.error.length).toBeGreaterThan(0);
+  });
+
+  test("session me fails closed without a session cookie", async ({ request }) => {
+    const res = await request.get("/api/session/me");
+    expect([401, 503]).toContain(res.status());
+  });
+
   test("health endpoint returns build metadata", async ({ request }) => {
     const res = await request.get("/api/health");
     expect(res.ok()).toBeTruthy();

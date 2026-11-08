@@ -7,9 +7,9 @@ GoliathApp ships shared UI packages for descendant operator applications. Backen
 | Package | Status | Role |
 |---------|--------|------|
 | `@goliath/ui` | **P0** | Allowlisted Lucide icons, kind defaults, class override resolution, `ObjectBadge`, theme CSS |
-| `@goliath/client` | **P0 stub** | `GoliathUiManifest` + override diagnostics (transport in P1) |
+| `@goliath/client` | **P1** | `GoliathUiManifest`, `createPlatformBffClient`, session/nav types |
 | `@goliath/platform-ui` | **P0** | Fixture demo table/tree using shared badges (not descendant product screens) |
-| `@goliath/platform-host` (`apps/platform-host`) | **P0** | Runnable Next.js shell: `/`, `/fixture`, `/api/health` — see [deploy/platform-host.md](deploy/platform-host.md) |
+| `@goliath/platform-host` (`apps/platform-host`) | **P0 host + P1 BFF** | Runnable shell: `/`, `/fixture`, `/app`, session/nav APIs — [deploy/platform-host.md](deploy/platform-host.md), [P1 auth](deploy/platform-host-p1-auth.md) |
 
 Install path for child repos: depend on **published semver tarballs** (`npm pack` / future registry). In this monorepo, `npm ci` + workspace builds apply. Run `npm run verify:consumer` to simulate an external child install.
 
@@ -44,7 +44,7 @@ Validate overrides with `diagnoseUiManifest` from `@goliath/client` in CI. Edito
 | Phase | Scope | Status |
 |-------|--------|--------|
 | **P0** | Workspace, `@goliath/ui` icons/badges/tokens, fixture demo, tests, consumer pack verify | **Implemented (this PR)** |
-| **P1** | Authenticated transport, `portal.sp_session_*`, permission-aware navigation shell | Pending |
+| **P1** | Partial foundation: BFF + `portal.sp_session_*` + scoped `sp_session_operator_nav_tree` (not production OIDC) | **In review (#59 on #58)** |
 | **P2** | Meta hierarchy + JSON Schema editors (`portal.sp_get_data_type`, ObjValues writes via portal procs) | Pending |
 | **P3** | Workflow designer/monitor (DomainPrograms, defs, runs) | Pending |
 | **P4** | Semantic + admin screens (`sp_run_semantic_request`, RBAC admin procs) | Pending |

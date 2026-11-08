@@ -10,7 +10,7 @@
     "build:host": "npm run build --workspace @goliath/platform-host",
     "start:host": "npm run start --workspace @goliath/platform-host",
     "typecheck": "npm run typecheck --workspace @goliath/ui --workspace @goliath/client --workspace @goliath/platform-ui && npm run typecheck --workspace @goliath/platform-host",
-    "test": "npm run test --workspace @goliath/ui --workspace @goliath/platform-ui && npm run test --workspace @goliath/platform-host",
+    "test": "npm run test --workspace @goliath/ui --workspace @goliath/client --workspace @goliath/platform-ui && npm run test --workspace @goliath/platform-host",
     "test:e2e:host": "npm run test:e2e --workspace @goliath/platform-host",
     "verify:consumer": "node scripts/verify_frontend_consumer.mjs"
   },

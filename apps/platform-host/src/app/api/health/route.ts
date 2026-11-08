@@ -8,8 +8,9 @@ export async function GET() {
     service: "goliath-platform-host",
     version: platformHostVersion(),
     revision: platformHostRevision(),
-    mode: "fixture-static",
+    mode: "p1-bff",
     packages: ["@goliath/ui", "@goliath/platform-ui", "@goliath/client"],
-    notes: "No database, authentication, or privileged operations.",
+    notes:
+      "Public fixture routes; session/nav BFF calls portal SQL when GOLIATH_PORTAL_* is configured. No secrets in this response.",
   });
 }

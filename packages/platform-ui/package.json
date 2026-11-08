@@ -27,6 +27,7 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
+    "@goliath/client": "0.1.0",
     "@goliath/ui": "0.1.0"
   },
   "devDependencies": {

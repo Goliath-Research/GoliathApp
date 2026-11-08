@@ -1,23 +1,12 @@
-import type { GoliathUiManifest } from "@goliath/client";
-import type { PlatformObjectKind } from "@goliath/ui";
+import type { ChildHostExtension, ChildHostNavLeaf } from "@goliath/client";
 
 /**
  * Child apps extend the host at **build time** by supplying a module with this shape.
  * No runtime Python→React loading; merge into the host bundle in the child CI.
  */
-export type HostNavItem = {
-  id: string;
-  label: string;
-  href: string;
-  kind: PlatformObjectKind;
-};
+export type HostNavItem = ChildHostNavLeaf;
 
-export type PlatformHostChildExtension = {
-  appId: string;
-  manifest: GoliathUiManifest;
-  /** Optional extra nav leaves (fixture-only routes in P0). */
-  nav?: HostNavItem[];
-};
+export type PlatformHostChildExtension = ChildHostExtension;
 
 /** Example bundled with the platform host — child apps copy and replace. */
 export const EXAMPLE_CHILD_EXTENSION: PlatformHostChildExtension = {

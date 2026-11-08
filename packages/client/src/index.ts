@@ -1,6 +1,6 @@
 /**
- * P0: presentation and manifest contracts only. Authenticated transport lands in P1
- * (`portal.sp_session_*` — no invented HTTP shapes).
+ * P1: same-origin BFF transport types aligned with `portal.sp_session_*` and
+ * `portal.sp_session_operator_nav_tree` (host implements HTTP; DB contract is SQL).
  */
 export type {
   ClassIconOverrideManifest,
@@ -12,16 +12,15 @@ import { validateClassIconOverrides, type OverrideRegistrationReport } from "@go
 
 export { validateClassIconOverrides, type OverrideRegistrationReport };
 
-/** Build-time hook: child apps export this shape from their UI manifest module. */
-export type GoliathUiManifest = {
-  appId: string;
-  classIconOverrides?: Record<string, string>;
-  /**
-   * Stable editor keys bound to React components in the child bundle (no Python→React loading).
-   * Values are opaque ids validated at child compile time.
-   */
-  editorComponents?: Record<string, string>;
-};
+export type { PlatformSessionSnapshot, SessionTransportErrorCode } from "./session.js";
+export { SessionTransportError } from "./session.js";
+export type { OperatorNavNode } from "./nav.js";
+export { coercePresentationKind } from "./nav.js";
+export { createPlatformBffClient, type PlatformBffClient, type PlatformBffClientOptions } from "./transport.js";
+export type { ChildHostExtension, ChildHostNavLeaf } from "./child-host.js";
+export type { GoliathUiManifest } from "./manifest.js";
+
+import type { GoliathUiManifest } from "./manifest.js";
 
 export function diagnoseUiManifest(manifest: GoliathUiManifest): OverrideRegistrationReport {
   return validateClassIconOverrides(manifest.classIconOverrides);
