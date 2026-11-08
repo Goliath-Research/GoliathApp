@@ -114,7 +114,7 @@ def _grant_meta_permissions_scoped(
 def _meta_obj_insert(
     conninfo: str,
     token: str,
-    document: dict[str, object],
+    document: dict[str, object] | dict[str, int | str],
 ) -> int:
     with psycopg.connect(conninfo) as conn:
         insert_row = conn.execute(
