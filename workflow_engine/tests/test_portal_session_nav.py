@@ -73,6 +73,10 @@ def portal_client(portal_nav_env: dict[str, str]) -> PortalClient:
 
 
 def test_session_nav_denied_without_token(portal_nav_env: dict[str, str]) -> None:
+    os.environ["GOLIATH_PORTAL_PASSWORD"] = PORTAL_TEST_PASSWORD
+    os.environ.setdefault("PGHOST", portal_nav_env["PGHOST"])
+    os.environ.setdefault("PGPORT", portal_nav_env["PGPORT"])
+    os.environ.setdefault("PGDATABASE", portal_nav_env["PGDATABASE"])
     conninfo = build_portal_conninfo()
     with psycopg.connect(conninfo) as conn:
         with pytest.raises(psycopg.Error) as excinfo:
