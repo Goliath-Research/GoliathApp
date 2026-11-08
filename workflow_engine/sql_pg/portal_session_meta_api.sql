@@ -228,7 +228,8 @@ BEGIN
   END IF;
 
   IF v_scope_id IS DISTINCT FROM p_active_scope_id THEN
-    PERFORM portal.fn_semantic_raise('GS403', 'meta object scope denied');
+    -- Same SQLSTATE + message as missing/unmapped rows (no cross-tenant existence oracle).
+    PERFORM portal.fn_semantic_raise('GS404', 'meta object not found');
   END IF;
 END;
 $$;

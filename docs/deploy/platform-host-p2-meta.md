@@ -14,7 +14,7 @@ Instance authorization flow:
 
 1. `fn_session_meta_require_instance` — valid session, **non-null `ActiveScopeID`**, permission effective **in that scope** (`UserRoleGrants.ScopeID = active scope` or `BypassScope` role). **Global grants (`ScopeID` NULL) do not authorize instances.**
 2. `fn_session_meta_strip_tenancy_keys` — remove forged `scope_id`, `OrganizationID`, etc. from JSON **before** `Meta.sp_obj_*`.
-3. `fn_session_meta_assert_obj_in_active_scope` — `ScopedMetaObjects.ScopeID` must equal session active scope (`GS403` cross-tenant, `GS404` missing tenancy / ID guessing).
+3. `fn_session_meta_assert_obj_in_active_scope` — `ScopedMetaObjects.ScopeID` must equal session active scope. **Cross-tenant, unmapped, and never-allocated IDs all raise `GS404` / `meta object not found`** (no existence oracle). Permission failures without object identity remain `GS403`.
 
 **Not claimed:** org membership checks beyond RBAC grants; row-level scope inside merged JSON; preserving unknown top-level keys (rejected explicitly by phase D).
 
@@ -43,7 +43,8 @@ Same procedures as slice 1; BFF is a thin cookie forwarder — isolation is enfo
 `workflow_engine/tests/test_portal_session_meta.py`:
 
 - Same-scope insert/get roundtrip
-- Cross-scope read/update `GS403`
+- Cross-scope read/update → same `GS404` as missing/unmapped (GET and PATCH)
+- Indistinguishable error text across nonexistent, catalog-unmapped, and cross-scope IDs
 - Null active scope on instance read/write `GS403`
 - Global (unscoped) grant + active scope session → instance `GS403`
 - Forged tenancy keys stripped; tenancy from session only

@@ -111,6 +111,30 @@ def _grant_meta_permissions_scoped(
     return _grant_meta_permissions(env, user_id, permissions, scope_id=scope_id)
 
 
+def _expect_meta_object_not_found(
+    conn: psycopg.Connection,
+    token: str,
+    obj_id: int,
+    *,
+    update: bool = False,
+) -> str:
+    with pytest.raises(psycopg.Error) as excinfo:
+        if update:
+            conn.execute(
+                "SELECT portal.sp_session_meta_obj_update(%s, %s, %s::jsonb)",
+                (token, obj_id, json.dumps({"Caption": "X", "Seq": 1})),
+            )
+        else:
+            conn.execute(
+                "SELECT document FROM portal.sp_session_meta_obj_get(%s, %s)",
+                (token, obj_id),
+            )
+    text = str(excinfo.value)
+    assert "GS404" in text
+    assert "meta object not found" in text.lower()
+    return text
+
+
 def _meta_obj_insert(
     conninfo: str,
     token: str,
@@ -394,12 +418,7 @@ def test_session_meta_obj_cross_scope_read_denied(
     obj_id = _meta_obj_insert(conninfo, token_a, {"Caption": "TenantA", "Seq": 9})
     token_b = _open_session_scoped(portal_client, user_id, scope_id=scope_b)
     with psycopg.connect(conninfo) as conn:
-        with pytest.raises(psycopg.Error) as excinfo:
-            conn.execute(
-                "SELECT document FROM portal.sp_session_meta_obj_get(%s, %s)",
-                (token_b, obj_id),
-            )
-        assert "GS403" in str(excinfo.value)
+        _expect_meta_object_not_found(conn, token_b, obj_id)
 
 
 def test_session_meta_obj_cross_scope_update_denied(
@@ -416,12 +435,54 @@ def test_session_meta_obj_cross_scope_update_denied(
     obj_id = _meta_obj_insert(conninfo, token_a, {"Caption": "UpdA", "Seq": 4})
     token_b = _open_session_scoped(portal_client, user_id, scope_id=scope_b)
     with psycopg.connect(conninfo) as conn:
-        with pytest.raises(psycopg.Error) as excinfo:
-            conn.execute(
-                "SELECT portal.sp_session_meta_obj_update(%s, %s, %s::jsonb)",
-                (token_b, obj_id, json.dumps({"Caption": "Hijack", "Seq": 99})),
-            )
-        assert "GS403" in str(excinfo.value)
+        _expect_meta_object_not_found(conn, token_b, obj_id, update=True)
+
+
+def test_session_meta_obj_not_found_indistinguishable_get_and_update(
+    portal_client: PortalClient,
+    portal_meta_env: dict[str, str],
+) -> None:
+    user_id = _create_user(portal_meta_env, "MetaOracle")
+    scope_a = _create_org_scope(portal_meta_env, f"MetaOracleA-{user_id}")
+    scope_b = _create_org_scope(portal_meta_env, f"MetaOracleB-{user_id}")
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_a)
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_b)
+    token_b = _open_session_scoped(portal_client, user_id, scope_id=scope_b)
+    token_a = _open_session_scoped(portal_client, user_id, scope_id=scope_a)
+    conninfo = build_portal_conninfo()
+    cross_scope_id = _meta_obj_insert(conninfo, token_a, {"Caption": "Hidden", "Seq": 1})
+    never_allocated_id = int(
+        _psql(
+            'SELECT COALESCE(MAX(o."ID"), 0) + 50000 FROM "Meta"."Objs" o',
+            portal_meta_env,
+        )
+    )
+    catalog_obj_id = int(
+        _psql(
+            'SELECT o."ID" FROM "Meta"."Objs" o ORDER BY o."ID" LIMIT 1',
+            portal_meta_env,
+        )
+    )
+    if _psql(
+        f'SELECT COUNT(*) FROM portal."ScopedMetaObjects" WHERE "ObjID" = {catalog_obj_id}',
+        portal_meta_env,
+    ) != "0":
+        pytest.skip("catalog anchor obj is tenanted in this environment")
+
+    with psycopg.connect(conninfo) as conn:
+        get_errors = [
+            _expect_meta_object_not_found(conn, token_b, never_allocated_id),
+            _expect_meta_object_not_found(conn, token_b, catalog_obj_id),
+            _expect_meta_object_not_found(conn, token_b, cross_scope_id),
+        ]
+        update_errors = [
+            _expect_meta_object_not_found(conn, token_b, never_allocated_id, update=True),
+            _expect_meta_object_not_found(conn, token_b, catalog_obj_id, update=True),
+            _expect_meta_object_not_found(conn, token_b, cross_scope_id, update=True),
+        ]
+    assert len(set(get_errors)) == 1
+    assert len(set(update_errors)) == 1
+    assert get_errors[0] == update_errors[0]
 
 
 def test_session_meta_obj_strips_forged_tenancy_metadata(

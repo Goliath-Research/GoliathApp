@@ -124,7 +124,22 @@ function mapPgPortalError(err: unknown): never {
   if (pgCode === "GS403" || message.includes("GS403") || message.includes("permission denied")) {
     throw new PortalForbiddenError(message.includes("meta permission") ? "meta permission denied" : "forbidden");
   }
-  if (pgCode === "GS404" || message.includes("GS404") || message.includes("not found")) {
+  if (
+    pgCode === "GS404" ||
+    message.includes("GS404") ||
+    message.includes("meta object not found") ||
+    message.includes("meta object scope denied")
+  ) {
+    if (
+      message.includes("meta object not found") ||
+      message.includes("meta object scope denied") ||
+      (message.includes("object") && message.includes("not found"))
+    ) {
+      throw new PortalMetaNotFoundError("meta object not found");
+    }
+    if (message.includes("meta class")) {
+      throw new PortalMetaNotFoundError("meta class not found");
+    }
     throw new PortalMetaNotFoundError();
   }
   if (
