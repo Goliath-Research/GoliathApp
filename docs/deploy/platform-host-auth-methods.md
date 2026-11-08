@@ -43,6 +43,8 @@ Example element (Entra/Google/generic OIDC share the same shape):
 ]
 ```
 
+`allowedOrigins` is **required** for each provider (no implicit allow-all from request headers). Origins are compared in canonical form (default ports normalized).
+
 Public discovery: `GET /api/auth/providers` — no secrets, lists configured providers and method roadmap.
 
 ## Child extension

@@ -1,6 +1,7 @@
 import type { PublicAuthProvider } from "@goliath/client";
 import { PLATFORM_CHILD_AUTH_PROVIDERS } from "@/lib/child-auth-providers";
 import type { AuthProviderConfig, OidcProviderConfig } from "./types";
+export { assertRedirectOriginAllowed } from "./origin-allowlist";
 
 function parseServerProviders(): OidcProviderConfig[] {
   const raw = process.env.GOLIATH_AUTH_OIDC_PROVIDERS_JSON?.trim();
@@ -16,7 +17,16 @@ function parseServerProviders(): OidcProviderConfig[] {
     const clientId = String(r.clientId ?? "");
     const clientSecret = String(r.clientSecret ?? "");
     const scopeId = Number(r.scopeId);
-    if (!providerId || !issuer || !clientId || !clientSecret || !Number.isInteger(scopeId) || scopeId <= 0) {
+    const allowedOrigins = Array.isArray(r.allowedOrigins) ? r.allowedOrigins.map(String) : [];
+    if (
+      !providerId ||
+      !issuer ||
+      !clientId ||
+      !clientSecret ||
+      !Number.isInteger(scopeId) ||
+      scopeId <= 0 ||
+      allowedOrigins.length === 0
+    ) {
       continue;
     }
     out.push({
@@ -28,7 +38,7 @@ function parseServerProviders(): OidcProviderConfig[] {
       clientSecret,
       scopeId,
       scopes: Array.isArray(r.scopes) ? r.scopes.map(String) : ["openid", "profile", "email"],
-      allowedOrigins: Array.isArray(r.allowedOrigins) ? r.allowedOrigins.map(String) : undefined,
+      allowedOrigins,
     });
   }
   return out;
@@ -69,9 +79,3 @@ export function listPublicAuthProviders(origin: string): PublicAuthProvider[] {
   }));
 }
 
-export function assertRedirectOriginAllowed(origin: string, cfg: OidcProviderConfig): void {
-  const allowed = cfg.allowedOrigins ?? [origin];
-  if (!allowed.includes(origin)) {
-    throw new Error("redirect origin is not allowlisted");
-  }
-}

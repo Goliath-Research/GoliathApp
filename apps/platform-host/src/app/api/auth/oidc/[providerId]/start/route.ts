@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import {
-  assertRedirectOriginAllowed,
-  getAuthProvider,
-} from "@/server/auth/registry";
+import { getAuthProvider } from "@/server/auth/registry";
+import { assertRedirectOriginAllowed } from "@/server/auth/origin-allowlist";
 import { buildOidcAuthorizationUrl } from "@/server/auth/oidc";
 import {
   buildOidcTransactionCookie,

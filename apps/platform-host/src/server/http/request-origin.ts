@@ -25,6 +25,15 @@ export function requestOriginFromRequest(request: Request): string {
   return requestOrigin(request.url, (name) => request.headers.get(name));
 }
 
+/** Normalize origins for allowlist comparison (default ports, casing). */
+export function canonicalizeOrigin(origin: string): string {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return origin;
+  }
+}
+
 export function requestOriginFromHeaderStore(
   getHeader: (name: string) => string | null,
   fallbackUrl = "http://localhost",
