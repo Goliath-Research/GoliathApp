@@ -1,0 +1,86 @@
+:root {
+  color-scheme: light dark;
+  --g-fg: #1c1917;
+  --g-fg-muted: #57534e;
+  --g-bg: #fafaf9;
+  --g-bg-elevated: #ffffff;
+  --g-border: #d6d3d1;
+  --g-accent: #0f766e;
+  --g-badge-gap: 0.5rem;
+  --g-font: system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --g-fg: #f5f5f4;
+    --g-fg-muted: #a8a29e;
+    --g-bg: #0c0a09;
+    --g-bg-elevated: #1c1917;
+    --g-border: #44403c;
+    --g-accent: #2dd4bf;
+  }
+}
+
+.g-icon {
+  flex-shrink: 0;
+  color: var(--g-accent);
+}
+
+.g-object-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--g-badge-gap);
+  font-family: var(--g-font);
+  color: var(--g-fg);
+  line-height: 1.3;
+}
+
+.g-object-badge__text {
+  display: flex;
+  flex-direction: column;
+}
+
+.g-object-badge__label {
+  font-weight: 600;
+}
+
+.g-object-badge__subtitle {
+  font-size: 0.8125rem;
+  color: var(--g-fg-muted);
+}
+
+.g-demo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--g-font);
+  color: var(--g-fg);
+}
+
+.g-demo-table th,
+.g-demo-table td {
+  border: 1px solid var(--g-border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.g-demo-table th {
+  background: var(--g-bg-elevated);
+}
+
+.g-demo-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: var(--g-font);
+}
+
+.g-demo-tree li {
+  margin: 0.25rem 0;
+}
+
+.g-demo-tree ul {
+  list-style: none;
+  margin: 0.25rem 0 0.25rem 1.25rem;
+  padding: 0;
+}

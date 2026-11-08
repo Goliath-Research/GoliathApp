@@ -139,3 +139,28 @@ jobs:
 
       - name: Validate Mermaid sources (mmdc)
         run: python3 scripts/validate_mermaid_docs.py
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build platform UI packages
+        run: npm run build
+
+      - name: Typecheck frontend
+        run: npm run typecheck
+
+      - name: Frontend unit tests
+        run: npm test
+
+      - name: Verify npm pack consumer install
+        run: npm run verify:consumer

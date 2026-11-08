@@ -141,3 +141,4 @@ sequenceDiagram
 | Adopter checklist | [adopter-guide.md](adopter-guide.md) |
 | Capability listing | [feature-catalog.md](feature-catalog.md) |
 | SQL apply order | [schema-apply.md](schema-apply.md) |
+| Platform UI / icons | [visualization.md](visualization.md) |
