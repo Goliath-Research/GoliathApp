@@ -86,6 +86,133 @@ def test_session_nav_denied_without_token(portal_nav_env: dict[str, str]) -> Non
         assert "GS401" in str(excinfo.value)
 
 
+def _nav_captions(conninfo: str, token: str) -> set[str]:
+    with psycopg.connect(conninfo) as conn:
+        cur = conn.execute(
+            "SELECT caption FROM portal.sp_session_operator_nav_tree(%s)",
+            (token,),
+        )
+        return {str(r[0]) for r in cur.fetchall()}
+
+
+def test_session_nav_empty_without_active_scope(
+    portal_client: PortalClient,
+    portal_nav_env: dict[str, str],
+) -> None:
+    email = f"nav-noscope-{uuid.uuid4().hex[:8]}@test"
+    user_id = int(
+        _psql(
+            f"""
+            INSERT INTO "RBAC"."Users" ("FullName", email, "Active")
+            VALUES ('No Scope', '{email}', 1)
+            RETURNING "ID"
+            """,
+            portal_nav_env,
+        )
+    )
+    opened = portal_client.session_open(user_id, active_scope_id=None)
+    conninfo = build_portal_conninfo()
+    assert _nav_captions(conninfo, opened.session_token) == set()
+
+
+def test_session_nav_denies_other_org_scope(
+    portal_client: PortalClient,
+    portal_nav_env: dict[str, str],
+) -> None:
+    email = f"nav-tenant-{uuid.uuid4().hex[:8]}@test"
+    user_id = int(
+        _psql(
+            f"""
+            INSERT INTO "RBAC"."Users" ("FullName", email, "Active")
+            VALUES ('Tenant Nav', '{email}', 1)
+            RETURNING "ID"
+            """,
+            portal_nav_env,
+        )
+    )
+    org_a = _psql(f"SELECT * FROM portal.sp_organization_create('NavOrgA-{user_id}')", portal_nav_env)
+    scope_a = int(org_a.split("|")[1])
+    org_b = _psql(f"SELECT * FROM portal.sp_organization_create('NavOrgB-{user_id}')", portal_nav_env)
+    scope_b = int(org_b.split("|")[1])
+    _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({int(org_a.split('|')[0])}, {user_id})", portal_nav_env)
+    node_id = int(
+        _psql(
+            "SELECT node_id FROM portal.sp_nav_register_node(NULL, 'ScopeAOnly', 11::smallint)",
+            portal_nav_env,
+        )
+    )
+    role_id = int(
+        _psql(
+            """SELECT "ID" FROM "RBAC"."Roles" WHERE "Name" = 'organization_admin' LIMIT 1""",
+            portal_nav_env,
+        )
+    )
+    _psql(
+        f"SELECT ok FROM portal.sp_grant_role_nav_node({role_id}, {node_id}, {scope_a})",
+        portal_nav_env,
+    )
+    conninfo = build_portal_conninfo()
+    opened_wrong_scope = portal_client.session_open(user_id, active_scope_id=scope_b)
+    assert "ScopeAOnly" not in _nav_captions(conninfo, opened_wrong_scope.session_token)
+
+    opened_right_scope = portal_client.session_open(user_id, active_scope_id=scope_a)
+    assert "ScopeAOnly" in _nav_captions(conninfo, opened_right_scope.session_token)
+
+
+def test_session_nav_rejects_inactive_user(
+    portal_client: PortalClient,
+    portal_nav_env: dict[str, str],
+) -> None:
+    email = f"nav-inactive-{uuid.uuid4().hex[:8]}@test"
+    user_id = int(
+        _psql(
+            f"""
+            INSERT INTO "RBAC"."Users" ("FullName", email, "Active")
+            VALUES ('Inactive', '{email}', 1)
+            RETURNING "ID"
+            """,
+            portal_nav_env,
+        )
+    )
+    opened = portal_client.session_open(user_id)
+    _psql(f'UPDATE "RBAC"."Users" SET "Active" = 0 WHERE "ID" = {user_id}', portal_nav_env)
+    conninfo = build_portal_conninfo()
+    with pytest.raises(psycopg.Error) as excinfo:
+        _nav_captions(conninfo, opened.session_token)
+    assert "GS401" in str(excinfo.value)
+
+
+def test_session_nav_rejects_expired_token(
+    portal_client: PortalClient,
+    portal_nav_env: dict[str, str],
+) -> None:
+    email = f"nav-expired-{uuid.uuid4().hex[:8]}@test"
+    user_id = int(
+        _psql(
+            f"""
+            INSERT INTO "RBAC"."Users" ("FullName", email, "Active")
+            VALUES ('Expired', '{email}', 1)
+            RETURNING "ID"
+            """,
+            portal_nav_env,
+        )
+    )
+    opened = portal_client.session_open(user_id)
+    _psql(
+        f"""
+        UPDATE "RBAC"."SessionTokens" st
+        SET "ExpiresAtUtc" = (now() AT TIME ZONE 'utc') - interval '1 minute'
+        FROM "RBAC"."Sessions" s
+        WHERE st."SessionID" = s."ID" AND s."UserID" = {user_id}
+        """,
+        portal_nav_env,
+    )
+    conninfo = build_portal_conninfo()
+    with pytest.raises(psycopg.Error) as excinfo:
+        _nav_captions(conninfo, opened.session_token)
+    assert "GS401" in str(excinfo.value)
+
+
 def test_session_nav_respects_role2node(
     portal_client: PortalClient,
     portal_nav_env: dict[str, str],

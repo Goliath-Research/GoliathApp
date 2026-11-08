@@ -2,9 +2,12 @@
   Session-bound operator navigation (portal.sp_session_* + RBAC NavTree).
   Callable by goliath_portal only — tokens stay server-side in the platform host BFF.
 
+  Scope invariant (P1): Role2Node rows match only when the session carries a non-null
+  ActiveScopeID equal to Role2Node.ScopeId. Sessions without active scope see no operator
+  nav (fail closed — no cross-tenant flattening when scope is missing).
+
   Role resolution merges legacy portal.UserRoles, scoped UserRoleGrants for the session's
-  active scope (or BypassScope roles), and RBAC.usp_session_get_effective_roles_v2 — so
-  organization_admin grants participate without inventing a separate HTTP contract.
+  active scope (or BypassScope roles), and RBAC.usp_session_get_effective_roles_v2.
 */
 
 CREATE OR REPLACE FUNCTION portal.sp_session_operator_nav_tree(p_session_token text)
@@ -32,6 +35,11 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS401', 'session denied');
   END IF;
 
+  -- No active scope: return empty set (do not match all Role2Node scopes).
+  IF v_sess.active_scope_id IS NULL THEN
+    RETURN;
+  END IF;
+
   RETURN QUERY
   WITH effective_roles AS (
     SELECT ur."RoleId"::int AS role_id
@@ -45,7 +53,7 @@ BEGIN
       AND g."Active"
       AND (
         COALESCE(r."BypassScope", false)
-        OR (v_sess.active_scope_id IS NOT NULL AND g."ScopeID" = v_sess.active_scope_id)
+        OR g."ScopeID" = v_sess.active_scope_id
       )
     UNION
     SELECT er.role_id::int AS role_id
@@ -56,7 +64,7 @@ BEGIN
     FROM portal."Role2Node" rn
     JOIN portal."NavTree" n ON n."ID" = rn."NodeId"
     JOIN effective_roles er ON er.role_id = rn."RoleId"
-    WHERE v_sess.active_scope_id IS NULL OR rn."ScopeId" = v_sess.active_scope_id
+    WHERE rn."ScopeId" = v_sess.active_scope_id
   ),
   visible_tree AS (
     SELECT DISTINCT ON (n."ID")

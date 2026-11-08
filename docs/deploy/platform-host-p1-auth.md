@@ -1,4 +1,6 @@
-# Platform host — P1 authenticated transport
+# Platform host — P1 partial foundation (session BFF)
+
+**P1 is not complete authentication.** Production OIDC / external identity → `portal.sp_session_open` is still pending. This milestone delivers a **session transport and permission-bound navigation foundation** only.
 
 P1 adds a **same-origin BFF** in `apps/platform-host` that calls real PostgreSQL contracts:
 
@@ -22,7 +24,11 @@ PR **#58** remains the P0 host-only review unit. P1 lands on branch `cursor/plat
 
 When bridge env vars are **missing**, session routes return **503** and fixture routes stay public — fail closed, not anonymous privileged access.
 
-### Integration-only dev login (disabled by default)
+### Scope enforcement (navigation)
+
+`portal.sp_session_operator_nav_tree` matches `Role2Node` rows **only** when `Sessions.ActiveScopeID = Role2Node.ScopeId`. Sessions without `ActiveScopeID` return **no** nav rows (fail closed — avoids treating NULL scope as “all tenants”).
+
+### Integration-only dev login (disabled by default; never in `NODE_ENV=production`)
 
 | Variable | Purpose |
 |----------|---------|

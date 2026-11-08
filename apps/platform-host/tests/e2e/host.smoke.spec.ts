@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("platform host", () => {
+  test("dev-establish is not a production login surface", async ({ request }) => {
+    const res = await request.post("/api/session/dev-establish");
+    expect(res.status()).toBe(404);
+  });
+
   test("protected navigation API fails closed without a session", async ({ request }) => {
     const res = await request.get("/api/navigation");
     expect([401, 503]).toContain(res.status());

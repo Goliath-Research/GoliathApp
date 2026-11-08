@@ -1,5 +1,3 @@
-import "server-only";
-
 export type PortalBridgeConfig = {
   connString: string;
 };
@@ -31,7 +29,13 @@ export function resolvePortalBridgeConfig(): PortalBridgeConfig | null {
   };
 }
 
+/**
+ * Integration-only login path. Never enabled in NODE_ENV=production (even if env var is set).
+ */
 export function devLoginAllowed(): boolean {
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
   return process.env.GOLIATH_PLATFORM_HOST_DEV_LOGIN === "1";
 }
 

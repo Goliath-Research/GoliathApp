@@ -44,7 +44,7 @@ Validate overrides with `diagnoseUiManifest` from `@goliath/client` in CI. Edito
 | Phase | Scope | Status |
 |-------|--------|--------|
 | **P0** | Workspace, `@goliath/ui` icons/badges/tokens, fixture demo, tests, consumer pack verify | **Implemented (this PR)** |
-| **P1** | Same-origin BFF, `portal.sp_session_*`, `sp_session_operator_nav_tree`, httpOnly cookie (OIDC bridge pending) | **In review (stacked on PR #58)** |
+| **P1** | Partial foundation: BFF + `portal.sp_session_*` + scoped `sp_session_operator_nav_tree` (not production OIDC) | **In review (#59 on #58)** |
 | **P2** | Meta hierarchy + JSON Schema editors (`portal.sp_get_data_type`, ObjValues writes via portal procs) | Pending |
 | **P3** | Workflow designer/monitor (DomainPrograms, defs, runs) | Pending |
 | **P4** | Semantic + admin screens (`sp_run_semantic_request`, RBAC admin procs) | Pending |
