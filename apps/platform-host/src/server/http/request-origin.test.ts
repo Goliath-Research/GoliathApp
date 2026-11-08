@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { oidcCallbackUrl, requestOrigin } from "./request-origin";
+import { oidcCallbackUrl, oidcRedirectUri, requestOrigin } from "./request-origin";
 
 describe("requestOrigin", () => {
   it("prefers forwarded host and proto", () => {
@@ -14,6 +14,15 @@ describe("requestOrigin", () => {
   it("falls back to request URL origin", () => {
     const origin = requestOrigin("https://localhost:3400/login", () => null);
     expect(origin).toBe("https://localhost:3400");
+  });
+
+  it("normalizes redirect_uri consistently for start and callback", () => {
+    const origin = "https://app.example.com:443";
+    const startUri = oidcRedirectUri(origin, "entra");
+    const request = new Request("http://internal/api/auth/oidc/entra/callback?code=1", {
+      headers: { "x-forwarded-host": "app.example.com:443", "x-forwarded-proto": "https" },
+    });
+    expect(startUri).toBe(oidcCallbackUrl(request, "entra").href.split("?")[0]);
   });
 
   it("builds public OIDC callback URL for token exchange", () => {

@@ -9,7 +9,7 @@ import {
   createOidcTransaction,
   isAuthStateSigningConfigured,
 } from "@/server/auth/state-cookie";
-import { requestOriginFromRequest } from "@/server/http/request-origin";
+import { oidcRedirectUri, requestOriginFromRequest } from "@/server/http/request-origin";
 
 export async function GET(
   request: Request,
@@ -32,7 +32,7 @@ export async function GET(
   }
 
   const tx = createOidcTransaction({ providerId: cfg.providerId, scopeId: cfg.scopeId });
-  const redirectUri = `${origin}/api/auth/oidc/${encodeURIComponent(cfg.providerId)}/callback`;
+  const redirectUri = oidcRedirectUri(origin, cfg.providerId);
   const authUrl = await buildOidcAuthorizationUrl(
     cfg,
     redirectUri,

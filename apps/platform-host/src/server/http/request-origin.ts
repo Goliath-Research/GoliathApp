@@ -32,10 +32,15 @@ export function requestOriginFromHeaderStore(
   return requestOrigin(fallbackUrl, getHeader);
 }
 
+/** Canonical redirect_uri registered at authorization and used at token exchange. */
+export function oidcRedirectUri(origin: string, providerId: string): string {
+  return new URL(`/api/auth/oidc/${encodeURIComponent(providerId)}/callback`, origin).href;
+}
+
 /** OIDC token exchange must use the same public URL the IdP redirected to. */
 export function oidcCallbackUrl(request: Request, providerId: string): URL {
-  const origin = requestOriginFromRequest(request);
   const incoming = new URL(request.url);
-  const path = `/api/auth/oidc/${encodeURIComponent(providerId)}/callback${incoming.search}`;
-  return new URL(path, origin);
+  const url = new URL(oidcRedirectUri(requestOriginFromRequest(request), providerId));
+  url.search = incoming.search;
+  return url;
 }
