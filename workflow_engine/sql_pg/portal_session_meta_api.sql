@@ -243,6 +243,8 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS portal.sp_session_meta_class_fields(text, text);
+
 CREATE OR REPLACE FUNCTION portal.sp_session_meta_class_fields(
   p_session_token text,
   p_class_name text
