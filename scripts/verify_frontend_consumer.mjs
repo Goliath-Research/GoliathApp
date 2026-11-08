@@ -3,11 +3,12 @@
  * Child-repo simulation: install built tarballs (no workspace: protocol).
  */
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const repoRoot = new URL("..", import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const packages = ["ui", "client", "platform-ui"];
 
 function run(cmd, args, cwd = repoRoot) {
@@ -17,7 +18,7 @@ function run(cmd, args, cwd = repoRoot) {
 const workDir = mkdtempSync(join(tmpdir(), "goliath-consumer-"));
 try {
   const consumerDir = join(workDir, "consumer");
-  run("mkdir", ["-p", consumerDir]);
+  mkdirSync(consumerDir, { recursive: true });
   run("npm", ["init", "-y"], consumerDir);
 
   const tarballs = packages.map((name) => {

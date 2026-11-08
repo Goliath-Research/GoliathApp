@@ -165,16 +165,18 @@ export function resolvePresentation(input: ResolvePresentationInput): ResolvedPr
     };
   }
 
-  const classOverride = resolveClassOverrideIconKey(input.classFqn, ancestry, input.classIconOverrides);
-  diagnostics.push(...classOverride.diagnostics);
-  if (classOverride.key) {
-    return {
-      kind: input.kind,
-      iconKey: classOverride.key,
-      label,
-      resolution: classOverride.resolution,
-      diagnostics,
-    };
+  if (!cycleDetected) {
+    const classOverride = resolveClassOverrideIconKey(input.classFqn, ancestry, input.classIconOverrides);
+    diagnostics.push(...classOverride.diagnostics);
+    if (classOverride.key) {
+      return {
+        kind: input.kind,
+        iconKey: classOverride.key,
+        label,
+        resolution: classOverride.resolution,
+        diagnostics,
+      };
+    }
   }
 
   const kindKey = defaultIconKeyForKind(input.kind);
