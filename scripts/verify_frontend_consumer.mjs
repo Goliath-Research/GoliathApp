@@ -1,25 +1,26 @@
 #!/usr/bin/env node
 /**
  * Child-repo simulation: install built tarballs (no workspace: protocol).
+ * Runtime deps use scripts/consumer-fixture/package-lock.json (npm ci + integrity pins).
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
+const fixtureTemplate = join(repoRoot, "scripts", "consumer-fixture");
 const packages = ["ui", "client", "platform-ui"];
 
-function run(cmd, args, cwd = repoRoot) {
+function run(cmd, args, cwd) {
   execFileSync(cmd, args, { cwd, stdio: "inherit" });
 }
 
 const workDir = mkdtempSync(join(tmpdir(), "goliath-consumer-"));
 try {
   const consumerDir = join(workDir, "consumer");
-  mkdirSync(consumerDir, { recursive: true });
-  run("npm", ["init", "-y"], consumerDir);
+  cpSync(fixtureTemplate, consumerDir, { recursive: true });
 
   const tarballs = packages.map((name) => {
     const dir = join(repoRoot, "packages", name);
@@ -28,11 +29,8 @@ try {
     return join(dir, file);
   });
 
-  run(
-    "npm",
-    ["install", ...tarballs, "react@19.3.0", "react-dom@19.3.0", "lucide-react@^0.470.0"],
-    consumerDir,
-  );
+  run("npm", ["ci", "--ignore-scripts"], consumerDir);
+  run("npm", ["install", "--ignore-scripts", ...tarballs], consumerDir);
 
   writeFileSync(
     join(consumerDir, "smoke.mjs"),
@@ -51,4 +49,12 @@ console.log("consumer smoke ok", p.iconKey);
   run("node", ["smoke.mjs"], consumerDir);
 } finally {
   rmSync(workDir, { recursive: true, force: true });
+  for (const name of packages) {
+    const dir = join(repoRoot, "packages", name);
+    for (const file of readdirSync(dir)) {
+      if (file.endsWith(".tgz")) {
+        rmSync(join(dir, file));
+      }
+    }
+  }
 }
