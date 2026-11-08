@@ -1,3 +1,4 @@
+import type { MetaClassField, MetaClassLineageNode, MetaClassSummary } from "./meta.js";
 import type { OperatorNavNode } from "./nav.js";
 import { coercePresentationKind } from "./nav.js";
 import type { PlatformSessionSnapshot } from "./session.js";
@@ -55,6 +56,42 @@ export function createPlatformBffClient(options: PlatformBffClientOptions = {}) 
         credentials: "same-origin",
       });
       await readJson<{ ok: boolean }>(res);
+    },
+
+    async getMetaClass(className: string): Promise<MetaClassSummary> {
+      const res = await fetchFn(`${base}/api/meta/classes/${encodeURIComponent(className)}`, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      const body = await readJson<{ class: MetaClassSummary }>(res);
+      return body.class;
+    },
+
+    async getMetaClassLineage(className: string): Promise<MetaClassLineageNode[]> {
+      const res = await fetchFn(
+        `${base}/api/meta/classes/${encodeURIComponent(className)}/lineage`,
+        {
+          method: "GET",
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        },
+      );
+      const body = await readJson<{ lineage: MetaClassLineageNode[] }>(res);
+      return body.lineage;
+    },
+
+    async getMetaClassFields(className: string): Promise<MetaClassField[]> {
+      const res = await fetchFn(
+        `${base}/api/meta/classes/${encodeURIComponent(className)}/fields`,
+        {
+          method: "GET",
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        },
+      );
+      const body = await readJson<{ fields: MetaClassField[] }>(res);
+      return body.fields;
     },
 
     async getOperatorNavigation(): Promise<OperatorNavNode[]> {
