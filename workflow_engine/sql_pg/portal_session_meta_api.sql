@@ -102,6 +102,7 @@ STABLE
 SECURITY DEFINER
 SET search_path = portal, "Meta", wf, "RBAC", pg_temp
 AS $$
+#variable_conflict use_column
 DECLARE
   v_class_id int;
 BEGIN
