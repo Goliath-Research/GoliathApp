@@ -12,23 +12,23 @@ import {
   PortalSessionDeniedError,
 } from "@/server/portal/bridge";
 import { buildSessionSetCookie } from "@/server/session/cookies";
-import { requestOriginFromRequest } from "@/server/http/request-origin";
+import { oidcCallbackUrl, requestOriginFromRequest } from "@/server/http/request-origin";
 
 export async function GET(
   request: Request,
   context: { params: Promise<{ providerId: string }> },
 ) {
   const { providerId } = await context.params;
+  const origin = requestOriginFromRequest(request);
   const cfg = getAuthProvider(providerId);
   if (!cfg || cfg.method !== "oidc_authorization_code") {
-    return NextResponse.json({ error: "provider not found" }, { status: 404 });
+    return NextResponse.redirect(new URL("/login?error=provider", origin));
   }
   if (!isPortalBridgeConfigured()) {
-    return NextResponse.json({ error: "portal bridge is not configured" }, { status: 503 });
+    return NextResponse.redirect(new URL("/login?error=bridge", origin));
   }
 
-  const origin = requestOriginFromRequest(request);
-  const url = new URL(request.url);
+  const url = oidcCallbackUrl(request, providerId);
   const hdrs = await headers();
   const tx = parseOidcTransactionCookie(hdrs.get("cookie"));
   if (!tx || tx.providerId !== providerId) {
