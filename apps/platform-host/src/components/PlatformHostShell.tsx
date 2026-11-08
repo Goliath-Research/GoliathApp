@@ -7,6 +7,7 @@ import type { HostNavItem } from "@/lib/child-extension";
 
 const CORE_NAV: HostNavItem[] = [
   { id: "home", label: "Platform host", href: "/", kind: "config" },
+  { id: "login", label: "Sign in", href: "/login", kind: "user" },
   { id: "app", label: "Operator shell (P1)", href: "/app", kind: "user" },
   { id: "fixture", label: "P0 presentation fixture", href: "/fixture", kind: "view" },
 ];

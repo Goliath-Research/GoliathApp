@@ -7,6 +7,7 @@ on:
       - main
       # Stacked frontend PRs (P1 on P0 host) run the same checks before host merges to main.
       - cursor/platform-ui-host-3b72
+      - cursor/platform-ui-p1-auth-3b72
 
 jobs:
   pr:
@@ -87,6 +88,7 @@ jobs:
             workflow_engine/tests/test_inv_module.py \
             workflow_engine/tests/test_portal_client.py \
             workflow_engine/tests/test_portal_session_nav.py \
+            workflow_engine/tests/test_portal_session_identity.py \
             workflow_engine/tests/test_portal_client_types.py \
             workflow_engine/tests/test_exograph_third_party.py \
             workflow_engine/tests/test_worker_wake.py \
