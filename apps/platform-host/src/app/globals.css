@@ -133,3 +133,40 @@
   padding: 1rem;
   background: var(--g-bg-elevated);
 }
+
+.g-host-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.g-host-table th,
+.g-host-table td {
+  border: 1px solid var(--g-host-border);
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.g-meta-explorer section + section {
+  margin-top: 1.5rem;
+}
+
+.g-host-textarea {
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  font-size: 0.875rem;
+  margin: 0.5rem 0 0.75rem;
+  border: 1px solid var(--g-host-border);
+  border-radius: 6px;
+  padding: 0.5rem;
+  background: var(--g-bg);
+  color: var(--g-fg);
+}
+
+.g-meta-editor label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}

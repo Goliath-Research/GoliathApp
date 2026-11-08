@@ -11,7 +11,8 @@ export default function HomePage() {
       <p className="g-host-home__lead">
         This process is owned by <strong>GoliathApp</strong>. It serves shared packages (
         <code>@goliath/ui</code>, <code>@goliath/platform-ui</code>) and a labeled fixture route. It does not connect
-        to PostgreSQL, RBAC sessions, or child product data.
+        to PostgreSQL when the portal bridge is configured. P2 adds a session-gated Meta browser at{" "}
+        <Link href="/app/meta">/app/meta</Link>.
       </p>
       <section className="g-host-home__grid" aria-label="Host capabilities">
         <article className="g-host-card">

@@ -14,6 +14,11 @@ test.describe("platform host", () => {
     expect(res.status()).toBe(404);
   });
 
+  test("meta class API fails closed without a session", async ({ request }) => {
+    const res = await request.get("/api/meta/classes/portal%2FNavNode");
+    expect([401, 503]).toContain(res.status());
+  });
+
   test("protected navigation API fails closed without a session", async ({ request }) => {
     const res = await request.get("/api/navigation");
     expect([401, 503]).toContain(res.status());
