@@ -5,6 +5,8 @@ on:
   pull_request:
     branches:
       - main
+      # Stacked frontend PRs (P1 on P0 host) run the same checks before host merges to main.
+      - cursor/platform-ui-host-3b72
 
 jobs:
   pr:
