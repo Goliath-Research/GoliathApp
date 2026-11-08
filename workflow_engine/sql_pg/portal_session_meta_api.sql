@@ -108,9 +108,16 @@ BEGIN
   v_class_id := portal.sp_session_meta_resolve_class(p_session_token, p_class_name);
 
   RETURN QUERY
-  SELECT * FROM (
+  SELECT
+    u.lineage_role,
+    u.class_id,
+    u.class_name,
+    u.parent_id,
+    u.depth,
+    u.relation_depth
+  FROM (
     SELECT
-      'ancestor'::text,
+      'ancestor'::text AS lineage_role,
       c."ID"::integer,
       c."Name"::text,
       c."ParentID"::integer,
@@ -123,7 +130,7 @@ BEGIN
     UNION ALL
 
     SELECT
-      'self'::text,
+      'self'::text AS lineage_role,
       c."ID"::integer,
       c."Name"::text,
       c."ParentID"::integer,
@@ -135,7 +142,7 @@ BEGIN
     UNION ALL
 
     SELECT
-      'descendant'::text,
+      'descendant'::text AS lineage_role,
       c."ID"::integer,
       c."Name"::text,
       c."ParentID"::integer,
@@ -144,7 +151,14 @@ BEGIN
     FROM "Meta"."ClassClosure" cc
     JOIN "Meta"."Classes" c ON c."ID" = cc."DescendantID"
     WHERE cc."AncestorID" = v_class_id AND cc."Depth" > 0
-  ) u
+  ) AS u(
+    lineage_role,
+    class_id,
+    class_name,
+    parent_id,
+    depth,
+    relation_depth
+  )
   ORDER BY
     CASE u.lineage_role WHEN 'ancestor' THEN 0 WHEN 'self' THEN 1 ELSE 2 END,
     u.relation_depth,
