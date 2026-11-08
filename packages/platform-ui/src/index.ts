@@ -1,7 +1,7 @@
 /**
  * Shell/table/tree demo primitives for platform screens.
  * Provenance: list/table layout patterns adapted from Goliath-portal DataTable usage (read-only grids),
- * without copying the Omics-specific Screen switch.
+ * without copying descendant-product screen switches.
  */
 export { DemoNavTree } from "./components/DemoNavTree.js";
 export { DemoObjectTable } from "./components/DemoObjectTable.js";

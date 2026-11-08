@@ -34,7 +34,7 @@ describe("class override resolution", () => {
   const overrides = {
     "meta/BaseDocument": "platform:document",
     "portal/Study": "platform:collection",
-    "omics/SampleManifest": "platform:circuit",
+    "child_app/SampleManifest": "platform:circuit",
   } as const;
 
   it("prefers exact class match", () => {
@@ -51,8 +51,8 @@ describe("class override resolution", () => {
   it("walks nearest ancestor override", () => {
     const resolved = resolvePresentation({
       kind: "meta_object",
-      classFqn: "omics/EnrollmentRow",
-      classAncestry: ["omics/EnrollmentRow", "portal/Study", "meta/BaseDocument"],
+      classFqn: "child_app/EnrollmentRow",
+      classAncestry: ["child_app/EnrollmentRow", "portal/Study", "meta/BaseDocument"],
       classIconOverrides: overrides,
     });
     expect(resolved.iconKey).toBe("platform:collection");
