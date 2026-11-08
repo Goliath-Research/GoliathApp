@@ -138,8 +138,10 @@ export async function portalOperatorNavTree(sessionToken: string): Promise<Opera
         presentationKind: String(row.presentation_kind),
       }));
     } catch (err) {
+      const pgCode =
+        err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
       const message = err instanceof Error ? err.message : String(err);
-      if (message.includes("GS401")) {
+      if (pgCode === "GS401" || message.includes("GS401") || message.includes("session denied")) {
         throw new PortalSessionDeniedError();
       }
       throw err;

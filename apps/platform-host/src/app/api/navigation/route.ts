@@ -7,7 +7,7 @@ import {
   portalSessionTouch,
   PortalSessionDeniedError,
 } from "@/server/portal/bridge";
-import { SESSION_COOKIE_NAME } from "@/server/session/cookies";
+import { buildSessionSetCookie, SESSION_COOKIE_NAME } from "@/server/session/cookies";
 import { jsonError, mapPortalError } from "@/server/http/errors";
 
 export async function GET() {
@@ -25,7 +25,7 @@ export async function GET() {
       return jsonError(401, "session expired");
     }
     const rows = await portalOperatorNavTree(token);
-    return NextResponse.json({
+    const response = NextResponse.json({
       nodes: rows.map((row) => ({
         nodeId: row.nodeId,
         parentId: row.parentId,
@@ -34,6 +34,8 @@ export async function GET() {
         presentationKind: coercePresentationKind(row.presentationKind),
       })),
     });
+    response.headers.append("Set-Cookie", buildSessionSetCookie(token));
+    return response;
   } catch (err) {
     if (err instanceof PortalSessionDeniedError) {
       return jsonError(401, err.message);

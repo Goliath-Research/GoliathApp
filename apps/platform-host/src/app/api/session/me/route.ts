@@ -6,7 +6,7 @@ import {
   portalSessionTouch,
   PortalSessionDeniedError,
 } from "@/server/portal/bridge";
-import { SESSION_COOKIE_NAME } from "@/server/session/cookies";
+import { buildSessionSetCookie, SESSION_COOKIE_NAME } from "@/server/session/cookies";
 import { jsonError, mapPortalError } from "@/server/http/errors";
 
 export async function GET() {
@@ -27,7 +27,7 @@ export async function GET() {
     if (!touched) {
       return jsonError(401, "session expired");
     }
-    return NextResponse.json({
+    const response = NextResponse.json({
       sessionId: session.sessionId,
       userId: session.userId,
       email: session.email,
@@ -35,6 +35,8 @@ export async function GET() {
       activeScopeId: session.activeScopeId,
       expiresAtUtc: session.expiresAtUtc.toISOString(),
     });
+    response.headers.append("Set-Cookie", buildSessionSetCookie(token));
+    return response;
   } catch (err) {
     if (err instanceof PortalSessionDeniedError) {
       return jsonError(401, err.message);

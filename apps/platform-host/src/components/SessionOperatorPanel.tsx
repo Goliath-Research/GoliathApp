@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPlatformBffClient, type PlatformSessionSnapshot } from "@goliath/client";
 import { OperatorNavList } from "@goliath/platform-ui";
 import type { OperatorNavNode } from "@goliath/client";
 
 export function SessionOperatorPanel() {
-  const client = createPlatformBffClient();
+  const client = useMemo(() => createPlatformBffClient(), []);
   const [session, setSession] = useState<PlatformSessionSnapshot | null | undefined>(undefined);
   const [nodes, setNodes] = useState<OperatorNavNode[] | null>(null);
   const [error, setError] = useState<string | null>(null);
