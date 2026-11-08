@@ -1,0 +1,11 @@
+{
+  "name": "goliath-consumer-fixture",
+  "private": true,
+  "type": "module",
+  "description": "Pinned deps for scripts/verify_frontend_consumer.mjs (integrity-checked npm ci).",
+  "dependencies": {
+    "lucide-react": "0.470.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  }
+}

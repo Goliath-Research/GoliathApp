@@ -28,6 +28,7 @@ nav:
   - Getting started:
       - Adopter guide: adopter-guide.md
       - Architecture: architecture.md
+      - Platform visualization (UI): visualization.md
       - Feature catalog: feature-catalog.md
       - Database population: database-population.md
   - Platform: platform.md

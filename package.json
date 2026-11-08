@@ -1,0 +1,16 @@
+{
+  "name": "goliathapp-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @goliath/ui --workspace @goliath/client --workspace @goliath/platform-ui",
+    "typecheck": "npm run typecheck --workspace @goliath/ui --workspace @goliath/client --workspace @goliath/platform-ui",
+    "test": "npm run test --workspace @goliath/ui --workspace @goliath/platform-ui",
+    "verify:consumer": "node scripts/verify_frontend_consumer.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

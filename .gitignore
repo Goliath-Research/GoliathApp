@@ -11,5 +11,9 @@ third_party/vendor/
 exo/target/
 exo/generated/
 exo/node_modules/
+node_modules/
+packages/*/dist/
+packages/*/*.tgz
+**/*.tsbuildinfo
 exo/src/*.deno.lock
 __pycache__/

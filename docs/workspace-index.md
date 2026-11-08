@@ -17,6 +17,8 @@ This repository is the platform. Specialized applications extend it with actions
 | `contracts/openapi.yaml` | Published HTTP contract |
 | `scripts/` | Layout init, SQL twin check, schema inventory |
 | `docs/` | This documentation set |
+| `packages/` | Platform UI monorepo (`@goliath/ui`, `@goliath/client`, `@goliath/platform-ui`) — see [visualization.md](visualization.md) |
+| `package.json` | npm workspaces root; CI job `frontend` |
 | `.goliath/product.json` | Machine-readable product summary |
 
 Console scripts that resolve to modules in this tree are `goliath-gateway`, `goliath-workflow-run`, and `goliath-cfg`. The PyPI distribution name is `goliath-gateway`.
