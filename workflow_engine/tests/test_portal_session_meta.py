@@ -470,17 +470,15 @@ def test_session_meta_obj_not_found_indistinguishable_get_and_update(
     ) != "0":
         pytest.skip("catalog anchor obj is tenanted in this environment")
 
-    with psycopg.connect(conninfo) as conn:
-        get_errors = [
-            _expect_meta_object_not_found(conn, token_b, never_allocated_id),
-            _expect_meta_object_not_found(conn, token_b, catalog_obj_id),
-            _expect_meta_object_not_found(conn, token_b, cross_scope_id),
-        ]
-        update_errors = [
-            _expect_meta_object_not_found(conn, token_b, never_allocated_id, update=True),
-            _expect_meta_object_not_found(conn, token_b, catalog_obj_id, update=True),
-            _expect_meta_object_not_found(conn, token_b, cross_scope_id, update=True),
-        ]
+    get_errors: list[str] = []
+    for obj_id in (never_allocated_id, catalog_obj_id, cross_scope_id):
+        with psycopg.connect(conninfo) as conn:
+            get_errors.append(_expect_meta_object_not_found(conn, token_b, obj_id))
+
+    update_errors: list[str] = []
+    for obj_id in (never_allocated_id, catalog_obj_id, cross_scope_id):
+        with psycopg.connect(conninfo) as conn:
+            update_errors.append(_expect_meta_object_not_found(conn, token_b, obj_id, update=True))
     assert len(set(get_errors)) == 1
     assert len(set(update_errors)) == 1
     assert get_errors[0] == update_errors[0]
