@@ -90,8 +90,9 @@ def _seed_oidc_identity(env: dict[str, str], *, issuer: str, subject: str, scope
     _psql(
         f"""
         INSERT INTO "RBAC"."ExternalIdentities"
-          ("UserID","ProviderID","Subject","EmailSnapshot","Active","LastLoginAtUtc")
-        VALUES ({user_id}, {provider_id}, '{subject.replace("'", "''")}', '{email}', true, now() AT TIME ZONE 'utc')
+          ("UserID","ProviderID","Subject","EmailSnapshot","Active","CreatedAtUtc","LastLoginAtUtc")
+        VALUES ({user_id}, {provider_id}, '{subject.replace("'", "''")}', '{email}', true,
+                now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc')
         """,
         env,
     )
