@@ -262,14 +262,18 @@ def test_session_meta_obj_insert_get_roundtrip(
     doc = {"Caption": "RoundTripNode", "Seq": 42}
     conninfo = build_portal_conninfo()
     with psycopg.connect(conninfo) as conn:
-        obj_id = conn.execute(
+        insert_row = conn.execute(
             "SELECT portal.sp_session_meta_obj_insert(%s, %s, %s::jsonb)",
             (token, "portal/NavNode", json.dumps(doc)),
-        ).fetchone()[0]
-        merged = conn.execute(
+        ).fetchone()
+        assert insert_row is not None
+        obj_id = insert_row[0]
+        merge_row = conn.execute(
             "SELECT document FROM portal.sp_session_meta_obj_get(%s, %s)",
             (token, obj_id),
-        ).fetchone()[0]
+        ).fetchone()
+        assert merge_row is not None
+        merged = merge_row[0]
         assert merged["Caption"] == "RoundTripNode"
         assert int(merged["Seq"]) == 42
 
