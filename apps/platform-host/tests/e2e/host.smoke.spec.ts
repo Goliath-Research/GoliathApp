@@ -22,9 +22,11 @@ test.describe("platform host (fixture-only)", () => {
     await expect(images.first()).toBeVisible();
     expect(await images.count()).toBeGreaterThan(10);
 
-    await page.emulateMedia({ colorScheme: "light" });
-    await page.screenshot({ path: "/opt/cursor/artifacts/platform-host-fixture-light.png", fullPage: true });
-    await page.emulateMedia({ colorScheme: "dark" });
-    await page.screenshot({ path: "/opt/cursor/artifacts/platform-host-fixture-dark.png", fullPage: true });
+    if (!process.env.CI) {
+      await page.emulateMedia({ colorScheme: "light" });
+      await page.screenshot({ path: "/opt/cursor/artifacts/platform-host-fixture-light.png", fullPage: true });
+      await page.emulateMedia({ colorScheme: "dark" });
+      await page.screenshot({ path: "/opt/cursor/artifacts/platform-host-fixture-dark.png", fullPage: true });
+    }
   });
 });

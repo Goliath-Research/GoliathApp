@@ -35,7 +35,7 @@ export default function HomePage() {
             Version <code>{platformHostVersion()}</code> · revision <code>{platformHostRevision()}</code>
           </p>
           <p>
-            <Link href="/api/health">/api/health</Link>
+            <a href="/api/health">/api/health</a>
           </p>
         </article>
         <article className="g-host-card">
