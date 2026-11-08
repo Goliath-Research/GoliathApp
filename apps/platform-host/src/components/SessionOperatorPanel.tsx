@@ -24,7 +24,7 @@ export function SessionOperatorPanel() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "transport error");
-      setSession(null);
+      setSession((prev) => (prev === undefined ? null : prev));
       setNodes(null);
     }
   }, [client]);
@@ -41,7 +41,11 @@ export function SessionOperatorPanel() {
     return (
       <section className="g-host-card" aria-labelledby="session-panel-guest">
         <h3 id="session-panel-guest">Authentication (P1)</h3>
-        <p>No platform session cookie. Use your identity provider integration or operator bootstrap.</p>
+        {error ? (
+          <p role="alert">{error}</p>
+        ) : (
+          <p>No platform session cookie. Use your identity provider integration or operator bootstrap.</p>
+        )}
         <p>
           <a href="/app">Try protected /app route</a> (server redirect when unauthenticated).
         </p>
