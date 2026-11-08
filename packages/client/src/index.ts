@@ -18,7 +18,12 @@ export type { OperatorNavNode } from "./nav.js";
 export { coercePresentationKind } from "./nav.js";
 export { createPlatformBffClient, type PlatformBffClient, type PlatformBffClientOptions } from "./transport.js";
 export type { ChildHostExtension, ChildHostNavLeaf } from "./child-host.js";
-export type { MetaClassSummary, MetaClassLineageNode, MetaClassField } from "./meta.js";
+export type {
+  MetaClassSummary,
+  MetaClassLineageNode,
+  MetaClassField,
+  MetaObjectDocument,
+} from "./meta.js";
 export type { PlatformAuthMethodKind, PublicAuthProvider, ChildAuthProviderRegistration } from "./auth.js";
 export type { GoliathUiManifest } from "./manifest.js";
 
