@@ -74,9 +74,7 @@ test.describe("authenticated meta (CI postgres)", () => {
       }>;
     };
     for (const field of fields.filter((f) => f.required)) {
-      const row = page.locator(".g-schema-property-grid .g-meta-field-row", {
-        has: page.locator("label", { hasText: new RegExp(`^${field.fieldName}\\s*\\*$`) }),
-      });
+      const row = page.getByTestId(`pi-row-${field.fieldName}`);
       const checkbox = row.locator('input[type="checkbox"]');
       if ((await checkbox.count()) > 0) {
         await checkbox.check();

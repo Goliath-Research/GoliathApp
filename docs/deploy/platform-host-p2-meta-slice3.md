@@ -23,10 +23,11 @@ SQL contract (`workflow_engine/sql_pg/wf_data_type.sql`):
 
 Implementation (`packages/platform-ui/src/meta/SchemaPropertyGrid.tsx` → `SchemaPropertyGridSurface`):
 
-- **Vertical grid:** `g-meta-field-form` + one `g-meta-field-row` per Meta field.
-- **Hierarchy dispatch:** `resolveHierarchyFieldEditor` (catalog target → nested dialog via `CatalogNestedSchemaDialog` + `MetaCatalogResolver`).
-- **Inline anonymous objects:** rare; `NestedSchemaDialog` for truly inline `properties` without resolvable catalog ref.
-- **Schemaless JSON textarea:** only when the type is genuinely untyped (`schemaless` mode).
+- **Delphi Object Inspector layout (rebuilt in GoliathApp):** two-column table `g-property-inspector` (property name | value), fields grouped by declaring Meta class (collapsible category rows), per-row icons from `resolveFieldRowIcon` (registry ancestry → type-kind fallback).
+- **Nested values:** summary cell, `+` inline expand (read-only sub-rows), `…` button (`data-testid="pi-open-<field>"`) opens `PropertyInspectorModal` (portal to `document.body`, OK/Cancel, breadcrumb). Catalog types load through `PropertyInspectorDialogHost` → `CatalogNestedSchemaDialog` + `MetaCatalogResolver` (never raw JSON for schema-typed fields).
+- **Arrays of schema-typed items:** list editor with add/remove/reorder; each item uses the same nested modal stack.
+- **Reference (read-only):** Goliath-Research `uniGUI-CookBook` — `D4WGridDesignerFrm.pas` / `IQGridDesignerFrm.pas` (`TUniPropertyGrid` categorized two-column inspector). Public goliath-portal had no surviving grid source.
+- **Schemaless JSON textarea:** only when the type is genuinely untyped (`schemaless` mode) and no catalog ref resolves.
 
 Aliases: `MetaGeneratedFieldForm`, `MetaSchemaDocumentForm` delegate to `SchemaPropertyGrid`.
 
@@ -40,7 +41,7 @@ Nested E2E page: `/app/nested-e2e`. Screenshots: `platform-host-e2e-screenshots`
 
 ## Gaps (honest)
 
-Production OIDC Playwright path; Delphi desktop `SchemaPropertyGrid` UI is not in this monorepo.
+Production OIDC Playwright path; full Delphi designer chrome (drag-drop layout) is out of scope — only the property-inspector editing pattern is ported.
 
 ## Not in this slice (P3+)
 

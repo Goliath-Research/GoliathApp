@@ -109,6 +109,14 @@ def _ensure_e2e_nested_hierarchy(env: dict[str, str]) -> None:
         """,
         env,
     )
+    _psql(
+        f"""
+        INSERT INTO "Meta"."Fields" ("ClassID", "Name", "TypeID", "Required")
+        VALUES ({child_id}, 'DetailPayload', {payload_type_id}, false)
+        ON CONFLICT ("ClassID", "Name") DO NOTHING
+        """,
+        env,
+    )
 
     carrier_id = _psql(
         """SELECT "ID" FROM "Meta"."Classes" WHERE "Name" = 'e2e/NestedCarrier' LIMIT 1""",

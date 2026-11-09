@@ -12,6 +12,7 @@ import {
 } from "./metaHierarchyResolver.js";
 import { parseGoliathRef } from "./catalogRef.js";
 import { lazy, Suspense } from "react";
+import { PropertyInspectorModal } from "./PropertyInspectorModal.js";
 
 const LazySchemaPropertyGridSurface = lazy(() =>
   import("./SchemaPropertyGridSurface.js").then((m) => ({ default: m.SchemaPropertyGridSurface })),
@@ -28,6 +29,8 @@ export type CatalogNestedSchemaDialogProps = {
   headerSlot?: ReactNode;
   onSave: (value: Record<string, unknown>) => void;
   onCancel: () => void;
+  breadcrumb?: readonly string[];
+  usePropertyInspectorChrome?: boolean;
 };
 
 export function CatalogNestedSchemaDialog({
@@ -41,6 +44,8 @@ export function CatalogNestedSchemaDialog({
   headerSlot,
   onSave,
   onCancel,
+  breadcrumb,
+  usePropertyInspectorChrome = false,
 }: CatalogNestedSchemaDialogProps) {
   const titleId = useId();
   const [draft, setDraft] = useState(initialValue);
@@ -147,42 +152,59 @@ export function CatalogNestedSchemaDialog({
   const root =
     isSchemaRecord(bundled) ? bundled : isSchemaRecord(flattened) ? flattened : { type: "object", properties: {} };
 
+  const grid = !loading && !error && flattened != null ? (
+    <Suspense fallback={<p>Loading nested grid…</p>}>
+      <LazySchemaPropertyGridSurface
+        fields={fields}
+        syntheticFields={fields ? undefined : syntheticFieldsFromSchema(root, root)}
+        schema={flattened}
+        rootSchema={root}
+        bundledSchema={bundled}
+        registry={registry}
+        catalogResolver={catalogResolver}
+        documentClassFqn={catalogTarget.kind === "metaClass" ? catalogTarget.className : undefined}
+        declaringClassAncestryByField={
+          fields
+            ? Object.fromEntries(
+                fields.map((f) => [f.fieldName, classAncestry.length ? classAncestry : [f.declaredOnClassName]]),
+              )
+            : undefined
+        }
+        initialDocument={draft}
+        depth={depth}
+        embedded
+        headerSlot={gridHeader ?? headerSlot}
+        onDraftChange={setDraft}
+        onSubmit={usePropertyInspectorChrome ? undefined : onSave}
+        submitLabel={usePropertyInspectorChrome ? undefined : "Save"}
+      />
+    </Suspense>
+  ) : null;
+
+  if (usePropertyInspectorChrome) {
+    return (
+      <PropertyInspectorModal
+        open
+        title={title}
+        breadcrumb={breadcrumb}
+        onOk={() => onSave(draft)}
+        onCancel={onCancel}
+        okDisabled={loading || !!error || flattened == null}
+      >
+        {loading ? <p>Loading nested class schema…</p> : null}
+        {error ? <p role="alert">{error}</p> : null}
+        {grid}
+      </PropertyInspectorModal>
+    );
+  }
+
   return (
     <DialogBackdrop onCancel={onCancel}>
       <dialog open className="g-schema-dialog" data-testid="schema-nested-dialog" aria-labelledby={titleId}>
         <h3 id={titleId}>{title}</h3>
         {loading ? <p>Loading nested class schema…</p> : null}
         {error ? <p role="alert">{error}</p> : null}
-        {!loading && !error && flattened != null ? (
-          <Suspense fallback={<p>Loading nested grid…</p>}>
-            <LazySchemaPropertyGridSurface
-              fields={fields}
-              syntheticFields={
-                fields ? undefined : syntheticFieldsFromSchema(root, root)
-              }
-              schema={flattened}
-              rootSchema={root}
-              bundledSchema={bundled}
-              registry={registry}
-              catalogResolver={catalogResolver}
-              documentClassFqn={catalogTarget.kind === "metaClass" ? catalogTarget.className : undefined}
-              declaringClassAncestryByField={
-                fields
-                  ? Object.fromEntries(
-                      fields.map((f) => [f.fieldName, classAncestry.length ? classAncestry : [f.declaredOnClassName]]),
-                    )
-                  : undefined
-              }
-              initialDocument={draft}
-              depth={depth}
-              submitLabel="Save"
-              embedded
-              headerSlot={gridHeader ?? headerSlot}
-              onDraftChange={setDraft}
-              onSubmit={onSave}
-            />
-          </Suspense>
-        ) : null}
+        {grid}
         <div className="g-schema-dialog__actions">
           <button type="button" className="g-host-button" onClick={onCancel}>
             Cancel
