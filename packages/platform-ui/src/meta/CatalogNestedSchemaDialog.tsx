@@ -149,7 +149,7 @@ export function CatalogNestedSchemaDialog({
 
   return (
     <DialogBackdrop onCancel={onCancel}>
-      <div className="g-schema-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <dialog open className="g-schema-dialog" data-testid="schema-nested-dialog" aria-labelledby={titleId}>
         <h3 id={titleId}>{title}</h3>
         {loading ? <p>Loading nested class schema…</p> : null}
         {error ? <p role="alert">{error}</p> : null}
@@ -188,14 +188,14 @@ export function CatalogNestedSchemaDialog({
             Cancel
           </button>
         </div>
-      </div>
+      </dialog>
     </DialogBackdrop>
   );
 }
 
 function DialogBackdrop({ children, onCancel }: { children: ReactNode; onCancel: () => void }) {
   return (
-    <div className="g-schema-dialog-backdrop" data-testid="schema-nested-dialog">
+    <div className="g-schema-dialog-backdrop">
       <button type="button" className="g-schema-dialog-backdrop__hit" aria-label="Close dialog" onClick={onCancel} />
       {children}
     </div>

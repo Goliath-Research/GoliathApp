@@ -655,9 +655,9 @@ function InlineObjectSchemaDialog({
   });
 
   return (
-    <div className="g-schema-dialog-backdrop" data-testid="schema-nested-dialog">
+    <div className="g-schema-dialog-backdrop">
       <button type="button" className="g-schema-dialog-backdrop__hit" aria-label="Close dialog" onClick={onCancel} />
-      <div className="g-schema-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <dialog open className="g-schema-dialog" data-testid="schema-nested-dialog" aria-labelledby={titleId}>
         <h3 id={titleId}>{title}</h3>
         {fieldNames.map((name) => (
           <p key={name} className="g-meta-field-row">
@@ -702,7 +702,7 @@ function InlineObjectSchemaDialog({
         <button type="button" className="g-host-button" onClick={onCancel}>
           Cancel
         </button>
-      </div>
+      </dialog>
     </div>
   );
 }
