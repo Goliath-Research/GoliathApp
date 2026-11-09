@@ -55,7 +55,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await expect(page.getByRole("heading", { name: "e2e/NestedCarrier" })).toBeVisible();
     await expect(page.locator('[data-has-catalog-resolver="true"]')).toBeVisible();
     await expect(page.getByRole("button", { name: "Edit nested Payload" })).toBeVisible();
-  const dir = process.env.PLAYWRIGHT_SCREENSHOT_DIR;
+    const dir = process.env.PLAYWRIGHT_SCREENSHOT_DIR;
     const shot = dir
       ? `${dir}/meta-nested-hierarchy-grid.png`
       : testInfo.outputPath("meta-nested-hierarchy-grid.png");
