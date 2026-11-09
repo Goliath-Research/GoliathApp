@@ -2,7 +2,7 @@
 
 import type { MetaClassField } from "@goliath/client";
 import { createPlatformBffClient } from "@goliath/client";
-import { MetaSchemaDocumentForm } from "@goliath/platform-ui";
+import { SchemaPropertyGrid } from "@goliath/platform-ui";
 import { useState } from "react";
 import { MetaJsonDocumentEditor } from "./MetaJsonDocumentEditor";
 
@@ -37,7 +37,7 @@ export function MetaInstanceWorkbench({ className, fields, flattenedSchema }: Me
 
   return (
     <div className="g-meta-workbench">
-      <MetaSchemaDocumentForm
+      <SchemaPropertyGrid
         fields={fields}
         flattenedSchema={flattenedSchema}
         onSubmit={save}

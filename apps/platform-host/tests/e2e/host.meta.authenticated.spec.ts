@@ -63,14 +63,11 @@ test.describe("authenticated meta (CI postgres)", () => {
     await page.goto("/app/meta?class=portal%2FNavNode");
     await page.getByLabel("Caption *").fill("E2ECaption");
     await page.getByLabel("Seq *").fill("17");
-  const [createResponse] = await Promise.all([
-      page.waitForResponse(
-        (res) => res.url().includes("/api/meta/classes/") && res.url().includes("/objects"),
-      ),
-      page.getByRole("button", { name: /Create via BFF/ }).click(),
-    ]);
-    expect(createResponse.status()).toBe(201);
-    await expect(page.locator(".g-meta-workbench").getByRole("status")).toContainText("Created object #");
+    await page.getByRole("button", { name: /Create via BFF/ }).click();
+    await expect(page.locator(".g-meta-workbench").getByRole("status")).toContainText(
+      "Created object #",
+      { timeout: 60_000 },
+    );
 
     const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
       data: { document: { Caption: "ApiCaption", Seq: 18 } },

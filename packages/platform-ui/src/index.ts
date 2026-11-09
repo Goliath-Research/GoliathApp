@@ -8,6 +8,8 @@ export { DemoObjectTable } from "./components/DemoObjectTable.js";
 export { PlatformFixtureDemo, FIXTURE_NAV_TREE, FIXTURE_PLATFORM_ROWS } from "./fixture/index.js";
 export { OperatorNavList } from "./shell/OperatorNavList.js";
 export { MetaClassExplorer } from "./meta/MetaClassExplorer.js";
+export { SchemaPropertyGrid } from "./meta/SchemaPropertyGrid.js";
 export { MetaGeneratedFieldForm } from "./meta/MetaGeneratedFieldForm.js";
 export { MetaSchemaDocumentForm } from "./meta/MetaSchemaDocumentForm.js";
 export { parseFlattenedFieldSchema, propertySchemaFromFlattened } from "./meta/parseFlattenedFieldSchema.js";
+export { resolveFieldEditor } from "./meta/resolveFieldEditor.js";
