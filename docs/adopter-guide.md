@@ -82,7 +82,9 @@ Your worker executable matches **`capability`** strings to claimable tasks ([wor
 
 ## 3. NavTree menu nodes
 
-Use **`portal.sp_nav_register_node`** (creates Meta `portal/NavNode` + legacy `portal."NavTree"` row; grant **`portal."Role2Node"`** for RBAC) — see [nav-tree-meta.md](nav-tree-meta.md), `workflow_engine/sql_pg/portal_nav_meta.sql`, and [rbac.md](rbac.md).
+**Platform baseline (do not reimplement):** GoliathApp seeds the inherited administrative NavTree with **`workflow_engine/sql_pg/seed_platform_nav_tree.sql`** on every database (empty or upgraded) — see [database-population.md](database-population.md). Your deployment should run that script after `apply_schema.sh` and the Python catalog seeds; `organization_admin` receives baseline Role2Node grants when organization scopes exist.
+
+**Your domain nodes:** use **`portal.sp_nav_register_node`** (creates Meta `portal/NavNode` + legacy `portal."NavTree"` row; grant **`portal."Role2Node"`** for RBAC) — see [nav-tree-meta.md](nav-tree-meta.md), `workflow_engine/sql_pg/portal_nav_meta.sql`, and [rbac.md](rbac.md).
 
 ## 4. Meta classes and validation
 

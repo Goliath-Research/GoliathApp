@@ -25,7 +25,7 @@ flowchart TB
 | Layer | What it is | Source of truth | Typical actors |
 |-------|------------|-----------------|----------------|
 | **1. Schema** | Tables, functions, procedures, types, gateway roles | `workflow_engine/sql_pg/apply_schema.sh` → ordered `SCRIPTS` ([schema-apply.md](schema-apply.md)) | DBA / infra CI |
-| **2. Platform/reference seeds** | Core semantic registry rows, catalog `ActionSpec` rows in `wf` | `python3 workflow_engine/sql_pg/seed_semantic_catalog.py`, `python3 workflow_engine/sql_pg/seed_action_catalog.py --use-db` | Release automation |
+| **2. Platform/reference seeds** | Core semantic registry rows, catalog `ActionSpec` rows in `wf`, **baseline administrative NavTree** | `python3 workflow_engine/sql_pg/seed_semantic_catalog.py`, `python3 workflow_engine/sql_pg/seed_action_catalog.py --use-db`, `psql … -f workflow_engine/sql_pg/seed_platform_nav_tree.sql` | Release automation |
 | **3. Org + RBAC** | Organizations, users, roles, scopes, navigation entitlements | `portal.sp_organization_*`, `portal.sp_*` RBAC procedures ([rbac.md](rbac.md)) | Tenant admin / bootstrap job |
 | **4. Descendant extension** | Domain namespaces, semantic entities/requests, NavTree nodes, workflows, Meta classes | Your SQL + Python catalogs (`goliath.action_catalogs`, etc.) | Application team |
 
@@ -36,6 +36,7 @@ flowchart TB
 | **`apply_schema.sh`** (DDL) | Any PostgreSQL surface in this repo | Platform release / DBA |
 | **`seed_action_catalog.py --use-db`** | **Any** workflow graph whose nodes reference **`action_name`** values (including engine actions such as `workflow.const_string`) — `wf_repo_create_workflow_graph` fails on unknown names | Platform release automation (`goliath.action_catalogs` in `workflow_engine/pyproject.toml` → `goliath_app/actions/registry.py`) |
 | **`seed_semantic_catalog.py`** | Portal semantic registry as shipped; not required to create `wf.*` graphs alone | Platform release automation |
+| **`seed_platform_nav_tree.sql`** | **Inherited platform operator menu** (`portal."NavTree"` under `/app`, `organization_admin` Role2Node + Role_Permissions); empty databases stay at NavTree count 0 without it | Platform release automation (after catalog seeds; re-run after new org scopes) |
 | **Org + RBAC** (`portal.sp_organization_*`, sessions, roles) | **Interactive portal** and RBAC-gated operations | Tenant admin / bootstrap |
 | **`portal.semantic_*` + `Meta.*`** | Semantic UI, Meta validation, typed catalogs that tie to portal | Platform seeds + **descendant** registrations |
 | **`wf.workflow_*` graph rows** | Runnable workflow instances | **Product** (SQL, `portal.sp_create_workflow_graph`, gateway, or `ops` deploy tools — not DDL) |
@@ -81,11 +82,21 @@ export PGPASSWORD=…   # or PGPASSFILE
 
 python3 workflow_engine/sql_pg/seed_semantic_catalog.py
 python3 workflow_engine/sql_pg/seed_action_catalog.py --use-db
+psql -v ON_ERROR_STOP=1 -f workflow_engine/sql_pg/seed_platform_nav_tree.sql
 ```
 
 **Important:** `seed_action_catalog.py` **defaults to dry-run** — it only prints action names unless you pass **`--use-db`** ([`seed_action_catalog.py`](https://github.com/Goliath-Research/GoliathApp/blob/main/workflow_engine/sql_pg/seed_action_catalog.py)). `seed_semantic_catalog.py` always writes when `PGHOST` is set.
 
 These scripts call **`portal.sp_semantic_register_*`** and **`wf.wf_repo_upsert_*`** procedures implemented in `workflow_engine/sql_pg/`.
+
+### Baseline NavTree (SQL platform seed)
+
+GoliathApp ships the **inherited administrative menu** in [`seed_platform_nav_tree.sql`](https://github.com/Goliath-Research/GoliathApp/blob/main/workflow_engine/sql_pg/seed_platform_nav_tree.sql). It is **not** DDL and **not** a one-off migration: every empty GoliathApp database that has completed `apply_schema.sh` and the Python catalog seeds should run this script so operators see platform administration, Meta/OOP surfaces, workflows, semantic layer, configuration, operations, views, and optional `inv` — not an empty NavTree.
+
+- **Registration:** `portal.sp_nav_register_node` (with `smallint` `p_seq`), `portal."NodeInfos"."FrameKey"` bound to platform-host routes under `/app/…` (screens may be P3–P5; nodes are still registered).
+- **RBAC:** `organization_admin` receives `Role_Permissions` for Meta and platform operator permissions, and `portal.sp_grant_role_nav_node` for each active **organization** scope.
+- **Descendants** add domain nodes on top ([nav-tree-meta.md](nav-tree-meta.md)); they do not replace this seed.
+- **Re-run:** idempotent. Run again after `portal.sp_organization_create` if the first run happened before any organization scope existed (Role2Node grants are per scope).
 
 ## Database roles (least privilege)
 
@@ -131,7 +142,8 @@ The following lists **tables and procedures actually referenced** when persistin
 
 - **Semantic:** `portal.semantic_namespace`, `portal.semantic_entity`, attributes, requests — procedures `portal.sp_semantic_register_*` (`portal_semantic_api.sql`). Requests need generated **composite types** in schema **`portal`** ([semantic-extensions.md](semantic-extensions.md)).
 - **Meta:** class/object APIs under **`"Meta"`** schema ([meta-model.md](meta-model.md)); optional bridge to `wf.data_type` / semantic entities.
-- **Nav:** `portal.sp_nav_register_node` (Meta `portal/NavNode` + legacy `portal."NavTree"` row; [nav-tree-meta.md](nav-tree-meta.md)); **Role2Node** grants are separate RBAC steps.
+- **Nav (baseline):** `seed_platform_nav_tree.sql` — platform-owned tree under `/app` ([nav-tree-meta.md](nav-tree-meta.md)).
+- **Nav (descendant):** `portal.sp_nav_register_node` (Meta `portal/NavNode` + legacy `portal."NavTree"` row); **Role2Node** grants are separate RBAC steps.
 - **Org / scope:** organization and scope procedures as in [rbac.md](rbac.md) — **not** implied by `wf_repo_create_workflow_graph` alone.
 
 ### Disposable DB: minimal runnable + claimable configuration
@@ -146,7 +158,7 @@ Descendant applications **add rows** through the same **registration APIs** the 
 |---------|------------------|-------|
 | **Semantic namespace** | `INSERT … portal.semantic_namespace` or first `CALL portal.sp_semantic_register_entity` (auto-inserts namespace) | Core namespaces `core` and `engine` are inserted in `portal_semantic_schema.sql` |
 | **Semantic entity + attributes + requests** | `CALL portal.sp_semantic_register_entity`, `CALL portal.sp_semantic_register_attribute`, `CALL portal.sp_semantic_register_request` | Request registration requires **composite row types** in schema **`portal`** (generated by `goliath-semantic-export`) — see [semantic-extensions.md](semantic-extensions.md) |
-| **NavTree** | `SELECT portal.sp_nav_register_node(…)` | Cast `p_seq` to `smallint` so PostgreSQL picks the correct function overload (`workflow_engine/sql_pg/portal_shell_schema.sql`) |
+| **NavTree (domain)** | `SELECT portal.sp_nav_register_node(…)` | Cast `p_seq` to `smallint` so PostgreSQL picks the correct function overload (`workflow_engine/sql_pg/portal_shell_schema.sql`). Do **not** re-seed the baseline `/app` tree — use `seed_platform_nav_tree.sql` on platform upgrades. |
 | **RBAC navigation grants** | `portal.sp_grant_role_nav_node`, `portal.sp_deny_role_nav_node` | See [rbac.md](rbac.md) |
 | **Actions** | `CALL wf.wf_repo_upsert_workflow_action` (wide overload after dispatch scripts), `wf.wf_repo_upsert_data_type`, `wf.wf_repo_bind_action_data_types` | Prefer authoring **`ActionSpec`** in Python and `seed_action_catalog.py --use-db` or your own caller — see [actions.md](actions.md) |
 | **Meta classes / objects** | `"Meta".sp_meta_publish_class_type`, `"Meta".sp_obj_insert`, etc. | See [meta-model.md](meta-model.md) |

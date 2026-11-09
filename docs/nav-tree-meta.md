@@ -62,8 +62,8 @@ LIMIT 50;
 
 ## Inheritance and population
 
-- **Platform** owns `portal/NavNode`, tree maintenance, and the bridge; apply order is in [schema-apply.md](schema-apply.md).
-- **Descendants** extend navigation only via `portal.sp_nav_register_node` and Role2Node (see [adopter-guide.md](adopter-guide.md), [database-population.md](database-population.md)).
+- **Platform** owns `portal/NavNode`, tree maintenance, the bridge, and the **baseline NavTree** seed `workflow_engine/sql_pg/seed_platform_nav_tree.sql` (run after `apply_schema.sh` and Python catalog seeds — see [database-population.md](database-population.md)). That script registers administration (users, RBAC, organizations), Meta/OOP (classes, objects, fields, relations, methods, data types, trees), workflows, semantic layer, configuration, operations, views/dashboards, and optional inventory — all under `/app/…` paths aligned with the platform host.
+- **Descendants** **extend** navigation only: additional `portal.sp_nav_register_node` calls and Role2Node grants for domain modules (see [adopter-guide.md](adopter-guide.md)). They do not own the baseline tree.
 - **Semantic** `portal.semantic_nav_binding.nav_tree_id` still references `portal."NavTree"."ID"`.
 
 ## Downstream apps
