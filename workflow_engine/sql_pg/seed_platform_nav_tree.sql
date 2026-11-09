@@ -21,7 +21,7 @@ SELECT portal.sp_nav_ensure_meta_catalog();
 
 DO $seed$
 DECLARE
-  r record;
+  nav_row record;
   v_parent_id int;
   v_info_id int;
   v_node_id int;
@@ -76,9 +76,9 @@ BEGIN
     END LOOP;
   END IF;
 
-  SELECT r."ID" INTO v_role_id
-  FROM "RBAC"."Roles" r
-  WHERE r."Name" = 'organization_admin'
+  SELECT role_row."ID" INTO v_role_id
+  FROM "RBAC"."Roles" role_row
+  WHERE role_row."Name" = 'organization_admin'
   LIMIT 1;
 
   IF v_role_id IS NOT NULL THEN
@@ -167,64 +167,64 @@ BEGIN
     ('Supplier items', '/app/inv/supplier-items', '0010.0080.0040', 40::smallint, '/app/inv', 'artifact', 'platform.nav.inv.supplier_items'),
     ('Stock operations', '/app/inv/stock', '0010.0080.0050', 50::smallint, '/app/inv', 'workflow_action', 'platform.nav.inv.stock');
 
-  FOR r IN
+  FOR nav_row IN
     SELECT *
     FROM _platform_baseline_nav
     ORDER BY sort_path
   LOOP
     SELECT ni."Id" INTO v_info_id
     FROM portal."NodeInfos" ni
-    WHERE ni."Name" = r.info_name
+    WHERE ni."Name" = nav_row.info_name
     LIMIT 1;
 
     IF v_info_id IS NULL THEN
       INSERT INTO portal."NodeInfos" ("Name", "Singleton", "FrameKey")
-      VALUES (r.info_name, true, r.frame_key)
+      VALUES (nav_row.info_name, true, nav_row.frame_key)
       RETURNING "Id" INTO v_info_id;
     ELSE
       UPDATE portal."NodeInfos" ni
-      SET "FrameKey" = r.frame_key
-      WHERE ni."Id" = v_info_id AND COALESCE(ni."FrameKey", '') IS DISTINCT FROM r.frame_key;
+      SET "FrameKey" = nav_row.frame_key
+      WHERE ni."Id" = v_info_id AND COALESCE(ni."FrameKey", '') IS DISTINCT FROM nav_row.frame_key;
     END IF;
 
     v_parent_id := NULL;
-    IF r.parent_path IS NOT NULL THEN
+    IF nav_row.parent_path IS NOT NULL THEN
       SELECT n."ID" INTO v_parent_id
       FROM portal."NavTree" n
-      WHERE n."NodePath" = r.parent_path
+      WHERE n."NodePath" = nav_row.parent_path
       LIMIT 1;
     END IF;
 
     SELECT n."ID" INTO v_node_id
     FROM portal."NavTree" n
-    WHERE n."NodePath" = r.node_path
+    WHERE n."NodePath" = nav_row.node_path
     LIMIT 1;
 
     IF v_node_id IS NULL THEN
       SELECT node_id INTO v_node_id
       FROM portal.sp_nav_register_node(
         v_parent_id,
-        r.caption,
-        r.seq,
+        nav_row.caption,
+        nav_row.seq,
         v_info_id,
-        r.node_path,
-        r.sort_path
+        nav_row.node_path,
+        nav_row.sort_path
       );
     ELSE
       UPDATE portal."NavTree" n
       SET
         "ParentID" = v_parent_id,
-        "Caption" = r.caption,
-        "Seq" = r.seq,
+        "Caption" = nav_row.caption,
+        "Seq" = nav_row.seq,
         "InfoID" = v_info_id,
-        "SortPath" = r.sort_path
+        "SortPath" = nav_row.sort_path
       WHERE n."ID" = v_node_id
         AND (
           n."ParentID" IS DISTINCT FROM v_parent_id
-          OR n."Caption" IS DISTINCT FROM r.caption
-          OR n."Seq" IS DISTINCT FROM r.seq
+          OR n."Caption" IS DISTINCT FROM nav_row.caption
+          OR n."Seq" IS DISTINCT FROM nav_row.seq
           OR n."InfoID" IS DISTINCT FROM v_info_id
-          OR n."SortPath" IS DISTINCT FROM r.sort_path
+          OR n."SortPath" IS DISTINCT FROM nav_row.sort_path
         );
     END IF;
   END LOOP;
