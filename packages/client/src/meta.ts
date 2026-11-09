@@ -23,9 +23,17 @@ export type MetaClassField = {
   fieldName: string;
   typeId: number | null;
   typeName: string | null;
+  typeKind: string | null;
   required: boolean;
   declaredOnClassId: number;
   declaredOnClassName: string;
   definedAtDepth: number;
   isLocal: boolean;
+};
+
+export type MetaObjectDocument = {
+  objId: number;
+  classId: number;
+  className: string;
+  document: Record<string, unknown>;
 };

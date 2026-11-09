@@ -19,6 +19,15 @@ test.describe("platform host", () => {
     expect([401, 503]).toContain(res.status());
   });
 
+  test("meta object API fails closed without a session", async ({ request }) => {
+    const getRes = await request.get("/api/meta/objects/1");
+    expect([401, 503]).toContain(getRes.status());
+    const postRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
+      data: { document: { Caption: "x", Seq: 1 } },
+    });
+    expect([401, 503]).toContain(postRes.status());
+  });
+
   test("protected navigation API fails closed without a session", async ({ request }) => {
     const res = await request.get("/api/navigation");
     expect([401, 503]).toContain(res.status());

@@ -60,6 +60,27 @@ export class PortalMetaNotFoundError extends Error {
   }
 }
 
+export class PortalForbiddenError extends Error {
+  constructor(message = "forbidden") {
+    super(message);
+    this.name = "PortalForbiddenError";
+  }
+}
+
+export class PortalMetaValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PortalMetaValidationError";
+  }
+}
+
+export type MetaObjectDocumentRow = {
+  objId: number;
+  classId: number;
+  className: string;
+  document: unknown;
+};
+
 export type MetaClassSummaryRow = {
   classId: number;
   className: string;
@@ -85,6 +106,7 @@ export type MetaClassFieldRow = {
   fieldName: string;
   typeId: number | null;
   typeName: string | null;
+  typeKind: string | null;
   required: boolean;
   declaredOnClassId: number;
   declaredOnClassName: string;
@@ -99,8 +121,39 @@ function mapPgPortalError(err: unknown): never {
   if (pgCode === "GS401" || message.includes("GS401") || message.includes("session denied")) {
     throw new PortalSessionDeniedError();
   }
-  if (pgCode === "GS404" || message.includes("GS404") || message.includes("not found")) {
+  if (pgCode === "GS403" || message.includes("GS403") || message.includes("permission denied")) {
+    if (
+      message.includes("meta permission denied") ||
+      message.includes("active scope required for meta instance")
+    ) {
+      throw new PortalForbiddenError("meta permission denied");
+    }
+    throw new PortalForbiddenError("forbidden");
+  }
+  if (
+    pgCode === "GS404" ||
+    message.includes("GS404") ||
+    message.includes("meta object not found") ||
+    message.includes("meta object scope denied")
+  ) {
+    if (
+      message.includes("meta object not found") ||
+      message.includes("meta object scope denied") ||
+      (message.includes("object") && message.includes("not found"))
+    ) {
+      throw new PortalMetaNotFoundError("meta object not found");
+    }
+    if (message.includes("meta class")) {
+      throw new PortalMetaNotFoundError("meta class not found");
+    }
     throw new PortalMetaNotFoundError();
+  }
+  if (
+    message.includes("unknown field") ||
+    message.includes("missing required field") ||
+    message.includes("ValidationError")
+  ) {
+    throw new PortalMetaValidationError(message);
   }
   throw err;
 }
@@ -295,7 +348,7 @@ export async function portalSessionMetaClassFields(
   return withClient(async (client) => {
     try {
       const result = await client.query(
-        `SELECT field_name, type_id, type_name, required, declared_on_class_id,
+        `SELECT field_name, type_id, type_name, type_kind, required, declared_on_class_id,
                 declared_on_class_name, defined_at_depth, is_local
          FROM portal.sp_session_meta_class_fields($1, $2)`,
         [sessionToken, className],
@@ -304,12 +357,80 @@ export async function portalSessionMetaClassFields(
         fieldName: String(row.field_name),
         typeId: row.type_id == null ? null : Number(row.type_id),
         typeName: row.type_name == null ? null : String(row.type_name),
+        typeKind: row.type_kind == null ? null : String(row.type_kind),
         required: Boolean(row.required),
         declaredOnClassId: Number(row.declared_on_class_id),
         declaredOnClassName: String(row.declared_on_class_name),
         definedAtDepth: Number(row.defined_at_depth),
         isLocal: Boolean(row.is_local),
       }));
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionMetaObjInsert(
+  sessionToken: string,
+  className: string,
+  document: unknown,
+): Promise<number> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT portal.sp_session_meta_obj_insert($1, $2, $3::jsonb) AS obj_id`,
+        [sessionToken, className, JSON.stringify(document ?? {})],
+      );
+      const objId = result.rows[0]?.obj_id;
+      if (objId == null) {
+        throw new Error("sp_session_meta_obj_insert returned no row");
+      }
+      return Number(objId);
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionMetaObjUpdate(
+  sessionToken: string,
+  objId: number,
+  document: unknown,
+): Promise<void> {
+  return withClient(async (client) => {
+    try {
+      await client.query(`SELECT portal.sp_session_meta_obj_update($1, $2, $3::jsonb)`, [
+        sessionToken,
+        objId,
+        JSON.stringify(document ?? {}),
+      ]);
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionMetaObjGet(
+  sessionToken: string,
+  objId: number,
+): Promise<MetaObjectDocumentRow> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT obj_id, class_id, class_name, document
+         FROM portal.sp_session_meta_obj_get($1, $2)`,
+        [sessionToken, objId],
+      );
+      const row = result.rows[0];
+      if (!row) {
+        throw new PortalMetaNotFoundError("meta object not found");
+      }
+      return {
+        objId: Number(row.obj_id),
+        classId: Number(row.class_id),
+        className: String(row.class_name),
+        document: row.document,
+      };
     } catch (err) {
       mapPgPortalError(err);
     }

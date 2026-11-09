@@ -1,41 +1,57 @@
-# Platform host — P2 Meta hierarchy (slice 1)
+# Platform host — P2 Meta hierarchy (slice 2)
 
-Stacked on [P1 auth](platform-host-p1-auth.md). **Read-only** Meta browser and flattened-schema document validation — not full DDL/ObjValues editor.
+Stacked on slice 1. **Catalog reads** stay global; **instance data** is scope-bound on the server.
 
-## Server contract (PostgreSQL)
+## Tenancy model (code-only DDL in `portal_session_meta_api.sql`)
 
-| Procedure | Purpose |
-|-----------|---------|
-| `portal.sp_session_meta_class_get` | Class summary + flattened/bundled JSON Schema |
-| `portal.sp_session_meta_class_lineage` | Ancestors, self, descendants (`Meta.ClassClosure`) |
-| `portal.sp_session_meta_class_fields` | `VClassFieldsResolved` with `is_local` |
-| `portal.sp_session_get_data_type` | Session-wrapped `portal.sp_get_data_type` |
+| Layer | Scope behavior |
+|--------|----------------|
+| **Catalog** (`meta.schema.read`) | `Meta.Classes`, hierarchy, fields, `wf.data_type` — global; session + permission only (no active scope required). |
+| **Instances** (`meta.object.*`) | Rows in `portal.ScopedMetaObjects` bind `Meta.Objs.ID` → `RBAC.Scopes.ScopeID` at create time. |
+| **Legacy/catalog `Meta.Objs`** | No `ScopedMetaObjects` row → **not visible** via `sp_session_meta_obj_get` (`GS404`). |
 
-Valid session required. **Fine-grained Meta RBAC codes are not enforced in this slice** (gap documented for P2+).
+Instance authorization flow:
 
-## BFF routes (cookie session)
+1. **Identity-independent checks first** — session, active scope, and all required permissions (`fn_session_meta_require_instance` / `fn_session_meta_require_instance_write` includes `meta.object.write` + `meta.schema.read`) **before any `ObjID` lookup**.
+2. `fn_session_meta_strip_tenancy_keys` — remove forged `scope_id`, `OrganizationID`, etc. from JSON **before** `Meta.sp_obj_*`.
+3. `fn_session_meta_assert_obj_in_active_scope` — only after (1). **Cross-tenant, unmapped, and never-allocated IDs → `GS404` / `meta object not found`**. Missing permissions → **`GS403` / `meta permission denied`** with the same body regardless of `ObjID` (BFF `resolvePortalForbiddenBody`).
 
-- `GET /api/meta/classes/:className`
-- `GET /api/meta/classes/:className/lineage`
-- `GET /api/meta/classes/:className/fields`
+**Not claimed:** org membership checks beyond RBAC grants; row-level scope inside merged JSON; preserving unknown top-level keys (rejected explicitly by phase D).
 
-## UI
+## Permissions
 
-- `/app/meta?class=portal/NavNode` — `MetaClassExplorer` + client AJV check against **flattened** schema only.
-- Child apps register custom field editors via `GoliathUiManifest.editorComponents` (keys only); host does not load child React from Python.
+| Permission | Scope rule |
+|------------|------------|
+| `meta.schema.read` | Any matching grant (incl. global NULL `ScopeID`). |
+| `meta.object.read` / `meta.object.write` | Grant must match **active session scope** (or `BypassScope`). |
 
-## Implemented vs remaining (P2)
+## BFF routes
 
-| Area | This PR | Later P2+ |
-|------|---------|-----------|
-| Hierarchy browser | Yes | Cross-class search, write APIs |
-| Field local/inherited | Yes | Method/link editors |
-| JSON instance editor | Validate-only textarea | Generated forms, `sp_obj_*` writes |
-| Permissions | Session gate only | `meta.*` RBAC on read/write |
-| Workflows | Roadmap (P3) | — |
+Same procedures as slice 1; BFF is a thin cookie forwarder — isolation is enforced in PostgreSQL.
+
+- `POST /api/meta/classes/:className/objects`
+- `GET|PATCH /api/meta/objects/:objId`
+
+## UI limitations
+
+- `MetaGeneratedFieldForm`: primitive string/int/checkbox inference only.
+- AJV textarea validates flattened schema only; server may reject additional keys.
+- Authenticated host smoke requires local Postgres + `GOLIATH_PLATFORM_HOST_DEV_LOGIN=1` (integration header); CI Playwright stays unauthenticated.
 
 ## Tests
 
-- `workflow_engine/tests/test_portal_session_meta.py`
-- `@goliath/platform-ui` AJV unit smoke
-- Playwright: meta API 401 without cookie
+`workflow_engine/tests/test_portal_session_meta.py`:
+
+- Same-scope insert/get roundtrip
+- Cross-scope read/update → same `GS404` as missing/unmapped (GET and PATCH)
+- Indistinguishable error text across nonexistent, catalog-unmapped, and cross-scope IDs
+- Null active scope on instance read/write `GS403`
+- Global (unscoped) grant + active scope session → instance `GS403`
+- Forged tenancy keys stripped; tenancy from session only
+- Catalog object without tenancy → `GS404`
+- Permission revocation → `GS403`
+- Session revocation → `GS401` (schema)
+
+## Remaining P2+
+
+Full generated form parity, nested editors, optional org-membership assertion, P3 workflows unchanged.

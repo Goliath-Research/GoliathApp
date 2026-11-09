@@ -1,13 +1,15 @@
 "use client";
 
 import type { MetaClassField, MetaClassLineageNode, MetaClassSummary } from "@goliath/client";
-import { ObjectBadge, resolvePresentation } from "@goliath/ui";
+import { ObjectBadge, resolvePresentation, type ClassIconOverrideManifest } from "@goliath/ui";
 import type { ReactNode } from "react";
 
 export type MetaClassExplorerProps = {
   summary: MetaClassSummary;
   lineage: MetaClassLineageNode[];
   fields: MetaClassField[];
+  /** Merged child manifest overrides (ancestor walk applied in resolvePresentation). */
+  classIconOverrides?: ClassIconOverrideManifest;
   /** Optional child-registered editor slot (opaque key from GoliathUiManifest). */
   editorSlot?: ReactNode;
 };
@@ -23,13 +25,20 @@ function ancestryChain(lineage: MetaClassLineageNode[], className: string): stri
   return ancestors;
 }
 
-export function MetaClassExplorer({ summary, lineage, fields, editorSlot }: MetaClassExplorerProps) {
+export function MetaClassExplorer({
+  summary,
+  lineage,
+  fields,
+  classIconOverrides,
+  editorSlot,
+}: MetaClassExplorerProps) {
   const ancestry = ancestryChain(lineage, summary.className);
   const classPresentation = resolvePresentation({
     kind: "meta_class",
     classFqn: summary.className,
     classAncestry: ancestry,
     label: summary.className,
+    classIconOverrides,
   });
 
   return (
@@ -65,6 +74,7 @@ export function MetaClassExplorer({ summary, lineage, fields, editorSlot }: Meta
               classFqn: node.className,
               classAncestry: ancestry,
               label: `${node.lineageRole}: ${node.className}`,
+              classIconOverrides,
             });
             return (
               <li key={`${node.lineageRole}-${node.classId}`}>
@@ -94,6 +104,7 @@ export function MetaClassExplorer({ summary, lineage, fields, editorSlot }: Meta
                     label={field.fieldName}
                     classFqn={summary.className}
                     classAncestry={ancestry}
+                    classIconOverrides={classIconOverrides}
                   />
                   {field.required ? " *" : ""}
                 </td>
