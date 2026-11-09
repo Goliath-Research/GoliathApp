@@ -7,7 +7,7 @@ function registerCatalogDefs(ajv: Ajv2020, schema: Record<string, unknown>): voi
   for (const [id, def] of Object.entries(defs as Record<string, unknown>)) {
     if (def == null || typeof def !== "object" || Array.isArray(def)) continue;
     const defRecord = def as Record<string, unknown>;
-    if (typeof defRecord.$id === "string") continue;
+    if (defRecord.$id === id) continue;
     ajv.addSchema({ ...defRecord, $id: id }, id);
   }
 }
