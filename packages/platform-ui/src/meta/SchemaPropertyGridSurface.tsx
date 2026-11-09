@@ -2,7 +2,7 @@
 
 import type { MetaClassField } from "@goliath/client";
 import type { FormEvent, ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
   isSchemaRecord,
   resolveSchemaNode,
@@ -337,13 +337,18 @@ export function SchemaPropertyGridSurface({
           onCancel={() => setDialog(null)}
         />
       ) : null}
-      {dialog && (dialog.kind === "object" || dialog.kind === "array-item") ? (
+      {dialog?.kind === "object" ? (
+        <InlineObjectSchemaDialog
+          title={`Edit ${dialog.fieldName}`}
+          objectSchema={dialog.schema}
+          initialValue={dialog.value}
+          onSave={applyDialogSave}
+          onCancel={() => setDialog(null)}
+        />
+      ) : null}
+      {dialog?.kind === "array-item" ? (
         <NestedSchemaDialog
-          title={
-            dialog.kind === "object"
-              ? `Edit ${dialog.fieldName}`
-              : `${dialog.isNew ? "Add" : "Edit"} ${dialog.fieldName}[${dialog.index}]`
-          }
+          title={`${dialog.isNew ? "Add" : "Edit"} ${dialog.fieldName}[${dialog.index}]`}
           objectSchema={dialog.schema}
           rootSchema={isSchemaRecord(bundledSchema) ? bundledSchema : rootSchema}
           bundledSchema={bundledSchema}
@@ -608,6 +613,79 @@ function coercePrimitive(editor: ParsedFieldEditor, raw: string): unknown {
   if (editor.mode === "integer") return Math.trunc(Number(raw));
   if (editor.mode === "number") return Number(raw);
   return raw;
+}
+
+function InlineObjectSchemaDialog({
+  title,
+  objectSchema,
+  initialValue,
+  onSave,
+  onCancel,
+}: {
+  title: string;
+  objectSchema: Record<string, unknown>;
+  initialValue: Record<string, unknown>;
+  onSave: (value: Record<string, unknown>) => void;
+  onCancel: () => void;
+}) {
+  const titleId = useId();
+  const props = objectSchema.properties;
+  const fieldNames = isSchemaRecord(props)
+    ? Object.keys(props).sort()
+    : [];
+  const required = new Set(
+    Array.isArray(objectSchema.required)
+      ? objectSchema.required.filter((n): n is string => typeof n === "string")
+      : [],
+  );
+  const [draft, setDraft] = useState<Record<string, string>>(() => {
+    const next: Record<string, string> = {};
+    for (const name of fieldNames) {
+      const raw = initialValue[name];
+      next[name] = raw == null ? "" : String(raw);
+    }
+    return next;
+  });
+
+  return (
+    <div className="g-schema-dialog-backdrop">
+      <button type="button" className="g-schema-dialog-backdrop__hit" aria-label="Close dialog" onClick={onCancel} />
+      <div className="g-schema-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <h3 id={titleId}>{title}</h3>
+        {fieldNames.map((name) => (
+          <p key={name} className="g-meta-field-row">
+            <label htmlFor={`inline-${name}`}>
+              {name}
+              {required.has(name) ? " *" : ""}
+            </label>
+            <input
+              id={`inline-${name}`}
+              className="g-host-input"
+              value={draft[name] ?? ""}
+              onChange={(e) => setDraft((prev) => ({ ...prev, [name]: e.target.value }))}
+            />
+          </p>
+        ))}
+        <button
+          type="button"
+          className="g-host-button"
+          onClick={() => {
+            const document: Record<string, unknown> = {};
+            for (const name of fieldNames) {
+              const raw = draft[name] ?? "";
+              if (raw !== "") document[name] = raw;
+            }
+            onSave(document);
+          }}
+        >
+          Save
+        </button>
+        <button type="button" className="g-host-button" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function validateSubSchema(schema: Record<string, unknown>, document: Record<string, unknown>): string | null {
