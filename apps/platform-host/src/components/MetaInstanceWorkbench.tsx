@@ -6,7 +6,10 @@ import { SchemaPropertyGrid } from "@goliath/platform-ui";
 import { useMemo, useState } from "react";
 import { EXAMPLE_CHILD_EXTENSION } from "@/lib/child-extension";
 import { hierarchyRegistryFromManifest } from "@/lib/hierarchy-registry";
-import { createHostMetaCatalogResolver } from "@/lib/meta-catalog-resolver";
+import {
+  createHostMetaCatalogResolver,
+  type MetaCatalogClassFixture,
+} from "@/lib/meta-catalog-resolver";
 import { MetaJsonDocumentEditor } from "./MetaJsonDocumentEditor";
 
 export type MetaInstanceWorkbenchProps = {
@@ -15,6 +18,7 @@ export type MetaInstanceWorkbenchProps = {
   flattenedSchema: unknown;
   bundledSchema?: unknown;
   lineage?: MetaClassLineageNode[];
+  catalogClassFixtures?: Record<string, MetaCatalogClassFixture>;
 };
 
 export function MetaInstanceWorkbench({
@@ -23,9 +27,13 @@ export function MetaInstanceWorkbench({
   flattenedSchema,
   bundledSchema,
   lineage,
+  catalogClassFixtures,
 }: MetaInstanceWorkbenchProps) {
   const client = useMemo(() => createPlatformBffClient(), []);
-  const catalogResolver = useMemo(() => createHostMetaCatalogResolver(client), [client]);
+  const catalogResolver = useMemo(
+    () => createHostMetaCatalogResolver(client, catalogClassFixtures),
+    [client, catalogClassFixtures],
+  );
   const registry = useMemo(
     () => hierarchyRegistryFromManifest(EXAMPLE_CHILD_EXTENSION.manifest),
     [],

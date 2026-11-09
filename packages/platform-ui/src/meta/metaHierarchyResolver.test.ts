@@ -63,10 +63,7 @@ describe("metaHierarchyResolver", () => {
       },
       registry,
     });
-    expect(result.editor.mode).toBe("typedDataType");
-    if (result.editor.mode === "typedDataType") {
-      expect(result.editor.typeName).toBe("e2e/NestedPayload");
-    }
+    expect(result.editor.mode).toBe("nestedObject");
   });
 
   it("resolves meta/class catalog type as typedMetaClass", () => {

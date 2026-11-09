@@ -121,7 +121,12 @@ function bundledRoot(bundledSchema: unknown, flattenedSchema: unknown): Record<s
   return null;
 }
 
-function structuralFromCatalog(field: MetaClassField, target: CatalogRef): ParsedFieldEditor | null {
+function structuralFromCatalog(
+  field: MetaClassField,
+  target: CatalogRef,
+  prop: unknown,
+  root: Record<string, unknown> | null,
+): ParsedFieldEditor | null {
   const optional = !field.required;
   if (target.kind === "metaClass") {
     return { mode: "typedMetaClass", className: target.className, optional };
@@ -129,6 +134,12 @@ function structuralFromCatalog(field: MetaClassField, target: CatalogRef): Parse
   if (target.kind === "dataType") {
     const kind = field.typeKind?.toLowerCase() ?? "";
     if (kind === "object") {
+      if (prop != null) {
+        const schemaEditor = parsePropertySchema(prop, field.required, root);
+        if (schemaEditor.mode === "nestedObject") {
+          return schemaEditor;
+        }
+      }
       return { mode: "typedDataType", typeName: target.typeName, optional };
     }
     if (kind === "array") {
@@ -259,7 +270,7 @@ export function resolveHierarchyFieldEditor(input: HierarchyFieldResolveInput): 
   }
 
   if (catalogTarget) {
-    const structural = structuralFromCatalog(input.field, catalogTarget);
+    const structural = structuralFromCatalog(input.field, catalogTarget, prop, root);
     if (structural) {
       if (structural.mode === "typedDataType" && structural.expectArray) {
         const itemCatalog = arrayItemsCatalog(prop, root);

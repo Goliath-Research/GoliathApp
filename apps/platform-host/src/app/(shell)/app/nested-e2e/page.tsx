@@ -15,6 +15,7 @@ import { requirePortalSession } from "@/server/session/require";
 export const dynamic = "force-dynamic";
 
 const NESTED_E2E_CLASS = "e2e/NestedCarrier";
+const NESTED_CHILD_CLASS = "e2e/NestedChild";
 
 export default async function NestedE2eMetaPage() {
   try {
@@ -25,10 +26,13 @@ export default async function NestedE2eMetaPage() {
     }
     const token = cookieStore.get(process.env.GOLIATH_PLATFORM_SESSION_COOKIE?.trim() || "goliath_platform_session")!
       .value;
-    const [summary, fields, lineage] = await Promise.all([
+    const [summary, fields, lineage, childSummary, childFields, childLineage] = await Promise.all([
       portalSessionMetaClassGet(token, NESTED_E2E_CLASS),
       portalSessionMetaClassFields(token, NESTED_E2E_CLASS),
       portalSessionMetaClassLineage(token, NESTED_E2E_CLASS),
+      portalSessionMetaClassGet(token, NESTED_CHILD_CLASS),
+      portalSessionMetaClassFields(token, NESTED_CHILD_CLASS),
+      portalSessionMetaClassLineage(token, NESTED_CHILD_CLASS),
     ]);
     return (
       <div className="g-host-app">
@@ -40,6 +44,14 @@ export default async function NestedE2eMetaPage() {
           flattenedSchema={summary.schemaFlattenedJson}
           bundledSchema={summary.schemaBundledJson}
           lineage={lineage}
+          catalogClassFixtures={{
+            [NESTED_CHILD_CLASS]: {
+              fields: childFields,
+              flattenedSchema: childSummary.schemaFlattenedJson,
+              bundledSchema: childSummary.schemaBundledJson,
+              lineage: childLineage,
+            },
+          }}
         />
       </div>
     );
