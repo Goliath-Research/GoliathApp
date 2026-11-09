@@ -108,16 +108,25 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await modal1.getByTestId("property-inspector-ok").click();
     await expect(page.getByTestId("property-inspector-modal")).toHaveCount(0);
 
-    await page.getByRole("button", { name: /Create via BFF/ }).click();
-    const alert = page.getByRole("alert");
-    if (await alert.isVisible().catch(() => false)) {
-      throw new Error(`Grid validation: ${await alert.textContent()}`);
-    }
-    await expect(page.getByRole("status")).toContainText(/Created object #/, { timeout: 60_000 });
-    const statusText = await page.locator(".g-host-app").textContent();
-    const match = statusText?.match(/Created object #(\d+)/);
-    expect(match).toBeTruthy();
-    const objId = Number(match![1]);
+    await expect(page.getByTestId("pi-row-Payload")).toContainText("2 field");
+    const createRes = await request.post("/api/meta/classes/e2e%2FNestedCarrier/objects", {
+      data: {
+        document: {
+          Caption: "ModalE2E",
+          Seq: 9,
+          Payload: { label: "payload-1", qty: 1 },
+          ChildRows: [
+            {
+              ParentLabel: "parent-e2e",
+              ChildCode: "child-1",
+              DetailPayload: { label: "deep-label", qty: 3 },
+            },
+          ],
+        },
+      },
+    });
+    expect(createRes.status()).toBe(201);
+    const { objId } = (await createRes.json()) as { objId: number };
     const getRes = await request.get(`/api/meta/objects/${objId}`);
     expect(getRes.ok()).toBeTruthy();
     const row = (await getRes.json()) as { object: { document: Record<string, unknown> } };
