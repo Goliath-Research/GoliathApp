@@ -59,15 +59,48 @@ test.describe("authenticated meta (CI postgres)", () => {
     await page.screenshot({ path: shot, fullPage: true });
   });
 
+  async function fillRequiredSchemaGridFields(page: import("@playwright/test").Page) {
+    const rows = page.locator(".g-schema-property-grid .g-meta-field-row");
+    const count = await rows.count();
+    for (let i = 0; i < count; i++) {
+      const row = rows.nth(i);
+      const labelText = (await row.locator("label").textContent()) ?? "";
+      if (!labelText.includes("*")) continue;
+      const field = labelText.replace(/\s*\*$/, "").trim();
+      const checkbox = row.locator('input[type="checkbox"]');
+      if ((await checkbox.count()) > 0) {
+        await checkbox.check();
+        continue;
+      }
+      const select = row.locator("select");
+      if ((await select.count()) > 0) {
+        await select.selectOption({ index: 1 });
+        continue;
+      }
+      const textControl = row.locator("input, textarea").first();
+      const inputType = await textControl.getAttribute("type");
+      if (field === "Caption") {
+        await textControl.fill("E2ECaption");
+      } else if (field === "Seq" || inputType === "number") {
+        await textControl.fill("17");
+      } else {
+        await textControl.fill("e2e");
+      }
+    }
+  }
+
   test("create and round-trip NavNode via BFF", async ({ page, request }) => {
     await page.goto("/app/meta?class=portal%2FNavNode");
-    await page.getByLabel("Caption *").fill("E2ECaption");
-    await page.getByLabel("Seq *").fill("17");
+    await expect(page.locator(".g-schema-property-grid")).toBeVisible();
+    await fillRequiredSchemaGridFields(page);
     await page.getByRole("button", { name: /Create via BFF/ }).click();
-    await expect(page.locator(".g-meta-workbench").getByRole("status")).toContainText(
-      "Created object #",
-      { timeout: 60_000 },
-    );
+    const workbench = page.locator(".g-meta-workbench");
+    const alert = workbench.locator(".g-schema-property-grid").getByRole("alert");
+    await expect(alert.or(workbench.getByRole("status"))).toBeVisible({ timeout: 60_000 });
+    if (await alert.isVisible()) {
+      throw new Error(`SchemaPropertyGrid submit failed: ${await alert.textContent()}`);
+    }
+    await expect(workbench.getByRole("status")).toContainText("Created object #");
 
     const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
       data: { document: { Caption: "ApiCaption", Seq: 18 } },
