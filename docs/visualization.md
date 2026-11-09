@@ -51,9 +51,9 @@ Validate overrides with `diagnoseUiManifest` from `@goliath/client` in CI. Edito
 | **P5** | Declarative views/dashboards (semantic request widgets only) | Pending |
 | **P6** | Two-child adoption (e.g. portal + one greenfield app on shared packages) | Pending |
 
-## Seeds and apply order (future)
+## Seeds and apply order
 
-When UI metadata moves to PostgreSQL, platform seeds run **before** child apps in the existing [schema apply](schema-apply.md) order. P0 does **not** add DDL; presentation overrides remain in child manifests until a registry table is designed (P2+).
+Platform population order is documented in [database-population.md](database-population.md): DDL (`apply_schema.sh`), Python catalog seeds, then **`seed_platform_nav_tree.sql`** for the inherited `/app` NavTree and `organization_admin` grants. P0 presentation overrides remain in child manifests; `NodeInfos.FrameKey` on baseline nodes supplies `presentation_kind` for `portal.sp_session_operator_nav_tree` (P1 host). Most leaf routes are placeholders until P3–P5 screens land — nodes are still registered so descendants extend a complete platform menu.
 
 ## Commands
 
