@@ -5,6 +5,7 @@ import type { FormEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 import {
   isSchemaRecord,
+  resolveSchemaNode,
   type SyntheticSchemaField,
   SCHEMA_PROPERTY_GRID_MAX_DEPTH,
 } from "./jsonSchema.js";
@@ -17,6 +18,12 @@ import type { ParsedFieldEditor } from "./parseFlattenedFieldSchema.js";
 import { parsePropertySchema, propertySchemaFromFlattened } from "./parseFlattenedFieldSchema.js";
 import { compileSchemaValidator, validationMessage } from "./schemaAjvValidate.js";
 import { resolveFieldEditorDetailed } from "./resolveFieldEditor.js";
+
+const DEFAULT_HIERARCHY_REGISTRY = {
+  editorComponentsByClassFqn: {},
+  iconOverridesByClassFqn: {},
+  editorComponentsByDataTypeName: {},
+};
 
 export type SchemaPropertyGridSurfaceProps = {
   fields?: MetaClassField[];
@@ -311,7 +318,7 @@ export function SchemaPropertyGridSurface({
         ) : null}
         {error ? <p role="alert">{error}</p> : null}
       </form>
-      {dialog?.kind === "catalog" && catalogResolver && registry ? (
+      {dialog?.kind === "catalog" && catalogResolver ? (
         <CatalogNestedSchemaDialog
           title={
             dialog.isNew
@@ -322,7 +329,7 @@ export function SchemaPropertyGridSurface({
           }
           catalogTarget={dialog.catalogTarget}
           catalogResolver={catalogResolver}
-          registry={registry}
+          registry={registry ?? DEFAULT_HIERARCHY_REGISTRY}
           bundledSchema={bundledSchema}
           initialValue={dialog.value}
           depth={depth + 1}
@@ -340,7 +347,7 @@ export function SchemaPropertyGridSurface({
           objectSchema={dialog.schema}
           rootSchema={isSchemaRecord(bundledSchema) ? bundledSchema : rootSchema}
           bundledSchema={bundledSchema}
-          registry={registry}
+          registry={registry ?? DEFAULT_HIERARCHY_REGISTRY}
           catalogResolver={catalogResolver}
           initialValue={dialog.value}
           depth={depth + 1}
@@ -370,7 +377,16 @@ export function SchemaPropertyGridSurface({
             type="button"
             className="g-host-button"
             disabled={disabled || busy}
-            onClick={() => openCatalogDialog(fieldName, target, val ?? {})}
+            onClick={() => {
+              const prop = propertySchemaFromFlattened(schema, fieldName);
+              const root = isSchemaRecord(bundledSchema) ? bundledSchema : rootSchema;
+              const node = isSchemaRecord(prop) ? resolveSchemaNode(prop, root) ?? prop : null;
+              if (editor.mode === "typedDataType" && node && isSchemaRecord(node.properties)) {
+                setDialog({ kind: "object", fieldName, schema: node, value: val ?? {} });
+                return;
+              }
+              openCatalogDialog(fieldName, target, val ?? {});
+            }}
             aria-label={`Edit nested ${fieldName}`}
           >
             Edit nested ({summaryObject(val)})

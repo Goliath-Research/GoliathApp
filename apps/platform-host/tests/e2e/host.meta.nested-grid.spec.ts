@@ -12,8 +12,9 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await page.getByLabel(/Seq/).fill("3");
     await page.getByRole("button", { name: "Edit nested Payload" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
-    await page.getByLabel(/^label$/i).fill("inner");
-    await page.getByLabel(/^qty$/i).fill("9");
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel(/^label$/i).fill("inner");
+    await dialog.getByLabel(/^qty$/i).fill("9");
     await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("dialog")).not.toBeVisible();
   });
@@ -22,8 +23,9 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await page.goto("/app/nested-e2e");
     await page.getByRole("button", { name: "Edit nested ChildDoc" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
-    await expect(page.getByLabel(/ParentLabel/)).toBeVisible();
-    await page.getByLabel(/ChildCode/).fill("c1");
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByLabel(/ParentLabel/)).toBeVisible();
+    await dialog.getByLabel(/ChildCode/).fill("c1");
     await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
   });
 
@@ -34,7 +36,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
       .getByRole("button", { name: "Add row" })
       .click();
     await expect(page.getByRole("dialog")).toBeVisible();
-    await page.getByLabel(/ChildCode/).fill("row-a");
+    await page.getByRole("dialog").getByLabel(/ChildCode/).fill("row-a");
     await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
   });
 
@@ -54,8 +56,9 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await page.getByLabel(/Caption/).fill("NestedCaption");
     await page.getByLabel(/Seq/).fill("3");
     await page.getByRole("button", { name: "Edit nested Payload" }).click();
-    await page.getByLabel(/^label$/i).fill("inner");
-    await page.getByLabel(/^qty$/i).fill("9");
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel(/^label$/i).fill("inner");
+    await dialog.getByLabel(/^qty$/i).fill("9");
     await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
     await page.getByRole("button", { name: /Create via BFF/ }).click();
     await expect(page.getByRole("status")).toContainText("Created object #", { timeout: 30_000 });
