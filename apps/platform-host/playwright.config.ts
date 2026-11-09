@@ -34,8 +34,7 @@ export default defineConfig({
   webServer: process.env.PLAYWRIGHT_SKIP_WEBSERVER
     ? undefined
     : {
-        command:
-          "sh -c 'cd .next/standalone && PORT=3400 HOSTNAME=127.0.0.1 node apps/platform-host/server.js'",
+        command: "sh -c 'PORT=3400 HOSTNAME=127.0.0.1 npm run start'",
         url: "http://127.0.0.1:3400/api/health",
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,
