@@ -342,6 +342,7 @@ export function SchemaPropertyGridSurface({
         <InlineObjectSchemaDialog
           title={`Edit ${dialog.fieldName}`}
           objectSchema={dialog.schema}
+          rootSchema={isSchemaRecord(bundledSchema) ? bundledSchema : rootSchema}
           initialValue={dialog.value}
           onSave={applyDialogSave}
           onCancel={() => setDialog(null)}
@@ -619,12 +620,14 @@ function coercePrimitive(editor: ParsedFieldEditor, raw: string): unknown {
 function InlineObjectSchemaDialog({
   title,
   objectSchema,
+  rootSchema,
   initialValue,
   onSave,
   onCancel,
 }: {
   title: string;
   objectSchema: Record<string, unknown>;
+  rootSchema: Record<string, unknown>;
   initialValue: Record<string, unknown>;
   onSave: (value: Record<string, unknown>) => void;
   onCancel: () => void;
@@ -674,7 +677,19 @@ function InlineObjectSchemaDialog({
             const document: Record<string, unknown> = {};
             for (const name of fieldNames) {
               const raw = draft[name] ?? "";
-              if (raw !== "") document[name] = raw;
+              if (raw === "") continue;
+              const prop = isSchemaRecord(props) ? props[name] : undefined;
+              const editor = parsePropertySchema(prop, required.has(name), rootSchema);
+              if (
+                editor.mode === "string" ||
+                editor.mode === "integer" ||
+                editor.mode === "number" ||
+                editor.mode === "boolean"
+              ) {
+                document[name] = coercePrimitive(editor, raw);
+              } else {
+                document[name] = raw;
+              }
             }
             onSave(document);
           }}

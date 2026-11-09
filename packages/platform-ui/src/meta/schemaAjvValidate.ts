@@ -5,9 +5,10 @@ function registerCatalogDefs(ajv: Ajv2020, schema: Record<string, unknown>): voi
   const defs = schema.$defs;
   if (defs == null || typeof defs !== "object" || Array.isArray(defs)) return;
   for (const [id, def] of Object.entries(defs as Record<string, unknown>)) {
-    if (def != null && typeof def === "object" && !Array.isArray(def)) {
-      ajv.addSchema({ ...(def as object), $id: id }, id);
-    }
+    if (def == null || typeof def !== "object" || Array.isArray(def)) continue;
+    const defRecord = def as Record<string, unknown>;
+    if (typeof defRecord.$id === "string") continue;
+    ajv.addSchema({ ...defRecord, $id: id }, id);
   }
 }
 
