@@ -74,11 +74,11 @@ def _ensure_e2e_nested_hierarchy(env: dict[str, str]) -> None:
         env,
     )
     string_type_id = _psql(
-        """SELECT id FROM wf.data_type WHERE name = 'String' AND version = '1' LIMIT 1""",
+        """SELECT id FROM wf.data_type WHERE name = 'portal/nav/Caption' AND version = '1.0' LIMIT 1""",
         env,
     )
     int_type_id = _psql(
-        """SELECT id FROM wf.data_type WHERE kind = 'int' ORDER BY id LIMIT 1""",
+        """SELECT id FROM wf.data_type WHERE name = 'portal/nav/Seq' AND version = '1.0' LIMIT 1""",
         env,
     )
     if not string_type_id or not int_type_id:
