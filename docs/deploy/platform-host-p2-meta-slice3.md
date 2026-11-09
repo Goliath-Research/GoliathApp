@@ -25,7 +25,7 @@ Disposable Postgres in the **frontend** GHA job:
 
 1. `scripts/ci/platform_host_e2e_pg_seed.py` — `apply_schema.sh`, scoped `meta.*` grants, writes `apps/platform-host/.e2e/ci.env`
 2. `PLAYWRIGHT_AUTH_E2E=1` — `auth.setup.ts` + `host.meta.authenticated.spec.ts`
-3. Dev login (`GOLIATH_PLATFORM_HOST_DEV_LOGIN=1` + `GOLIATH_PLATFORM_HOST_E2E_INTEGRATION=1` on standalone build). `x-goliath-dev-login-user-id` is **ignored** locally and **allowlist-only** in CI (`GOLIATH_P1_DEV_LOGIN_USER_ID`, `GOLIATH_E2E_DENIED_USER_ID`).
+3. Dev login (`GOLIATH_PLATFORM_HOST_DEV_LOGIN=1` + `GOLIATH_PLATFORM_HOST_E2E_INTEGRATION=1` on standalone build). `x-goliath-dev-login-user-id` is **ignored** locally and **allowlist-only** in CI (`GOLIATH_P1_DEV_LOGIN_USER_ID`, `GOLIATH_E2E_DENIED_USER_ID`); any other value returns **403** before `portal.sp_session_open` (see `resolveDevEstablishUserId`).
 
 Coverage: icons/override slot, BFF create/get/patch, 400 invalid field, cross-scope vs missing **404** body match, permission **403**, screenshot artifact `platform-host-e2e-screenshots`.
 
