@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import {
   devLoginAllowed,
   devLoginSecret,
-  devLoginUserId,
+  resolveDevEstablishUserId,
 } from "@/server/portal/env";
 import { isPortalBridgeConfigured, portalSessionOpen } from "@/server/portal/bridge";
 import { buildSessionSetCookie } from "@/server/session/cookies";
@@ -29,14 +29,11 @@ export async function POST(request: Request) {
     return jsonError(403, "dev login denied");
   }
 
-  const userHeader = request.headers.get("x-goliath-dev-login-user-id");
-  const userId =
-    userHeader && Number.isInteger(Number(userHeader)) && Number(userHeader) > 0
-      ? Number(userHeader)
-      : devLoginUserId();
-  if (userId == null) {
-    return jsonError(503, "dev login is misconfigured");
+  const userResolution = resolveDevEstablishUserId(request.headers.get("x-goliath-dev-login-user-id"));
+  if (!userResolution.ok) {
+    return jsonError(userResolution.status, userResolution.message);
   }
+  const userId = userResolution.userId;
 
   const scopeHeader = request.headers.get("x-goliath-dev-login-scope-id");
   const activeScopeId =

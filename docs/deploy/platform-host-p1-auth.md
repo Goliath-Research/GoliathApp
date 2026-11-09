@@ -33,7 +33,9 @@ When bridge env vars are **missing**, session routes return **503** and fixture 
 | Variable | Purpose |
 |----------|---------|
 | `GOLIATH_PLATFORM_HOST_DEV_LOGIN=1` | Enable `POST /api/session/dev-establish` |
-| `GOLIATH_P1_DEV_LOGIN_USER_ID` | `RBAC.Users.ID` to pass to `portal.sp_session_open` |
+| `GOLIATH_P1_DEV_LOGIN_USER_ID` | Default `RBAC.Users.ID` for `portal.sp_session_open` |
+| `GOLIATH_E2E_DENIED_USER_ID` | Optional second pinned user (CI only; allowlisted with `GOLIATH_PLATFORM_HOST_E2E_INTEGRATION=1`) |
+| `GOLIATH_PLATFORM_HOST_E2E_INTEGRATION=1` | CI Playwright on standalone build; enables allowlisted `x-goliath-dev-login-user-id` only |
 | `GOLIATH_PLATFORM_HOST_DEV_LOGIN_SECRET` | Required header `X-Goliath-Dev-Login-Secret` |
 
 This is for **CI/integration** with a disposable Postgres — not a production login UI.

@@ -113,6 +113,19 @@ test.describe("authenticated meta (CI postgres)", () => {
     await scopeBCtx.dispose();
   });
 
+  test("dev-establish rejects non-allowlisted user id with secret", async ({ request }) => {
+    const secret = process.env.GOLIATH_PLATFORM_HOST_DEV_LOGIN_SECRET!;
+    const res = await request.post("/api/session/dev-establish", {
+      headers: {
+        "x-goliath-dev-login-secret": secret,
+        "x-goliath-dev-login-user-id": "999999998",
+      },
+    });
+    expect(res.status()).toBe(403);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("dev login denied");
+  });
+
   test("user without meta grants gets stable 403 on write", async () => {
     const deniedUser = process.env.GOLIATH_E2E_DENIED_USER_ID!;
     const scopeB = process.env.GOLIATH_E2E_SCOPE_B_ID!;
