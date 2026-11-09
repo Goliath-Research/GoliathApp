@@ -395,25 +395,6 @@ export function SchemaPropertyGridSurface({
     }
     if (editor.mode === "nestedObject") {
       const val = objectValues[fieldName];
-      if (plan.catalogTarget && plan.catalogTarget.kind !== "inline" && catalogResolver) {
-        return (
-          <p key={fieldName} className="g-meta-field-row">
-            <span>
-              {fieldName}
-              {plan.required ? " *" : ""}
-            </span>
-            <button
-              type="button"
-              className="g-host-button"
-              disabled={disabled || busy}
-              onClick={() => openCatalogDialog(fieldName, plan.catalogTarget as CatalogRef, val ?? {})}
-              aria-label={`Edit nested ${fieldName}`}
-            >
-              Edit nested ({summaryObject(val)})
-            </button>
-          </p>
-        );
-      }
       return (
         <p key={fieldName} className="g-meta-field-row">
           <span>
