@@ -1,13 +1,15 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import type { CatalogRef } from "./catalogRef.js";
 import { CatalogNestedSchemaDialog } from "./CatalogNestedSchemaDialog.js";
 import { isSchemaRecord, syntheticFieldsFromSchema } from "./jsonSchema.js";
 import type { MetaCatalogResolver } from "./metaCatalogResolver.js";
 import type { HierarchyPresentationRegistry } from "./metaHierarchyResolver.js";
 import { PropertyInspectorModal } from "./PropertyInspectorModal.js";
-import { SchemaPropertyGridSurface } from "./SchemaPropertyGridSurface.js";
+const LazySchemaPropertyGridSurface = lazy(() =>
+  import("./SchemaPropertyGridSurface.js").then((m) => ({ default: m.SchemaPropertyGridSurface })),
+);
 
 export type InspectorDialogRequest =
   | {
@@ -125,18 +127,20 @@ function ObjectInspectorModalBody({
       onOk={onOk}
       onCancel={onDismiss}
     >
-      <SchemaPropertyGridSurface
-        syntheticFields={syntheticFields}
-        schema={objectSchema}
-        rootSchema={rootSchema}
-        bundledSchema={bundledSchema ?? rootSchema}
-        registry={registry}
-        catalogResolver={catalogResolver}
-        initialDocument={draft}
-        depth={depth + 1}
-        embedded
-        onDraftChange={setDraft}
-      />
+      <Suspense fallback={<p>Loading properties…</p>}>
+        <LazySchemaPropertyGridSurface
+          syntheticFields={syntheticFields}
+          schema={objectSchema}
+          rootSchema={rootSchema}
+          bundledSchema={bundledSchema ?? rootSchema}
+          registry={registry}
+          catalogResolver={catalogResolver}
+          initialDocument={draft}
+          depth={depth + 1}
+          embedded
+          onDraftChange={setDraft}
+        />
+      </Suspense>
     </PropertyInspectorModal>
   );
 }
