@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useId, useState } from "react";
-import { createPortal } from "react-dom";
 
 export type PropertyInspectorModalProps = {
   open: boolean;
@@ -44,9 +43,9 @@ export function PropertyInspectorModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onCancel]);
 
-  if (!open || !mounted || typeof document === "undefined") return null;
+  if (!open || !mounted) return null;
 
-  return createPortal(
+  return (
     <div className="g-property-inspector-modal-backdrop" data-testid="property-inspector-backdrop">
       <button
         type="button"
@@ -90,7 +89,6 @@ export function PropertyInspectorModal({
           </button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }

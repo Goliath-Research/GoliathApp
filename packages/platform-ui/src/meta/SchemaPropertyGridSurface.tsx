@@ -171,9 +171,10 @@ export function SchemaPropertyGridSurface({
   const gridClass = embedded ? "g-schema-property-grid g-schema-property-grid--embedded" : "g-schema-property-grid";
 
   useEffect(() => {
+    if (!onDraftChange || embedded) return;
     const document = buildDocument({ silent: true });
-    if (document) onDraftChange?.(document);
-  }, [primitiveValues, objectValues, arrayValues, schemalessValues, plans]);
+    if (document) onDraftChange(document);
+  }, [embedded, onDraftChange, primitiveValues, objectValues, arrayValues, schemalessValues]);
 
   function buildDocument(opts?: { silent?: boolean }): Record<string, unknown> | null {
     const silent = opts?.silent === true;
@@ -573,7 +574,7 @@ export function SchemaPropertyGridSurface({
             type="button"
             className="g-property-inspector__ellipsis"
             data-testid={`pi-open-${fieldName}`}
-            disabled={disabled || busy}
+            disabled={disabled}
             aria-label={`Open ${fieldName}`}
             onClick={() => openNestedEditor(plan)}
           >

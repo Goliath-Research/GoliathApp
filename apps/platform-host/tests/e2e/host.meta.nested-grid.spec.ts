@@ -3,6 +3,12 @@ import { expect, test } from "@playwright/test";
 test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => {
   test.skip(() => process.env.PLAYWRIGHT_AUTH_E2E !== "1", "requires PG seed");
 
+  test.beforeEach(({ page }) => {
+    page.on("pageerror", (err) => {
+      throw new Error(`pageerror: ${err.message}`);
+    });
+  });
+
   test("carrier exposes data-type, meta-class, and array fields", async ({ request }) => {
     const fieldsRes = await request.get("/api/meta/classes/e2e%2FNestedCarrier/fields");
     expect(fieldsRes.ok()).toBeTruthy();
