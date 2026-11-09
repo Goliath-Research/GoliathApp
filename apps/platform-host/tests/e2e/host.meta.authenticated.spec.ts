@@ -44,7 +44,9 @@ test.describe("authenticated meta (CI postgres)", () => {
     await page.getByLabel("Caption *").fill("E2ECaption");
     await page.getByLabel("Seq *").fill("17");
     await page.getByRole("button", { name: /Create via BFF/ }).click();
-    await expect(page.getByRole("status")).toContainText("Created object #");
+    await expect(page.locator(".g-meta-workbench").getByRole("status")).toContainText(
+      "Created object #",
+    );
 
     const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
       data: { document: { Caption: "ApiCaption", Seq: 18 } },

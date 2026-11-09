@@ -9,7 +9,8 @@ export type SessionCookieOptions = {
 };
 
 export function sessionCookieOptions(): SessionCookieOptions {
-  const secure = process.env.NODE_ENV === "production";
+  const e2eIntegration = process.env.GOLIATH_PLATFORM_HOST_E2E_INTEGRATION === "1";
+  const secure = process.env.NODE_ENV === "production" && !e2eIntegration;
   const maxAge = Number(process.env.GOLIATH_PLATFORM_SESSION_MAX_AGE_SECONDS ?? "1800");
   return {
     secure,

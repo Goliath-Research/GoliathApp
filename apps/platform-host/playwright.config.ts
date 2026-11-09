@@ -39,5 +39,8 @@ export default defineConfig({
         url: "http://127.0.0.1:3400/api/health",
         reuseExistingServer: !process.env.CI,
         timeout: 180_000,
+        ...(authE2e
+          ? { env: { GOLIATH_PLATFORM_HOST_E2E_INTEGRATION: "1" } as Record<string, string> }
+          : {}),
       },
 });

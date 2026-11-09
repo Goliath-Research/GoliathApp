@@ -30,13 +30,17 @@ export function resolvePortalBridgeConfig(): PortalBridgeConfig | null {
 }
 
 /**
- * Integration-only login path. Never enabled in NODE_ENV=production (even if env var is set).
+ * Integration-only login path. Never enabled in NODE_ENV=production unless
+ * GOLIATH_PLATFORM_HOST_E2E_INTEGRATION=1 (Playwright against standalone build).
  */
 export function devLoginAllowed(): boolean {
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.GOLIATH_PLATFORM_HOST_DEV_LOGIN !== "1") {
     return false;
   }
-  return process.env.GOLIATH_PLATFORM_HOST_DEV_LOGIN === "1";
+  if (process.env.NODE_ENV === "production") {
+    return process.env.GOLIATH_PLATFORM_HOST_E2E_INTEGRATION === "1";
+  }
+  return true;
 }
 
 export function devLoginUserId(): number | null {
