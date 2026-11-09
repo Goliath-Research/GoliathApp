@@ -137,6 +137,12 @@ export function SchemaPropertyGridSurface({
     initSchemaless(plans, initialDocument),
   );
   const [dialog, setDialog] = useState<InspectorDialogRequest>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const w = window as unknown as { __goliathPropertyInspectorDialog?: string | null };
+    w.__goliathPropertyInspectorDialog = dialog?.fieldName ?? null;
+  }, [dialog]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [expandedInline, setExpandedInline] = useState<Set<string>>(() => new Set());

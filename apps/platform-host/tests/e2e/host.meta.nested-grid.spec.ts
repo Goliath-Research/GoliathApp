@@ -70,11 +70,14 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
 
   test("property inspector opens two nested modals and saves via BFF", async ({ page, request }) => {
     await page.goto("/app/nested-e2e");
-    await page.waitForLoadState("networkidle");
+    await expect(page.getByTestId("pi-open-Payload")).toBeVisible({ timeout: 30_000 });
     await page.getByTestId("pi-row-Caption").locator("input").fill("ModalE2E");
     await page.getByTestId("pi-row-Seq").locator("input").fill("9");
 
     await page.getByTestId("pi-open-Payload").click();
+    await expect
+      .poll(async () => page.evaluate(() => (window as { __goliathPropertyInspectorDialog?: string }).__goliathPropertyInspectorDialog))
+      .toBe("Payload");
     await expect(page.getByTestId("property-inspector-dialog-active")).toBeAttached({ timeout: 15_000 });
     await expect(page.getByTestId("property-inspector-backdrop")).toBeVisible({ timeout: 15_000 });
     const payloadModal = page.getByTestId("property-inspector-modal");
