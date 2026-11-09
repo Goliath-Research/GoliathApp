@@ -274,13 +274,9 @@ BEGIN
 
         IF v_parent_obj IS NULL THEN
           IF v_nav_link_id IS NOT NULL THEN
-            UPDATE "Meta"."Links" l
-            SET "ObjID2" = NULL
-            WHERE l."ID" = v_nav_link_id
-              AND l."ObjID2" IS NOT NULL;
-          ELSE
-            PERFORM "Meta".sp_tree_attach_child(v_meta_obj, NULL, v_meta_link);
+            DELETE FROM "Meta"."Links" l WHERE l."ID" = v_nav_link_id;
           END IF;
+          PERFORM "Meta".sp_tree_attach_child(v_meta_obj, NULL, v_meta_link);
         ELSIF v_nav_link_id IS NULL THEN
           INSERT INTO "Meta"."Links" (
             "Name", "ClassID1", "ClassID2", "LinkTypeID", "MetaLinkID", "ObjID1", "ObjID2"
