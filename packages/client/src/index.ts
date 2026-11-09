@@ -14,8 +14,8 @@ export { validateClassIconOverrides, type OverrideRegistrationReport };
 
 export type { PlatformSessionSnapshot, SessionTransportErrorCode } from "./session.js";
 export { SessionTransportError } from "./session.js";
-export type { OperatorNavNode } from "./nav.js";
-export { coercePresentationKind } from "./nav.js";
+export type { OperatorNavNode, OperatorNavTreeNode } from "./nav.js";
+export { buildOperatorNavTree, coercePresentationKind } from "./nav.js";
 export { createPlatformBffClient, type PlatformBffClient, type PlatformBffClientOptions } from "./transport.js";
 export type { ChildHostExtension, ChildHostNavLeaf } from "./child-host.js";
 export type {

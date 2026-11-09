@@ -102,6 +102,8 @@ SCRIPTS=(
   portal_session_identity_api.sql
   portal_nav_meta.sql
   portal_session_meta_api.sql
+  portal_session_platform_api.sql
+  portal_operator_views_api.sql
   portal_semantic_schema.sql
   portal_semantic_row_types.sql
   inv_semantic.sql

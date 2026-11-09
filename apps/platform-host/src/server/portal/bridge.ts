@@ -20,6 +20,52 @@ export type OperatorNavRow = {
   caption: string;
   seq: number;
   presentationKind: string;
+  nodePath: string | null;
+};
+
+export type MetaClassCatalogRow = {
+  classId: number;
+  className: string;
+  parentId: number | null;
+  isAbstract: boolean;
+};
+
+export type SemanticEntityRow = {
+  id: number;
+  namespace: string;
+  code: string;
+  displayName: string;
+  schemaVersion: string;
+  metaClassName: string | null;
+};
+
+export type OperatorViewRow = {
+  viewId: number;
+  title: string;
+  description: string;
+  semanticRequestCode: string | null;
+  semanticRequestVersion: string;
+  metaClassName: string | null;
+  paramsJson: Record<string, unknown>;
+  updatedAtUtc: string;
+};
+
+export type OperatorDashboardRow = {
+  dashboardId: number;
+  title: string;
+  description: string;
+  widgetCount: number;
+  updatedAtUtc: string;
+};
+
+export type OperatorDashboardWidgetRow = {
+  viewId: number;
+  title: string;
+  semanticRequestCode: string | null;
+  metaClassName: string | null;
+  paramsJson: Record<string, unknown>;
+  sortOrder: number;
+  columnSpan: number;
 };
 
 let pool: Pool | null = null;
@@ -268,7 +314,7 @@ export async function portalOperatorNavTree(sessionToken: string): Promise<Opera
   return withClient(async (client) => {
     try {
       const result = await client.query(
-        `SELECT node_id, parent_id, caption, seq, presentation_kind
+        `SELECT node_id, parent_id, caption, seq, presentation_kind, node_path
          FROM portal.sp_session_operator_nav_tree($1)`,
         [sessionToken],
       );
@@ -278,6 +324,7 @@ export async function portalOperatorNavTree(sessionToken: string): Promise<Opera
         caption: String(row.caption),
         seq: Number(row.seq),
         presentationKind: String(row.presentation_kind),
+        nodePath: row.node_path == null ? null : String(row.node_path),
       }));
     } catch (err) {
       mapPgPortalError(err);
@@ -475,5 +522,222 @@ export async function portalSessionMetaObjGet(
     } catch (err) {
       mapPgPortalError(err);
     }
+  });
+}
+
+export async function portalSessionMetaListClasses(sessionToken: string): Promise<MetaClassCatalogRow[]> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT class_id, class_name, parent_id, is_abstract
+         FROM portal.sp_session_meta_list_classes($1)`,
+        [sessionToken],
+      );
+      return result.rows.map((row) => ({
+        classId: Number(row.class_id),
+        className: String(row.class_name),
+        parentId: row.parent_id == null ? null : Number(row.parent_id),
+        isAbstract: Boolean(row.is_abstract),
+      }));
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionSemanticEntities(
+  sessionToken: string,
+): Promise<SemanticEntityRow[]> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT id, namespace, code, display_name, schema_version, meta_class_name
+         FROM portal.sp_session_list_semantic_entities_enriched($1)`,
+        [sessionToken],
+      );
+      return result.rows.map((row) => ({
+        id: Number(row.id),
+        namespace: String(row.namespace),
+        code: String(row.code),
+        displayName: String(row.display_name),
+        schemaVersion: String(row.schema_version),
+        metaClassName: row.meta_class_name == null ? null : String(row.meta_class_name),
+      }));
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionPlatformQuery(
+  sessionToken: string,
+  sql: string,
+): Promise<Record<string, unknown>[]> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(sql, [sessionToken]);
+      return result.rows.map((row) => {
+        const out: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(row)) {
+          out[key] = value;
+        }
+        return out;
+      });
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionRunSemanticRequest(
+  sessionToken: string,
+  requestCode: string,
+  paramsJson: Record<string, unknown> = {},
+  version = "1",
+): Promise<Record<string, unknown>[]> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT * FROM portal.sp_run_semantic_request($1, $2, $3, $4::jsonb, NULL::jsonb)`,
+        [sessionToken, requestCode, version, JSON.stringify(paramsJson)],
+      );
+      return result.rows.map((row) => {
+        const value = Object.values(row)[0];
+        return (typeof value === "object" && value !== null ? value : {}) as Record<string, unknown>;
+      });
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionListOperatorViews(sessionToken: string): Promise<OperatorViewRow[]> {
+  return withClient(async (client) => {
+    const result = await client.query(
+      `SELECT view_id, title, description, semantic_request_code, semantic_request_version,
+              meta_class_name, params_json, updated_at_utc
+       FROM portal.sp_session_list_operator_views($1)`,
+      [sessionToken],
+    );
+    return result.rows.map((row) => ({
+      viewId: Number(row.view_id),
+      title: String(row.title),
+      description: String(row.description ?? ""),
+      semanticRequestCode: row.semantic_request_code == null ? null : String(row.semantic_request_code),
+      semanticRequestVersion: String(row.semantic_request_version ?? "1"),
+      metaClassName: row.meta_class_name == null ? null : String(row.meta_class_name),
+      paramsJson: (row.params_json ?? {}) as Record<string, unknown>,
+      updatedAtUtc: String(row.updated_at_utc),
+    }));
+  });
+}
+
+export async function portalSessionUpsertOperatorView(
+  sessionToken: string,
+  body: {
+    viewId?: number;
+    title: string;
+    description?: string;
+    semanticRequestCode?: string | null;
+    semanticRequestVersion?: string;
+    metaClassName?: string | null;
+    paramsJson?: Record<string, unknown>;
+  },
+): Promise<number> {
+  return withClient(async (client) => {
+    const result = await client.query(
+      `SELECT view_id FROM portal.sp_session_upsert_operator_view(
+         $1, $2, $3, $4, $5, $6, $7, $8::jsonb
+       )`,
+      [
+        sessionToken,
+        body.viewId ?? null,
+        body.title,
+        body.description ?? "",
+        body.semanticRequestCode ?? null,
+        body.semanticRequestVersion ?? "1",
+        body.metaClassName ?? null,
+        JSON.stringify(body.paramsJson ?? {}),
+      ],
+    );
+    return Number(result.rows[0]?.view_id);
+  });
+}
+
+export async function portalSessionListOperatorDashboards(
+  sessionToken: string,
+): Promise<OperatorDashboardRow[]> {
+  return withClient(async (client) => {
+    const result = await client.query(
+      `SELECT dashboard_id, title, description, widget_count, updated_at_utc
+       FROM portal.sp_session_list_operator_dashboards($1)`,
+      [sessionToken],
+    );
+    return result.rows.map((row) => ({
+      dashboardId: Number(row.dashboard_id),
+      title: String(row.title),
+      description: String(row.description ?? ""),
+      widgetCount: Number(row.widget_count),
+      updatedAtUtc: String(row.updated_at_utc),
+    }));
+  });
+}
+
+export async function portalSessionUpsertOperatorDashboard(
+  sessionToken: string,
+  body: { dashboardId?: number; title: string; description?: string },
+): Promise<number> {
+  return withClient(async (client) => {
+    const result = await client.query(
+      `SELECT dashboard_id FROM portal.sp_session_upsert_operator_dashboard($1, $2, $3, $4)`,
+      [sessionToken, body.dashboardId ?? null, body.title, body.description ?? ""],
+    );
+    return Number(result.rows[0]?.dashboard_id);
+  });
+}
+
+export async function portalSessionListDashboardWidgets(
+  sessionToken: string,
+  dashboardId: number,
+): Promise<OperatorDashboardWidgetRow[]> {
+  return withClient(async (client) => {
+    const result = await client.query(
+      `SELECT view_id, title, semantic_request_code, meta_class_name, params_json, sort_order, column_span
+       FROM portal.sp_session_list_dashboard_widgets($1, $2)`,
+      [sessionToken, dashboardId],
+    );
+    return result.rows.map((row) => ({
+      viewId: Number(row.view_id),
+      title: String(row.title),
+      semanticRequestCode: row.semantic_request_code == null ? null : String(row.semantic_request_code),
+      metaClassName: row.meta_class_name == null ? null : String(row.meta_class_name),
+      paramsJson: (row.params_json ?? {}) as Record<string, unknown>,
+      sortOrder: Number(row.sort_order),
+      columnSpan: Number(row.column_span),
+    }));
+  });
+}
+
+export async function portalSessionSetDashboardWidgets(
+  sessionToken: string,
+  dashboardId: number,
+  widgets: Array<{ viewId: number; sortOrder: number; columnSpan: number }>,
+): Promise<number> {
+  return withClient(async (client) => {
+    const result = await client.query(
+      `SELECT widget_count FROM portal.sp_session_set_dashboard_widgets($1, $2, $3::jsonb)`,
+      [
+        sessionToken,
+        dashboardId,
+        JSON.stringify(
+          widgets.map((w) => ({
+            view_id: w.viewId,
+            sort_order: w.sortOrder,
+            column_span: w.columnSpan,
+          })),
+        ),
+      ],
+    );
+    return Number(result.rows[0]?.widget_count ?? 0);
   });
 }

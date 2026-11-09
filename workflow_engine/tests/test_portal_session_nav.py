@@ -95,6 +95,15 @@ def _nav_captions(conninfo: str, token: str) -> set[str]:
         return {str(r[0]) for r in cur.fetchall()}
 
 
+def _nav_paths(conninfo: str, token: str) -> set[str]:
+    with psycopg.connect(conninfo) as conn:
+        cur = conn.execute(
+            "SELECT node_path FROM portal.sp_session_operator_nav_tree(%s)",
+            (token,),
+        )
+        return {str(r[0]) for r in cur.fetchall() if r[0]}
+
+
 def test_session_nav_empty_without_active_scope(
     portal_client: PortalClient,
     portal_nav_env: dict[str, str],

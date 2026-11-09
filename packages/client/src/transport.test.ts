@@ -20,6 +20,7 @@ describe("createPlatformBffClient", () => {
               caption: "Home",
               seq: 1,
               presentationKind: "not-a-real-kind",
+              nodePath: "/app",
             },
           ],
         }),

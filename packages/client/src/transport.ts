@@ -160,6 +160,7 @@ export function createPlatformBffClient(options: PlatformBffClientOptions = {}) 
         caption: String(row.caption),
         seq: Number(row.seq),
         presentationKind: coercePresentationKind(String(row.presentationKind)),
+        nodePath: row.nodePath == null ? null : String(row.nodePath),
       }));
     },
   };
