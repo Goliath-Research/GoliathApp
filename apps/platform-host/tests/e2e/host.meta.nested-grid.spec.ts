@@ -9,6 +9,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await page.goto("/app/nested-e2e");
     await expect(page.getByRole("heading", { name: "e2e/NestedCarrier" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Edit nested Payload" })).toBeVisible();
+    await expect(page.locator('[data-has-catalog-resolver="true"]')).toBeVisible();
     await page.getByLabel(/Caption/).fill("NestedCaption");
     await page.getByLabel(/Seq/).fill("3");
     await page.getByRole("button", { name: "Edit nested Payload" }).click();
