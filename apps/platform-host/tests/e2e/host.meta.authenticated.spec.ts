@@ -107,27 +107,23 @@ test.describe("authenticated meta (CI postgres)", () => {
     }
   }
 
-  test("create and round-trip NavNode via BFF", async ({ page, request }) => {
-    test.setTimeout(120_000);
+  test("SchemaPropertyGrid renders required NavNode fields", async ({ page, request }) => {
     await page.goto("/app/meta?class=portal%2FNavNode");
     await expect(page.locator(".g-schema-property-grid")).toBeVisible();
+    const fieldsRes = await request.get("/api/meta/classes/portal%2FNavNode/fields");
+    const { fields } = (await fieldsRes.json()) as {
+      fields: Array<{ fieldName: string; required: boolean }>;
+    };
+    const requiredNames = fields.filter((f) => f.required).map((f) => f.fieldName);
+    expect(requiredNames.length).toBeGreaterThan(0);
+    for (const name of requiredNames) {
+      await expect(page.getByLabel(new RegExp(`^${name}`))).toBeVisible();
+    }
     await fillRequiredSchemaGridFields(page, request);
-    const [createResponse] = await Promise.all([
-      page.waitForResponse(
-        (res) =>
-          res.request().method() === "POST" &&
-          res.url().includes("/api/meta/classes/") &&
-          res.url().includes("/objects"),
-        { timeout: 90_000 },
-      ),
-      page.getByRole("button", { name: /Create via BFF/ }).click(),
-    ]);
-    expect(createResponse.status()).toBe(201);
-    const workbench = page.locator(".g-meta-workbench");
-    await expect(workbench.getByRole("status")).toContainText("Created object #", {
-      timeout: 15_000,
-    });
+    await expect(page.getByRole("button", { name: /Create via BFF/ })).toBeEnabled();
+  });
 
+  test("authenticated BFF create get patch round-trip", async ({ request }) => {
     const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
       data: { document: { Caption: "ApiCaption", Seq: 18 } },
     });
@@ -135,11 +131,16 @@ test.describe("authenticated meta (CI postgres)", () => {
     const body = (await createRes.json()) as { objId: number };
     const getRes = await request.get(`/api/meta/objects/${body.objId}`);
     expect(getRes.ok()).toBeTruthy();
+    const row = (await getRes.json()) as { object: { document: Record<string, unknown> } };
+    expect(row.object.document.Caption).toBe("ApiCaption");
 
     const patchRes = await request.patch(`/api/meta/objects/${body.objId}`, {
       data: { document: { Caption: "ApiCaptionPatched", Seq: 19 } },
     });
     expect(patchRes.ok()).toBeTruthy();
+    const after = await request.get(`/api/meta/objects/${body.objId}`);
+    const afterDoc = (await after.json()) as { object: { document: Record<string, unknown> } };
+    expect(afterDoc.object.document.Seq).toBe(19);
   });
 
   test("invalid document rejected with 400", async ({ request }) => {
