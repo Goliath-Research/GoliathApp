@@ -53,6 +53,7 @@ nav:
   - Platform UI host: deploy/platform-host.md
   - Platform host P1 auth: deploy/platform-host-p1-auth.md
   - Platform host P2 meta: deploy/platform-host-p2-meta.md
+  - Platform host P2 meta slice 3: deploy/platform-host-p2-meta-slice3.md
   - Platform host auth methods: deploy/platform-host-auth-methods.md
 
 markdown_extensions:

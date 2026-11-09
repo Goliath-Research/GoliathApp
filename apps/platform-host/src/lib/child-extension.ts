@@ -19,6 +19,8 @@ export const EXAMPLE_CHILD_EXTENSION: PlatformHostChildExtension = {
     },
     editorComponents: {
       "child_app/StudyManifest": "ExampleStudyManifestEditor",
+      "meta/BaseDocument": "ExampleStudyManifestEditor",
+      "portal/NavNode": "ExampleStudyManifestEditor",
     },
   },
   nav: [

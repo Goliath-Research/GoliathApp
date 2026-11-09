@@ -11,7 +11,11 @@ test.describe("platform host", () => {
 
   test("dev-establish is not a production login surface", async ({ request }) => {
     const res = await request.post("/api/session/dev-establish");
-    expect(res.status()).toBe(404);
+    if (process.env.PLAYWRIGHT_AUTH_E2E === "1") {
+      expect(res.status()).toBe(403);
+    } else {
+      expect(res.status()).toBe(404);
+    }
   });
 
   test("meta class API fails closed without a session", async ({ request }) => {

@@ -2,7 +2,7 @@
 
 import type { MetaClassField } from "@goliath/client";
 import { createPlatformBffClient } from "@goliath/client";
-import { MetaGeneratedFieldForm } from "@goliath/platform-ui";
+import { SchemaPropertyGrid } from "@goliath/platform-ui";
 import { useState } from "react";
 import { MetaJsonDocumentEditor } from "./MetaJsonDocumentEditor";
 
@@ -21,6 +21,13 @@ export function MetaInstanceWorkbench({ className, fields, flattenedSchema }: Me
   async function save(document: Record<string, unknown>) {
     setStatus(null);
     setRoundtrip(null);
+    if (lastObjId != null) {
+      await client.updateMetaObject(lastObjId, document);
+      const row = await client.getMetaObject(lastObjId);
+      setRoundtrip(JSON.stringify(row.document, null, 2));
+      setStatus(`Updated object #${lastObjId} — server merge round-trip below.`);
+      return;
+    }
     const { objId } = await client.createMetaObject(className, document);
     setLastObjId(objId);
     const row = await client.getMetaObject(objId);
@@ -30,7 +37,16 @@ export function MetaInstanceWorkbench({ className, fields, flattenedSchema }: Me
 
   return (
     <div className="g-meta-workbench">
-      <MetaGeneratedFieldForm fields={fields} onSubmit={save} submitLabel="Create via BFF (server Meta.sp_obj_*)" />
+      <SchemaPropertyGrid
+        fields={fields}
+        flattenedSchema={flattenedSchema}
+        onSubmit={save}
+        submitLabel={
+          lastObjId != null
+            ? "Update via BFF (portal.sp_session_meta_obj_update)"
+            : "Create via BFF (server Meta.sp_obj_*)"
+        }
+      />
       {status ? <p role="status">{status}</p> : null}
       {lastObjId != null && roundtrip ? (
         <details open>
