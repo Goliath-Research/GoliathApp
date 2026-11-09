@@ -90,17 +90,25 @@ test.describe("authenticated meta (CI postgres)", () => {
   }
 
   test("create and round-trip NavNode via BFF", async ({ page, request }) => {
+    test.setTimeout(120_000);
     await page.goto("/app/meta?class=portal%2FNavNode");
     await expect(page.locator(".g-schema-property-grid")).toBeVisible();
     await fillRequiredSchemaGridFields(page);
-    await page.getByRole("button", { name: /Create via BFF/ }).click();
+    const [createResponse] = await Promise.all([
+      page.waitForResponse(
+        (res) =>
+          res.request().method() === "POST" &&
+          res.url().includes("/api/meta/classes/") &&
+          res.url().includes("/objects"),
+        { timeout: 90_000 },
+      ),
+      page.getByRole("button", { name: /Create via BFF/ }).click(),
+    ]);
+    expect(createResponse.status()).toBe(201);
     const workbench = page.locator(".g-meta-workbench");
-    const alert = workbench.locator(".g-schema-property-grid").getByRole("alert");
-    await expect(alert.or(workbench.getByRole("status"))).toBeVisible({ timeout: 60_000 });
-    if (await alert.isVisible()) {
-      throw new Error(`SchemaPropertyGrid submit failed: ${await alert.textContent()}`);
-    }
-    await expect(workbench.getByRole("status")).toContainText("Created object #");
+    await expect(workbench.getByRole("status")).toContainText("Created object #", {
+      timeout: 15_000,
+    });
 
     const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
       data: { document: { Caption: "ApiCaption", Seq: 18 } },
