@@ -780,6 +780,7 @@ export function SchemaPropertyGridSurface({
             id={id}
             type={editor.mode === "integer" || editor.mode === "number" ? "number" : "text"}
             className="g-host-input"
+            aria-label={fieldName}
             value={primitiveValues[fieldName] ?? ""}
             disabled={disabled || busy}
             onChange={(e) => {

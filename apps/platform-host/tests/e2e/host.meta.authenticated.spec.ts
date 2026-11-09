@@ -114,11 +114,8 @@ test.describe("authenticated meta (CI postgres)", () => {
     };
     const requiredNames = fields.filter((f) => f.required).map((f) => f.fieldName);
     expect(requiredNames.length).toBeGreaterThan(0);
-    const grid = page.locator(".g-schema-property-grid");
     for (const name of requiredNames) {
-      await expect(grid.getByRole("textbox", { name: new RegExp(`^${name}`) }).or(
-        grid.getByRole("spinbutton", { name: new RegExp(`^${name}`) }),
-      )).toBeVisible();
+      await expect(page.getByTestId(`pi-row-${name}`).locator("input, select, textarea")).toBeVisible();
     }
     await fillRequiredSchemaGridFields(page, request);
     await expect(page.getByRole("button", { name: /Create via BFF/ })).toBeEnabled();
