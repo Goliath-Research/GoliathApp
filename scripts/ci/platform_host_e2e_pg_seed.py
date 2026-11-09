@@ -126,6 +126,8 @@ def main() -> int:
                 f"GOLIATH_E2E_SCOPE_B_ID={scope_b}",
                 f"GOLIATH_E2E_DENIED_SCOPE_ID={scope_b}",
                 f"GOLIATH_PLATFORM_HOST_DEV_LOGIN=1",
+                f"GOLIATH_PLATFORM_HOST_E2E_INTEGRATION=1",
+                f"PGSSLMODE=disable",
                 f"GOLIATH_PLATFORM_HOST_DEV_LOGIN_SECRET={DEV_SECRET}",
                 f"GOLIATH_PORTAL_PASSWORD={PORTAL_TEST_PASSWORD}",
                 f"PGHOST={env['PGHOST']}",

@@ -6,10 +6,12 @@ describe("devLoginAllowed", () => {
     vi.unstubAllEnvs();
   });
 
-  it("is false in production even when flag is set", () => {
+  it("is false in production unless CI E2E override is set", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("GOLIATH_PLATFORM_HOST_DEV_LOGIN", "1");
     expect(devLoginAllowed()).toBe(false);
+    vi.stubEnv("GOLIATH_PLATFORM_HOST_E2E_INTEGRATION", "1");
+    expect(devLoginAllowed()).toBe(true);
   });
 
   it("allows dev login in production only for Playwright E2E integration", () => {

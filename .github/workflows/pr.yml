@@ -212,6 +212,8 @@ jobs:
         env:
           CI: "1"
           PLAYWRIGHT_AUTH_E2E: "1"
+          GOLIATH_PLATFORM_HOST_E2E_INTEGRATION: "1"
+          PGSSLMODE: disable
           PLAYWRIGHT_SCREENSHOT_DIR: ${{ github.workspace }}/playwright-artifacts
 
       - name: Upload authenticated E2E screenshots
