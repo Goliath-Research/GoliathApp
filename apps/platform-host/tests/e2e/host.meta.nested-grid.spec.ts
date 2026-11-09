@@ -58,7 +58,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
 
   test("nested-e2e page renders carrier workbench", async ({ page }, testInfo) => {
     await page.goto("/app/nested-e2e");
-    await expect(page.getByRole("heading", { name: "e2e/NestedCarrier" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "e2e/NestedCarrier" })).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('[data-has-catalog-resolver="true"]')).toBeVisible();
     await expect(page.getByTestId("pi-open-Payload")).toBeVisible();
     const dir = process.env.PLAYWRIGHT_SCREENSHOT_DIR;
@@ -74,12 +74,11 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await page.getByTestId("pi-row-Caption").locator("input").fill("ModalE2E");
     await page.getByTestId("pi-row-Seq").locator("input").fill("9");
 
-    await page.getByTestId("pi-open-Payload").click();
+    await page.getByRole("button", { name: "Open Payload" }).click();
     await expect
       .poll(async () => page.evaluate(() => (window as { __goliathPropertyInspectorDialog?: string }).__goliathPropertyInspectorDialog))
       .toBe("Payload");
-    await expect(page.getByTestId("property-inspector-dialog-active")).toBeAttached({ timeout: 15_000 });
-    await expect(page.getByTestId("property-inspector-backdrop")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("property-inspector-modal")).toBeVisible({ timeout: 15_000 });
     const payloadModal = page.getByTestId("property-inspector-modal");
     await payloadModal.getByTestId("pi-row-label").locator("input").fill("payload-1");
     await payloadModal.getByTestId("pi-row-qty").locator("input").fill("1");

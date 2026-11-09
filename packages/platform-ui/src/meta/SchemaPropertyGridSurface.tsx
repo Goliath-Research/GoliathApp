@@ -584,7 +584,7 @@ export function SchemaPropertyGridSurface({
             aria-label={`Open ${fieldName}`}
             onClick={() => openNestedEditor(plan)}
           >
-            …
+            Open
           </button>
           {rowErrors[fieldName] ? (
             <span className="g-property-inspector__error" role="alert">
@@ -645,7 +645,7 @@ export function SchemaPropertyGridSurface({
                         : openArrayItemDialog(fieldName, editor.itemsSchema, item, index, false)
                     }
                   >
-                    …
+                    Open
                   </button>
                   <button type="button" className="g-host-button" onClick={() => moveItem(index, index - 1)}>
                     ↑

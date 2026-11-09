@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { NestedE2eWorkbench } from "./NestedE2eWorkbench";
+import { MetaInstanceWorkbench } from "@/components/MetaInstanceWorkbench";
 import {
   PortalBridgeMisconfiguredError,
   PortalForbiddenError,
@@ -38,7 +38,7 @@ export default async function NestedE2eMetaPage() {
       <div className="g-host-app">
         <p className="kicker">[E2E nested SchemaPropertyGrid]</p>
         <h2>{NESTED_E2E_CLASS}</h2>
-        <NestedE2eWorkbench
+        <MetaInstanceWorkbench
           className={NESTED_E2E_CLASS}
           fields={fields}
           flattenedSchema={summary.schemaFlattenedJson}
