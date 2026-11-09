@@ -88,10 +88,9 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await expect(page.getByTestId("property-inspector-backdrop")).toBeVisible({ timeout: 15_000 });
     const modal1 = page.getByTestId("property-inspector-modal");
     await expect(modal1).toBeVisible();
+    await expect(modal1.getByTestId("pi-row-ChildCode").locator("input")).toBeVisible({ timeout: 15_000 });
     const parentLabel = modal1.getByTestId("pi-row-ParentLabel").locator("input");
-    if (await parentLabel.count()) {
-      await parentLabel.fill("parent-e2e");
-    }
+    await parentLabel.fill("parent-e2e");
     await modal1.getByTestId("pi-row-ChildCode").locator("input").fill("child-1");
     await expect(modal1.getByTestId("pi-open-DetailPayload")).toBeVisible({ timeout: 15_000 });
     await modal1.getByTestId("pi-open-DetailPayload").click();

@@ -173,9 +173,45 @@ export function SchemaPropertyGridSurface({
 
   useEffect(() => {
     if (!onDraftChange) return;
-    const document = buildDocument({ silent: true });
-    if (document) onDraftChange(document);
+    onDraftChange(buildPartialDocument());
   }, [onDraftChange, primitiveValues, objectValues, arrayValues, schemalessValues]);
+
+  function buildPartialDocument(): Record<string, unknown> {
+    const document: Record<string, unknown> = {};
+    for (const plan of plans) {
+      const { fieldName, editor } = plan;
+      switch (editor.mode) {
+        case "typedMetaClass":
+        case "typedDataType":
+        case "nestedObject": {
+          const val = objectValues[fieldName];
+          if (val && Object.keys(val).length > 0) document[fieldName] = val;
+          break;
+        }
+        case "nestedArray": {
+          const val = arrayValues[fieldName] ?? [];
+          if (val.length > 0) document[fieldName] = val;
+          break;
+        }
+        case "schemaless": {
+          const raw = schemalessValues[fieldName] ?? "";
+          if (raw === "") break;
+          try {
+            document[fieldName] = JSON.parse(raw);
+          } catch {
+            /* partial draft — keep last valid omit */
+          }
+          break;
+        }
+        default: {
+          const raw = primitiveValues[fieldName] ?? "";
+          if (raw === "") break;
+          document[fieldName] = coercePrimitive(editor, raw);
+        }
+      }
+    }
+    return document;
+  }
 
   function buildDocument(opts?: { silent?: boolean }): Record<string, unknown> | null {
     const silent = opts?.silent === true;
@@ -539,7 +575,7 @@ export function SchemaPropertyGridSurface({
   function openNestedEditor(plan: FieldPlan) {
     const { fieldName, editor, catalogTarget } = plan;
     const val = objectValues[fieldName] ?? {};
-    if (catalogTarget) {
+    if (catalogTarget && catalogTarget.kind !== "inline") {
       openCatalogDialog(fieldName, catalogTarget, val);
       return;
     }

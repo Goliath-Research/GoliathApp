@@ -4,11 +4,26 @@ import type { ErrorObject, ValidateFunction } from "ajv";
 function registerCatalogDefs(ajv: Ajv2020, schema: Record<string, unknown>): void {
   const defs = schema.$defs;
   if (defs == null || typeof defs !== "object" || Array.isArray(defs)) return;
-  for (const [id, def] of Object.entries(defs as Record<string, unknown>)) {
+  for (const [key, def] of Object.entries(defs as Record<string, unknown>)) {
     if (def == null || typeof def !== "object" || Array.isArray(def)) continue;
     const defRecord = def as Record<string, unknown>;
-    if (defRecord.$id === id) continue;
-    ajv.addSchema({ ...defRecord, $id: id }, id);
+    const canonicalId =
+      typeof defRecord.$id === "string" && defRecord.$id.length > 0 ? defRecord.$id : key;
+    try {
+      ajv.addSchema({ ...defRecord, $id: canonicalId }, canonicalId);
+      if (key !== canonicalId) {
+        ajv.addSchema({ ...defRecord, $id: key }, key);
+      }
+    } catch {
+      // Id already registered from an ancestor fragment — still register bundle key alias when needed.
+      if (key !== canonicalId) {
+        try {
+          ajv.addSchema({ ...defRecord, $id: key }, key);
+        } catch {
+          /* ignore duplicate */
+        }
+      }
+    }
   }
 }
 

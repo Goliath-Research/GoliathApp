@@ -58,14 +58,15 @@ export function CatalogNestedSchemaDialog({
   const [gridHeader, setGridHeader] = useState<ReactNode>(headerSlot);
 
   useEffect(() => {
+    if (usePropertyInspectorChrome) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      e.stopImmediatePropagation();
+      e.stopPropagation();
       onCancel();
     };
-    window.addEventListener("keydown", onKey, { capture: true });
-    return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, [onCancel]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel, usePropertyInspectorChrome]);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,10 +157,12 @@ export function CatalogNestedSchemaDialog({
     <Suspense fallback={<p>Loading nested grid…</p>}>
       <LazySchemaPropertyGridSurface
         fields={fields}
-        syntheticFields={fields ? undefined : syntheticFieldsFromSchema(root, root)}
+        syntheticFields={
+          fields ? undefined : syntheticFieldsFromSchema(isSchemaRecord(flattened) ? flattened : root, root)
+        }
         schema={flattened}
-        rootSchema={root}
-        bundledSchema={bundled}
+        rootSchema={isSchemaRecord(flattened) ? flattened : root}
+        bundledSchema={catalogTarget.kind === "dataType" ? flattened : bundled}
         registry={registry}
         catalogResolver={catalogResolver}
         documentClassFqn={catalogTarget.kind === "metaClass" ? catalogTarget.className : undefined}
