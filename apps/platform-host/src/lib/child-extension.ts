@@ -16,11 +16,13 @@ export const EXAMPLE_CHILD_EXTENSION: PlatformHostChildExtension = {
     classIconOverrides: {
       "child_app/EnrollmentRow": "platform:circuit",
       "portal/NavNode": "platform:layout-grid",
+      "e2e/NestedChild": "platform:layout-grid",
     },
     editorComponents: {
       "child_app/StudyManifest": "ExampleStudyManifestEditor",
       "meta/BaseDocument": "ExampleStudyManifestEditor",
       "portal/NavNode": "ExampleStudyManifestEditor",
+      "e2e/NestedParent": "ExampleStudyManifestEditor",
     },
   },
   nav: [

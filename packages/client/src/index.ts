@@ -22,6 +22,7 @@ export type {
   MetaClassSummary,
   MetaClassLineageNode,
   MetaClassField,
+  MetaDataTypeSummary,
   MetaObjectDocument,
 } from "./meta.js";
 export type { PlatformAuthMethodKind, PublicAuthProvider, ChildAuthProviderRegistration } from "./auth.js";

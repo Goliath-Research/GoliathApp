@@ -7,4 +7,6 @@ export type GoliathUiManifest = {
    * Values are opaque ids validated at child compile time.
    */
   editorComponents?: Record<string, string>;
+  /** Optional editor manifest keys keyed by wf.data_type.name (primitive / catalog types). */
+  dataTypeEditorComponents?: Record<string, string>;
 };

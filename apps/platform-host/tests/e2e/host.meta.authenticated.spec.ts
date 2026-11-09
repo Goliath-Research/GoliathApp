@@ -74,9 +74,7 @@ test.describe("authenticated meta (CI postgres)", () => {
       }>;
     };
     for (const field of fields.filter((f) => f.required)) {
-      const row = page.locator(".g-schema-property-grid .g-meta-field-row", {
-        has: page.locator("label", { hasText: new RegExp(`^${field.fieldName}\\s*\\*$`) }),
-      });
+      const row = page.getByTestId(`pi-row-${field.fieldName}`);
       const checkbox = row.locator('input[type="checkbox"]');
       if ((await checkbox.count()) > 0) {
         await checkbox.check();
@@ -116,11 +114,8 @@ test.describe("authenticated meta (CI postgres)", () => {
     };
     const requiredNames = fields.filter((f) => f.required).map((f) => f.fieldName);
     expect(requiredNames.length).toBeGreaterThan(0);
-    const grid = page.locator(".g-schema-property-grid");
     for (const name of requiredNames) {
-      await expect(grid.getByRole("textbox", { name: new RegExp(`^${name}`) }).or(
-        grid.getByRole("spinbutton", { name: new RegExp(`^${name}`) }),
-      )).toBeVisible();
+      await expect(page.getByTestId(`pi-row-${name}`).locator("input, select, textarea")).toBeVisible();
     }
     await fillRequiredSchemaGridFields(page, request);
     await expect(page.getByRole("button", { name: /Create via BFF/ })).toBeEnabled();

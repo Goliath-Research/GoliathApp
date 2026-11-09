@@ -1,19 +1,43 @@
 "use client";
 
-import type { MetaClassField } from "@goliath/client";
+import type { MetaClassField, MetaClassLineageNode } from "@goliath/client";
 import { createPlatformBffClient } from "@goliath/client";
 import { SchemaPropertyGrid } from "@goliath/platform-ui";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { EXAMPLE_CHILD_EXTENSION } from "@/lib/child-extension";
+import { hierarchyRegistryFromManifest } from "@/lib/hierarchy-registry";
+import {
+  createHostMetaCatalogResolver,
+  type MetaCatalogClassFixture,
+} from "@/lib/meta-catalog-resolver";
 import { MetaJsonDocumentEditor } from "./MetaJsonDocumentEditor";
 
 export type MetaInstanceWorkbenchProps = {
   className: string;
   fields: MetaClassField[];
   flattenedSchema: unknown;
+  bundledSchema?: unknown;
+  lineage?: MetaClassLineageNode[];
+  catalogClassFixtures?: Record<string, MetaCatalogClassFixture>;
 };
 
-export function MetaInstanceWorkbench({ className, fields, flattenedSchema }: MetaInstanceWorkbenchProps) {
-  const client = createPlatformBffClient();
+export function MetaInstanceWorkbench({
+  className,
+  fields,
+  flattenedSchema,
+  bundledSchema,
+  lineage,
+  catalogClassFixtures,
+}: MetaInstanceWorkbenchProps) {
+  const client = useMemo(() => createPlatformBffClient(), []);
+  const catalogResolver = useMemo(
+    () => createHostMetaCatalogResolver(client, catalogClassFixtures),
+    [client, catalogClassFixtures],
+  );
+  const registry = useMemo(
+    () => hierarchyRegistryFromManifest(EXAMPLE_CHILD_EXTENSION.manifest),
+    [],
+  );
   const [lastObjId, setLastObjId] = useState<number | null>(null);
   const [roundtrip, setRoundtrip] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -40,6 +64,11 @@ export function MetaInstanceWorkbench({ className, fields, flattenedSchema }: Me
       <SchemaPropertyGrid
         fields={fields}
         flattenedSchema={flattenedSchema}
+        bundledSchema={bundledSchema}
+        lineage={lineage}
+        registry={registry}
+        catalogResolver={catalogResolver}
+        documentClassFqn={className}
         onSubmit={save}
         submitLabel={
           lastObjId != null

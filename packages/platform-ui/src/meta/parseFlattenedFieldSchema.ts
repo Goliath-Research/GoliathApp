@@ -1,116 +1,135 @@
+import { parseGoliathRef, type CatalogRef } from "./catalogRef.js";
+import {
+  isSchemaRecord,
+  primaryType,
+  resolveSchemaNode,
+  schemaAllowsNull,
+} from "./jsonSchema.js";
+
 export type ParsedFieldEditor =
   | {
       mode: "string" | "integer" | "number" | "boolean";
       optional: boolean;
       enumValues?: readonly string[];
     }
-  | { mode: "array"; optional: boolean; itemMode: "string" | "integer" | "number" | "json" }
-  | { mode: "object"; optional: boolean; propertyNames: readonly string[] }
-  | { mode: "json"; optional: boolean; reason: string };
+  | { mode: "typedMetaClass"; className: string; optional: boolean }
+  | { mode: "typedDataType"; typeName: string; optional: boolean; expectArray?: boolean }
+  | {
+      mode: "nestedObject";
+      optional: boolean;
+      objectSchema: Record<string, unknown>;
+    }
+  | {
+      mode: "nestedArray";
+      optional: boolean;
+      itemsAreObject: boolean;
+      itemsSchema: Record<string, unknown>;
+      itemsCatalogRef?: CatalogRef;
+      primitiveItemMode?: "string" | "integer" | "number";
+    }
+  | { mode: "schemaless"; optional: boolean; reason: string };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value != null && typeof value === "object" && !Array.isArray(value);
-}
-
-function schemaAllowsNull(prop: Record<string, unknown>): boolean {
-  if (prop.type === "null") return true;
-  const anyOf = prop.anyOf;
-  if (Array.isArray(anyOf)) {
-    return anyOf.some((branch) => isRecord(branch) && branch.type === "null");
+export function parsePropertySchema(
+  prop: unknown,
+  required: boolean,
+  rootSchema: Record<string, unknown> | null | undefined,
+): ParsedFieldEditor {
+  if (!isSchemaRecord(prop)) {
+    return { mode: "schemaless", optional: !required, reason: "non-object schema node" };
   }
-  return false;
-}
 
-function primaryType(prop: Record<string, unknown>): string | undefined {
-  if (typeof prop.type === "string") return prop.type;
-  const anyOf = prop.anyOf;
-  if (Array.isArray(anyOf)) {
-    for (const branch of anyOf) {
-      if (isRecord(branch) && typeof branch.type === "string" && branch.type !== "null") {
-        return branch.type;
-      }
+  const optional = !required || schemaAllowsNull(prop);
+  const resolved = resolveSchemaNode(prop, rootSchema) ?? prop;
+
+  if (typeof resolved.$ref === "string") {
+    const catalog = parseGoliathRef(resolved.$ref);
+    if (catalog?.kind === "metaClass") {
+      return { mode: "typedMetaClass", className: catalog.className, optional };
+    }
+    if (catalog?.kind === "dataType") {
+      return { mode: "typedDataType", typeName: catalog.typeName, optional };
     }
   }
-  if (Array.isArray(prop.enum) && prop.enum.length > 0) {
-    return "string";
+
+  if (Array.isArray(resolved.enum) && resolved.enum.every((v) => typeof v === "string" || typeof v === "number")) {
+    return {
+      mode: "string",
+      optional,
+      enumValues: resolved.enum.map(String),
+    };
   }
-  return undefined;
+
+  const type = primaryType(resolved);
+
+  if (type === "string") return { mode: "string", optional };
+  if (type === "integer") return { mode: "integer", optional };
+  if (type === "number") return { mode: "number", optional };
+  if (type === "boolean") return { mode: "boolean", optional };
+
+  if (type === "array") {
+    const items = resolved.items;
+    const itemNode = resolveSchemaNode(items, rootSchema);
+    if (!isSchemaRecord(itemNode)) {
+      return { mode: "schemaless", optional, reason: "array without resolvable items schema" };
+    }
+    const itemType = primaryType(itemNode);
+    if (typeof itemNode.$ref === "string") {
+      const itemCatalog = parseGoliathRef(itemNode.$ref);
+      if (itemCatalog?.kind === "metaClass") {
+        return {
+          mode: "nestedArray",
+          optional,
+          itemsAreObject: true,
+          itemsSchema: itemNode,
+          itemsCatalogRef: itemCatalog,
+        };
+      }
+    }
+    if (itemType === "object" || isSchemaRecord(itemNode.properties)) {
+      return {
+        mode: "nestedArray",
+        optional,
+        itemsAreObject: true,
+        itemsSchema: itemNode,
+      };
+    }
+    if (itemType === "string") {
+      return { mode: "nestedArray", optional, itemsAreObject: false, itemsSchema: itemNode, primitiveItemMode: "string" };
+    }
+    if (itemType === "integer") {
+      return { mode: "nestedArray", optional, itemsAreObject: false, itemsSchema: itemNode, primitiveItemMode: "integer" };
+    }
+    if (itemType === "number") {
+      return { mode: "nestedArray", optional, itemsAreObject: false, itemsSchema: itemNode, primitiveItemMode: "number" };
+    }
+    return { mode: "schemaless", optional, reason: "array items not object or primitive" };
+  }
+
+  if (type === "object" || isSchemaRecord(resolved.properties)) {
+    return { mode: "nestedObject", optional, objectSchema: resolved };
+  }
+
+  if (resolved.allOf != null || resolved.oneOf != null) {
+    return { mode: "schemaless", optional, reason: "unexpanded composition branch" };
+  }
+
+  return { mode: "schemaless", optional, reason: "missing or unsupported type" };
 }
 
 export function parseFlattenedFieldSchema(
   prop: unknown,
   required: boolean,
+  rootSchema?: Record<string, unknown> | null,
 ): ParsedFieldEditor {
-  if (!isRecord(prop)) {
-    return { mode: "json", optional: !required, reason: "non-object schema node" };
-  }
-
-  const optional = !required || schemaAllowsNull(prop);
-
-  if (Array.isArray(prop.enum) && prop.enum.every((v) => typeof v === "string" || typeof v === "number")) {
-    return {
-      mode: "string",
-      optional,
-      enumValues: prop.enum.map(String),
-    };
-  }
-
-  const type = primaryType(prop);
-
-  if (type === "string") {
-    return { mode: "string", optional };
-  }
-  if (type === "integer") {
-    return { mode: "integer", optional };
-  }
-  if (type === "number") {
-    return { mode: "number", optional };
-  }
-  if (type === "boolean") {
-    return { mode: "boolean", optional };
-  }
-  if (type === "array") {
-    const items = prop.items;
-    let itemMode: "string" | "integer" | "number" | "json" = "json";
-    if (isRecord(items)) {
-      const itemType = primaryType(items);
-      if (itemType === "string") itemMode = "string";
-      else if (itemType === "integer") itemMode = "integer";
-      else if (itemType === "number") itemMode = "number";
-    }
-    if (itemMode === "json") {
-      return { mode: "json", optional, reason: "unsupported array item schema" };
-    }
-    return { mode: "array", optional, itemMode };
-  }
-  if (type === "object") {
-    const props = prop.properties;
-    if (isRecord(props)) {
-      return {
-        mode: "object",
-        optional,
-        propertyNames: Object.keys(props).sort(),
-      };
-    }
-    return { mode: "json", optional, reason: "object without properties" };
-  }
-
-  if (prop.$ref != null) {
-    return { mode: "json", optional, reason: "unresolved $ref in flattened schema" };
-  }
-  if (prop.allOf != null || prop.oneOf != null) {
-    return { mode: "json", optional, reason: "composition branch not expanded" };
-  }
-
-  return { mode: "json", optional, reason: "unsupported or missing type" };
+  return parsePropertySchema(prop, required, rootSchema ?? null);
 }
 
 export function propertySchemaFromFlattened(
   flattenedSchema: unknown,
   fieldName: string,
 ): unknown {
-  if (!isRecord(flattenedSchema)) return undefined;
+  if (!isSchemaRecord(flattenedSchema)) return undefined;
   const props = flattenedSchema.properties;
-  if (!isRecord(props)) return undefined;
+  if (!isSchemaRecord(props)) return undefined;
   return props[fieldName];
 }
