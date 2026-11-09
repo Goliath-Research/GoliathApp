@@ -32,6 +32,12 @@ DECLARE
   v_op_id int;
   v_class_id int;
   v_perm_name text;
+  v_meta_obj int;
+  v_meta_link int;
+  v_link_type smallint;
+  v_parent_obj int;
+  v_nav_link_id int;
+  v_doc jsonb;
 BEGIN
   -- Ensure operator permissions used by platform admin surfaces (Meta catalog is seeded in portal_session_meta_api.sql).
   SELECT c."ID" INTO v_class_id
@@ -167,6 +173,9 @@ BEGIN
     ('Supplier items', '/app/inv/supplier-items', '0010.0080.0040', 40::smallint, '/app/inv', 'artifact', 'platform.nav.inv.supplier_items'),
     ('Stock operations', '/app/inv/stock', '0010.0080.0050', 50::smallint, '/app/inv', 'workflow_action', 'platform.nav.inv.stock');
 
+  -- Legacy NavTree rows (upgrades) may lack MetaObjID; backfill in tree order before register_node children.
+  PERFORM nav_id FROM portal.sp_nav_backfill_meta(false);
+
   FOR nav_row IN
     SELECT *
     FROM _platform_baseline_nav
@@ -226,8 +235,69 @@ BEGIN
           OR n."InfoID" IS DISTINCT FROM v_info_id
           OR n."SortPath" IS DISTINCT FROM nav_row.sort_path
         );
+
+      v_meta_obj := NULL;
+      SELECT n."MetaObjID" INTO v_meta_obj
+      FROM portal."NavTree" n
+      WHERE n."ID" = v_node_id;
+
+      IF v_meta_obj IS NOT NULL THEN
+        v_doc := jsonb_strip_nulls(jsonb_build_object(
+          'Caption', nav_row.caption,
+          'Seq', nav_row.seq,
+          'NodePath', nav_row.node_path,
+          'SortPath', nav_row.sort_path,
+          'InfoID', v_info_id
+        ));
+        PERFORM "Meta".sp_obj_update(v_meta_obj, v_doc);
+
+        v_meta_link := portal.fn_nav_parent_metalink_id();
+        v_link_type := portal.fn_nav_hierarchy_link_type_id();
+        v_class_id := portal.fn_nav_node_class_id();
+
+        v_parent_obj := NULL;
+        IF v_parent_id IS NOT NULL THEN
+          SELECT n."MetaObjID" INTO v_parent_obj
+          FROM portal."NavTree" n
+          WHERE n."ID" = v_parent_id;
+        END IF;
+
+        SELECT l."ID" INTO v_nav_link_id
+        FROM "Meta"."Links" l
+        WHERE l."MetaLinkID" = v_meta_link
+          AND l."ObjID1" = v_meta_obj
+        LIMIT 1;
+
+        IF v_parent_obj IS NULL THEN
+          IF v_nav_link_id IS NOT NULL THEN
+            DELETE FROM "Meta"."Links" l WHERE l."ID" = v_nav_link_id;
+            v_nav_link_id := NULL;
+          END IF;
+          PERFORM "Meta".sp_tree_attach_child(v_meta_obj, NULL, v_meta_link);
+        ELSIF v_nav_link_id IS NULL THEN
+          INSERT INTO "Meta"."Links" (
+            "Name", "ClassID1", "ClassID2", "LinkTypeID", "MetaLinkID", "ObjID1", "ObjID2"
+          )
+          VALUES (
+            'nav-parent-' || v_meta_obj::text,
+            v_class_id,
+            v_class_id,
+            v_link_type,
+            v_meta_link,
+            v_meta_obj,
+            v_parent_obj
+          );
+        ELSE
+          UPDATE "Meta"."Links" l
+          SET "ObjID2" = v_parent_obj
+          WHERE l."ID" = v_nav_link_id
+            AND l."ObjID2" IS DISTINCT FROM v_parent_obj;
+        END IF;
+      END IF;
     END IF;
   END LOOP;
+
+  PERFORM nav_id FROM portal.sp_nav_backfill_meta(false);
 
   IF v_role_id IS NOT NULL THEN
     FOR v_scope_id IN
