@@ -53,16 +53,6 @@ def _ensure_e2e_nested_hierarchy(env: dict[str, str]) -> None:
         """,
         env,
     )
-    child_ref_schema = '{"$ref":"goliath:meta/class/e2e/NestedChild"}'
-    child_catalog_type_id = _psql(
-        f"""
-        INSERT INTO wf.data_type (name, version, kind, schema_json)
-        VALUES ('meta/class/e2e/NestedChild', '1', 'object', '{child_ref_schema}'::jsonb)
-        ON CONFLICT (name, version) DO UPDATE SET schema_json = EXCLUDED.schema_json
-        RETURNING id
-        """,
-        env,
-    )
     array_schema = '{"type":"array","items":{"$ref":"goliath:meta/class/e2e/NestedChild"}}'
     child_rows_type_id = _psql(
         f"""
@@ -133,6 +123,23 @@ def _ensure_e2e_nested_hierarchy(env: dict[str, str]) -> None:
         ("Caption", string_type_id, True),
         ("Seq", int_type_id, True),
         ("Payload", payload_type_id, True),
+    ):
+        _psql(
+            f"""
+            INSERT INTO "Meta"."Fields" ("ClassID", "Name", "TypeID", "Required")
+            VALUES ({carrier_id}, '{field_name}', {type_id}, {'true' if required else 'false'})
+            ON CONFLICT ("ClassID", "Name") DO NOTHING
+            """,
+            env,
+        )
+    _psql("SELECT portal.sp_nav_ensure_meta_catalog()", env)
+    child_catalog_type_id = _psql(
+        """SELECT id FROM wf.data_type WHERE name = 'meta/class/e2e/NestedChild' ORDER BY id DESC LIMIT 1""",
+        env,
+    )
+    if not child_catalog_type_id:
+        raise RuntimeError("meta/class/e2e/NestedChild catalog type missing after sp_nav_ensure_meta_catalog")
+    for field_name, type_id, required in (
         ("ChildDoc", child_catalog_type_id, False),
         ("ChildRows", child_rows_type_id, False),
     ):

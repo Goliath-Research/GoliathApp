@@ -371,6 +371,7 @@ export function SchemaPropertyGridSurface({
             className="g-host-button"
             disabled={disabled || busy}
             onClick={() => openCatalogDialog(fieldName, target, val ?? {})}
+            aria-label={`Edit nested ${fieldName}`}
           >
             Edit nested ({summaryObject(val)})
           </button>
@@ -391,6 +392,7 @@ export function SchemaPropertyGridSurface({
               className="g-host-button"
               disabled={disabled || busy}
               onClick={() => openCatalogDialog(fieldName, plan.catalogTarget as CatalogRef, val ?? {})}
+              aria-label={`Edit nested ${fieldName}`}
             >
               Edit nested ({summaryObject(val)})
             </button>
@@ -415,6 +417,7 @@ export function SchemaPropertyGridSurface({
                 value: val ?? {},
               })
             }
+            aria-label={`Edit nested ${fieldName}`}
           >
             Edit nested ({summaryObject(val)})
           </button>

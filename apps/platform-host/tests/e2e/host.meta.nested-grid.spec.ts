@@ -10,7 +10,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await expect(page.getByRole("heading", { name: "e2e/NestedCarrier" })).toBeVisible();
     await page.getByLabel(/Caption/).fill("NestedCaption");
     await page.getByLabel(/Seq/).fill("3");
-    await page.getByRole("button", { name: /Edit nested.*Payload/i }).click();
+    await page.getByRole("button", { name: "Edit nested Payload" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByLabel(/^label$/i).fill("inner");
     await page.getByLabel(/^qty$/i).fill("9");
@@ -20,7 +20,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
 
   test("meta class field loads inherited ParentLabel in nested grid", async ({ page }) => {
     await page.goto("/app/nested-e2e");
-    await page.getByRole("button", { name: /Edit nested.*ChildDoc/i }).click();
+    await page.getByRole("button", { name: "Edit nested ChildDoc" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByLabel(/ParentLabel/)).toBeVisible();
     await page.getByLabel(/ChildCode/).fill("c1");
@@ -40,7 +40,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
 
   test("child class nested dialog shows ancestry icon hook", async ({ page }, testInfo) => {
     await page.goto("/app/nested-e2e");
-    await page.getByRole("button", { name: /Edit nested.*ChildDoc/i }).click();
+    await page.getByRole("button", { name: "Edit nested ChildDoc" }).click();
     await expect(page.getByTestId("nested-grid-icon")).toContainText("platform:layout-grid");
     const dir = process.env.PLAYWRIGHT_SCREENSHOT_DIR;
     const shot = dir
@@ -53,7 +53,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await page.goto("/app/nested-e2e");
     await page.getByLabel(/Caption/).fill("NestedCaption");
     await page.getByLabel(/Seq/).fill("3");
-    await page.getByRole("button", { name: /Edit nested.*Payload/i }).click();
+    await page.getByRole("button", { name: "Edit nested Payload" }).click();
     await page.getByLabel(/^label$/i).fill("inner");
     await page.getByLabel(/^qty$/i).fill("9");
     await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
