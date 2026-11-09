@@ -1,12 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useId, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useState } from "react";
 import type { SyntheticSchemaField } from "./jsonSchema.js";
 import { SCHEMA_PROPERTY_GRID_MAX_DEPTH } from "./jsonSchema.js";
 import type { MetaCatalogResolver } from "./metaCatalogResolver.js";
 import type { HierarchyPresentationRegistry } from "./metaHierarchyResolver.js";
-import { SchemaPropertyGridSurface } from "./SchemaPropertyGridSurface.js";
+
+const LazySchemaPropertyGridSurface = lazy(() =>
+  import("./SchemaPropertyGridSurface.js").then((m) => ({ default: m.SchemaPropertyGridSurface })),
+);
 
 export type NestedSchemaDialogProps = {
   title: string;
@@ -74,23 +77,25 @@ export function NestedSchemaDialog({
     <DialogBackdrop onCancel={onCancel}>
       <div className="g-schema-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <h3 id={titleId}>{title}</h3>
-        <SchemaPropertyGridSurface
-          syntheticFields={syntheticFields}
-          schema={objectSchema}
-          rootSchema={rootSchema}
-          bundledSchema={bundledSchema ?? rootSchema}
-          registry={registry}
-          catalogResolver={catalogResolver}
-          initialDocument={draft}
-          depth={depth}
-          submitLabel="Save"
-          embedded
-          onDraftChange={setDraft}
-          onSubmit={(document) => {
-            setError(null);
-            onSave(document);
-          }}
-        />
+        <Suspense fallback={<p>Loading nested grid…</p>}>
+          <LazySchemaPropertyGridSurface
+            syntheticFields={syntheticFields}
+            schema={objectSchema}
+            rootSchema={rootSchema}
+            bundledSchema={bundledSchema ?? rootSchema}
+            registry={registry}
+            catalogResolver={catalogResolver}
+            initialDocument={draft}
+            depth={depth}
+            submitLabel="Save"
+            embedded
+            onDraftChange={setDraft}
+            onSubmit={(document) => {
+              setError(null);
+              onSave(document);
+            }}
+          />
+        </Suspense>
         {error ? <p role="alert">{error}</p> : null}
         <div className="g-schema-dialog__actions">
           <button type="button" className="g-host-button" onClick={onCancel}>

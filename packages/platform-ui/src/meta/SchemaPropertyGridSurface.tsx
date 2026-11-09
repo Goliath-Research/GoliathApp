@@ -72,7 +72,6 @@ type DialogState =
       fieldName: string;
       index: number;
       schema: Record<string, unknown>;
-      catalogTarget?: CatalogRef;
       value: Record<string, unknown>;
       isNew: boolean;
     }
@@ -464,7 +463,6 @@ export function SchemaPropertyGridSurface({
                           fieldName,
                           index,
                           schema: editor.itemsSchema,
-                          catalogTarget: itemCatalog,
                           value: item,
                           isNew: false,
                         })
@@ -499,7 +497,6 @@ export function SchemaPropertyGridSurface({
                     fieldName,
                     index: items.length,
                     schema: editor.itemsSchema,
-                    catalogTarget: itemCatalog,
                     value: {},
                     isNew: true,
                   })

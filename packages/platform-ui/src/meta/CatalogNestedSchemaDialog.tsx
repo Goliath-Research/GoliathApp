@@ -11,7 +11,11 @@ import {
   type HierarchyPresentationRegistry,
 } from "./metaHierarchyResolver.js";
 import { parseGoliathRef } from "./catalogRef.js";
-import { SchemaPropertyGridSurface } from "./SchemaPropertyGridSurface.js";
+import { lazy, Suspense } from "react";
+
+const LazySchemaPropertyGridSurface = lazy(() =>
+  import("./SchemaPropertyGridSurface.js").then((m) => ({ default: m.SchemaPropertyGridSurface })),
+);
 
 export type CatalogNestedSchemaDialogProps = {
   title: string;
@@ -148,32 +152,34 @@ export function CatalogNestedSchemaDialog({
         {loading ? <p>Loading nested class schema…</p> : null}
         {error ? <p role="alert">{error}</p> : null}
         {!loading && !error && flattened != null ? (
-          <SchemaPropertyGridSurface
-            fields={fields}
-            syntheticFields={
-              fields ? undefined : syntheticFieldsFromSchema(root, root)
-            }
-            schema={flattened}
-            rootSchema={root}
-            bundledSchema={bundled}
-            registry={registry}
-            catalogResolver={catalogResolver}
-            documentClassFqn={catalogTarget.kind === "metaClass" ? catalogTarget.className : undefined}
-            declaringClassAncestryByField={
-              fields
-                ? Object.fromEntries(
-                    fields.map((f) => [f.fieldName, classAncestry.length ? classAncestry : [f.declaredOnClassName]]),
-                  )
-                : undefined
-            }
-            initialDocument={draft}
-            depth={depth}
-            submitLabel="Save"
-            embedded
-            headerSlot={gridHeader ?? headerSlot}
-            onDraftChange={setDraft}
-            onSubmit={onSave}
-          />
+          <Suspense fallback={<p>Loading nested grid…</p>}>
+            <LazySchemaPropertyGridSurface
+              fields={fields}
+              syntheticFields={
+                fields ? undefined : syntheticFieldsFromSchema(root, root)
+              }
+              schema={flattened}
+              rootSchema={root}
+              bundledSchema={bundled}
+              registry={registry}
+              catalogResolver={catalogResolver}
+              documentClassFqn={catalogTarget.kind === "metaClass" ? catalogTarget.className : undefined}
+              declaringClassAncestryByField={
+                fields
+                  ? Object.fromEntries(
+                      fields.map((f) => [f.fieldName, classAncestry.length ? classAncestry : [f.declaredOnClassName]]),
+                    )
+                  : undefined
+              }
+              initialDocument={draft}
+              depth={depth}
+              submitLabel="Save"
+              embedded
+              headerSlot={gridHeader ?? headerSlot}
+              onDraftChange={setDraft}
+              onSubmit={onSave}
+            />
+          </Suspense>
         ) : null}
         <div className="g-schema-dialog__actions">
           <button type="button" className="g-host-button" onClick={onCancel}>
