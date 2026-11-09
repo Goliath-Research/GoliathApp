@@ -229,7 +229,8 @@ export function SchemaPropertyGridSurface({
       }
     }
     if (!embedded && isSchemaRecord(schema)) {
-      const rootErr = validateSubSchema(schema, document);
+      const validationSchema = isSchemaRecord(bundledSchema) ? bundledSchema : schema;
+      const rootErr = validateSubSchema(validationSchema, document);
       if (rootErr) {
         setError(rootErr);
         return null;

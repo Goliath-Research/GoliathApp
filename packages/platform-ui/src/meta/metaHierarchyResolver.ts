@@ -2,6 +2,7 @@ import type { MetaClassField } from "@goliath/client";
 import {
   catalogRefFromFieldTypeName,
   parseGoliathRef,
+  resolveBundledDefRef,
   type CatalogRef,
 } from "./catalogRef.js";
 import { isSchemaRecord, resolveSchemaNode } from "./jsonSchema.js";
@@ -204,12 +205,25 @@ function catalogTargetFromFieldAndSchema(
   return null;
 }
 
+function resolveCatalogPropertySchema(
+  prop: unknown,
+  rootSchema: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!isSchemaRecord(prop)) return null;
+  let resolved = resolveSchemaNode(prop, rootSchema) ?? prop;
+  if (typeof resolved.$ref === "string") {
+    const bundled = rootSchema ? resolveBundledDefRef(resolved.$ref, rootSchema) : null;
+    if (bundled) resolved = bundled;
+  }
+  return resolved;
+}
+
 function arrayItemsCatalog(
   prop: unknown,
   rootSchema: Record<string, unknown> | null,
 ): CatalogRef | null {
-  if (!isSchemaRecord(prop)) return null;
-  const resolved = resolveSchemaNode(prop, rootSchema) ?? prop;
+  const resolved = resolveCatalogPropertySchema(prop, rootSchema);
+  if (!resolved) return null;
   if (resolved.type !== "array" && !resolved.items) return null;
   const items = resolveSchemaNode(resolved.items, rootSchema);
   if (!isSchemaRecord(items)) return null;
@@ -233,7 +247,8 @@ export function resolveHierarchyFieldEditor(input: HierarchyFieldResolveInput): 
   const catalogTarget = catalogTargetFromFieldAndSchema(input.field, prop, root);
 
   if (catalogTarget?.kind === "dataType" && input.field.typeKind?.toLowerCase() === "array" && prop != null) {
-    const schemaEditor = parsePropertySchema(prop, input.field.required, root);
+    const expanded = resolveCatalogPropertySchema(prop, root);
+    const schemaEditor = parsePropertySchema(expanded ?? prop, input.field.required, root);
     if (schemaEditor.mode === "nestedArray") {
       return {
         editor: schemaEditor,
@@ -274,7 +289,7 @@ export function resolveHierarchyFieldEditor(input: HierarchyFieldResolveInput): 
     if (structural) {
       if (structural.mode === "typedDataType" && structural.expectArray) {
         const itemCatalog = arrayItemsCatalog(prop, root);
-        if (itemCatalog?.kind === "metaClass") {
+        if (itemCatalog && itemCatalog.kind !== "inline") {
           return {
             editor: {
               mode: "nestedArray",

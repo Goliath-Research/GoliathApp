@@ -54,10 +54,12 @@ export function CatalogNestedSchemaDialog({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      onCancel();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [onCancel]);
 
   useEffect(() => {
@@ -107,7 +109,7 @@ export function CatalogNestedSchemaDialog({
           }
           if (isSchemaRecord(schema)) {
             setFlattened(schema);
-            setBundled(bundledSchema ?? schema);
+            setBundled(schema);
             setFields(undefined);
           } else {
             throw new Error(`data type ${catalogTarget.typeName} has no object schema`);
