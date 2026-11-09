@@ -64,11 +64,23 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
 
   test("property inspector opens two nested modals and saves via BFF", async ({ page, request }) => {
     await page.goto("/app/nested-e2e");
+    await page.waitForLoadState("networkidle");
     await page.getByTestId("pi-row-Caption").locator("input").fill("ModalE2E");
     await page.getByTestId("pi-row-Seq").locator("input").fill("9");
 
-    await page.getByTestId("pi-open-ChildDoc").click();
-    const modal1 = page.getByTestId("property-inspector-modal").first();
+    await page.getByTestId("pi-open-Payload").click();
+    await expect(page.getByTestId("property-inspector-dialog-active")).toBeAttached({ timeout: 15_000 });
+    await expect(page.getByTestId("property-inspector-backdrop")).toBeVisible({ timeout: 15_000 });
+    const payloadModal = page.getByTestId("property-inspector-modal");
+    await payloadModal.getByTestId("pi-row-label").locator("input").fill("payload-1");
+    await payloadModal.getByTestId("pi-row-qty").locator("input").fill("1");
+    await payloadModal.getByTestId("property-inspector-ok").click();
+    await expect(page.getByTestId("property-inspector-modal")).toHaveCount(0);
+
+    await page.getByTestId("pi-array-add-ChildRows").click();
+    await expect(page.getByTestId("property-inspector-dialog-active")).toBeAttached({ timeout: 15_000 });
+    await expect(page.getByTestId("property-inspector-backdrop")).toBeVisible({ timeout: 15_000 });
+    const modal1 = page.getByTestId("property-inspector-modal");
     await expect(modal1).toBeVisible();
     const parentLabel = modal1.getByTestId("pi-row-ParentLabel").locator("input");
     if (await parentLabel.count()) {
@@ -98,8 +110,11 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     const row = (await getRes.json()) as { object: { document: Record<string, unknown> } };
     const doc = row.object.document;
     expect(doc.Caption).toBe("ModalE2E");
-    const childDoc = doc.ChildDoc as Record<string, unknown>;
-    expect(childDoc.ChildCode).toBe("child-1");
-    expect((childDoc.DetailPayload as Record<string, unknown>).label).toBe("deep-label");
+    const payload = doc.Payload as Record<string, unknown>;
+    expect(payload.label).toBe("payload-1");
+    const rows = doc.ChildRows as Record<string, unknown>[];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0].ChildCode).toBe("child-1");
+    expect((rows[0].DetailPayload as Record<string, unknown>).label).toBe("deep-label");
   });
 });

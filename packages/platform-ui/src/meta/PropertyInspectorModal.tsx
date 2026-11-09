@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useId } from "react";
+import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 
 export type PropertyInspectorModalProps = {
@@ -26,6 +26,11 @@ export function PropertyInspectorModal({
   okLabel = "OK",
 }: PropertyInspectorModalProps) {
   const titleId = useId();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -39,7 +44,7 @@ export function PropertyInspectorModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onCancel]);
 
-  if (!open || typeof document === "undefined") return null;
+  if (!open || !mounted || typeof document === "undefined") return null;
 
   return createPortal(
     <div className="g-property-inspector-modal-backdrop" data-testid="property-inspector-backdrop">

@@ -446,6 +446,7 @@ export function SchemaPropertyGridSurface({
           </p>
         ) : null}
       </form>
+      {dialog ? <span data-testid="property-inspector-dialog-active" aria-hidden className="g-sr-only" /> : null}
       <PropertyInspectorDialogHost
         request={dialog}
         catalogResolver={catalogResolver}
