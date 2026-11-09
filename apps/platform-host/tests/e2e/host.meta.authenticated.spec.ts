@@ -59,14 +59,24 @@ test.describe("authenticated meta (CI postgres)", () => {
     await page.screenshot({ path: shot, fullPage: true });
   });
 
-  async function fillRequiredSchemaGridFields(page: import("@playwright/test").Page) {
-    const rows = page.locator(".g-schema-property-grid .g-meta-field-row");
-    const count = await rows.count();
-    for (let i = 0; i < count; i++) {
-      const row = rows.nth(i);
-      const labelText = (await row.locator("label").textContent()) ?? "";
-      if (!labelText.includes("*")) continue;
-      const field = labelText.replace(/\s*\*$/, "").trim();
+  async function fillRequiredSchemaGridFields(
+    page: import("@playwright/test").Page,
+    request: import("@playwright/test").APIRequestContext,
+  ) {
+    const fieldsRes = await request.get("/api/meta/classes/portal%2FNavNode/fields");
+    expect(fieldsRes.ok()).toBeTruthy();
+    const { fields } = (await fieldsRes.json()) as {
+      fields: Array<{
+        fieldName: string;
+        required: boolean;
+        typeKind: string | null;
+        typeName: string | null;
+      }>;
+    };
+    for (const field of fields.filter((f) => f.required)) {
+      const row = page.locator(".g-schema-property-grid .g-meta-field-row", {
+        has: page.locator("label", { hasText: new RegExp(`^${field.fieldName}\\s*\\*$`) }),
+      });
       const checkbox = row.locator('input[type="checkbox"]');
       if ((await checkbox.count()) > 0) {
         await checkbox.check();
@@ -77,14 +87,22 @@ test.describe("authenticated meta (CI postgres)", () => {
         await select.selectOption({ index: 1 });
         continue;
       }
-      const textControl = row.locator("input, textarea").first();
-      const inputType = await textControl.getAttribute("type");
-      if (field === "Caption") {
-        await textControl.fill("E2ECaption");
-      } else if (field === "Seq" || inputType === "number") {
-        await textControl.fill("17");
+      const textarea = row.locator("textarea");
+      if ((await textarea.count()) > 0) {
+        await textarea.fill("[]");
+        continue;
+      }
+      const input = row.locator("input").first();
+      const kind = field.typeKind?.toLowerCase() ?? "";
+      const typeName = field.typeName?.toLowerCase() ?? "";
+      if (field.fieldName === "Caption") {
+        await input.fill("E2ECaption");
+      } else if (kind === "int" || typeName.includes("int") || field.fieldName === "Seq") {
+        await input.fill("17");
+      } else if (kind === "number" || typeName.includes("number") || typeName.includes("decimal")) {
+        await input.fill("1.5");
       } else {
-        await textControl.fill("e2e");
+        await input.fill("e2e");
       }
     }
   }
@@ -93,7 +111,7 @@ test.describe("authenticated meta (CI postgres)", () => {
     test.setTimeout(120_000);
     await page.goto("/app/meta?class=portal%2FNavNode");
     await expect(page.locator(".g-schema-property-grid")).toBeVisible();
-    await fillRequiredSchemaGridFields(page);
+    await fillRequiredSchemaGridFields(page, request);
     const [createResponse] = await Promise.all([
       page.waitForResponse(
         (res) =>
