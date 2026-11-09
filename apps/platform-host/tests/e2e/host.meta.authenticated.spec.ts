@@ -1,6 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, request as playwrightRequest } from "@playwright/test";
+import type { APIRequestContext } from "@playwright/test";
 import * as fs from "node:fs";
 import * as path from "node:path";
+
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:3400";
 
 function loadCiEnv(): void {
   const envPath = path.join(__dirname, "..", "..", ".e2e", "ci.env");
@@ -14,6 +17,23 @@ function loadCiEnv(): void {
     const value = trimmed.slice(eq + 1);
     if (!(key in process.env)) process.env[key] = value;
   }
+}
+
+async function isolatedSession(
+  userId: string,
+  scopeId: string,
+): Promise<APIRequestContext> {
+  const secret = process.env.GOLIATH_PLATFORM_HOST_DEV_LOGIN_SECRET!;
+  const ctx = await playwrightRequest.newContext({ baseURL });
+  const res = await ctx.post("/api/session/dev-establish", {
+    headers: {
+      "x-goliath-dev-login-secret": secret,
+      "x-goliath-dev-login-scope-id": scopeId,
+      "x-goliath-dev-login-user-id": userId,
+    },
+  });
+  expect(res.ok()).toBeTruthy();
+  return ctx;
 }
 
 test.beforeAll(() => {
@@ -43,10 +63,14 @@ test.describe("authenticated meta (CI postgres)", () => {
     await page.goto("/app/meta?class=portal%2FNavNode");
     await page.getByLabel("Caption *").fill("E2ECaption");
     await page.getByLabel("Seq *").fill("17");
-    await page.getByRole("button", { name: /Create via BFF/ }).click();
-    await expect(page.locator(".g-meta-workbench").getByRole("status")).toContainText(
-      "Created object #",
-    );
+  const [createResponse] = await Promise.all([
+      page.waitForResponse(
+        (res) => res.url().includes("/api/meta/classes/") && res.url().includes("/objects"),
+      ),
+      page.getByRole("button", { name: /Create via BFF/ }).click(),
+    ]);
+    expect(createResponse.status()).toBe(201);
+    await expect(page.locator(".g-meta-workbench").getByRole("status")).toContainText("Created object #");
 
     const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
       data: { document: { Caption: "ApiCaption", Seq: 18 } },
@@ -70,68 +94,38 @@ test.describe("authenticated meta (CI postgres)", () => {
   });
 
   test("cross-scope and missing ids share indistinguishable 404", async ({ request }) => {
-    const scopeA = process.env.GOLIATH_E2E_SCOPE_ID!;
     const scopeB = process.env.GOLIATH_E2E_SCOPE_B_ID!;
     const userId = process.env.GOLIATH_P1_DEV_LOGIN_USER_ID!;
-    const secret = process.env.GOLIATH_PLATFORM_HOST_DEV_LOGIN_SECRET!;
-
-    const scopeASession = await request.post("/api/session/dev-establish", {
-      headers: {
-        "x-goliath-dev-login-secret": secret,
-        "x-goliath-dev-login-scope-id": scopeA,
-        "x-goliath-dev-login-user-id": userId,
-      },
-    });
-    expect(scopeASession.ok()).toBeTruthy();
 
     const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
-      headers: scopeASession.headers(),
       data: { document: { Caption: "ScopeA", Seq: 20 } },
     });
     expect(createRes.status()).toBe(201);
     const { objId } = (await createRes.json()) as { objId: number };
 
-    const scopeBSession = await request.post("/api/session/dev-establish", {
-      headers: {
-        "x-goliath-dev-login-secret": secret,
-        "x-goliath-dev-login-scope-id": scopeB,
-        "x-goliath-dev-login-user-id": userId,
-      },
-    });
-    expect(scopeBSession.ok()).toBeTruthy();
+    const scopeBCtx = await isolatedSession(userId, scopeB);
 
-    const cross = await request.get(`/api/meta/objects/${objId}`, {
-      headers: scopeBSession.headers(),
-    });
-    const missing = await request.get("/api/meta/objects/999999991", {
-      headers: scopeBSession.headers(),
-    });
+    const cross = await scopeBCtx.get(`/api/meta/objects/${objId}`);
+    const missing = await scopeBCtx.get("/api/meta/objects/999999991");
     expect(cross.status()).toBe(404);
     expect(missing.status()).toBe(404);
     const crossBody = (await cross.json()) as { error: string };
     const missingBody = (await missing.json()) as { error: string };
     expect(crossBody.error).toBe(missingBody.error);
     expect(crossBody.error).toBe("meta object not found");
+    await scopeBCtx.dispose();
   });
 
-  test("user without meta grants gets stable 403 on write", async ({ request }) => {
-    const secret = process.env.GOLIATH_PLATFORM_HOST_DEV_LOGIN_SECRET!;
+  test("user without meta grants gets stable 403 on write", async () => {
     const deniedUser = process.env.GOLIATH_E2E_DENIED_USER_ID!;
     const scopeB = process.env.GOLIATH_E2E_SCOPE_B_ID!;
-    const establish = await request.post("/api/session/dev-establish", {
-      headers: {
-        "x-goliath-dev-login-secret": secret,
-        "x-goliath-dev-login-scope-id": scopeB,
-        "x-goliath-dev-login-user-id": deniedUser,
-      },
-    });
-    expect(establish.ok()).toBeTruthy();
-    const res = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
-      headers: establish.headers(),
+    const deniedCtx = await isolatedSession(deniedUser, scopeB);
+    const res = await deniedCtx.post("/api/meta/classes/portal%2FNavNode/objects", {
       data: { document: { Caption: "X", Seq: 1 } },
     });
     expect(res.status()).toBe(403);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe("meta permission denied");
+    await deniedCtx.dispose();
   });
 });
