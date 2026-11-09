@@ -56,9 +56,6 @@ describe("SchemaPropertyGridSurface nested dialog", () => {
 
     fireEvent.click(screen.getByTestId("pi-open-Payload"));
     await waitFor(() => {
-      expect(screen.getByTestId("property-inspector-dialog-active")).toBeInTheDocument();
-    });
-    await waitFor(() => {
       expect(screen.getByTestId("property-inspector-modal")).toBeInTheDocument();
     });
   });

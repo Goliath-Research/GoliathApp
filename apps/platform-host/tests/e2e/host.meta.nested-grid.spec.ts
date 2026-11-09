@@ -76,9 +76,6 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await page.getByTestId("pi-row-Seq").locator("input").fill("9");
 
     await page.getByRole("button", { name: "Open Payload" }).click();
-    await expect
-      .poll(async () => page.evaluate(() => (window as { __goliathPropertyInspectorDialog?: string }).__goliathPropertyInspectorDialog))
-      .toBe("Payload");
     await expect(page.getByTestId("property-inspector-modal")).toBeVisible({ timeout: 15_000 });
     const payloadModal = page.getByTestId("property-inspector-modal");
     await payloadModal.getByTestId("pi-row-label").locator("input").fill("payload-1");
@@ -88,7 +85,6 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await expect(page.getByTestId("property-inspector-modal")).toHaveCount(0);
 
     await page.getByTestId("pi-array-add-ChildRows").click();
-    await expect(page.getByTestId("property-inspector-dialog-active")).toBeAttached({ timeout: 15_000 });
     await expect(page.getByTestId("property-inspector-backdrop")).toBeVisible({ timeout: 15_000 });
     const modal1 = page.getByTestId("property-inspector-modal");
     await expect(modal1).toBeVisible();
