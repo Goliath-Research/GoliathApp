@@ -161,8 +161,8 @@ export function CatalogNestedSchemaDialog({
           fields ? undefined : syntheticFieldsFromSchema(isSchemaRecord(flattened) ? flattened : root, root)
         }
         schema={flattened}
-        rootSchema={isSchemaRecord(flattened) ? flattened : root}
-        bundledSchema={catalogTarget.kind === "dataType" ? flattened : bundled}
+        rootSchema={fields != null ? root : isSchemaRecord(flattened) ? flattened : root}
+        bundledSchema={bundled}
         registry={registry}
         catalogResolver={catalogResolver}
         documentClassFqn={catalogTarget.kind === "metaClass" ? catalogTarget.className : undefined}
