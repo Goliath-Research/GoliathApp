@@ -177,10 +177,10 @@ export function SchemaPropertyGridSurface({
   const gridClass = embedded ? "g-schema-property-grid g-schema-property-grid--embedded" : "g-schema-property-grid";
 
   useEffect(() => {
-    if (!onDraftChange || embedded) return;
+    if (!onDraftChange) return;
     const document = buildDocument({ silent: true });
     if (document) onDraftChange(document);
-  }, [embedded, onDraftChange, primitiveValues, objectValues, arrayValues, schemalessValues]);
+  }, [onDraftChange, primitiveValues, objectValues, arrayValues, schemalessValues]);
 
   function buildDocument(opts?: { silent?: boolean }): Record<string, unknown> | null {
     const silent = opts?.silent === true;

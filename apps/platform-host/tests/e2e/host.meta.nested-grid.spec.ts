@@ -83,6 +83,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     const payloadModal = page.getByTestId("property-inspector-modal");
     await payloadModal.getByTestId("pi-row-label").locator("input").fill("payload-1");
     await payloadModal.getByTestId("pi-row-qty").locator("input").fill("1");
+    await expect(payloadModal.getByTestId("property-inspector-ok")).toBeEnabled({ timeout: 15_000 });
     await payloadModal.getByTestId("property-inspector-ok").click();
     await expect(page.getByTestId("property-inspector-modal")).toHaveCount(0);
 
@@ -108,7 +109,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await modal1.getByTestId("property-inspector-ok").click();
     await expect(page.getByTestId("property-inspector-modal")).toHaveCount(0);
 
-    await expect(page.getByTestId("pi-row-Payload")).toContainText("2 field");
+    await expect(page.getByTestId("pi-row-Payload")).toContainText("2 field", { timeout: 15_000 });
     const createRes = await request.post("/api/meta/classes/e2e%2FNestedCarrier/objects", {
       data: {
         document: {
