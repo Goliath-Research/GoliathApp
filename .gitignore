@@ -16,6 +16,8 @@ packages/*/dist/
 apps/platform-host/.next/
 apps/platform-host/test-results/
 apps/platform-host/playwright-report/
+apps/platform-host/.e2e/
+apps/platform-host/tests/e2e/.auth/
 packages/*/*.tgz
 **/*.tsbuildinfo
 exo/src/*.deno.lock

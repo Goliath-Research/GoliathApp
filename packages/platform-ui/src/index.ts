@@ -9,3 +9,5 @@ export { PlatformFixtureDemo, FIXTURE_NAV_TREE, FIXTURE_PLATFORM_ROWS } from "./
 export { OperatorNavList } from "./shell/OperatorNavList.js";
 export { MetaClassExplorer } from "./meta/MetaClassExplorer.js";
 export { MetaGeneratedFieldForm } from "./meta/MetaGeneratedFieldForm.js";
+export { MetaSchemaDocumentForm } from "./meta/MetaSchemaDocumentForm.js";
+export { parseFlattenedFieldSchema, propertySchemaFromFlattened } from "./meta/parseFlattenedFieldSchema.js";

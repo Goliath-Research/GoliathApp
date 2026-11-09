@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { MetaClassExplorer } from "@goliath/platform-ui";
 import { MetaInstanceWorkbench } from "@/components/MetaInstanceWorkbench";
 import { EXAMPLE_CHILD_EXTENSION } from "@/lib/child-extension";
+import { resolveMetaEditorManifestKey } from "@/lib/resolve-meta-editor";
 import { resolveMetaEditorComponent } from "@/lib/meta-editor-registry";
 import {
   PortalBridgeMisconfiguredError,
@@ -40,6 +41,15 @@ export default async function MetaExplorerPage({
       portalSessionMetaClassLineage(token, className),
       portalSessionMetaClassFields(token, className),
     ]);
+    const classAncestry = lineage
+      .filter((node) => node.lineageRole === "ancestor" || node.lineageRole === "self")
+      .sort((a, b) => b.depth - a.depth)
+      .map((node) => node.className);
+    const editorResolved = resolveMetaEditorManifestKey(
+      className,
+      classAncestry,
+      EXAMPLE_CHILD_EXTENSION.manifest.editorComponents,
+    );
     return (
       <div className="g-host-app">
         <p className="kicker">[P2 Meta hierarchy — session-gated]</p>
@@ -56,10 +66,12 @@ export default async function MetaExplorerPage({
           classIconOverrides={EXAMPLE_CHILD_EXTENSION.manifest.classIconOverrides}
           editorSlot={
             <>
-              {resolveMetaEditorComponent(
-                EXAMPLE_CHILD_EXTENSION.manifest.editorComponents?.[className],
-                { className, fields },
-              )}
+              {resolveMetaEditorComponent(editorResolved.manifestKey, {
+                className,
+                fields,
+                matchedClassFqn: editorResolved.matchedClassFqn,
+                resolution: editorResolved.resolution,
+              })}
               <MetaInstanceWorkbench
                 className={className}
                 fields={fields}

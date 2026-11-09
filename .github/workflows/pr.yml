@@ -148,6 +148,19 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: goliath_ci
+          POSTGRES_DB: goliathapp_schema_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v6
 
@@ -155,6 +168,13 @@ jobs:
         with:
           node-version: "22"
           cache: npm
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
       - name: Install frontend dependencies
         run: npm ci
@@ -171,10 +191,33 @@ jobs:
       - name: Verify npm pack consumer install
         run: npm run verify:consumer
 
+      - name: Seed disposable PostgreSQL for authenticated host E2E
+        run: python3 scripts/ci/platform_host_e2e_pg_seed.py
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: goliath_ci
+          POSTGRES_DB: goliathapp_schema_test
+          GOLIATH_PLATFORM_HOST_DEV_LOGIN_SECRET: ci-e2e-dev-secret
+
+      - name: Export platform host E2E environment
+        run: cat apps/platform-host/.e2e/ci.env >> "$GITHUB_ENV"
+
       - name: Install Playwright Chromium
         run: npx playwright install chromium --with-deps
 
-      - name: Platform host end-to-end smoke
+      - name: Platform host end-to-end tests
         run: npm run test:e2e:host
         env:
           CI: "1"
+          PLAYWRIGHT_AUTH_E2E: "1"
+          PLAYWRIGHT_SCREENSHOT_DIR: ${{ github.workspace }}/playwright-artifacts
+
+      - name: Upload authenticated E2E screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-host-e2e-screenshots
+          path: playwright-artifacts/
+          if-no-files-found: ignore

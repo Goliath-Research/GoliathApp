@@ -1,0 +1,135 @@
+import { expect, test } from "@playwright/test";
+import * as fs from "node:fs";
+import * as path from "node:path";
+
+function loadCiEnv(): void {
+  const envPath = path.join(__dirname, "..", "..", ".e2e", "ci.env");
+  if (!fs.existsSync(envPath)) return;
+  for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq);
+    const value = trimmed.slice(eq + 1);
+    if (!(key in process.env)) process.env[key] = value;
+  }
+}
+
+test.beforeAll(() => {
+  loadCiEnv();
+});
+
+test.describe("authenticated meta (CI postgres)", () => {
+  test.skip(
+    () => process.env.PLAYWRIGHT_AUTH_E2E !== "1",
+    "requires PG seed + dev login (CI frontend job)",
+  );
+
+  test("meta explorer renders icons and child editor slot", async ({ page }, testInfo) => {
+    await page.goto("/app/meta?class=portal%2FNavNode");
+    await expect(page.getByRole("heading", { name: "Inherited Meta class browser" })).toBeVisible();
+    await expect(page.getByRole("img").first()).toBeVisible();
+    await expect(page.getByRole("status")).toContainText("Child editor slot");
+
+    const dir = process.env.PLAYWRIGHT_SCREENSHOT_DIR;
+    const shot = dir
+      ? `${dir}/meta-authenticated-explorer.png`
+      : testInfo.outputPath("meta-authenticated-explorer.png");
+    await page.screenshot({ path: shot, fullPage: true });
+  });
+
+  test("create and round-trip NavNode via BFF", async ({ page, request }) => {
+    await page.goto("/app/meta?class=portal%2FNavNode");
+    await page.getByLabel("Caption *").fill("E2ECaption");
+    await page.getByLabel("Seq *").fill("17");
+    await page.getByRole("button", { name: /Create via BFF/ }).click();
+    await expect(page.getByRole("status")).toContainText("Created object #");
+
+    const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
+      data: { document: { Caption: "ApiCaption", Seq: 18 } },
+    });
+    expect(createRes.status()).toBe(201);
+    const body = (await createRes.json()) as { objId: number };
+    const getRes = await request.get(`/api/meta/objects/${body.objId}`);
+    expect(getRes.ok()).toBeTruthy();
+
+    const patchRes = await request.patch(`/api/meta/objects/${body.objId}`, {
+      data: { document: { Caption: "ApiCaptionPatched", Seq: 19 } },
+    });
+    expect(patchRes.ok()).toBeTruthy();
+  });
+
+  test("invalid document rejected with 400", async ({ request }) => {
+    const res = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
+      data: { document: { NotAField: 1 } },
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test("cross-scope and missing ids share indistinguishable 404", async ({ request }) => {
+    const scopeA = process.env.GOLIATH_E2E_SCOPE_ID!;
+    const scopeB = process.env.GOLIATH_E2E_SCOPE_B_ID!;
+    const userId = process.env.GOLIATH_P1_DEV_LOGIN_USER_ID!;
+    const secret = process.env.GOLIATH_PLATFORM_HOST_DEV_LOGIN_SECRET!;
+
+    const scopeASession = await request.post("/api/session/dev-establish", {
+      headers: {
+        "x-goliath-dev-login-secret": secret,
+        "x-goliath-dev-login-scope-id": scopeA,
+        "x-goliath-dev-login-user-id": userId,
+      },
+    });
+    expect(scopeASession.ok()).toBeTruthy();
+
+    const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
+      headers: scopeASession.headers(),
+      data: { document: { Caption: "ScopeA", Seq: 20 } },
+    });
+    expect(createRes.status()).toBe(201);
+    const { objId } = (await createRes.json()) as { objId: number };
+
+    const scopeBSession = await request.post("/api/session/dev-establish", {
+      headers: {
+        "x-goliath-dev-login-secret": secret,
+        "x-goliath-dev-login-scope-id": scopeB,
+        "x-goliath-dev-login-user-id": userId,
+      },
+    });
+    expect(scopeBSession.ok()).toBeTruthy();
+
+    const cross = await request.get(`/api/meta/objects/${objId}`, {
+      headers: scopeBSession.headers(),
+    });
+    const missing = await request.get("/api/meta/objects/999999991", {
+      headers: scopeBSession.headers(),
+    });
+    expect(cross.status()).toBe(404);
+    expect(missing.status()).toBe(404);
+    const crossBody = (await cross.json()) as { error: string };
+    const missingBody = (await missing.json()) as { error: string };
+    expect(crossBody.error).toBe(missingBody.error);
+    expect(crossBody.error).toBe("meta object not found");
+  });
+
+  test("user without meta grants gets stable 403 on write", async ({ request }) => {
+    const secret = process.env.GOLIATH_PLATFORM_HOST_DEV_LOGIN_SECRET!;
+    const deniedUser = process.env.GOLIATH_E2E_DENIED_USER_ID!;
+    const scopeB = process.env.GOLIATH_E2E_SCOPE_B_ID!;
+    const establish = await request.post("/api/session/dev-establish", {
+      headers: {
+        "x-goliath-dev-login-secret": secret,
+        "x-goliath-dev-login-scope-id": scopeB,
+        "x-goliath-dev-login-user-id": deniedUser,
+      },
+    });
+    expect(establish.ok()).toBeTruthy();
+    const res = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
+      headers: establish.headers(),
+      data: { document: { Caption: "X", Seq: 1 } },
+    });
+    expect(res.status()).toBe(403);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe("meta permission denied");
+  });
+});

@@ -20,14 +20,22 @@ export async function POST(request: Request) {
   if (!isPortalBridgeConfigured()) {
     return jsonError(503, "portal bridge is not configured");
   }
-  const userId = devLoginUserId();
   const secret = devLoginSecret();
-  if (userId == null || secret == null) {
+  if (secret == null) {
     return jsonError(503, "dev login is misconfigured");
   }
   const provided = request.headers.get("x-goliath-dev-login-secret");
   if (!provided || provided !== secret) {
     return jsonError(403, "dev login denied");
+  }
+
+  const userHeader = request.headers.get("x-goliath-dev-login-user-id");
+  const userId =
+    userHeader && Number.isInteger(Number(userHeader)) && Number(userHeader) > 0
+      ? Number(userHeader)
+      : devLoginUserId();
+  if (userId == null) {
+    return jsonError(503, "dev login is misconfigured");
   }
 
   const scopeHeader = request.headers.get("x-goliath-dev-login-scope-id");

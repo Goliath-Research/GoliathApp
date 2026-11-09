@@ -4,12 +4,22 @@ import type { MetaClassField } from "@goliath/client";
 export type MetaEditorComponentProps = {
   className: string;
   fields: MetaClassField[];
+  matchedClassFqn?: string;
+  resolution?: string;
 };
 
 const REGISTRY: Record<string, (props: MetaEditorComponentProps) => ReactNode> = {
-  ExampleStudyManifestEditor: ({ className }) => (
+  ExampleStudyManifestEditor: ({ className, matchedClassFqn, resolution }) => (
     <p role="status">
-      Child editor slot <code>ExampleStudyManifestEditor</code> for <code>{className}</code> (host stub).
+      Child editor slot <code>ExampleStudyManifestEditor</code> for <code>{className}</code>
+      {matchedClassFqn ? (
+        <>
+          {" "}
+          via manifest on <code>{matchedClassFqn}</code> ({resolution ?? "resolved"})
+        </>
+      ) : (
+        " (host stub)"
+      )}
     </p>
   ),
 };
