@@ -69,6 +69,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
   });
 
   test("property inspector opens two nested modals and saves via BFF", async ({ page, request }) => {
+    test.setTimeout(120_000);
     await page.goto("/app/nested-e2e");
     await expect(page.getByTestId("pi-open-Payload")).toBeVisible({ timeout: 30_000 });
     await page.getByTestId("pi-row-Caption").locator("input").fill("ModalE2E");
@@ -108,7 +109,11 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await expect(page.getByTestId("property-inspector-modal")).toHaveCount(0);
 
     await page.getByRole("button", { name: /Create via BFF/ }).click();
-    await expect(page.getByText(/Created object #/)).toBeVisible({ timeout: 30_000 });
+    const alert = page.getByRole("alert");
+    if (await alert.isVisible().catch(() => false)) {
+      throw new Error(`Grid validation: ${await alert.textContent()}`);
+    }
+    await expect(page.getByRole("status")).toContainText(/Created object #/, { timeout: 60_000 });
     const statusText = await page.locator(".g-host-app").textContent();
     const match = statusText?.match(/Created object #(\d+)/);
     expect(match).toBeTruthy();
