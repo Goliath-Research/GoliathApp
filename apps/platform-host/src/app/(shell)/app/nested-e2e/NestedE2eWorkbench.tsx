@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import type { MetaInstanceWorkbenchProps } from "@/components/MetaInstanceWorkbench";
 
-const MetaInstanceWorkbench = dynamic(
+const MetaInstanceWorkbench = dynamic<MetaInstanceWorkbenchProps>(
   () => import("@/components/MetaInstanceWorkbench").then((m) => ({ default: m.MetaInstanceWorkbench })),
   {
     ssr: false,
