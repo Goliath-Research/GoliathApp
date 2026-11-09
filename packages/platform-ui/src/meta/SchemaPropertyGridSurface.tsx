@@ -3,6 +3,7 @@
 import type { MetaClassField } from "@goliath/client";
 import type { FormEvent, ReactNode } from "react";
 import { useId, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   isSchemaRecord,
   resolveSchemaNode,
@@ -647,8 +648,8 @@ function InlineObjectSchemaDialog({
     return next;
   });
 
-  return (
-    <div className="g-schema-dialog-backdrop">
+  return createPortal(
+    <div className="g-schema-dialog-backdrop" data-testid="schema-nested-dialog">
       <button type="button" className="g-schema-dialog-backdrop__hit" aria-label="Close dialog" onClick={onCancel} />
       <div className="g-schema-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <h3 id={titleId}>{title}</h3>
@@ -684,7 +685,8 @@ function InlineObjectSchemaDialog({
           Cancel
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

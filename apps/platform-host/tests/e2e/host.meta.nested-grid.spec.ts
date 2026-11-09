@@ -8,11 +8,12 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
   test("data-type object field opens nested grid dialog", async ({ page }) => {
     await page.goto("/app/nested-e2e");
     await expect(page.getByRole("heading", { name: "e2e/NestedCarrier" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Edit nested Payload" })).toBeVisible();
     await page.getByLabel(/Caption/).fill("NestedCaption");
     await page.getByLabel(/Seq/).fill("3");
     await page.getByRole("button", { name: "Edit nested Payload" }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    const dialog = page.getByRole("dialog");
+    await expect(page.getByTestId("schema-nested-dialog")).toBeVisible({ timeout: 15_000 });
+    const dialog = page.getByTestId("schema-nested-dialog");
     await dialog.getByLabel(/^label$/i).fill("inner");
     await dialog.getByLabel(/^qty$/i).fill("9");
     await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
@@ -22,8 +23,8 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
   test("meta class field loads inherited ParentLabel in nested grid", async ({ page }) => {
     await page.goto("/app/nested-e2e");
     await page.getByRole("button", { name: "Edit nested ChildDoc" }).click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    const dialog = page.getByRole("dialog");
+    await expect(page.getByTestId("schema-nested-dialog")).toBeVisible({ timeout: 15_000 });
+    const dialog = page.getByTestId("schema-nested-dialog");
     await expect(dialog.getByLabel(/ParentLabel/)).toBeVisible();
     await dialog.getByLabel(/ChildCode/).fill("c1");
     await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
@@ -35,7 +36,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
       .locator(".g-meta-field-row--array", { hasText: "ChildRows" })
       .getByRole("button", { name: "Add row" })
       .click();
-    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByTestId("schema-nested-dialog")).toBeVisible({ timeout: 15_000 });
     await page.getByRole("dialog").getByLabel(/ChildCode/).fill("row-a");
     await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
   });
@@ -56,7 +57,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
     await page.getByLabel(/Caption/).fill("NestedCaption");
     await page.getByLabel(/Seq/).fill("3");
     await page.getByRole("button", { name: "Edit nested Payload" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByTestId("schema-nested-dialog");
     await dialog.getByLabel(/^label$/i).fill("inner");
     await dialog.getByLabel(/^qty$/i).fill("9");
     await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();

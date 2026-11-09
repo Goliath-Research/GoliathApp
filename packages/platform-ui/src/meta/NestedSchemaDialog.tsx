@@ -111,7 +111,7 @@ export function NestedSchemaDialog({
 
 function DialogBackdrop({ children, onCancel }: { children: ReactNode; onCancel: () => void }) {
   return (
-    <div className="g-schema-dialog-backdrop">
+    <div className="g-schema-dialog-backdrop" data-testid="schema-nested-dialog">
       <button type="button" className="g-schema-dialog-backdrop__hit" aria-label="Close dialog" onClick={onCancel} />
       {children}
     </div>
