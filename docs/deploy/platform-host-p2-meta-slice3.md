@@ -1,37 +1,46 @@
 # Platform host — P2 Meta slice 3 (SchemaPropertyGrid + authenticated E2E)
 
-Follows merged PR #62 (scoped instance APIs + anti-oracle 404/403 rules).
+## Governing principle (Meta class hierarchy)
+
+The **Meta class hierarchy** is the foundation of schema-driven editing in GoliathApp — not a generic JSON Schema renderer with class lookups bolted on.
+
+1. **Types are hierarchical.** A field’s `TypeID` points at a `wf.data_type` or Meta class catalog entry. Nested shapes resolve by loading that type/class and the **merged schema** the database already computes for the class lineage (`Meta.fn_class_json_schema_flattened` / `schema_bundled_json` with `goliath:meta/class/…` and `goliath:type/…` in `$defs`).
+2. **Presentation walks ancestry.** Editor components, nested-grid chrome, icons, and labels resolve by walking class FQN ancestry (**most specific wins**, then ancestors, then optional `dataTypeEditorComponents`, then schema-only constraints, then generic fallback). Single implementation: `packages/platform-ui/src/meta/metaHierarchyResolver.ts` (`walkRegistryAncestry`, `resolveHierarchyFieldEditor`, `resolveClassGridPresentation`). Host `resolve-meta-editor.ts` delegates to the same walk.
+3. **Primitives are catalog types.** String/int/bool editors bind to `wf.data_type` via `typeKind` / `typeName`, not raw JSON Schema `type` alone; JSON Schema on the flattened property supplies constraints (e.g. `enum`) only after the catalog decision.
+4. **Child apps extend the hierarchy.** They register `editorComponents`, `classIconOverrides`, and optional `dataTypeEditorComponents` on class / type FQNs; nested `SchemaPropertyGrid` dialogs load sub-classes through the host BFF (`GET /api/meta/classes/*`, `GET /api/meta/types/*` → `portal.sp_session_*`).
+
+Public **goliath-portal** has no `SchemaPropertyGrid` source (read-only audit: `src/components/screen.tsx` start-grid layout, `data-table.tsx` JSON viewers only). This slice implements the SQL-named contract in `@goliath/platform-ui`.
+
+Follows merged PR #62 (scoped instance APIs + anti-oracle 404/403 rules) and PR #63 (authenticated E2E, dev-establish allowlist).
 
 ## SchemaPropertyGrid (canonical editor)
 
-**Evidence in this repo:** there is no prior React `SchemaPropertyGrid` source in git history on `main`. The name and contract come from PostgreSQL/Delphi-era comments that bind UI to JSON Schema on catalog types:
+SQL contract (`workflow_engine/sql_pg/wf_data_type.sql`):
 
-```1:3:workflow_engine/sql_pg/wf_data_type.sql
--- Explicit wf data type registry.
+```sql
 -- schema_json is the JSON Schema document SchemaPropertyGrid binds.
 ```
 
-Slice 3 **ports that contract** to `@goliath/platform-ui` as `SchemaPropertyGrid` (`packages/platform-ui/src/meta/SchemaPropertyGrid.tsx`):
+Implementation (`packages/platform-ui/src/meta/SchemaPropertyGrid.tsx` → `SchemaPropertyGridSurface`):
 
-- **Vertical grid:** `g-meta-field-form` + one `g-meta-field-row` per Meta field (same layout as slice‑2 `MetaGeneratedFieldForm`, not a second parallel UX).
-- **Editor dispatch:** `resolveFieldEditor` → `parseFlattenedFieldSchema` on flattened class schema; Meta field `typeKind` when schema property missing.
-- **Child hooks:** host `editorComponents` + `resolveMetaEditorManifestKey` renders above the grid via `MetaClassExplorer` `editorSlot` (ancestor walk, same pattern as icon overrides).
+- **Vertical grid:** `g-meta-field-form` + one `g-meta-field-row` per Meta field.
+- **Hierarchy dispatch:** `resolveHierarchyFieldEditor` (catalog target → nested dialog via `CatalogNestedSchemaDialog` + `MetaCatalogResolver`).
+- **Inline anonymous objects:** rare; `NestedSchemaDialog` for truly inline `properties` without resolvable catalog ref.
+- **Schemaless JSON textarea:** only when the type is genuinely untyped (`schemaless` mode).
 
-Aliases kept for compatibility: `MetaGeneratedFieldForm`, `MetaSchemaDocumentForm` delegate to `SchemaPropertyGrid`.
+Aliases: `MetaGeneratedFieldForm`, `MetaSchemaDocumentForm` delegate to `SchemaPropertyGrid`.
 
 ## Authenticated E2E (CI)
 
-Disposable Postgres in the **frontend** GHA job:
+1. `scripts/ci/platform_host_e2e_pg_seed.py` — `e2e/NestedParent` → `e2e/NestedChild` inheritance, data-type / class-typed / array fields on `e2e/NestedCarrier`, scoped `meta.*` grants, `apps/platform-host/.e2e/ci.env`.
+2. `PLAYWRIGHT_AUTH_E2E=1` — `auth.setup.ts`, `host.meta.authenticated.spec.ts`, `host.meta.nested-grid.spec.ts`.
+3. Dev login allowlist (`resolveDevEstablishUserId`) unchanged from PR #63.
 
-1. `scripts/ci/platform_host_e2e_pg_seed.py` — `apply_schema.sh`, scoped `meta.*` grants, writes `apps/platform-host/.e2e/ci.env`
-2. `PLAYWRIGHT_AUTH_E2E=1` — `auth.setup.ts` + `host.meta.authenticated.spec.ts`
-3. Dev login (`GOLIATH_PLATFORM_HOST_DEV_LOGIN=1` + `GOLIATH_PLATFORM_HOST_E2E_INTEGRATION=1` on standalone build). `x-goliath-dev-login-user-id` is **ignored** locally and **allowlist-only** in CI (`GOLIATH_P1_DEV_LOGIN_USER_ID`, `GOLIATH_E2E_DENIED_USER_ID`); any other value returns **403** before `portal.sp_session_open` (see `resolveDevEstablishUserId`).
-
-Coverage: icons/override slot, BFF create/get/patch, 400 invalid field, cross-scope vs missing **404** body match, permission **403**, screenshot artifact `platform-host-e2e-screenshots`.
+Nested E2E page: `/app/nested-e2e`. Screenshots: `platform-host-e2e-screenshots`.
 
 ## Gaps (honest)
 
-- Full nested grid without JSON fallback; no production OIDC Playwright path; Delphi desktop `SchemaPropertyGrid` UI itself is **not** in this monorepo — only the SQL naming contract above.
+Production OIDC Playwright path; Delphi desktop `SchemaPropertyGrid` UI is not in this monorepo.
 
 ## Not in this slice (P3+)
 

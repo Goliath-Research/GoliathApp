@@ -37,3 +37,14 @@ export type MetaObjectDocument = {
   className: string;
   document: Record<string, unknown>;
 };
+
+export type MetaDataTypeSummary = {
+  id: number;
+  name: string;
+  version: string;
+  status: string;
+  kind: string;
+  elementTypeId: number | null;
+  elementTypeName: string | null;
+  schemaJson: unknown;
+};

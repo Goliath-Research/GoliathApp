@@ -76,6 +76,8 @@ export default async function MetaExplorerPage({
                 className={className}
                 fields={fields}
                 flattenedSchema={summary.schemaFlattenedJson}
+                bundledSchema={summary.schemaBundledJson}
+                lineage={lineage}
               />
             </>
           }

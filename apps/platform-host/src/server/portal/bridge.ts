@@ -410,6 +410,47 @@ export async function portalSessionMetaObjUpdate(
   });
 }
 
+export type MetaDataTypeRow = {
+  id: number;
+  name: string;
+  version: string;
+  status: string;
+  kind: string;
+  elementTypeId: number | null;
+  elementTypeName: string | null;
+  schemaJson: unknown;
+};
+
+export async function portalSessionGetDataType(
+  sessionToken: string,
+  typeName: string,
+  version: string | null = null,
+): Promise<MetaDataTypeRow> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT id, name, version, status, kind, element_type_id, element_type_name, schema_json
+         FROM portal.sp_session_get_data_type($1, $2, $3)`,
+        [sessionToken, typeName, version],
+      );
+      const row = result.rows[0];
+      if (!row) throw new PortalMetaNotFoundError("data type not found");
+      return {
+        id: Number(row.id),
+        name: String(row.name),
+        version: String(row.version),
+        status: String(row.status),
+        kind: String(row.kind),
+        elementTypeId: row.element_type_id == null ? null : Number(row.element_type_id),
+        elementTypeName: row.element_type_name == null ? null : String(row.element_type_name),
+        schemaJson: row.schema_json,
+      };
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
 export async function portalSessionMetaObjGet(
   sessionToken: string,
   objId: number,

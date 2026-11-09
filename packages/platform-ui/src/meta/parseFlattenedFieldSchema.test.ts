@@ -1,27 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { parseFlattenedFieldSchema } from "./parseFlattenedFieldSchema.js";
+import { parsePropertySchema } from "./parseFlattenedFieldSchema.js";
 
-describe("parseFlattenedFieldSchema", () => {
+describe("parsePropertySchema", () => {
   it("parses enum and optional null via anyOf", () => {
-    const parsed = parseFlattenedFieldSchema(
-      { type: "string", enum: ["draft", "live"] },
-      true,
-    );
+    const parsed = parsePropertySchema({ type: "string", enum: ["draft", "live"] }, true, null);
     expect(parsed.mode).toBe("string");
-    expect(parsed.enumValues).toEqual(["draft", "live"]);
+    if (parsed.mode === "string") {
+      expect(parsed.enumValues).toEqual(["draft", "live"]);
+    }
 
-    const optional = parseFlattenedFieldSchema(
-      { anyOf: [{ type: "string" }, { type: "null" }] },
-      false,
-    );
+    const optional = parsePropertySchema({ anyOf: [{ type: "string" }, { type: "null" }] }, false, null);
     expect(optional.optional).toBe(true);
   });
 
-  it("falls back to json mode for unsupported composition", () => {
-    const parsed = parseFlattenedFieldSchema({ allOf: [{ type: "object" }] }, true);
-    expect(parsed.mode).toBe("json");
-    if (parsed.mode === "json") {
-      expect(parsed.reason).toContain("composition");
-    }
+  it("uses nested object instead of JSON textarea", () => {
+    const parsed = parsePropertySchema(
+      { type: "object", properties: { a: { type: "string" } } },
+      true,
+      null,
+    );
+    expect(parsed.mode).toBe("nestedObject");
   });
 });

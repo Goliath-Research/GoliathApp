@@ -1,5 +1,53 @@
 @import "@goliath/ui/styles.css";
 
+.g-schema-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 0.45);
+}
+
+.g-schema-dialog-backdrop__hit {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.g-schema-dialog {
+  position: relative;
+  z-index: 1;
+  max-width: min(520px, 92vw);
+  max-height: 85vh;
+  overflow: auto;
+  padding: 1rem;
+  border: 1px solid var(--g-host-border);
+  border-radius: 8px;
+  background: var(--g-host-bg);
+}
+
+.g-schema-dialog__actions {
+  margin-top: 0.75rem;
+}
+
+.g-schema-array-list {
+  list-style: none;
+  margin: 0.25rem 0;
+  padding: 0;
+}
+
+.g-schema-array-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
 :root {
   --g-host-bg: var(--g-bg);
   --g-host-border: var(--g-border);

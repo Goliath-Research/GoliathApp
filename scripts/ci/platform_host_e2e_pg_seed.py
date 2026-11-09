@@ -38,6 +38,115 @@ def _psql(sql: str, env: dict[str, str]) -> str:
     return proc.stdout.strip()
 
 
+def _ensure_e2e_nested_hierarchy(env: dict[str, str]) -> None:
+    """CI-only Meta hierarchy + wf.data_type fixtures for hierarchy-driven nested grids."""
+    payload_schema = (
+        '{"type":"object","properties":{"label":{"type":"string"},"qty":{"type":"integer"}},'
+        '"required":["label"],"additionalProperties":false}'
+    )
+    payload_type_id = _psql(
+        f"""
+        INSERT INTO wf.data_type (name, version, kind, schema_json)
+        VALUES ('e2e/NestedPayload', '1', 'object', '{payload_schema}'::jsonb)
+        ON CONFLICT (name, version) DO UPDATE SET schema_json = EXCLUDED.schema_json
+        RETURNING id
+        """,
+        env,
+    )
+    child_ref_schema = '{"$ref":"goliath:meta/class/e2e/NestedChild"}'
+    child_catalog_type_id = _psql(
+        f"""
+        INSERT INTO wf.data_type (name, version, kind, schema_json)
+        VALUES ('meta/class/e2e/NestedChild', '1', 'object', '{child_ref_schema}'::jsonb)
+        ON CONFLICT (name, version) DO UPDATE SET schema_json = EXCLUDED.schema_json
+        RETURNING id
+        """,
+        env,
+    )
+    array_schema = '{"type":"array","items":{"$ref":"goliath:meta/class/e2e/NestedChild"}}'
+    child_rows_type_id = _psql(
+        f"""
+        INSERT INTO wf.data_type (name, version, kind, schema_json)
+        VALUES ('e2e/NestedChildRows', '1', 'array', '{array_schema}'::jsonb)
+        ON CONFLICT (name, version) DO UPDATE SET schema_json = EXCLUDED.schema_json
+        RETURNING id
+        """,
+        env,
+    )
+    string_type_id = _psql(
+        """SELECT id FROM wf.data_type WHERE name = 'String' AND version = '1' LIMIT 1""",
+        env,
+    )
+    int_type_id = _psql(
+        """SELECT id FROM wf.data_type WHERE kind = 'int' ORDER BY id LIMIT 1""",
+        env,
+    )
+    if not string_type_id or not int_type_id:
+        raise RuntimeError("wf.data_type primitives missing for e2e nested hierarchy")
+
+    parent_id = _psql(
+        """SELECT "ID" FROM "Meta"."Classes" WHERE "Name" = 'e2e/NestedParent' LIMIT 1""",
+        env,
+    )
+    if not parent_id:
+        parent_id = _psql(
+            """INSERT INTO "Meta"."Classes" ("Name") VALUES ('e2e/NestedParent') RETURNING "ID" """,
+            env,
+        )
+    _psql(
+        f"""
+        INSERT INTO "Meta"."Fields" ("ClassID", "Name", "TypeID", "Required")
+        VALUES ({parent_id}, 'ParentLabel', {string_type_id}, true)
+        ON CONFLICT ("ClassID", "Name") DO NOTHING
+        """,
+        env,
+    )
+
+    child_id = _psql(
+        """SELECT "ID" FROM "Meta"."Classes" WHERE "Name" = 'e2e/NestedChild' LIMIT 1""",
+        env,
+    )
+    if not child_id:
+        child_id = _psql(
+            f"""INSERT INTO "Meta"."Classes" ("Name", "ParentID") VALUES ('e2e/NestedChild', {parent_id}) RETURNING "ID" """,
+            env,
+        )
+    _psql(
+        f"""
+        INSERT INTO "Meta"."Fields" ("ClassID", "Name", "TypeID", "Required")
+        VALUES ({child_id}, 'ChildCode', {string_type_id}, true)
+        ON CONFLICT ("ClassID", "Name") DO NOTHING
+        """,
+        env,
+    )
+
+    carrier_id = _psql(
+        """SELECT "ID" FROM "Meta"."Classes" WHERE "Name" = 'e2e/NestedCarrier' LIMIT 1""",
+        env,
+    )
+    if not carrier_id:
+        carrier_id = _psql(
+            """INSERT INTO "Meta"."Classes" ("Name") VALUES ('e2e/NestedCarrier') RETURNING "ID" """,
+            env,
+        )
+    for field_name, type_id, required in (
+        ("Caption", string_type_id, True),
+        ("Seq", int_type_id, True),
+        ("Payload", payload_type_id, True),
+        ("ChildDoc", child_catalog_type_id, False),
+        ("ChildRows", child_rows_type_id, False),
+    ):
+        _psql(
+            f"""
+            INSERT INTO "Meta"."Fields" ("ClassID", "Name", "TypeID", "Required")
+            VALUES ({carrier_id}, '{field_name}', {type_id}, {'true' if required else 'false'})
+            ON CONFLICT ("ClassID", "Name") DO NOTHING
+            """,
+            env,
+        )
+    _psql("SELECT portal.sp_nav_ensure_meta_catalog()", env)
+
+
 def _grant_scoped(env: dict[str, str], user_id: int, scope_id: int) -> None:
     role_name = f"e2e_meta_{uuid.uuid4().hex[:8]}"
     role_id = int(
@@ -83,6 +192,7 @@ def main() -> int:
     escaped = PORTAL_TEST_PASSWORD.replace("'", "''")
     _psql(f"ALTER ROLE goliath_portal WITH LOGIN PASSWORD '{escaped}'", env)
     _psql("SELECT portal.sp_nav_ensure_meta_catalog()", env)
+    _ensure_e2e_nested_hierarchy(env)
 
     email_a = f"e2e-primary-{uuid.uuid4().hex[:8]}@test"
     user_a = int(

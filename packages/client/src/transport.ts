@@ -2,6 +2,7 @@ import type {
   MetaClassField,
   MetaClassLineageNode,
   MetaClassSummary,
+  MetaDataTypeSummary,
   MetaObjectDocument,
 } from "./meta.js";
 import type { OperatorNavNode } from "./nav.js";
@@ -84,6 +85,17 @@ export function createPlatformBffClient(options: PlatformBffClientOptions = {}) 
       );
       const body = await readJson<{ lineage: MetaClassLineageNode[] }>(res);
       return body.lineage;
+    },
+
+    async getMetaDataType(typeName: string, version?: string): Promise<MetaDataTypeSummary> {
+      const qs = version ? `?version=${encodeURIComponent(version)}` : "";
+      const res = await fetchFn(`${base}/api/meta/types/${encodeURIComponent(typeName)}${qs}`, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+      });
+      const body = await readJson<{ type: MetaDataTypeSummary }>(res);
+      return body.type;
     },
 
     async getMetaClassFields(className: string): Promise<MetaClassField[]> {
