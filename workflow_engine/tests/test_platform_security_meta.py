@@ -102,9 +102,12 @@ def test_grant_cache_matches_rbac_after_migrate(sec_meta_env: dict[str, str]) ->
         ).fetchone()
         assert meta_rows is not None and int(meta_rows[0]) >= 1
 
-        map_row = conn.execute(
-            "SELECT meta_obj_id FROM portal.security_meta_legacy_map WHERE legacy_kind = 'user' AND legacy_id = %s",
-            (user_id,),
-        ).fetchone()
-        assert map_row is not None
-        assert int(map_row[0]) == user_id
+    map_line = _psql(
+        f"""
+        SELECT meta_obj_id FROM portal.security_meta_legacy_map
+        WHERE legacy_kind = 'user' AND legacy_id = {user_id}
+        """,
+        sec_meta_env,
+    )
+    assert map_line
+    assert int(map_line) == user_id
