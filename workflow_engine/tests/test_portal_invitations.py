@@ -424,6 +424,8 @@ def test_list_users_admin_roles_summary_and_revoke_grant(invitation_env: dict[st
         )
     )
     _psql(f"SELECT portal.sp_security_meta_upsert_role_grant_from_rbac({grant_id})", env)
+    _psql("SELECT portal.sp_security_meta_migrate_from_legacy()", env)
+    _psql("SELECT portal.sp_security_meta_refresh_cache()", env)
 
     token = open_session_token(_bound_psql(env), admin_id, scope_id=scope_id)
     conninfo = build_portal_conninfo()

@@ -39,21 +39,38 @@ RETURNS boolean
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = portal, "Meta", pg_temp
+SET search_path = portal, "Meta", "RBAC", pg_temp
 AS $$
-  SELECT COALESCE((ov."Data"->>'BypassScope')::boolean, false)
-  FROM "Meta"."Classes" c
-  INNER JOIN "Meta"."ObjValues" ov ON ov."ClassID" = c."ID"
-  WHERE c."Name" = 'platform/Role'
-    AND (ov."Data"->>'LegacyRoleId')::int = p_role_id
-  LIMIT 1;
+  SELECT COALESCE(
+    (
+      SELECT (ov."Data"->>'BypassScope')::boolean
+      FROM "Meta"."Classes" c
+      INNER JOIN "Meta"."ObjValues" ov ON ov."ClassID" = c."ID"
+      WHERE c."Name" = 'platform/Role'
+        AND (ov."Data"->>'LegacyRoleId')::int = p_role_id
+      LIMIT 1
+    ),
+    (
+      SELECT r."BypassScope"
+      FROM "RBAC"."Roles" r
+      WHERE r."ID" = p_role_id
+      LIMIT 1
+    ),
+    false
+  );
 $$;
+
+CREATE TABLE IF NOT EXISTS portal.security_role_permission_cache (
+  role_id integer NOT NULL,
+  permission_name text NOT NULL,
+  PRIMARY KEY (role_id, permission_name)
+);
 
 CREATE OR REPLACE FUNCTION portal.sp_security_meta_refresh_cache()
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = portal, "Meta", pg_temp
+SET search_path = portal, "Meta", "RBAC", pg_temp
 AS $$
 DECLARE
   v_class_grant int;
@@ -72,16 +89,28 @@ BEGIN
     ov."ObjID",
     (ov."Data"->>'LegacyUserId')::int,
     (ov."Data"->>'LegacyRoleId')::int,
-    (ov."Data"->>'LegacyScopeId')::int,
+    CASE
+      WHEN COALESCE(ov."Data"->>'GrantType', '') = 'GLOBAL' THEN 0
+      ELSE (ov."Data"->>'LegacyScopeId')::int
+    END,
     COALESCE((ov."Data"->>'Active')::boolean, false),
     CASE
       WHEN ov."Data"->>'RevokedAtUtc' IS NULL OR btrim(ov."Data"->>'RevokedAtUtc') = '' THEN NULL
       ELSE (ov."Data"->>'RevokedAtUtc')::timestamptz
     END,
-    portal.fn_security_meta_bypass_scope((ov."Data"->>'LegacyRoleId')::int)
+    COALESCE(portal.fn_security_meta_bypass_scope((ov."Data"->>'LegacyRoleId')::int), false)
   FROM "Meta"."ObjValues" ov
   WHERE ov."ClassID" = v_class_grant
-    AND (ov."Data"->>'LegacyScopeId') IS NOT NULL;
+    AND (
+      (ov."Data"->>'LegacyScopeId') IS NOT NULL AND btrim(ov."Data"->>'LegacyScopeId') <> ''
+      OR COALESCE(ov."Data"->>'GrantType', '') = 'GLOBAL'
+    );
+
+  DELETE FROM portal.security_role_permission_cache;
+  INSERT INTO portal.security_role_permission_cache (role_id, permission_name)
+  SELECT rp."RoleID", p."Name"
+  FROM "RBAC"."Role_Permissions" rp
+  INNER JOIN "RBAC"."Permissions" p ON p."ID" = rp."PermissionID";
 
   REFRESH MATERIALIZED VIEW portal.mv_security_effective_grants;
 END;
@@ -95,21 +124,13 @@ RETURNS boolean
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = portal, "Meta", pg_temp
+SET search_path = portal, pg_temp
 AS $$
   SELECT EXISTS (
     SELECT 1
-    FROM "Meta"."ObjValues" perm
-    WHERE perm."ClassID" = (
-      SELECT c."ID" FROM "Meta"."Classes" c WHERE c."Name" = 'platform/Permission' LIMIT 1
-    )
-      AND perm."Data"->>'PermissionName' = p_permission
-      AND EXISTS (
-        SELECT 1
-        FROM "RBAC"."Role_Permissions" rp
-        WHERE rp."RoleID" = p_role_id
-          AND rp."PermissionID" = (perm."Data"->>'LegacyPermissionId')::int
-      )
+    FROM portal.security_role_permission_cache rpc
+    WHERE rpc.role_id = p_role_id
+      AND rpc.permission_name = p_permission
   );
 $$;
 
@@ -320,10 +341,6 @@ DECLARE
   v_doc jsonb;
   v_target_uid int;
 BEGIN
-  SELECT o."ClassID" INTO v_class_id FROM "Meta"."Objs" o WHERE o."ID" = p_obj_id;
-  v_target_uid := NULLIF((p_document->>'LegacyUserId')::int, 0);
-  PERFORM portal.fn_security_meta_gate_mutation(p_session_token, v_class_id, v_target_uid);
-
   SELECT * INTO v_ctx FROM portal.fn_session_resolve(p_session_token) LIMIT 1;
   IF v_ctx.session_id IS NULL OR COALESCE(v_ctx.revoked, false) THEN
     PERFORM portal.fn_semantic_raise('GS401', 'session denied');
@@ -340,10 +357,19 @@ BEGIN
   ) THEN
     PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied for active scope');
   END IF;
+  IF NOT portal.fn_session_has_permission(
+    v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'meta.schema.read'
+  ) THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied');
+  END IF;
   PERFORM portal.fn_session_meta_assert_obj_in_active_scope(p_obj_id, v_ctx.active_scope_id);
   PERFORM portal.fn_meta_assert_object_action(
     v_ctx.user_id, v_ctx.active_scope_id, p_obj_id, 'update', v_ctx.session_id
   );
+
+  SELECT o."ClassID" INTO v_class_id FROM "Meta"."Objs" o WHERE o."ID" = p_obj_id;
+  v_target_uid := NULLIF((p_document->>'LegacyUserId')::int, 0);
+  PERFORM portal.fn_security_meta_gate_mutation(p_session_token, v_class_id, v_target_uid);
 
   v_doc := portal.fn_session_meta_strip_tenancy_keys(p_document);
   PERFORM "Meta".sp_obj_update(p_obj_id, COALESCE(v_doc, '{}'::jsonb));
@@ -739,5 +765,150 @@ AS $$
     AND (
       g.bypass_scope
       OR g.scope_id = p_scope_id
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION portal.sp_security_meta_upsert_external_identity_from_rbac(p_external_identity_id integer)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, "Meta", "RBAC", pg_temp
+AS $$
+DECLARE
+  v_class_ext int;
+  v_obj int;
+  v_doc jsonb;
+  ei record;
+BEGIN
+  SELECT c."ID" INTO v_class_ext FROM "Meta"."Classes" c WHERE c."Name" = 'platform/ExternalIdentity';
+  IF v_class_ext IS NULL THEN
+    RETURN;
+  END IF;
+
+  SELECT * INTO ei FROM "RBAC"."ExternalIdentities" WHERE "ID" = p_external_identity_id;
+  IF ei."ID" IS NULL THEN
+    RETURN;
+  END IF;
+
+  SELECT m.meta_obj_id INTO v_obj
+  FROM portal.security_meta_legacy_map m
+  WHERE m.legacy_kind = 'external_identity' AND m.legacy_id = ei."ID";
+
+  v_doc := jsonb_build_object(
+    'Label', format('%s@%s', ei."Subject", ei."ProviderID"),
+    'ProviderId', ei."ProviderID",
+    'Subject', ei."Subject",
+    'EmailSnapshot', ei."EmailSnapshot",
+    'Active', ei."Active",
+    'LegacyExternalIdentityId', ei."ID",
+    'LegacyUserId', ei."UserID"
+  );
+
+  IF v_obj IS NULL THEN
+    v_obj := "Meta".sp_obj_insert(v_class_ext, v_doc);
+    PERFORM portal.sp_security_meta_upsert_map('external_identity', ei."ID", v_obj);
+  ELSE
+    UPDATE "Meta"."ObjValues" ov
+    SET "Data" = v_doc
+    WHERE ov."ObjID" = v_obj AND ov."ClassID" = v_class_ext;
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION portal.trg_rbac_user_role_grant_sync_meta()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, "Meta", "RBAC", pg_temp
+AS $$
+BEGIN
+  PERFORM portal.sp_security_meta_upsert_role_grant_from_rbac(NEW."ID");
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION portal.trg_rbac_role_permission_sync_meta()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, "Meta", "RBAC", pg_temp
+AS $$
+BEGIN
+  PERFORM portal.sp_security_meta_refresh_cache();
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION portal.trg_rbac_external_identity_sync_meta()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, "Meta", "RBAC", pg_temp
+AS $$
+BEGIN
+  PERFORM portal.sp_security_meta_upsert_external_identity_from_rbac(NEW."ID");
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS "TR_UserRoleGrants_SecurityMeta" ON "RBAC"."UserRoleGrants";
+CREATE TRIGGER "TR_UserRoleGrants_SecurityMeta"
+  AFTER INSERT OR UPDATE OF "Active", "RevokedAtUtc", "RoleID", "ScopeID", "UserID"
+  ON "RBAC"."UserRoleGrants"
+  FOR EACH ROW
+  EXECUTE FUNCTION portal.trg_rbac_user_role_grant_sync_meta();
+
+DROP TRIGGER IF EXISTS "TR_Role_Permissions_SecurityMeta" ON "RBAC"."Role_Permissions";
+CREATE TRIGGER "TR_Role_Permissions_SecurityMeta"
+  AFTER INSERT OR DELETE OR UPDATE
+  ON "RBAC"."Role_Permissions"
+  FOR EACH ROW
+  EXECUTE FUNCTION portal.trg_rbac_role_permission_sync_meta();
+
+DROP TRIGGER IF EXISTS "TR_ExternalIdentities_SecurityMeta" ON "RBAC"."ExternalIdentities";
+CREATE TRIGGER "TR_ExternalIdentities_SecurityMeta"
+  AFTER INSERT OR UPDATE OF "Active", "ProviderID", "Subject", "UserID"
+  ON "RBAC"."ExternalIdentities"
+  FOR EACH ROW
+  EXECUTE FUNCTION portal.trg_rbac_external_identity_sync_meta();
+
+CREATE OR REPLACE FUNCTION portal.fn_session_user_selectable_role_ids(
+  p_user_id integer,
+  p_scope_id integer
+)
+RETURNS TABLE (role_id integer)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, pg_temp
+AS $$
+  SELECT role_id FROM portal.fn_security_user_grant_role_ids(p_user_id, p_scope_id);
+$$;
+
+CREATE OR REPLACE FUNCTION portal.fn_session_has_permission(
+  p_session_id integer,
+  p_user_id integer,
+  p_active_scope_id integer,
+  p_permission text
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, pg_temp
+AS $$
+  SELECT
+    p_permission IS NULL
+    OR (
+      portal.fn_session_active_role_id(p_session_id) IS NOT NULL
+      AND portal.fn_session_role_grant_valid(
+        p_user_id,
+        p_active_scope_id,
+        portal.fn_session_active_role_id(p_session_id)
+      )
+      AND portal.fn_security_role_has_permission(
+        portal.fn_session_active_role_id(p_session_id),
+        p_permission
+      )
     );
 $$;

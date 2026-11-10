@@ -279,50 +279,6 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION portal.sp_security_meta_refresh_cache()
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = portal, "Meta", pg_temp
-AS $$
-DECLARE
-  v_class_grant int;
-BEGIN
-  SELECT c."ID" INTO v_class_grant FROM "Meta"."Classes" c WHERE c."Name" = 'platform/RoleGrant';
-  IF v_class_grant IS NULL THEN
-    RAISE EXCEPTION 'platform/RoleGrant class is required for security enforcement';
-  END IF;
-
-  TRUNCATE portal.security_grant_cache;
-
-  INSERT INTO portal.security_grant_cache (
-    grant_obj_id, user_id, role_id, scope_id, active, revoked_at_utc, bypass_scope
-  )
-  SELECT
-    ov."ObjID",
-    (ov."Data"->>'LegacyUserId')::int,
-    (ov."Data"->>'LegacyRoleId')::int,
-    CASE
-      WHEN COALESCE(ov."Data"->>'GrantType', '') = 'GLOBAL' THEN 0
-      ELSE (ov."Data"->>'LegacyScopeId')::int
-    END,
-    COALESCE((ov."Data"->>'Active')::boolean, false),
-    CASE
-      WHEN ov."Data"->>'RevokedAtUtc' IS NULL OR btrim(ov."Data"->>'RevokedAtUtc') = '' THEN NULL
-      ELSE (ov."Data"->>'RevokedAtUtc')::timestamptz
-    END,
-    portal.fn_security_meta_bypass_scope((ov."Data"->>'LegacyRoleId')::int)
-  FROM "Meta"."ObjValues" ov
-  WHERE ov."ClassID" = v_class_grant
-    AND (
-      (ov."Data"->>'LegacyScopeId') IS NOT NULL AND btrim(ov."Data"->>'LegacyScopeId') <> ''
-      OR COALESCE(ov."Data"->>'GrantType', '') = 'GLOBAL'
-    );
-
-  REFRESH MATERIALIZED VIEW portal.mv_security_effective_grants;
-END;
-$$;
-
 CREATE OR REPLACE FUNCTION portal.fn_security_user_grant_role_ids(
   p_user_id integer,
   p_scope_id integer

@@ -10,6 +10,7 @@ import pytest
 
 SQL_PG = Path(__file__).resolve().parents[1] / "sql_pg"
 APPLY_SH = SQL_PG / "apply_schema.sh"
+PRODUCTION_FIXTURE = SQL_PG / "test_fixtures" / "security_meta_production_shape.sql"
 
 
 def _pg_env() -> dict[str, str]:
@@ -47,6 +48,7 @@ def upgrade_env() -> dict[str, str]:
     except RuntimeError:
         pytest.skip("PostgreSQL not reachable")
     subprocess.run(["bash", str(APPLY_SH)], env=env, check=True)
+    subprocess.run(["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(PRODUCTION_FIXTURE)], env=env, check=True)
     subprocess.run(["bash", str(APPLY_SH)], env=env, check=True)
     return env
 
@@ -68,8 +70,15 @@ def test_verify_production_checks_after_upgrade(upgrade_env: dict[str, str]) -> 
         upgrade_env,
     )
     assert rows
-    required_always = {"god_architect_role_seeded"}
+    required_always = {
+        "god_architect_role_seeded",
+        "david_org_admin_scope_1",
+        "inty_org_admin_scope_1",
+        "david_entra_identity_meta",
+        "meta_user_ids_preserved",
+    }
     for line in rows.splitlines():
         name, ok = line.split("|", 1)
+        assert ok == "t", f"verify check {name} failed"
         if name in required_always:
-            assert ok == "t", f"check {name} failed"
+            continue
