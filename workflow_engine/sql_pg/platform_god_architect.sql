@@ -831,3 +831,116 @@ BEGIN
   );
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION portal.sp_session_revoke_user_role_grant(
+  p_session_token text,
+  p_grant_id bigint
+)
+RETURNS TABLE (revoked boolean)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, "Meta", "RBAC", pg_temp
+AS $$
+DECLARE
+  v_ctx record;
+  v_ga record;
+  v_grant_obj int;
+  v_grant_class int;
+  v_user_id int;
+  v_role_id int;
+  v_scope_id int;
+  v_grant_type text;
+  v_role_name text;
+  v_org_admin_id int;
+  v_god_role int;
+  v_peer_admin_count int;
+  v_peer_god_count int;
+  v_now text;
+BEGIN
+  v_god_role := portal.fn_god_architect_role_id();
+  SELECT c."ID" INTO v_grant_class FROM "Meta"."Classes" c WHERE c."Name" = 'platform/RoleGrant';
+
+  SELECT ov."ObjID",
+         (ov."Data"->>'LegacyUserId')::int,
+         (ov."Data"->>'LegacyRoleId')::int,
+         (ov."Data"->>'LegacyScopeId')::int,
+         COALESCE(ov."Data"->>'GrantType', 'SCOPED')
+  INTO v_grant_obj, v_user_id, v_role_id, v_scope_id, v_grant_type
+  FROM "Meta"."ObjValues" ov
+  WHERE ov."ClassID" = v_grant_class
+    AND (ov."Data"->>'LegacyGrantId')::bigint = p_grant_id
+    AND COALESCE((ov."Data"->>'Active')::boolean, false)
+  LIMIT 1;
+
+  IF v_grant_obj IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'role grant not found');
+  END IF;
+
+  IF v_role_id = v_god_role THEN
+    SELECT * INTO v_ga FROM portal.fn_session_assert_god_architect(p_session_token) LIMIT 1;
+    SELECT COUNT(*)::int INTO v_peer_god_count
+    FROM portal.mv_security_effective_grants g
+    WHERE g.role_id = v_god_role AND COALESCE(g.bypass_scope, false);
+    IF v_peer_god_count <= 1 THEN
+      PERFORM portal.fn_semantic_raise('GS403', 'cannot revoke the last God Architect grant');
+    END IF;
+    v_now := to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"');
+    UPDATE "Meta"."ObjValues" ov
+    SET "Data" = ov."Data"
+      || jsonb_build_object('Active', false, 'RevokedAtUtc', v_now)
+    WHERE ov."ObjID" = v_grant_obj AND ov."ClassID" = v_grant_class;
+    PERFORM portal.fn_session_god_architect_audit(
+      v_ga.session_id, v_ga.user_id, 'platform.revoke.god_architect',
+      jsonb_build_object('grant_id', p_grant_id, 'target_user_id', v_user_id)
+    );
+    RETURN QUERY SELECT true;
+    RETURN;
+  END IF;
+
+  SELECT * INTO v_ctx FROM portal.fn_session_security_admin_require(p_session_token, '/app/admin/users') LIMIT 1;
+
+  IF v_grant_type <> 'GLOBAL' AND v_scope_id IS DISTINCT FROM v_ctx.active_scope_id THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'role grant is outside the active scope');
+  END IF;
+
+  SELECT (rov."Data"->>'LegacyRoleId')::int INTO v_org_admin_id
+  FROM "Meta"."ObjValues" rov
+  WHERE rov."ClassID" = (SELECT c."ID" FROM "Meta"."Classes" c WHERE c."Name" = 'platform/Role')
+    AND rov."Data"->>'RoleName' = 'organization_admin'
+  LIMIT 1;
+
+  IF v_org_admin_id IS NOT NULL AND v_role_id = v_org_admin_id AND v_user_id = v_ctx.user_id THEN
+    SELECT COUNT(*)::int INTO v_peer_admin_count
+    FROM portal.mv_security_effective_grants g
+    WHERE g.role_id = v_org_admin_id AND g.scope_id = v_ctx.active_scope_id;
+    IF v_peer_admin_count <= 1 THEN
+      PERFORM portal.fn_semantic_raise('GS403', 'cannot revoke your last organization_admin grant in this scope');
+    END IF;
+  END IF;
+
+  SELECT rov."Data"->>'RoleName' INTO v_role_name
+  FROM "Meta"."ObjValues" rov
+  WHERE rov."ClassID" = (SELECT c."ID" FROM "Meta"."Classes" c WHERE c."Name" = 'platform/Role')
+    AND (rov."Data"->>'LegacyRoleId')::int = v_role_id
+  LIMIT 1;
+
+  v_now := to_char(now() AT TIME ZONE 'utc', 'YYYY-MM-DD"T"HH24:MI:SS"Z"');
+  UPDATE "Meta"."ObjValues" ov
+  SET "Data" = ov."Data"
+    || jsonb_build_object('Active', false, 'RevokedAtUtc', v_now)
+  WHERE ov."ObjID" = v_grant_obj AND ov."ClassID" = v_grant_class;
+
+  PERFORM portal.fn_session_security_admin_audit(
+    v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id,
+    'user.revoke_role_grant',
+    jsonb_build_object(
+      'grant_id', p_grant_id,
+      'target_user_id', v_user_id,
+      'role_id', v_role_id,
+      'role_name', v_role_name
+    )
+  );
+
+  RETURN QUERY SELECT true;
+END;
+$$;
