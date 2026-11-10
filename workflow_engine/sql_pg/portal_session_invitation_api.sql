@@ -328,10 +328,18 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS403', 'issuer and subject are required');
   END IF;
 
-  SELECT r.provider_id, r.user_id
-  INTO v_provider_id, v_user_id
-  FROM "RBAC".spresolveuserbyscopeidentity(p_scope_id, btrim(p_issuer), btrim(p_subject)) r
-  LIMIT 1;
+  BEGIN
+    SELECT r.provider_id, r.user_id
+    INTO v_provider_id, v_user_id
+    FROM "RBAC".spresolveuserbyscopeidentity(p_scope_id, btrim(p_issuer), btrim(p_subject)) r
+    LIMIT 1;
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLERRM LIKE '%Scope is not configured for the provided issuer%' THEN
+        PERFORM portal.fn_semantic_raise('GS403', 'scope is not configured for the provided issuer');
+      END IF;
+      RAISE;
+  END;
 
   IF v_user_id IS NULL OR v_provider_id IS NULL THEN
     PERFORM portal.sp_scope_login_provision_identity(
@@ -426,7 +434,7 @@ BEGIN
       AND ip."Active" = true
   ),
   primary_provider AS (
-    SELECT sp.provider_id, sp.provider_name
+    SELECT sp."ProviderID" AS provider_id, sp.provider_name
     FROM scope_providers sp
     ORDER BY sp.provider_name
     LIMIT 1

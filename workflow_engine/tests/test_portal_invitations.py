@@ -13,6 +13,11 @@ import pytest
 
 from goliath_app.portal import PortalClient
 from goliath_app.portal.connection import build_portal_conninfo
+from workflow_engine.tests.helpers.portal_session_test_helpers import (
+    grant_organization_admin,
+    grant_platform_security_admin,
+    open_session_token,
+)
 
 SQL_PG = Path(__file__).resolve().parents[1] / "sql_pg"
 APPLY_SH = SQL_PG / "apply_schema.sh"
@@ -28,6 +33,10 @@ def _pg_env() -> dict[str, str]:
     env.setdefault("PGDATABASE", os.environ.get("POSTGRES_DB", "goliathapp_schema_test"))
     env.setdefault("PGPASSWORD", os.environ.get("POSTGRES_PASSWORD", "goliath_ci"))
     return env
+
+
+def _bound_psql(env: dict[str, str]):
+    return lambda sql: _psql(sql, env)
 
 
 def _psql(sql: str, env: dict[str, str]) -> str:
@@ -118,10 +127,11 @@ def _admin_session(env: dict[str, str], org_name: str) -> tuple[int, int, int, s
             env,
         )
     )
-    _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({org_id}, {admin_id})", env)
+    psql = _bound_psql(env)
+    grant_organization_admin(psql, org_id, admin_id)
+    grant_platform_security_admin(psql, admin_id, scope_id)
     os.environ["GOLIATH_PORTAL_PASSWORD"] = PORTAL_TEST_PASSWORD
-    client = PortalClient(build_portal_conninfo())
-    token = client.session_open(admin_id, active_scope_id=scope_id).session_token
+    token = open_session_token(psql, admin_id, scope_id=scope_id)
     return org_id, scope_id, admin_id, token
 
 
@@ -147,10 +157,10 @@ def test_create_invitation_resolves_provider(invitation_env: dict[str, str]) -> 
             env,
         )
     )
-    _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({org_id}, {admin_id})", env)
+    grant_organization_admin(_bound_psql(env), org_id, admin_id)
+    grant_platform_security_admin(_bound_psql(env), admin_id, scope_id)
     os.environ["GOLIATH_PORTAL_PASSWORD"] = PORTAL_TEST_PASSWORD
-    client = PortalClient(build_portal_conninfo())
-    token = client.session_open(admin_id, active_scope_id=scope_id).session_token
+    token = open_session_token(_bound_psql(env), admin_id, scope_id=scope_id)
     email = f"invitee-{uuid.uuid4().hex[:8]}@fixture.example"
     with psycopg.connect(build_portal_conninfo()) as conn:
         inv_id = conn.execute(
@@ -158,13 +168,14 @@ def test_create_invitation_resolves_provider(invitation_env: dict[str, str]) -> 
             (token, email, role_id),
         ).fetchone()
         assert inv_id is not None
-        row = conn.execute(
-            """SELECT "ExpectedProviderID", "Status" FROM "Onboarding"."Invitations" WHERE "InvitationID" = %s""",
-            (inv_id[0],),
-        ).fetchone()
-        assert row is not None
-        assert int(row[0]) == provider_id
-        assert row[1] == "PENDING"
+    row = _psql(
+        f"""SELECT "ExpectedProviderID", "Status" FROM "Onboarding"."Invitations"
+            WHERE "InvitationID" = {int(inv_id[0])}""",
+        env,
+    )
+    exp_provider, status = row.split("|")
+    assert int(exp_provider) == provider_id
+    assert status == "PENDING"
 
 
 def test_duplicate_pending_invitation_gs409(invitation_env: dict[str, str]) -> None:
@@ -183,15 +194,9 @@ def test_duplicate_pending_invitation_gs409(invitation_env: dict[str, str]) -> N
             env,
         )
     )
-    _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({org_id}, {admin_id})", env)
-    _psql(
-        f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID","RoleID","GrantType","ScopeID","Active","GrantedAtUtc")
-            SELECT {admin_id}, p."ID", 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc'
-            FROM "RBAC"."Permissions" p WHERE p."Name" = 'platform.security.admin'""",
-        env,
-    )
-    client = PortalClient(build_portal_conninfo())
-    token = client.session_open(admin_id, active_scope_id=scope_id).session_token
+    grant_organization_admin(_bound_psql(env), org_id, admin_id)
+    grant_platform_security_admin(_bound_psql(env), admin_id, scope_id)
+    token = open_session_token(_bound_psql(env), admin_id, scope_id=scope_id)
     email = f"dup-{uuid.uuid4().hex[:8]}@fixture.example"
     with psycopg.connect(build_portal_conninfo()) as conn:
         conn.execute(
@@ -220,15 +225,9 @@ def test_no_provider_on_scope_gs403(invitation_env: dict[str, str]) -> None:
             env,
         )
     )
-    _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({org_id}, {admin_id})", env)
-    _psql(
-        f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID","RoleID","GrantType","ScopeID","Active","GrantedAtUtc")
-            SELECT {admin_id}, p."ID", 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc'
-            FROM "RBAC"."Permissions" p WHERE p."Name" = 'platform.security.admin'""",
-        env,
-    )
-    client = PortalClient(build_portal_conninfo())
-    token = client.session_open(admin_id, active_scope_id=scope_id).session_token
+    grant_organization_admin(_bound_psql(env), org_id, admin_id)
+    grant_platform_security_admin(_bound_psql(env), admin_id, scope_id)
+    token = open_session_token(_bound_psql(env), admin_id, scope_id=scope_id)
     with psycopg.connect(build_portal_conninfo()) as conn:
         with pytest.raises(psycopg.Error) as exc:
             conn.execute(
@@ -356,17 +355,19 @@ def test_invitation_accept_on_first_sign_in(invitation_env: dict[str, str]) -> N
         ).fetchone()
         assert row is not None
         user_id = int(row[1])
-        status = conn.execute(
-            """SELECT "Status" FROM "Onboarding"."Invitations" WHERE "InvitationID" = %s""",
-            (inv_id,),
-        ).fetchone()
-        assert status is not None and status[0] == "ACCEPTED"
-        grant = conn.execute(
-            """SELECT COUNT(*) FROM "RBAC"."UserRoleGrants"
-               WHERE "UserID" = %s AND "RoleID" = %s AND "ScopeID" = %s AND "Active" """,
-            (user_id, role_id, scope_id),
-        ).fetchone()
-        assert grant is not None and int(grant[0]) >= 1
+    status = _psql(
+        f"""SELECT "Status" FROM "Onboarding"."Invitations" WHERE "InvitationID" = {inv_id}""",
+        env,
+    )
+    assert status == "ACCEPTED"
+    grant_count = int(
+        _psql(
+            f"""SELECT COUNT(*) FROM "RBAC"."UserRoleGrants"
+                WHERE "UserID" = {user_id} AND "RoleID" = {role_id} AND "ScopeID" = {scope_id} AND "Active" """,
+            env,
+        )
+    )
+    assert grant_count >= 1
 
 
 def test_list_users_admin_roles_summary_and_revoke_grant(invitation_env: dict[str, str]) -> None:
@@ -383,13 +384,8 @@ def test_list_users_admin_roles_summary_and_revoke_grant(invitation_env: dict[st
             env,
         )
     )
-    _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({org_id}, {admin_id})", env)
-    _psql(
-        f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID","RoleID","GrantType","ScopeID","Active","GrantedAtUtc")
-            SELECT {admin_id}, p."ID", 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc'
-            FROM "RBAC"."Permissions" p WHERE p."Name" = 'platform.security.admin'""",
-        env,
-    )
+    grant_organization_admin(_bound_psql(env), org_id, admin_id)
+    grant_platform_security_admin(_bound_psql(env), admin_id, scope_id)
     member_id = int(
         _psql(
             f"""INSERT INTO "RBAC"."Users" ("FullName", email, "Active")
@@ -409,8 +405,7 @@ def test_list_users_admin_roles_summary_and_revoke_grant(invitation_env: dict[st
         )
     )
 
-    client = PortalClient(build_portal_conninfo())
-    token = client.session_open(admin_id, active_scope_id=scope_id).session_token
+    token = open_session_token(_bound_psql(env), admin_id, scope_id=scope_id)
     conninfo = build_portal_conninfo()
     with psycopg.connect(conninfo) as conn:
         summary = conn.execute(

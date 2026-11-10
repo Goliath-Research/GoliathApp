@@ -102,6 +102,28 @@ def test_grant_cache_matches_rbac_after_migrate(sec_meta_env: dict[str, str]) ->
         ).fetchone()
         assert meta_rows is not None and int(meta_rows[0]) >= 1
 
+    rbac_grants = int(
+        _psql(
+            f"""
+            SELECT COUNT(*) FROM "RBAC"."UserRoleGrants"
+            WHERE "UserID" = {user_id} AND "ScopeID" = {scope_id}
+              AND "Active" AND "RevokedAtUtc" IS NULL
+            """,
+            sec_meta_env,
+        )
+    )
+    cache_grants = int(
+        _psql(
+            f"""
+            SELECT COUNT(*) FROM portal.security_grant_cache
+            WHERE user_id = {user_id} AND scope_id = {scope_id}
+              AND active AND revoked_at_utc IS NULL
+            """,
+            sec_meta_env,
+        )
+    )
+    assert cache_grants == rbac_grants
+
     map_line = _psql(
         f"""
         SELECT meta_obj_id FROM portal.security_meta_legacy_map
@@ -110,4 +132,4 @@ def test_grant_cache_matches_rbac_after_migrate(sec_meta_env: dict[str, str]) ->
         sec_meta_env,
     )
     assert map_line
-    assert int(map_line) == user_id
+    assert int(map_line) > 0

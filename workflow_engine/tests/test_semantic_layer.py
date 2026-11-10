@@ -11,6 +11,11 @@ from pathlib import Path
 
 import pytest
 
+from workflow_engine.tests.helpers.portal_session_test_helpers import (
+    create_org_with_admin,
+    open_session_token,
+)
+
 SQL_PG = Path(__file__).resolve().parents[1] / "sql_pg"
 APPLY_SH = SQL_PG / "apply_schema.sh"
 SEED_SEMANTIC = SQL_PG / "seed_semantic_catalog.py"
@@ -87,12 +92,8 @@ def semantic_env() -> dict[str, str]:
     return env
 
 
-def _open_session(env: dict[str, str], user_id: int) -> str:
-    row = _psql(
-        f"SELECT session_token FROM portal.sp_session_open({user_id})",
-        env,
-    )
-    return row.split("|")[0]
+def _open_session(env: dict[str, str], user_id: int, scope_id: int | None = None) -> str:
+    return open_session_token(lambda sql: _psql(sql, env), user_id, scope_id=scope_id)
 
 
 def _create_user(env: dict[str, str]) -> int:
@@ -109,18 +110,8 @@ def _create_user(env: dict[str, str]) -> int:
     )
 
 
-def _create_org(env: dict[str, str], user_id: int, name: str) -> int:
-    escaped = name.replace("'", "''")
-    row = _psql(
-        f"SELECT * FROM portal.sp_organization_create('{escaped}')",
-        env,
-    )
-    org_id = int(row.split("|")[0])
-    _psql(
-        f"SELECT inserted FROM portal.sp_organization_add_member({org_id}, {user_id})",
-        env,
-    )
-    return org_id
+def _create_org(env: dict[str, str], user_id: int, name: str) -> tuple[int, int]:
+    return create_org_with_admin(lambda sql: _psql(sql, env), user_id, name)
 
 
 def test_session_denied(semantic_env: dict[str, str]) -> None:
@@ -134,8 +125,9 @@ def test_session_denied(semantic_env: dict[str, str]) -> None:
 def test_cross_organization_denied(semantic_env: dict[str, str]) -> None:
     user_a = _create_user(semantic_env)
     user_b = _create_user(semantic_env)
-    org_b = _create_org(semantic_env, user_b, f"OrgB-{user_b}")
-    token_a = _open_session(semantic_env, user_a)
+    org_b, _scope_b = _create_org(semantic_env, user_b, f"OrgB-{user_b}")
+    _org_a, scope_a = _create_org(semantic_env, user_a, f"OrgA-{user_a}")
+    token_a = _open_session(semantic_env, user_a, scope_id=scope_a)
     params = json.dumps({"organization_id": org_b})
     _psql_expect_error(
         "SELECT * FROM portal.sp_run_semantic_request("
@@ -147,8 +139,8 @@ def test_cross_organization_denied(semantic_env: dict[str, str]) -> None:
 
 def test_invalid_limit_param_gs400(semantic_env: dict[str, str]) -> None:
     user_id = _create_user(semantic_env)
-    _create_org(semantic_env, user_id, f"Org-{user_id}")
-    token = _open_session(semantic_env, user_id)
+    _org_id, scope_id = _create_org(semantic_env, user_id, f"Org-{user_id}")
+    token = _open_session(semantic_env, user_id, scope_id=scope_id)
     params = json.dumps({"limit": "not-an-integer"})
     _psql_expect_error(
         "SELECT * FROM portal.sp_run_semantic_request("
@@ -160,8 +152,8 @@ def test_invalid_limit_param_gs400(semantic_env: dict[str, str]) -> None:
 
 def test_missing_param_gs400(semantic_env: dict[str, str]) -> None:
     user_id = _create_user(semantic_env)
-    _create_org(semantic_env, user_id, f"Org-{user_id}")
-    token = _open_session(semantic_env, user_id)
+    _org_id, scope_id = _create_org(semantic_env, user_id, f"Org-{user_id}")
+    token = _open_session(semantic_env, user_id, scope_id=scope_id)
     _psql_expect_error(
         "SELECT * FROM portal.sp_run_semantic_request("
         f"'{token}', 'core.filter_organizations', '1', '{{}}'::jsonb)",
@@ -172,8 +164,8 @@ def test_missing_param_gs400(semantic_env: dict[str, str]) -> None:
 
 def test_unsupported_filter_gs501(semantic_env: dict[str, str]) -> None:
     user_id = _create_user(semantic_env)
-    _create_org(semantic_env, user_id, f"Org-{user_id}")
-    token = _open_session(semantic_env, user_id)
+    _org_id, scope_id = _create_org(semantic_env, user_id, f"Org-{user_id}")
+    token = _open_session(semantic_env, user_id, scope_id=scope_id)
     bad_filter = json.dumps({"any_of": []})
     params = json.dumps({"name": "Org"})
     _psql_expect_error(
@@ -187,8 +179,8 @@ def test_unsupported_filter_gs501(semantic_env: dict[str, str]) -> None:
 def test_filter_quoting_safe(semantic_env: dict[str, str]) -> None:
     user_id = _create_user(semantic_env)
     org_name = f"Safe'; DROP TABLE portal.\"Organizations\"; -- {uuid.uuid4().hex[:6]}"
-    _create_org(semantic_env, user_id, org_name)
-    token = _open_session(semantic_env, user_id)
+    _org_id, scope_id = _create_org(semantic_env, user_id, org_name)
+    token = _open_session(semantic_env, user_id, scope_id=scope_id)
     params = json.dumps({"name": "Safe"})
     rows = _psql(
         "SELECT count(*) FROM portal.sp_run_semantic_request("
@@ -205,9 +197,11 @@ def test_filter_quoting_safe(semantic_env: dict[str, str]) -> None:
 
 def test_row_cap(semantic_env: dict[str, str]) -> None:
     user_id = _create_user(semantic_env)
+    scope_id = None
     for i in range(5):
-        _create_org(semantic_env, user_id, f"CapOrg-{user_id}-{i}")
-    token = _open_session(semantic_env, user_id)
+        _org_id, scope_id = _create_org(semantic_env, user_id, f"CapOrg-{user_id}-{i}")
+    assert scope_id is not None
+    token = _open_session(semantic_env, user_id, scope_id=scope_id)
     params = json.dumps({"limit": 2})
     rows = _psql(
         "SELECT count(*) FROM portal.sp_run_semantic_request("

@@ -127,7 +127,10 @@ BEGIN
 
     IF v_obj IS NOT NULL THEN
       PERFORM "Meta".sp_obj_update(v_obj, v_doc);
-    ELSIF NOT EXISTS (SELECT 1 FROM "Meta"."Objs" o WHERE o."ID" = r."ID") THEN
+    ELSIF NOT EXISTS (SELECT 1 FROM "Meta"."Objs" o WHERE o."ID" = r."ID")
+      AND NOT EXISTS (
+        SELECT 1 FROM portal."NavTree" n WHERE n."MetaObjID" = r."ID"
+      ) THEN
       INSERT INTO "Meta"."Objs" ("ID", "ClassID")
       VALUES (r."ID", v_class_user);
       PERFORM "Meta".sp_obj_update(r."ID", v_doc);
@@ -259,12 +262,10 @@ BEGIN
       'LegacyRoleId', r."RoleID",
       'LegacyScopeId', r."ScopeID"
     );
-    IF v_obj IS NULL THEN
-      v_obj := "Meta".sp_obj_insert(v_class_grant, v_doc);
+    IF v_obj IS NOT NULL THEN
+      PERFORM "Meta".sp_obj_update(v_obj, v_doc);
     ELSE
-      INSERT INTO "Meta"."ObjValues" ("ObjID", "ClassID", "Data")
-      VALUES (v_obj, v_class_grant, v_doc)
-      ON CONFLICT ("ObjID", "ClassID") DO UPDATE SET "Data" = EXCLUDED."Data";
+      v_obj := "Meta".sp_obj_insert(v_class_grant, v_doc);
     END IF;
 
     PERFORM portal.sp_security_meta_upsert_map('role_grant', r."ID", v_obj);
@@ -337,6 +338,9 @@ BEGIN
   END LOOP;
   GET DIAGNOSTICS v_n = ROW_COUNT;
   RETURN QUERY SELECT 'invitations'::text, v_n;
+
+  -- Repair NavTree MetaObjID rows that point at non-nav Meta objects (e.g. after id-preserving user migrate).
+  PERFORM portal.sp_nav_backfill_meta(false);
 
   RETURN QUERY SELECT 'ready_for_cache_refresh'::text, 1::bigint;
 END;

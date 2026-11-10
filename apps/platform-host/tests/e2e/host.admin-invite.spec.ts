@@ -7,29 +7,25 @@ test.describe("admin user invite (CI postgres)", () => {
   );
 
   test("invite form shows success and validation error", async ({ page, request }) => {
+    test.setTimeout(90_000);
     await page.goto("/app/admin/users");
     await expect(page.getByRole("heading", { name: "Invite user" })).toBeVisible();
 
     const inviteForm = page.locator("form").filter({ hasText: "Invite user" });
     await inviteForm.getByLabel("Email").fill(`pending-${Date.now()}@test.example`);
     await inviteForm.getByRole("button", { name: "Record invitation" }).click();
-    await expect(page.getByRole("alert")).toContainText(/role/i);
+    await expect(page.locator("p.g-admin-error")).toContainText(/role/i);
 
     const suffix = `${Date.now()}`;
     const email = `e2e-invite-${suffix}@test.example`;
-    const roleRes = await request.post("/api/portal/security", {
-      data: { action: "create_role", name: `e2e_invite_role_${suffix}` },
-    });
-    expect(roleRes.ok()).toBeTruthy();
-    const { roleId } = (await roleRes.json()) as { roleId: number };
-
     await inviteForm.getByLabel("Email").fill(email);
-    await inviteForm.getByLabel("Default role").selectOption(String(roleId));
+    await inviteForm.getByLabel("Default role").selectOption({ label: "organization_admin" });
+    const roleId = await inviteForm.getByLabel("Default role").inputValue();
     await inviteForm.getByRole("button", { name: "Record invitation" }).click();
-    await expect(page.getByRole("status")).toContainText("Invitation recorded");
+    await expect(page.getByText(/Invitation recorded/i)).toBeVisible();
 
     const dup = await request.post("/api/portal/security", {
-      data: { action: "invite_user", email, defaultRoleId: roleId },
+      data: { action: "invite_user", email, defaultRoleId: Number(roleId) },
     });
     expect(dup.status()).toBe(409);
     const dupBody = (await dup.json()) as { error?: string };

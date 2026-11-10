@@ -126,8 +126,9 @@ def test_single_role_auto_selected_and_nav_isolated(
     )
     _psql(
         f"""
-        INSERT INTO "RBAC"."UserRoleGrants" ("UserID", "RoleID", "ScopeID", "Active")
-        VALUES ({user_id}, {role_other}, {scope_id}, true)
+        INSERT INTO "RBAC"."UserRoleGrants"
+          ("UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc")
+        VALUES ({user_id}, {role_other}, 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc')
         """,
         portal_role_env,
     )

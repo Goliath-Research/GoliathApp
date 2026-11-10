@@ -99,3 +99,4 @@ BEGIN
 END $$;
 
 GRANT SELECT ON portal.mv_security_effective_grants TO goliath_portal;
+GRANT SELECT ON portal.external_identity_link_audit TO goliath_portal;

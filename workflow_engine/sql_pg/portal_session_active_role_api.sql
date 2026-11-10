@@ -685,6 +685,9 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS portal.fn_meta_effective_class_action_explicit(integer, integer, integer, text);
+DROP FUNCTION IF EXISTS portal.fn_meta_effective_class_action(integer, integer, integer, text);
+
 CREATE OR REPLACE FUNCTION portal.fn_meta_effective_class_action_explicit(
   p_user_id integer,
   p_scope_id integer,

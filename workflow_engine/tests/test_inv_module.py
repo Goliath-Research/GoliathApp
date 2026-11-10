@@ -230,10 +230,23 @@ def test_receive_adjust_issue_and_semantic_reads(inv_env: dict[str, str]) -> Non
     assert int(move_id) > 0
     assert Decimal(qty_after_issue) == Decimal("1")
 
-    token = _psql(
-        f"SELECT session_token FROM portal.sp_session_open({user_id})",
-        inv_env,
-    ).split("|")[0]
+    from workflow_engine.tests.helpers.portal_session_test_helpers import (
+        grant_organization_admin,
+        open_session_token,
+    )
+
+    scope_id = int(
+        _psql(
+            f"""
+            SELECT "ScopeID" FROM "RBAC"."Scopes"
+            WHERE "OrganizationID" = {org_id} AND "ScopeType" = 'organization'
+            LIMIT 1
+            """,
+            inv_env,
+        )
+    )
+    grant_organization_admin(lambda sql: _psql(sql, inv_env), org_id, user_id)
+    token = open_session_token(lambda sql: _psql(sql, inv_env), user_id, scope_id=scope_id)
     params = json.dumps({"organization_id": org_id})
     items = _psql(
         "SELECT count(*) FROM portal.sp_run_semantic_request("

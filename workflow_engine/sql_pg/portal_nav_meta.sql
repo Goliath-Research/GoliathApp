@@ -354,11 +354,28 @@ BEGIN
     ORDER BY o.depth, n."Seq", n."ID"
   LOOP
     IF r."MetaObjID" IS NOT NULL THEN
-      nav_id := r."ID";
-      meta_obj_id := r."MetaObjID";
-      action := 'skip';
-      RETURN NEXT;
-      CONTINUE;
+      IF EXISTS (
+        SELECT 1
+        FROM "Meta"."Objs" o
+        JOIN "Meta"."ObjValues" ov ON ov."ObjID" = o."ID" AND ov."ClassID" = o."ClassID"
+        WHERE o."ID" = r."MetaObjID" AND o."ClassID" = v_class_id
+      ) THEN
+        nav_id := r."ID";
+        meta_obj_id := r."MetaObjID";
+        action := 'skip';
+        RETURN NEXT;
+        CONTINUE;
+      END IF;
+
+      IF p_dry_run THEN
+        nav_id := r."ID";
+        meta_obj_id := r."MetaObjID";
+        action := 'would_repair';
+        RETURN NEXT;
+        CONTINUE;
+      END IF;
+
+      UPDATE portal."NavTree" n SET "MetaObjID" = NULL WHERE n."ID" = r."ID";
     END IF;
 
     IF p_dry_run THEN

@@ -52,7 +52,7 @@ BEGIN
   INSERT INTO portal.security_grant_cache (
     grant_obj_id, user_id, role_id, scope_id, active, revoked_at_utc, bypass_scope
   )
-  SELECT
+  SELECT DISTINCT ON ((ov."Data"->>'LegacyGrantId')::bigint)
     ov."ObjID",
     (ov."Data"->>'LegacyUserId')::int,
     (ov."Data"->>'LegacyRoleId')::int,
@@ -66,7 +66,9 @@ BEGIN
   FROM "Meta"."ObjValues" ov
   LEFT JOIN "RBAC"."Roles" ro ON ro."ID" = (ov."Data"->>'LegacyRoleId')::int
   WHERE ov."ClassID" = v_class_grant
-    AND (ov."Data"->>'LegacyScopeId') IS NOT NULL;
+    AND (ov."Data"->>'LegacyScopeId') IS NOT NULL
+    AND (ov."Data"->>'LegacyGrantId') ~ '^[0-9]+$'
+  ORDER BY (ov."Data"->>'LegacyGrantId')::bigint, ov."ObjID" DESC;
 
   -- Stack B: grants created after migrate may exist only in RBAC until mirrored to Meta.
   INSERT INTO portal.security_grant_cache (
@@ -88,9 +90,12 @@ BEGIN
     AND NOT EXISTS (
       SELECT 1
       FROM portal.security_grant_cache c
-      WHERE c.user_id = g."UserID"
-        AND c.role_id = g."RoleID"
-        AND c.scope_id = g."ScopeID"
+      WHERE c.grant_obj_id = g."ID"
+         OR (
+           c.user_id = g."UserID"
+           AND c.role_id = g."RoleID"
+           AND c.scope_id = g."ScopeID"
+         )
     );
 
   REFRESH MATERIALIZED VIEW portal.mv_security_effective_grants;
