@@ -109,6 +109,23 @@ BEGIN
   LOOP
     v_obj := portal.sp_security_meta_mapped_obj('user', r."ID", v_class_user);
 
+    IF v_obj IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM "Meta"."ObjValues" ov
+      WHERE ov."ObjID" = v_obj AND ov."ClassID" = v_class_user
+    ) THEN
+      DELETE FROM portal.security_meta_legacy_map
+      WHERE legacy_kind = 'user' AND legacy_id = r."ID";
+      v_obj := NULL;
+    END IF;
+
+    IF v_obj IS NOT NULL AND EXISTS (
+      SELECT 1 FROM "Meta"."ObjValues" ov
+      WHERE ov."ObjID" = v_obj AND ov."ClassID" = v_class_user
+    ) THEN
+      PERFORM portal.sp_security_meta_upsert_map('user', r."ID", v_obj);
+      CONTINUE;
+    END IF;
+
     IF v_obj IS NULL THEN
       IF NOT EXISTS (SELECT 1 FROM "Meta"."Objs" o WHERE o."ID" = r."ID") THEN
         INSERT INTO "Meta"."Objs" ("ID", "ClassID")
@@ -165,6 +182,13 @@ BEGIN
       ON s."OrganizationID" = o."ID" AND s."ScopeType" = 'organization'
   LOOP
     v_obj := portal.sp_security_meta_mapped_obj('organization', r.org_id, v_class_org);
+    IF v_obj IS NOT NULL AND EXISTS (
+      SELECT 1 FROM "Meta"."ObjValues" ov
+      WHERE ov."ObjID" = v_obj AND ov."ClassID" = v_class_org
+    ) THEN
+      PERFORM portal.sp_security_meta_upsert_map('organization', r.org_id, v_obj);
+      CONTINUE;
+    END IF;
     v_doc := jsonb_build_object(
       'Label', r.org_name,
       'LegacyOrganizationId', r.org_id,
@@ -186,6 +210,13 @@ BEGIN
   FOR r IN SELECT ro.* FROM "RBAC"."Roles" ro
   LOOP
     v_obj := portal.sp_security_meta_mapped_obj('role', r."ID", v_class_role);
+    IF v_obj IS NOT NULL AND EXISTS (
+      SELECT 1 FROM "Meta"."ObjValues" ov
+      WHERE ov."ObjID" = v_obj AND ov."ClassID" = v_class_role
+    ) THEN
+      PERFORM portal.sp_security_meta_upsert_map('role', r."ID", v_obj);
+      CONTINUE;
+    END IF;
     v_doc := jsonb_build_object(
       'Label', r."Name",
       'RoleName', r."Name",
@@ -208,6 +239,13 @@ BEGIN
   FOR r IN SELECT p.* FROM "RBAC"."Permissions" p
   LOOP
     v_obj := portal.sp_security_meta_mapped_obj('permission', r."ID", v_class_perm);
+    IF v_obj IS NOT NULL AND EXISTS (
+      SELECT 1 FROM "Meta"."ObjValues" ov
+      WHERE ov."ObjID" = v_obj AND ov."ClassID" = v_class_perm
+    ) THEN
+      PERFORM portal.sp_security_meta_upsert_map('permission', r."ID", v_obj);
+      CONTINUE;
+    END IF;
     v_doc := jsonb_build_object(
       'Label', r."Name",
       'PermissionName', r."Name",
@@ -229,6 +267,13 @@ BEGIN
   FOR r IN SELECT g.* FROM "RBAC"."UserRoleGrants" g
   LOOP
     v_obj := portal.sp_security_meta_mapped_obj('role_grant', r."ID", v_class_grant);
+    IF v_obj IS NOT NULL AND EXISTS (
+      SELECT 1 FROM "Meta"."ObjValues" ov
+      WHERE ov."ObjID" = v_obj AND ov."ClassID" = v_class_grant
+    ) THEN
+      PERFORM portal.sp_security_meta_upsert_map('role_grant', r."ID", v_obj);
+      CONTINUE;
+    END IF;
     v_doc := jsonb_build_object(
       'Label', format('grant %s', r."ID"),
       'Active', r."Active",
@@ -259,6 +304,13 @@ BEGIN
   FOR r IN SELECT ei.* FROM "RBAC"."ExternalIdentities" ei
   LOOP
     v_obj := portal.sp_security_meta_mapped_obj('external_identity', r."ID", v_class_ext);
+    IF v_obj IS NOT NULL AND EXISTS (
+      SELECT 1 FROM "Meta"."ObjValues" ov
+      WHERE ov."ObjID" = v_obj AND ov."ClassID" = v_class_ext
+    ) THEN
+      PERFORM portal.sp_security_meta_upsert_map('external_identity', r."ID", v_obj);
+      CONTINUE;
+    END IF;
     v_doc := jsonb_build_object(
       'Label', format('%s@%s', r."Subject", r."ProviderID"),
       'ProviderId', r."ProviderID",
@@ -284,6 +336,13 @@ BEGIN
   FOR r IN SELECT i.* FROM "Onboarding"."Invitations" i
   LOOP
     v_obj := portal.sp_security_meta_mapped_obj('invitation', r."InvitationID", v_class_inv);
+    IF v_obj IS NOT NULL AND EXISTS (
+      SELECT 1 FROM "Meta"."ObjValues" ov
+      WHERE ov."ObjID" = v_obj AND ov."ClassID" = v_class_inv
+    ) THEN
+      PERFORM portal.sp_security_meta_upsert_map('invitation', r."InvitationID", v_obj);
+      CONTINUE;
+    END IF;
     v_doc := jsonb_build_object(
       'Label', r."Email",
       'Email', r."Email",
