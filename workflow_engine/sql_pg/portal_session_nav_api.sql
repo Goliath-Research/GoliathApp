@@ -8,7 +8,13 @@
 
   Role resolution merges legacy portal.UserRoles, scoped UserRoleGrants for the session's
   active scope (or BypassScope roles), and RBAC.usp_session_get_effective_roles_v2.
+
+  Return-shape upgrades: CREATE OR REPLACE cannot add `node_path` to RETURNS TABLE when an
+  older overload already exists. portal._drop_if_proc (portal_modern_api_parity.sql) drops every
+  overload before create. database_gateway_roles.sql (later in apply_schema.sh) re-grants EXECUTE.
 */
+
+SELECT portal._drop_if_proc('portal', 'sp_session_operator_nav_tree');
 
 CREATE OR REPLACE FUNCTION portal.sp_session_operator_nav_tree(p_session_token text)
 RETURNS TABLE (
