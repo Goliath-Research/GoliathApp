@@ -84,7 +84,7 @@ test.describe("model authoring (CI postgres)", () => {
     const viewForm = page.locator("form.g-portal-view-form");
     await viewForm.getByLabel("Title").fill(viewTitle);
     await viewForm.getByRole("radio", { name: /Meta class/ }).check();
-    await viewForm.getByLabel("Meta class").selectOption(className);
+    await viewForm.locator("select").selectOption(className);
     await viewForm.getByRole("button", { name: "Save view" }).click();
     await expect(page.getByRole("status")).toContainText("View saved");
     const savedView = page.getByRole("button", { name: viewTitle });
