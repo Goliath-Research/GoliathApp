@@ -415,7 +415,7 @@ BEGIN
       AND ip."Active" = true
   ),
   primary_provider AS (
-    SELECT sp.provider_id, sp.provider_name
+    SELECT sp."ProviderID" AS provider_id, sp.provider_name
     FROM scope_providers sp
     ORDER BY sp.provider_name
     LIMIT 1
