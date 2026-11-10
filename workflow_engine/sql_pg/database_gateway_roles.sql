@@ -14,7 +14,6 @@ BEGIN
 END $$;
 
 GRANT USAGE ON SCHEMA portal TO goliath_portal;
-GRANT SELECT ON portal.mv_security_effective_grants TO goliath_portal;
 
 REVOKE ALL ON ALL TABLES IN SCHEMA portal FROM goliath_portal;
 REVOKE ALL ON ALL TABLES IN SCHEMA cfg FROM goliath_portal;
@@ -98,3 +97,5 @@ BEGIN
     EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, goliath_portal', v_sig);
   END LOOP;
 END $$;
+
+GRANT SELECT ON portal.mv_security_effective_grants TO goliath_portal;
