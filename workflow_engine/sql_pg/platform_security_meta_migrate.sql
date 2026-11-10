@@ -134,6 +134,9 @@ BEGIN
       ELSIF EXISTS (
         SELECT 1 FROM "Meta"."Objs" o
         WHERE o."ID" = r."ID" AND o."ClassID" = v_class_user
+      ) AND EXISTS (
+        SELECT 1 FROM "Meta"."ObjValues" ov
+        WHERE ov."ObjID" = r."ID" AND ov."ClassID" = v_class_user
       ) THEN
         v_obj := r."ID";
       ELSE
