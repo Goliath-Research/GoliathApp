@@ -11,6 +11,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 APPLY_SH = REPO / "workflow_engine" / "sql_pg" / "apply_schema.sh"
+NAV_SEED = REPO / "workflow_engine" / "sql_pg" / "seed_platform_nav_tree.sql"
 PORTAL_TEST_PASSWORD = "platform_host_e2e_pw"
 DEV_SECRET = os.environ.get("GOLIATH_PLATFORM_HOST_DEV_LOGIN_SECRET", "ci-e2e-dev-secret")
 
@@ -174,7 +175,7 @@ def _grant_scoped(env: dict[str, str], user_id: int, scope_id: int) -> None:
             env,
         )
     )
-    for perm in ("meta.schema.read", "meta.object.read", "meta.object.write"):
+    for perm in ("meta.schema.read", "meta.object.read", "meta.object.write", "platform.model.author"):
         perm_id = _psql(
             f"""SELECT "ID" FROM "RBAC"."Permissions" WHERE "Name" = '{perm}' LIMIT 1""",
             env,
@@ -221,7 +222,10 @@ def main() -> int:
         )
     )
     org_a = _psql(f"SELECT * FROM portal.sp_organization_create('E2EOrgA')", env)
+    org_a_id = int(org_a.split("|")[0])
     scope_a = int(org_a.split("|")[1])
+    subprocess.run(["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(NAV_SEED)], env=env, check=True)
+    _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({org_a_id}, {user_a})", env)
     _grant_scoped(env, user_a, scope_a)
 
     email_b = f"e2e-denied-{uuid.uuid4().hex[:8]}@test"

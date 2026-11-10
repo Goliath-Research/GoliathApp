@@ -765,3 +765,123 @@ export async function portalSessionSetDashboardWidgets(
     }
   });
 }
+
+export async function portalSessionExportModelPackage(
+  sessionToken: string,
+  classPrefix: string,
+): Promise<string> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT package_sql FROM portal.sp_session_export_model_package($1, $2)`,
+        [sessionToken, classPrefix],
+      );
+      return String(result.rows[0]?.package_sql ?? "");
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionModelAuthoring(
+  sessionToken: string,
+  action: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  return withClient(async (client) => {
+    try {
+      switch (action) {
+        case "meta_class_create": {
+          const result = await client.query(
+            `SELECT class_id, class_name FROM portal.sp_session_meta_class_create($1, $2, $3)`,
+            [sessionToken, String(body.className ?? ""), body.parentClassName ?? null],
+          );
+          return { classId: result.rows[0]?.class_id, className: result.rows[0]?.class_name };
+        }
+        case "meta_field_upsert": {
+          const result = await client.query(
+            `SELECT field_id FROM portal.sp_session_meta_field_upsert($1, $2, $3, $4, $5, $6)`,
+            [
+              sessionToken,
+              String(body.className ?? ""),
+              String(body.fieldName ?? ""),
+              String(body.typeName ?? "portal/nav/Caption"),
+              String(body.typeVersion ?? "1.0"),
+              Boolean(body.required),
+            ],
+          );
+          return { fieldId: result.rows[0]?.field_id };
+        }
+        case "meta_field_retire": {
+          await client.query(`SELECT ok FROM portal.sp_session_meta_field_retire($1, $2, $3)`, [
+            sessionToken,
+            String(body.className ?? ""),
+            String(body.fieldName ?? ""),
+          ]);
+          return { ok: true };
+        }
+        case "semantic_register_entity": {
+          const result = await client.query(
+            `SELECT entity_id FROM portal.sp_session_semantic_register_entity($1, $2, $3, $4, $5, $6)`,
+            [
+              sessionToken,
+              String(body.namespace ?? ""),
+              String(body.code ?? ""),
+              String(body.displayName ?? ""),
+              String(body.description ?? ""),
+              body.metaClassName ?? null,
+            ],
+          );
+          return { entityId: result.rows[0]?.entity_id };
+        }
+        case "semantic_register_attribute": {
+          await client.query(
+            `SELECT ok FROM portal.sp_session_semantic_register_attribute($1, $2, $3, $4, $5, $6, $7)`,
+            [
+              sessionToken,
+              Number(body.entityId),
+              String(body.code ?? ""),
+              String(body.columnName ?? ""),
+              String(body.jsonType ?? "string"),
+              String(body.role ?? "dimension"),
+              Array.isArray(body.filterableOps) ? body.filterableOps : ["eq"],
+            ],
+          );
+          return { ok: true };
+        }
+        case "nav_register_node": {
+          const result = await client.query(
+            `SELECT node_id FROM portal.sp_session_nav_register_node($1, $2, $3, $4, $5)`,
+            [
+              sessionToken,
+              body.parentNavId == null ? null : Number(body.parentNavId),
+              String(body.caption ?? ""),
+              Number(body.seq ?? 50),
+              body.nodePath == null ? null : String(body.nodePath),
+            ],
+          );
+          return { nodeId: result.rows[0]?.node_id };
+        }
+        case "grant_role_nav_node": {
+          await client.query(`SELECT ok FROM portal.sp_session_grant_role_nav_node($1, $2, $3)`, [
+            sessionToken,
+            Number(body.roleId),
+            Number(body.nodeId),
+          ]);
+          return { ok: true };
+        }
+        case "grant_user_role": {
+          const result = await client.query(
+            `SELECT inserted, grant_id FROM portal.sp_session_grant_user_role_scoped($1, $2, $3)`,
+            [sessionToken, Number(body.targetUserId), Number(body.roleId)],
+          );
+          return { inserted: result.rows[0]?.inserted, grantId: result.rows[0]?.grant_id };
+        }
+        default:
+          throw new Error("unknown model authoring action");
+      }
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}

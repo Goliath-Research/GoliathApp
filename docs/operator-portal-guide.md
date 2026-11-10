@@ -33,10 +33,10 @@ Every GoliathApp deployment should follow **one** of these patterns. Mixing prod
 | 1 | Sign in; confirm scope and NavTree | `/app` |
 | 2 | Explore **inherited** platform classes | **Meta model** → hierarchy on `/app`, or **Classes** |
 | 3 | Inspect or edit schema and instances | Open a class → Meta workbench + property grid |
-| 4 | Register **your** semantic entities (engineering) | **Semantic layer** lists; engineering uses `portal.sp_semantic_register_*` — see [Semantic extensions](semantic-extensions.md) |
+| 4 | Register **your** semantic entities and map to Meta | **Semantic layer** (`/app/semantic`) — browse, register namespaces/entities/attributes; session APIs wrap the registry — see [Platform generic Meta](platform-generic-meta.md) |
 | 5 | **Define views** on entities you care about | **Views** (`/app/views/list`) — save a view on a semantic request or Meta class |
 | 6 | **Arrange dashboards** from saved views | **Dashboards** (`/app/views/dashboards`) |
-| 7 | Add navigation for new modules (engineering) | `portal.sp_nav_register_node` + Role2Node — see [NavTree on Meta](nav-tree-meta.md) |
+| 7 | Subclass platform parents, add fields, NavTree, grants | **Meta** home authoring panel; **Administration → Navigation** for nodes and role grants; **Export as package SQL** for child repos — see [NavTree on Meta](nav-tree-meta.md) |
 
 **Database rule:** Product and domain data for Path A live on **your** PostgreSQL instance (or your Neon branch / dedicated database). The official GoliathApp **reference** database used only to ship the platform stays a **clean generic baseline** — do not use it as your production tenant store.
 

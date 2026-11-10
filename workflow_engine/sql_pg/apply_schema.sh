@@ -104,6 +104,8 @@ SCRIPTS=(
   portal_session_meta_api.sql
   portal_session_platform_api.sql
   portal_operator_views_api.sql
+  portal_session_model_authoring_api.sql
+  platform_generic_meta_baseline.sql
   portal_semantic_schema.sql
   portal_semantic_row_types.sql
   inv_semantic.sql
