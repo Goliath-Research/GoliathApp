@@ -119,6 +119,8 @@ SCRIPTS=(
   platform_security_meta_classes.sql
   platform_security_meta_migrate.sql
   portal_security_meta_resolver.sql
+  portal_security_meta_enforcement_c.sql
+  platform_god_architect.sql
   meta_model_semantic.sql
   portal_contract_api.sql
   portal_study_ops_api.sql

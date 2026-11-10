@@ -247,14 +247,21 @@ BEGIN
       WHERE n."ID" = v_node_id;
 
       IF v_meta_obj IS NOT NULL THEN
-        v_doc := jsonb_strip_nulls(jsonb_build_object(
-          'Caption', nav_row.caption,
-          'Seq', nav_row.seq,
-          'NodePath', nav_row.node_path,
-          'SortPath', nav_row.sort_path,
-          'InfoID', v_info_id
-        ));
-        PERFORM "Meta".sp_obj_update(v_meta_obj, v_doc);
+        IF EXISTS (
+          SELECT 1
+          FROM "Meta"."Objs" o
+          WHERE o."ID" = v_meta_obj
+            AND o."ClassID" = portal.fn_nav_node_class_id()
+        ) THEN
+          v_doc := jsonb_strip_nulls(jsonb_build_object(
+            'Caption', nav_row.caption,
+            'Seq', nav_row.seq,
+            'NodePath', nav_row.node_path,
+            'SortPath', nav_row.sort_path,
+            'InfoID', v_info_id
+          ));
+          PERFORM "Meta".sp_obj_update(v_meta_obj, v_doc);
+        END IF;
 
         v_meta_link := portal.fn_nav_parent_metalink_id();
         v_link_type := portal.fn_nav_hierarchy_link_type_id();

@@ -141,6 +141,25 @@ def _default_contract_role_id(env: dict[str, str]) -> int:
     )
 
 
+def _sync_grant_to_meta(env: dict[str, str], grant_id: int | str) -> None:
+    """Mirror RBAC grant rows into Meta when enforcement C is applied."""
+    try:
+        _psql(f"SELECT portal.sp_security_meta_upsert_role_grant_from_rbac({grant_id})", env)
+    except RuntimeError:
+        return
+
+
+def _grant_security_admin(env: dict[str, str], user_id: int, scope_id: int) -> None:
+    grant_id = _psql(
+        f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID","RoleID","GrantType","ScopeID","Active","GrantedAtUtc")
+            SELECT {user_id}, p."ID", 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc'
+            FROM "RBAC"."Permissions" p WHERE p."Name" = 'platform.security.admin'
+            RETURNING "ID" """,
+        env,
+    )
+    _sync_grant_to_meta(env, grant_id)
+
+
 def test_create_invitation_resolves_provider(invitation_env: dict[str, str]) -> None:
     env = invitation_env
     os.environ["GOLIATH_PORTAL_PASSWORD"] = PORTAL_TEST_PASSWORD
@@ -404,6 +423,7 @@ def test_list_users_admin_roles_summary_and_revoke_grant(invitation_env: dict[st
             env,
         )
     )
+    _psql(f"SELECT portal.sp_security_meta_upsert_role_grant_from_rbac({grant_id})", env)
 
     token = open_session_token(_bound_psql(env), admin_id, scope_id=scope_id)
     conninfo = build_portal_conninfo()
