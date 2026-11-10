@@ -56,3 +56,20 @@ def test_upgrade_idempotent_and_cache_wired(upgrade_env: dict[str, str]) -> None
     assert grant_count >= 0
     user_map = int(_psql("SELECT COUNT(*) FROM portal.security_meta_legacy_map WHERE legacy_kind = 'user'", upgrade_env))
     assert user_map >= 1
+
+
+def test_verify_production_checks_after_upgrade(upgrade_env: dict[str, str]) -> None:
+    rows = _psql(
+        """
+        SELECT check_name, ok
+        FROM portal.sp_security_meta_verify_production()
+        ORDER BY 1
+        """,
+        upgrade_env,
+    )
+    assert rows
+    required_always = {"god_architect_role_seeded"}
+    for line in rows.splitlines():
+        name, ok = line.split("|", 1)
+        if name in required_always:
+            assert ok == "t", f"check {name} failed"

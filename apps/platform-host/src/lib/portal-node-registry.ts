@@ -11,7 +11,6 @@ export type PortalWorkspaceKind =
   | "semantic_meta_bridge"
   | "semantic_authoring"
   | "admin_grants"
-  | "admin_users"
   | "admin_roles"
   | "admin_permissions"
   | "platform_query"
