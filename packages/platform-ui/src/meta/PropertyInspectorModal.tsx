@@ -32,7 +32,7 @@ export function PropertyInspectorModal({
   }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || typeof window === "undefined") return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -40,7 +40,9 @@ export function PropertyInspectorModal({
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+    };
   }, [open, onCancel]);
 
   if (!open || !mounted) return null;

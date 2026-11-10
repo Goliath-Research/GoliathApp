@@ -38,12 +38,32 @@ Updating [visualization.md](../visualization.md) and this plan together is manda
 
 ## SQL apply (operator features)
 
-After pulling portal SQL, run the platform apply path ([schema-apply.md](../schema-apply.md)) so these are present:
+### Existing database upgrade
 
+Apply on databases that already have `portal.sp_session_operator_nav_tree` **without** the `node_path` column (pre–operator portal host) and on databases already at the new shape.
+
+Do **not** hand-drop `portal.sp_session_operator_nav_tree` in production. Run the **full** official apply:
+
+```bash
+export PGHOST=… PGDATABASE=… PGUSER=… PGPASSWORD=… PGSSLMODE=…
+bash workflow_engine/sql_pg/apply_schema.sh
+```
+
+`apply_schema.sh` is ordered and idempotent:
+
+1. Applies all SQL through `portal_session_nav_api.sql` (uses `portal._drop_if_proc` when `RETURNS TABLE` shape changes, e.g. adding `node_path`).
+2. Applies `portal_session_platform_api.sql`, `portal_operator_views_api.sql`, and the rest of the tree.
+3. Finishes with **`database_gateway_roles.sql`**, which runs `GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA portal TO goliath_portal` (required after any `DROP FUNCTION` / recreate).
+
+Re-running `apply_schema.sh` on a database **already** at the new shape is safe (no manual steps).
+
+`seed_platform_nav_tree.sql` is **not** part of `apply_schema.sh`. After apply, if the operator menu is empty, run it on the [database population](../database-population.md) path (after catalog seeds, and again after new organization scopes when needed).
+
+### What ships in apply (operator portal)
+
+- `portal_session_nav_api.sql` — `node_path` on `sp_session_operator_nav_tree`
 - `portal_session_platform_api.sql` — `fn_session_operator_require`, session list wrappers
 - `portal_operator_views_api.sql` — `portal.operator_view`, `portal.operator_dashboard`, `portal.operator_dashboard_widget`
-
-Then run **`seed_platform_nav_tree.sql`** on populated databases if not already applied ([database-population.md](../database-population.md)).
 
 ## Product rules (documentation must state)
 

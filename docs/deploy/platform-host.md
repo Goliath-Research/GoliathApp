@@ -33,6 +33,14 @@ npm run dev --workspace @goliath/platform-host
 
 Configure `GOLIATH_PORTAL_*` (see [platform-host-p1-auth.md](platform-host-p1-auth.md)) for `/app` and BFF routes. Without the bridge, `/app` redirects with an unconfigured auth hint.
 
+### Database before deploy
+
+1. **`bash workflow_engine/sql_pg/apply_schema.sh`** on the target PostgreSQL database (full ordered list; ends with `database_gateway_roles.sql` so `goliath_portal` keeps `EXECUTE` on replaced portal functions). Safe on fresh DBs and on pre–operator-portal databases without manual `DROP FUNCTION`.
+2. **`seed_platform_nav_tree.sql`** separately when operators need the inherited `/app` menu — not invoked by `apply_schema.sh` ([database-population.md](../database-population.md)).
+3. Platform host container / env with portal bridge + OIDC.
+
+Details: [platform-host-operator-portal.md — SQL apply](platform-host-operator-portal.md#sql-apply-operator-features).
+
 ## Container image (portable artifact)
 
 Build from the **repository root** (not `apps/platform-host` alone):

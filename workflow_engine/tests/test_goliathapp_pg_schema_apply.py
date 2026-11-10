@@ -14,6 +14,11 @@ SQL_PG = Path(__file__).resolve().parents[1] / "sql_pg"
 MIGRATIONS = SQL_PG / "migrations"
 APPLY_SH = SQL_PG / "apply_schema.sh"
 PORTAL_RBAC_SQL = SQL_PG / "portal_rbac_api.sql"
+PORTAL_SESSION_NAV_SQL = SQL_PG / "portal_session_nav_api.sql"
+PORTAL_GATEWAY_ROLES_SQL = SQL_PG / "database_gateway_roles.sql"
+NAV_TREE_LEGACY_FIXTURE = (
+    SQL_PG / "test_fixtures" / "sp_session_operator_nav_tree_pre_node_path.sql"
+)
 
 
 def _pg_env() -> dict[str, str]:
@@ -174,3 +179,64 @@ def test_portal_rbac_api_survives_return_type_change() -> None:
         "SELECT organization_id FROM portal.sp_list_scopes(false) LIMIT 0",
         env,
     )
+
+
+def test_portal_session_nav_api_survives_return_type_change() -> None:
+    """Re-applying portal_session_nav_api.sql must replace the pre-node_path row shape."""
+    env = _pg_test_env()
+    subprocess.run(["bash", str(APPLY_SH)], env=env, check=True)
+    subprocess.run(
+        ["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(NAV_TREE_LEGACY_FIXTURE)],
+        env=env,
+        check=True,
+    )
+    legacy_out = _psql(
+        """
+        SELECT p.parameter_name
+        FROM information_schema.routines r
+        JOIN information_schema.parameters p
+          ON p.specific_schema = r.specific_schema
+         AND p.specific_name = r.specific_name
+        WHERE r.specific_schema = 'portal'
+          AND r.routine_name = 'sp_session_operator_nav_tree'
+          AND p.parameter_mode = 'OUT'
+        ORDER BY p.ordinal_position
+        """,
+        env,
+    )
+    assert "node_path" not in legacy_out.splitlines()
+
+    subprocess.run(
+        ["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(PORTAL_SESSION_NAV_SQL)],
+        env=env,
+        check=True,
+    )
+    subprocess.run(
+        ["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(PORTAL_GATEWAY_ROLES_SQL)],
+        env=env,
+        check=True,
+    )
+    upgraded_out = _psql(
+        """
+        SELECT p.parameter_name
+        FROM information_schema.routines r
+        JOIN information_schema.parameters p
+          ON p.specific_schema = r.specific_schema
+         AND p.specific_name = r.specific_name
+        WHERE r.specific_schema = 'portal'
+          AND r.routine_name = 'sp_session_operator_nav_tree'
+          AND p.parameter_mode = 'OUT'
+        ORDER BY p.ordinal_position
+        """,
+        env,
+    )
+    assert "node_path" in upgraded_out.splitlines()
+    can_exec = _psql(
+        "SELECT has_function_privilege("
+        "'goliath_portal', "
+        "'portal.sp_session_operator_nav_tree(text)'::regprocedure, "
+        "'EXECUTE')",
+        env,
+    )
+    assert can_exec == "t"
+    subprocess.run(["bash", str(APPLY_SH)], env=env, check=True)
