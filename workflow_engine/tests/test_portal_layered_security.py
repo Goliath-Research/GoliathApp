@@ -138,20 +138,26 @@ def test_class_inheritance_and_session_get(layered_env: dict[str, str]) -> None:
     client = PortalClient(build_portal_conninfo())
     admin_token = client.session_open(admin_id, active_scope_id=scope_id).session_token
     with psycopg.connect(build_portal_conninfo()) as conn:
-        obj_id = conn.execute(
+        insert_row = conn.execute(
             "SELECT portal.sp_session_meta_obj_insert(%s, %s, %s::jsonb)",
             (admin_token, "platform/Person", '{"Label": "LayeredTest"}'),
-        ).fetchone()[0]
+        ).fetchone()
+        assert insert_row is not None
+        obj_id = insert_row[0]
 
         child_name = f"e2e/LayerChild_{uuid.uuid4().hex[:4]}"
-        child_id = conn.execute(
+        create_child = conn.execute(
             """INSERT INTO "Meta"."Classes" ("Name", "ParentID") VALUES (%s, %s) RETURNING "ID" """,
             (child_name, person_id),
-        ).fetchone()[0]
-        assert conn.execute(
+        ).fetchone()
+        assert create_child is not None
+        child_id = create_child[0]
+        inherit_row = conn.execute(
             "SELECT portal.fn_meta_effective_class_action(%s, %s, %s, %s)",
             (reader_id, scope_id, child_id, "read"),
-        ).fetchone()[0]
+        ).fetchone()
+        assert inherit_row is not None
+        assert inherit_row[0]
 
     reader_token = client.session_open(reader_id, active_scope_id=scope_id).session_token
     with psycopg.connect(build_portal_conninfo()) as conn:
@@ -164,10 +170,12 @@ def test_class_inheritance_and_session_get(layered_env: dict[str, str]) -> None:
             f"""SELECT portal.sp_upsert_class_role_access({scope_id}, {restricted_role}, {child_id}, 'read', 'deny')""",
             env,
         )
-        assert not conn.execute(
+        deny_row = conn.execute(
             "SELECT portal.fn_meta_effective_class_action(%s, %s, %s, %s)",
             (reader_id, scope_id, child_id, "read"),
-        ).fetchone()[0]
+        ).fetchone()
+        assert deny_row is not None
+        assert not deny_row[0]
 
 
 def test_object_deny_gs403(layered_env: dict[str, str]) -> None:
@@ -193,10 +201,12 @@ def test_object_deny_gs403(layered_env: dict[str, str]) -> None:
     client = PortalClient(build_portal_conninfo())
     token = client.session_open(user_id, active_scope_id=scope_id).session_token
     with psycopg.connect(build_portal_conninfo()) as conn:
-        obj_id = conn.execute(
+        obj_row = conn.execute(
             "SELECT portal.sp_session_meta_obj_insert(%s, %s, %s::jsonb)",
             (token, "platform/Person", '{"Label": "DenyMe"}'),
-        ).fetchone()[0]
+        ).fetchone()
+        assert obj_row is not None
+        obj_id = obj_row[0]
         _psql(
             f"""SELECT portal.sp_upsert_object_access({scope_id}, {obj_id}, NULL, {user_id}, 'read', 'deny')""",
             env,
