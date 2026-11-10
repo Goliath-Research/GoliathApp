@@ -1,15 +1,18 @@
-import Link from "next/link";
 import {
   MetaClassHierarchyList,
   PlatformRecordTable,
   type MetaClassListRow,
 } from "@goliath/platform-ui";
+import { AdminGrantsWorkspace } from "@/components/AdminGrantsWorkspace";
 import { MetaWorkbenchPanel } from "@/components/MetaWorkbenchPanel";
+import { ModelAuthoringPanel } from "@/components/ModelAuthoringPanel";
 import { OperatorDashboardsWorkspaceServer } from "@/components/OperatorDashboardsWorkspaceServer";
 import { OperatorViewsWorkspaceServer } from "@/components/OperatorViewsWorkspaceServer";
+import { SemanticLayerWorkspace } from "@/components/SemanticLayerWorkspace";
 import {
   PortalForbiddenError,
   PortalMetaNotFoundError,
+  portalOperatorNavTree,
   portalSessionMetaListClasses,
   portalSessionPlatformQuery,
   portalSessionRunSemanticRequest,
@@ -85,10 +88,14 @@ export async function PortalWorkspacePanel({
   try {
     if (spec.kind === "meta_home" || spec.kind === "meta_class_catalog") {
       const classes: MetaClassListRow[] = await portalSessionMetaListClasses(token);
+      const platformParents = classes
+        .map((c) => c.className)
+        .filter((name) => name.startsWith("platform/"));
       return (
         <div className="g-portal-stage">
           <h2>{spec.title}</h2>
           {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
+          <ModelAuthoringPanel parentClasses={platformParents.length ? platformParents : ["platform/Entity"]} />
           <MetaClassHierarchyList
             classes={classes}
             selectedClassName={metaClassOverride}
@@ -115,41 +122,57 @@ export async function PortalWorkspacePanel({
       );
     }
 
-    if (spec.kind === "semantic_entities" || spec.kind === "semantic_meta_bridge") {
+    if (
+      spec.kind === "semantic_entities" ||
+      spec.kind === "semantic_meta_bridge" ||
+      spec.kind === "semantic_authoring"
+    ) {
       const entities = await portalSessionSemanticEntities(token);
       const classRows = await portalSessionMetaListClasses(token);
+      const namespaces = await portalSessionPlatformQuery(
+        token,
+        PLATFORM_QUERY_SQL.semantic_namespaces.sql,
+      );
+      const attributes = await portalSessionPlatformQuery(
+        token,
+        PLATFORM_QUERY_SQL.semantic_attributes.sql,
+      );
+      return (
+        <div className="g-portal-stage">
+          <h2>{spec.title}</h2>
+          <SemanticLayerWorkspace
+            entities={entities}
+            namespaces={namespaces}
+            attributes={attributes}
+            metaClasses={classRows.map((c) => c.className)}
+          />
+        </div>
+      );
+    }
+
+    if (spec.kind === "admin_grants") {
+      const roles = await portalSessionPlatformQuery(token, PLATFORM_QUERY_SQL.roles.sql);
+      const users = await portalSessionPlatformQuery(token, PLATFORM_QUERY_SQL.users.sql);
+      const nav = await portalOperatorNavTree(token);
       return (
         <div className="g-portal-stage">
           <h2>{spec.title}</h2>
           {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
-          <MetaClassHierarchyList classes={classRows} semanticHighlight={semanticHighlight ?? ""} />
-          <section aria-labelledby="semantic-entities-heading">
-            <h3 id="semantic-entities-heading">Semantic entities</h3>
-            <table className="g-host-table">
-              <thead>
-                <tr>
-                  <th scope="col">Namespace</th>
-                  <th scope="col">Entity</th>
-                  <th scope="col">Meta class</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entities.map((e) => (
-                  <tr key={e.id}>
-                    <td>{e.namespace}</td>
-                    <td>{e.displayName}</td>
-                    <td>
-                      {e.metaClassName ? (
-                        <Link href={`/app/meta?class=${encodeURIComponent(e.metaClassName)}`}>{e.metaClassName}</Link>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
+          <AdminGrantsWorkspace
+            roles={roles.map((r) => ({
+              role_id: Number(r.role_id),
+              role_name: String(r.name ?? ""),
+            }))}
+            users={users.map((u) => ({
+              user_id: Number(u.user_id),
+              full_name: String(u.full_name ?? u.email ?? ""),
+            }))}
+            navNodes={nav.map((n) => ({
+              node_id: n.nodeId,
+              caption: n.caption,
+              node_path: n.nodePath,
+            }))}
+          />
         </div>
       );
     }

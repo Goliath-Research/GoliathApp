@@ -602,6 +602,40 @@
   padding: 0.5rem 0.75rem;
 }
 
+.g-portal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-width: 32rem;
+  margin: 0.75rem 0 1.25rem;
+}
+
+.g-portal-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+
+.g-portal-form input,
+.g-portal-form select,
+.g-portal-form button {
+  font: inherit;
+}
+
+.g-portal-form input,
+.g-portal-form select {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--g-host-border);
+  border-radius: 6px;
+  background: var(--g-bg);
+  color: var(--g-fg);
+}
+
+.g-portal-status {
+  color: var(--g-host-accent, #2563eb);
+}
+
 @media (max-width: 800px) {
   .g-portal__body {
     grid-template-columns: 1fr;

@@ -9,6 +9,8 @@ export type PortalWorkspaceKind =
   | "meta_class_catalog"
   | "semantic_entities"
   | "semantic_meta_bridge"
+  | "semantic_authoring"
+  | "admin_grants"
   | "platform_query"
   | "operator_views"
   | "operator_dashboards"
@@ -81,24 +83,24 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     description: "Hierarchical Meta tree classes and TreeNodes.",
   },
   "/app/semantic": {
-    kind: "semantic_meta_bridge",
+    kind: "semantic_authoring",
     title: "Semantic layer",
-    description: "Semantic entities map to Meta classes — open the backing class in the workbench.",
+    description: "Browse and register semantic namespaces, entities, attributes, and Meta mappings.",
   },
   "/app/semantic/namespaces": {
-    kind: "platform_query",
+    kind: "semantic_authoring",
     title: "Semantic namespaces",
-    platformQuery: "semantic_namespaces",
+    description: "Register child namespaces and inspect registry rows.",
   },
   "/app/semantic/entities": {
-    kind: "semantic_entities",
+    kind: "semantic_authoring",
     title: "Semantic entities",
-    description: "Child-app extension points; entities with meta_class_name open in Meta.",
+    description: "Register entities and bind them to Meta classes.",
   },
   "/app/semantic/attributes": {
-    kind: "platform_query",
+    kind: "semantic_authoring",
     title: "Semantic attributes",
-    platformQuery: "semantic_attributes",
+    description: "Declare attribute columns and filter roles on entities.",
   },
   "/app/semantic/requests": {
     kind: "platform_query",
@@ -115,6 +117,11 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
   "/app/admin/permissions": { kind: "platform_query", title: "Permissions", platformQuery: "permissions" },
   "/app/admin/scopes": { kind: "platform_query", title: "Scopes", platformQuery: "scopes" },
   "/app/admin/invitations": { kind: "platform_query", title: "Invitations", platformQuery: "invitations" },
+  "/app/admin/navigation": {
+    kind: "admin_grants",
+    title: "Navigation & grants",
+    description: "Register NavTree nodes and grant roles to users and menu entries in the active scope.",
+  },
   "/app/workflows/definitions": {
     kind: "platform_query",
     title: "Workflow definitions",

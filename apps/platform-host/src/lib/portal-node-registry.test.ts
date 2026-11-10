@@ -16,6 +16,11 @@ describe("resolvePortalWorkspace", () => {
   it("maps admin organizations to semantic list", () => {
     expect(resolvePortalWorkspace("/app/admin/organizations").semanticRequest).toBe("core.list_organizations");
   });
+
+  it("maps semantic and navigation admin to authoring workspaces", () => {
+    expect(resolvePortalWorkspace("/app/semantic").kind).toBe("semantic_authoring");
+    expect(resolvePortalWorkspace("/app/admin/navigation").kind).toBe("admin_grants");
+  });
 });
 
 describe("nodePathFromUrlPathname", () => {

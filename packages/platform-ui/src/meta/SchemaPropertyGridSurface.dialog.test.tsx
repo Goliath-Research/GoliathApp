@@ -1,6 +1,6 @@
 import type { MetaClassField } from "@goliath/client";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { MetaCatalogResolver } from "./metaCatalogResolver.js";
 import { SchemaPropertyGridSurface } from "./SchemaPropertyGridSurface.js";
 
@@ -27,6 +27,10 @@ const flattened = {
 };
 
 describe("SchemaPropertyGridSurface nested dialog", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it("opens property inspector host when catalog ellipsis is clicked", async () => {
     const catalogResolver: MetaCatalogResolver = {
       loadMetaClass: vi.fn(),
@@ -57,6 +61,10 @@ describe("SchemaPropertyGridSurface nested dialog", () => {
     fireEvent.click(screen.getByTestId("pi-open-Payload"));
     await waitFor(() => {
       expect(screen.getByTestId("property-inspector-modal")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId("property-inspector-cancel"));
+    await waitFor(() => {
+      expect(screen.queryByTestId("property-inspector-modal")).not.toBeInTheDocument();
     });
   });
 });
