@@ -26,9 +26,7 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta instance access');
   END IF;
 
-  IF NOT portal.fn_session_meta_permission_in_active_scope(
-    v_ctx.user_id, 'meta.schema.read', v_ctx.active_scope_id
-  ) THEN
+  IF NOT portal.fn_semantic_session_has_permission(v_ctx.user_id, 'meta.schema.read') THEN
     v_class_id := portal.sp_session_meta_resolve_class(p_session_token, p_class_name);
     IF NOT portal.fn_meta_effective_class_action_explicit(
       v_ctx.user_id, v_ctx.active_scope_id, v_class_id, 'create'
@@ -72,9 +70,14 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta instance access');
   END IF;
 
-  PERFORM portal.fn_session_meta_require_mutation_gate(
-    v_ctx.user_id, v_ctx.active_scope_id, NULL, p_obj_id, 'update'
-  );
+  IF NOT portal.fn_session_meta_permission_in_active_scope(
+    v_ctx.user_id, 'meta.object.write', v_ctx.active_scope_id
+  ) THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied for active scope');
+  END IF;
+  IF NOT portal.fn_semantic_session_has_permission(v_ctx.user_id, 'meta.schema.read') THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied');
+  END IF;
   PERFORM portal.fn_session_meta_assert_obj_in_active_scope(p_obj_id, v_ctx.active_scope_id);
   PERFORM portal.fn_meta_assert_object_action(v_ctx.user_id, v_ctx.active_scope_id, p_obj_id, 'update');
 
@@ -109,6 +112,11 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta instance access');
   END IF;
 
+  IF NOT portal.fn_session_meta_permission_in_active_scope(
+    v_ctx.user_id, 'meta.object.read', v_ctx.active_scope_id
+  ) THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied for active scope');
+  END IF;
   PERFORM portal.fn_session_meta_assert_obj_in_active_scope(p_obj_id, v_ctx.active_scope_id);
   PERFORM portal.fn_meta_assert_object_action(v_ctx.user_id, v_ctx.active_scope_id, p_obj_id, 'read');
 
@@ -180,7 +188,10 @@ BEGIN
 
   SELECT * INTO v_entity FROM portal.semantic_entity e WHERE e.id = v_req.entity_id;
 
-  IF v_sess.active_scope_id IS NOT NULL AND v_entity.meta_class_id IS NOT NULL THEN
+  IF v_entity.meta_class_id IS NOT NULL THEN
+    IF v_sess.active_scope_id IS NULL THEN
+      PERFORM portal.fn_semantic_raise('GS403', 'permission denied');
+    END IF;
     PERFORM portal.fn_meta_assert_class_action(
       v_sess.user_id,
       v_sess.active_scope_id,
