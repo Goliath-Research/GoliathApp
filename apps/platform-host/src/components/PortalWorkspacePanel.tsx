@@ -17,7 +17,6 @@ import {
   portalSessionMetaListClasses,
   portalSessionPlatformQuery,
   portalSessionRunSemanticRequest,
-  portalSessionSecurity,
   portalSessionSemanticEntities,
 } from "@/server/portal/bridge";
 import { cookies } from "next/headers";
