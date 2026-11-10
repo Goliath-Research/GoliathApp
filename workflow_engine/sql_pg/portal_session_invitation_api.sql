@@ -718,5 +718,3 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION portal.sp_session_list_user_role_grants_scoped(text, integer) TO goliath_portal;
-GRANT EXECUTE ON FUNCTION portal.sp_session_revoke_user_role_grant(text, bigint) TO goliath_portal;

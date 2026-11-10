@@ -68,6 +68,31 @@ BEGIN
   WHERE ov."ClassID" = v_class_grant
     AND (ov."Data"->>'LegacyScopeId') IS NOT NULL;
 
+  -- Stack B: grants created after migrate may exist only in RBAC until mirrored to Meta.
+  INSERT INTO portal.security_grant_cache (
+    grant_obj_id, user_id, role_id, scope_id, active, revoked_at_utc, bypass_scope
+  )
+  SELECT
+    g."ID",
+    g."UserID",
+    g."RoleID",
+    g."ScopeID",
+    g."Active",
+    g."RevokedAtUtc",
+    COALESCE(r."BypassScope", false)
+  FROM "RBAC"."UserRoleGrants" g
+  INNER JOIN "RBAC"."Roles" r ON r."ID" = g."RoleID"
+  WHERE g."ScopeID" IS NOT NULL
+    AND g."Active"
+    AND g."RevokedAtUtc" IS NULL
+    AND NOT EXISTS (
+      SELECT 1
+      FROM portal.security_grant_cache c
+      WHERE c.user_id = g."UserID"
+        AND c.role_id = g."RoleID"
+        AND c.scope_id = g."ScopeID"
+    );
+
   REFRESH MATERIALIZED VIEW portal.mv_security_effective_grants;
 END;
 $$;
@@ -82,13 +107,27 @@ STABLE
 SECURITY DEFINER
 SET search_path = portal, pg_temp
 AS $$
-  SELECT DISTINCT g.role_id
-  FROM portal.mv_security_effective_grants g
-  WHERE g.user_id = p_user_id
-    AND (
-      g.bypass_scope
-      OR g.scope_id = p_scope_id
-    );
+  SELECT DISTINCT role_id
+  FROM (
+    SELECT g.role_id
+    FROM portal.mv_security_effective_grants g
+    WHERE g.user_id = p_user_id
+      AND (
+        g.bypass_scope
+        OR g.scope_id = p_scope_id
+      )
+    UNION
+    SELECT g."RoleID" AS role_id
+    FROM "RBAC"."UserRoleGrants" g
+    INNER JOIN "RBAC"."Roles" r ON r."ID" = g."RoleID"
+    WHERE g."UserID" = p_user_id
+      AND g."Active"
+      AND g."RevokedAtUtc" IS NULL
+      AND (
+        COALESCE(r."BypassScope", false)
+        OR g."ScopeID" = p_scope_id
+      )
+  ) grants;
 $$;
 
 CREATE OR REPLACE FUNCTION portal.fn_security_role_has_permission(
@@ -192,9 +231,6 @@ SET search_path = portal, "RBAC", pg_temp
 AS $$
   SELECT role_id FROM portal.fn_security_user_grant_role_ids(p_user_id, p_scope_id);
 $$;
-
-GRANT EXECUTE ON FUNCTION portal.sp_security_meta_verify_production() TO goliath_portal;
-GRANT EXECUTE ON FUNCTION portal.sp_security_meta_refresh_cache() TO goliath_portal;
 
 SELECT portal.sp_security_meta_migrate_from_legacy();
 SELECT portal.sp_security_meta_refresh_cache();

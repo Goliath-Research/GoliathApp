@@ -14,6 +14,7 @@ from goliath_app.portal.connection import build_portal_conninfo
 
 SQL_PG = Path(__file__).resolve().parents[1] / "sql_pg"
 APPLY_SH = SQL_PG / "apply_schema.sh"
+PORTAL_TEST_PASSWORD = "platform_security_meta_test_pw"
 
 
 def _pg_env() -> dict[str, str]:
@@ -51,6 +52,8 @@ def sec_meta_env() -> dict[str, str]:
     except RuntimeError:
         pytest.skip("PostgreSQL not reachable")
     subprocess.run(["bash", str(APPLY_SH)], env=env, check=True)
+    escaped = PORTAL_TEST_PASSWORD.replace("'", "''")
+    _psql(f"ALTER ROLE goliath_portal WITH LOGIN PASSWORD '{escaped}'", env)
     return env
 
 
@@ -72,6 +75,7 @@ def test_security_meta_classes_exist(sec_meta_env: dict[str, str]) -> None:
 
 
 def test_grant_cache_matches_rbac_after_migrate(sec_meta_env: dict[str, str]) -> None:
+    os.environ["GOLIATH_PORTAL_PASSWORD"] = PORTAL_TEST_PASSWORD
     email = f"meta-sec-{uuid.uuid4().hex[:8]}@test"
     user_id = int(
         _psql(

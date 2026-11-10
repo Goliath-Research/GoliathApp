@@ -511,9 +511,10 @@ BEGIN
     vt.parent_id,
     vt.caption,
     vt.seq,
-    portal.fn_nav_presentation_kind(vt.info_id),
+    COALESCE(NULLIF(btrim(ni."FrameKey"), ''), 'view')::text AS presentation_kind,
     vt.node_path
   FROM visible_tree vt
+  LEFT JOIN portal."NodeInfos" ni ON ni."Id" = vt.info_id
   ORDER BY vt.sort_path NULLS LAST, vt.seq, vt.caption;
 END;
 $$;
@@ -925,11 +926,6 @@ BEGIN
     v_now + make_interval(secs => LEAST(v_idle, v_abs));
 END;
 $$;
-
-GRANT EXECUTE ON FUNCTION portal.sp_session_list_selectable_roles(text) TO goliath_portal;
-GRANT EXECUTE ON FUNCTION portal.sp_session_set_active_role(text, integer) TO goliath_portal;
-GRANT EXECUTE ON FUNCTION portal.sp_session_get_active_role_state(text) TO goliath_portal;
-GRANT EXECUTE ON FUNCTION portal.sp_session_auto_select_active_role(text) TO goliath_portal;
 
 CREATE OR REPLACE FUNCTION portal.fn_meta_effective_object_action(
   p_user_id integer,
