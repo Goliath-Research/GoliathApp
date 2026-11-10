@@ -70,20 +70,22 @@ test.describe("model authoring (CI postgres)", () => {
     const entitySection = page.locator("section").filter({
       has: page.getByRole("heading", { name: "Register entity" }),
     });
-    await entitySection.getByLabel("Namespace").fill(namespace);
-    await entitySection.getByLabel("Entity code").fill(entityCode);
-    await entitySection.getByLabel("Display name").fill(`E2E entity ${suffix}`);
-    await entitySection.getByLabel("Meta class").selectOption(className);
-    await entitySection.getByRole("button", { name: "Save entity" }).click();
+    const entityForm = entitySection.locator("form.g-portal-form");
+    await entityForm.getByLabel("Namespace").fill(namespace);
+    await entityForm.getByLabel("Entity code").fill(entityCode);
+    await entityForm.getByLabel("Display name").fill(`E2E entity ${suffix}`);
+    await entityForm.getByLabel("Meta class").selectOption(className);
+    await entityForm.getByRole("button", { name: "Save entity" }).click();
     await page.waitForLoadState("load");
     await expect(page.getByRole("cell", { name: className })).toBeVisible();
     await expect(page.getByRole("cell", { name: entityCode })).toBeVisible();
 
     await page.goto("/app/views/list");
-    await page.getByLabel("Title").fill(viewTitle);
-    await page.getByRole("radio", { name: /Meta class/ }).check();
-    await page.getByLabel("Meta class").selectOption(className);
-    await page.getByRole("button", { name: "Save view" }).click();
+    const viewForm = page.locator("form.g-portal-view-form");
+    await viewForm.getByLabel("Title").fill(viewTitle);
+    await viewForm.getByRole("radio", { name: /Meta class/ }).check();
+    await viewForm.getByLabel("Meta class").selectOption(className);
+    await viewForm.getByRole("button", { name: "Save view" }).click();
     await expect(page.getByRole("status")).toContainText("View saved");
     const savedView = page.getByRole("button", { name: viewTitle });
     await expect(savedView).toBeVisible();
