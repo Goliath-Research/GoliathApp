@@ -21,6 +21,12 @@ describe("resolvePortalWorkspace", () => {
     expect(resolvePortalWorkspace("/app/semantic").kind).toBe("semantic_authoring");
     expect(resolvePortalWorkspace("/app/admin/navigation").kind).toBe("admin_grants");
   });
+
+  it("maps RBAC admin routes to security workspaces", () => {
+    expect(resolvePortalWorkspace("/app/admin/users").kind).toBe("admin_users");
+    expect(resolvePortalWorkspace("/app/admin/roles").kind).toBe("admin_roles");
+    expect(resolvePortalWorkspace("/app/admin/permissions").kind).toBe("admin_permissions");
+  });
 });
 
 describe("nodePathFromUrlPathname", () => {

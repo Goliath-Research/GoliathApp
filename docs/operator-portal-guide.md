@@ -37,6 +37,7 @@ Every GoliathApp deployment should follow **one** of these patterns. Mixing prod
 | 5 | **Define views** on entities you care about | **Views** (`/app/views/list`) — save a view on a semantic request or Meta class |
 | 6 | **Arrange dashboards** from saved views | **Dashboards** (`/app/views/dashboards`) |
 | 7 | Subclass platform parents, add fields, NavTree, grants | **Meta** home authoring panel; **Administration → Navigation** for nodes and role grants; **Export as package SQL** for child repos — see [NavTree on Meta](nav-tree-meta.md) |
+| 8 | Users, roles, class/object security | **Administration → Users/Roles**; **Security** tab on Meta classes; [Layered security model](platform-layered-security.md) |
 
 **Database rule:** Product and domain data for Path A live on **your** PostgreSQL instance (or your Neon branch / dedicated database). The official GoliathApp **reference** database used only to ship the platform stays a **clean generic baseline** — do not use it as your production tenant store.
 

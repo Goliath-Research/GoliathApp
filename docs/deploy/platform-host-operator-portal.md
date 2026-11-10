@@ -22,6 +22,7 @@ This page tracks the **signed-in operator portal** for `apps/platform-host` and 
 | **End-user operator guide (two starting paths)** | **Required** | [operator-portal-guide.md](../operator-portal-guide.md) |
 | **Platform generic Meta baseline** | **Required** — `platform_generic_meta_baseline.sql` | [platform-generic-meta.md](../platform-generic-meta.md) |
 | **Model authoring (session APIs + portal UI)** | **Required** — `portal_session_model_authoring_api.sql` | `/app/semantic`, Meta authoring, `/app/admin/navigation` |
+| **Layered security (class/object ACL + admin)** | **Required** — `portal_layered_security_*.sql` | `/app/admin/users`, Meta **Security** tab — [platform-layered-security.md](../platform-layered-security.md) |
 | Engineer deploy/auth docs | Existing | [platform-host.md](platform-host.md), [platform-host-p1-auth.md](platform-host-p1-auth.md) |
 
 ## Phased UI roadmap (visualization)

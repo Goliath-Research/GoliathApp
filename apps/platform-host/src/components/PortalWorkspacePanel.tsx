@@ -4,6 +4,8 @@ import {
   type MetaClassListRow,
 } from "@goliath/platform-ui";
 import { AdminGrantsWorkspace } from "@/components/AdminGrantsWorkspace";
+import { AdminRolesWorkspace } from "@/components/AdminRolesWorkspace";
+import { AdminUsersWorkspace } from "@/components/AdminUsersWorkspace";
 import { MetaWorkbenchPanel } from "@/components/MetaWorkbenchPanel";
 import { ModelAuthoringPanel } from "@/components/ModelAuthoringPanel";
 import { OperatorDashboardsWorkspaceServer } from "@/components/OperatorDashboardsWorkspaceServer";
@@ -145,6 +147,50 @@ export async function PortalWorkspacePanel({
             namespaces={namespaces}
             attributes={attributes}
             metaClasses={classRows.map((c) => c.className)}
+          />
+        </div>
+      );
+    }
+
+    if (spec.kind === "admin_users") {
+      const users = await portalSessionPlatformQuery(token, PLATFORM_QUERY_SQL.users.sql);
+      const roles = await portalSessionPlatformQuery(token, PLATFORM_QUERY_SQL.roles.sql);
+      return (
+        <div className="g-portal-stage">
+          <h2>{spec.title}</h2>
+          {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
+          <AdminUsersWorkspace
+            users={users.map((u) => ({
+              user_id: Number(u.user_id),
+              full_name: String(u.full_name ?? ""),
+              email: String(u.email ?? ""),
+              active: Number(u.active ?? 0),
+            }))}
+            roles={roles.map((r) => ({
+              role_id: Number(r.role_id),
+              role_name: String(r.name ?? ""),
+            }))}
+          />
+        </div>
+      );
+    }
+
+    if (spec.kind === "admin_roles" || spec.kind === "admin_permissions") {
+      const roles = await portalSessionPlatformQuery(token, PLATFORM_QUERY_SQL.roles.sql);
+      const permissions = await portalSessionPlatformQuery(token, PLATFORM_QUERY_SQL.permissions.sql);
+      return (
+        <div className="g-portal-stage">
+          <h2>{spec.title}</h2>
+          {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
+          <AdminRolesWorkspace
+            roles={roles.map((r) => ({
+              role_id: Number(r.role_id),
+              name: String(r.name ?? ""),
+            }))}
+            permissions={permissions.map((p) => ({
+              permission_id: Number(p.permission_id),
+              name: String(p.name ?? ""),
+            }))}
           />
         </div>
       );

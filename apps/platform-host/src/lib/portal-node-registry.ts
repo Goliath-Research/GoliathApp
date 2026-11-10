@@ -11,6 +11,9 @@ export type PortalWorkspaceKind =
   | "semantic_meta_bridge"
   | "semantic_authoring"
   | "admin_grants"
+  | "admin_users"
+  | "admin_roles"
+  | "admin_permissions"
   | "platform_query"
   | "operator_views"
   | "operator_dashboards"
@@ -107,14 +110,26 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     title: "Semantic requests",
     platformQuery: "semantic_requests",
   },
-  "/app/admin/users": { kind: "platform_query", title: "Users", platformQuery: "users" },
+  "/app/admin/users": {
+    kind: "admin_users",
+    title: "Users",
+    description: "Create users, invitations, and scoped role assignments.",
+  },
   "/app/admin/organizations": {
     kind: "platform_query",
     title: "Organizations",
     semanticRequest: "core.list_organizations",
   },
-  "/app/admin/roles": { kind: "platform_query", title: "Roles", platformQuery: "roles" },
-  "/app/admin/permissions": { kind: "platform_query", title: "Permissions", platformQuery: "permissions" },
+  "/app/admin/roles": {
+    kind: "admin_roles",
+    title: "Roles",
+    description: "Create roles and edit global permission sets.",
+  },
+  "/app/admin/permissions": {
+    kind: "admin_permissions",
+    title: "Permissions",
+    description: "Permission catalog referenced by roles and session gates.",
+  },
   "/app/admin/scopes": { kind: "platform_query", title: "Scopes", platformQuery: "scopes" },
   "/app/admin/invitations": { kind: "platform_query", title: "Invitations", platformQuery: "invitations" },
   "/app/admin/navigation": {

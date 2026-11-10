@@ -175,7 +175,13 @@ def _grant_scoped(env: dict[str, str], user_id: int, scope_id: int) -> None:
             env,
         )
     )
-    for perm in ("meta.schema.read", "meta.object.read", "meta.object.write", "platform.model.author"):
+    for perm in (
+        "meta.schema.read",
+        "meta.object.read",
+        "meta.object.write",
+        "platform.model.author",
+        "platform.security.admin",
+    ):
         perm_id = _psql(
             f"""SELECT "ID" FROM "RBAC"."Permissions" WHERE "Name" = '{perm}' LIMIT 1""",
             env,
