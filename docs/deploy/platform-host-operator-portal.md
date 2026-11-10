@@ -38,7 +38,9 @@ Updating [visualization.md](../visualization.md) and this plan together is manda
 
 ## SQL apply (operator features)
 
-### Existing database upgrade (pre–operator portal → current)
+### Existing database upgrade
+
+Apply on databases that already have `portal.sp_session_operator_nav_tree` **without** the `node_path` column (pre–operator portal host) and on databases already at the new shape.
 
 Do **not** hand-drop `portal.sp_session_operator_nav_tree` in production. Run the **full** official apply:
 

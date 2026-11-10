@@ -39,7 +39,7 @@ Configure `GOLIATH_PORTAL_*` (see [platform-host-p1-auth.md](platform-host-p1-au
 2. **`seed_platform_nav_tree.sql`** separately when operators need the inherited `/app` menu — not invoked by `apply_schema.sh` ([database-population.md](../database-population.md)).
 3. Platform host container / env with portal bridge + OIDC.
 
-Details: [platform-host-operator-portal.md — SQL apply](platform-host-operator-portal.md#existing-database-upgrade-pre-operator-portal--current).
+Details: [platform-host-operator-portal.md — SQL apply](platform-host-operator-portal.md#sql-apply-operator-features).
 
 ## Container image (portable artifact)
 

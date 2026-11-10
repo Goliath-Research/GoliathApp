@@ -192,12 +192,15 @@ def test_portal_session_nav_api_survives_return_type_change() -> None:
     )
     legacy_out = _psql(
         """
-        SELECT parameter_name
-        FROM information_schema.parameters
-        WHERE specific_schema = 'portal'
-          AND routine_name = 'sp_session_operator_nav_tree'
-          AND parameter_mode = 'OUT'
-        ORDER BY ordinal_position
+        SELECT p.parameter_name
+        FROM information_schema.routines r
+        JOIN information_schema.parameters p
+          ON p.specific_schema = r.specific_schema
+         AND p.specific_name = r.specific_name
+        WHERE r.specific_schema = 'portal'
+          AND r.routine_name = 'sp_session_operator_nav_tree'
+          AND p.parameter_mode = 'OUT'
+        ORDER BY p.ordinal_position
         """,
         env,
     )
@@ -215,12 +218,15 @@ def test_portal_session_nav_api_survives_return_type_change() -> None:
     )
     upgraded_out = _psql(
         """
-        SELECT parameter_name
-        FROM information_schema.parameters
-        WHERE specific_schema = 'portal'
-          AND routine_name = 'sp_session_operator_nav_tree'
-          AND parameter_mode = 'OUT'
-        ORDER BY ordinal_position
+        SELECT p.parameter_name
+        FROM information_schema.routines r
+        JOIN information_schema.parameters p
+          ON p.specific_schema = r.specific_schema
+         AND p.specific_name = r.specific_name
+        WHERE r.specific_schema = 'portal'
+          AND r.routine_name = 'sp_session_operator_nav_tree'
+          AND p.parameter_mode = 'OUT'
+        ORDER BY p.ordinal_position
         """,
         env,
     )
