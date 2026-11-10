@@ -112,6 +112,70 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION portal.fn_meta_effective_class_action_explicit(
+  p_user_id integer,
+  p_scope_id integer,
+  p_class_id integer,
+  p_action text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "Meta", "RBAC", public, pg_temp
+AS $$
+DECLARE
+  v_role_id integer;
+  v_effect text;
+BEGIN
+  IF p_scope_id IS NULL THEN
+    RETURN false;
+  END IF;
+
+  FOR v_role_id IN
+    SELECT r.role_id FROM portal.fn_meta_role_ids_in_scope(p_user_id, p_scope_id) r
+  LOOP
+    v_effect := portal.fn_meta_class_role_effect(p_scope_id, v_role_id, p_class_id, p_action);
+    IF v_effect = 'allow' THEN
+      RETURN true;
+    END IF;
+  END LOOP;
+
+  RETURN false;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION portal.fn_session_meta_require_mutation_gate(
+  p_user_id integer,
+  p_scope_id integer,
+  p_class_id integer,
+  p_obj_id integer,
+  p_action text
+)
+RETURNS void
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "Meta", "RBAC", public, pg_temp
+AS $$
+BEGIN
+  IF portal.fn_session_meta_permission_in_active_scope(p_user_id, 'meta.schema.read', p_scope_id) THEN
+    RETURN;
+  END IF;
+
+  IF p_obj_id IS NOT NULL AND portal.fn_meta_object_access_effect(p_scope_id, p_obj_id, p_user_id, p_action) = 'allow' THEN
+    RETURN;
+  END IF;
+
+  IF p_class_id IS NOT NULL
+     AND portal.fn_meta_effective_class_action_explicit(p_user_id, p_scope_id, p_class_id, p_action) THEN
+    RETURN;
+  END IF;
+
+  PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied');
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION portal.fn_meta_object_access_effect(
   p_scope_id integer,
   p_obj_id integer,

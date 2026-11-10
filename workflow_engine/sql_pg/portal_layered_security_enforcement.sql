@@ -26,7 +26,18 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta instance access');
   END IF;
 
-  v_class_id := portal.sp_session_meta_resolve_class(p_session_token, p_class_name);
+  IF NOT portal.fn_session_meta_permission_in_active_scope(
+    v_ctx.user_id, 'meta.schema.read', v_ctx.active_scope_id
+  ) THEN
+    v_class_id := portal.sp_session_meta_resolve_class(p_session_token, p_class_name);
+    IF NOT portal.fn_meta_effective_class_action_explicit(
+      v_ctx.user_id, v_ctx.active_scope_id, v_class_id, 'create'
+    ) THEN
+      PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied');
+    END IF;
+  ELSE
+    v_class_id := portal.sp_session_meta_resolve_class(p_session_token, p_class_name);
+  END IF;
   PERFORM portal.fn_meta_assert_class_action(v_ctx.user_id, v_ctx.active_scope_id, v_class_id, 'create');
 
   v_doc := portal.fn_session_meta_strip_tenancy_keys(p_document);
@@ -61,6 +72,9 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta instance access');
   END IF;
 
+  PERFORM portal.fn_session_meta_require_mutation_gate(
+    v_ctx.user_id, v_ctx.active_scope_id, NULL, p_obj_id, 'update'
+  );
   PERFORM portal.fn_session_meta_assert_obj_in_active_scope(p_obj_id, v_ctx.active_scope_id);
   PERFORM portal.fn_meta_assert_object_action(v_ctx.user_id, v_ctx.active_scope_id, p_obj_id, 'update');
 
