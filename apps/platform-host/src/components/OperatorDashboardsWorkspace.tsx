@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PlatformRecordTable } from "@goliath/platform-ui";
 
 type Dashboard = { dashboardId: number; title: string; widgetCount: number };
@@ -34,18 +34,24 @@ export function OperatorDashboardsWorkspace({
   const [widgets, setWidgets] = useState<Widget[]>([]);
   const [widgetPreviews, setWidgetPreviews] = useState<WidgetPreview[]>([]);
   const [status, setStatus] = useState<string | null>(null);
+  const activeDashboardIdRef = useRef(activeDashboardId);
+  activeDashboardIdRef.current = activeDashboardId;
 
   const loadWidgets = useCallback(async (dashboardId: number) => {
+    const stillCurrent = () => activeDashboardIdRef.current === dashboardId;
     const res = await fetch(`/api/portal/dashboards/${dashboardId}/widgets`, { credentials: "same-origin" });
+    if (!stillCurrent()) return;
     if (!res.ok) {
       setWidgets([]);
       setWidgetPreviews([]);
       return;
     }
     const body = (await res.json()) as { widgets: Widget[] };
+    if (!stillCurrent()) return;
     setWidgets(body.widgets);
     const previews: WidgetPreview[] = [];
     for (const w of body.widgets) {
+      if (!stillCurrent()) return;
       if (!w.semanticRequestCode) {
         previews.push({ title: w.title, columns: [], rows: [] });
         continue;
@@ -56,8 +62,10 @@ export function OperatorDashboardsWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requestCode: w.semanticRequestCode, params: { limit: 10 } }),
       });
+      if (!stillCurrent()) return;
       if (!run.ok) continue;
       const data = (await run.json()) as { rows: Record<string, unknown>[] };
+      if (!stillCurrent()) return;
       const rows = data.rows;
       previews.push({
         title: w.title,
@@ -67,6 +75,7 @@ export function OperatorDashboardsWorkspace({
           : [],
       });
     }
+    if (!stillCurrent()) return;
     setWidgetPreviews(previews);
   }, []);
 
