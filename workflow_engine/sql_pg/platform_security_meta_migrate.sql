@@ -122,13 +122,8 @@ BEGIN
 
   PERFORM setval(
     pg_get_serial_sequence('"Meta"."Objs"', 'ID'),
-<<<<<<< HEAD
     (SELECT COALESCE(MAX("ID"), 1) FROM "Meta"."Objs")
   );
-=======
-  (SELECT COALESCE(MAX("ID"), 1) FROM "Meta"."Objs")
-);
->>>>>>> origin/cursor/portal-security-meta-75e9
 
   FOR r IN
     SELECT o."ID" AS org_id, o."Name" AS org_name, s."ScopeID" AS scope_id
