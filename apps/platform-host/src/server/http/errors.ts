@@ -5,6 +5,7 @@ import {
   PortalBridgeMisconfiguredError,
   PortalForbiddenError,
   PortalMetaNotFoundError,
+  PortalMetaConflictError,
   PortalMetaValidationError,
   PortalSessionDeniedError,
 } from "../portal/bridge";
@@ -31,6 +32,9 @@ export function mapPortalError(err: unknown) {
   }
   if (err instanceof PortalMetaValidationError) {
     return jsonError(400, err.message);
+  }
+  if (err instanceof PortalMetaConflictError) {
+    return jsonError(409, err.message);
   }
   return jsonError(500, "internal error");
 }

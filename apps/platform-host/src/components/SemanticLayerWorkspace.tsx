@@ -84,10 +84,21 @@ export function SemanticLayerWorkspace({ entities, namespaces, attributes, metaC
     }
   }
 
+  function resolveExportPrefix(): string {
+    const namespace = ns.trim();
+    if (namespace) return `${namespace}/`;
+    const slash = metaClass.indexOf("/");
+    if (slash > 0) return `${metaClass.slice(0, slash + 1)}`;
+    return "your_app/";
+  }
+
   async function exportPackage() {
     setStatus(null);
     try {
-      const res = await fetch("/api/portal/model?prefix=your_app%2F", { credentials: "same-origin" });
+      const prefix = resolveExportPrefix();
+      const res = await fetch(`/api/portal/model?prefix=${encodeURIComponent(prefix)}`, {
+        credentials: "same-origin",
+      });
       const body = (await res.json()) as { sql?: string; error?: string };
       if (!res.ok) throw new Error(body.error ?? "Export failed");
       const blob = new Blob([body.sql ?? ""], { type: "text/plain" });

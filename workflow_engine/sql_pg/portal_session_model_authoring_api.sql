@@ -180,7 +180,7 @@ DECLARE
   v_type_id bigint;
   v_field_id int;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/meta/fields') LIMIT 1;
+  SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/meta/classes') LIMIT 1;
 
   SELECT c."ID" INTO v_class_id FROM "Meta"."Classes" c WHERE c."Name" = btrim(p_class_name);
   IF v_class_id IS NULL THEN
@@ -236,7 +236,7 @@ DECLARE
   v_ctx record;
   v_class_id int;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/meta/fields') LIMIT 1;
+  SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/meta/classes') LIMIT 1;
   SELECT c."ID" INTO v_class_id FROM "Meta"."Classes" c WHERE c."Name" = btrim(p_class_name);
   IF v_class_id IS NULL THEN
     PERFORM portal.fn_semantic_raise('GS404', 'meta class not found');
@@ -275,7 +275,7 @@ DECLARE
   v_meta_class_id int;
   v_entity_id int;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/semantic/entities') LIMIT 1;
+  SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/semantic') LIMIT 1;
 
   v_meta_class_id := NULL;
   IF p_meta_class_name IS NOT NULL AND btrim(p_meta_class_name) <> '' THEN
@@ -344,7 +344,7 @@ AS $$
 DECLARE
   v_ctx record;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/semantic/attributes') LIMIT 1;
+  SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/semantic') LIMIT 1;
 
   IF NOT EXISTS (SELECT 1 FROM portal.semantic_entity e WHERE e.id = p_entity_id) THEN
     PERFORM portal.fn_semantic_raise('GS404', 'semantic entity not found');
@@ -415,7 +415,7 @@ DECLARE
   v_scope int;
   v_ok boolean;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/admin/roles') LIMIT 1;
+  SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/admin/navigation') LIMIT 1;
   v_scope := v_ctx.active_scope_id;
 
   SELECT g.ok INTO v_ok
@@ -446,7 +446,7 @@ AS $$
 DECLARE
   v_ctx record;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/admin/users') LIMIT 1;
+  SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/admin/navigation') LIMIT 1;
 
   RETURN QUERY
   SELECT g.inserted, g.grant_id
@@ -478,7 +478,7 @@ DECLARE
   v_rec record;
   v_prefix text := COALESCE(NULLIF(btrim(p_class_prefix), ''), 'your_app/');
 BEGIN
-  PERFORM portal.fn_session_model_author_require(p_session_token, '/app/meta/classes');
+  PERFORM portal.fn_session_model_author_require(p_session_token, '/app/semantic');
 
   v_lines := v_lines || E'-- GoliathApp model package export (idempotent snippets)\n';
   v_lines := v_lines || format(E'-- Prefix filter: %s\n\n', v_prefix);

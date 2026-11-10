@@ -65,7 +65,13 @@ SECURITY DEFINER
 SET search_path = portal, "RBAC", pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token, '/app/admin/users');
+  IF NOT EXISTS (
+    SELECT 1
+    FROM portal.sp_session_operator_nav_tree(p_session_token) nt
+    WHERE nt.node_path IN ('/app/admin/users', '/app/admin/navigation')
+  ) THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'operator nav entitlement denied');
+  END IF;
   RETURN QUERY SELECT * FROM portal.sp_list_users(p_include_inactive);
 END;
 $$;
@@ -82,7 +88,13 @@ SECURITY DEFINER
 SET search_path = portal, "RBAC", pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token, '/app/admin/roles');
+  IF NOT EXISTS (
+    SELECT 1
+    FROM portal.sp_session_operator_nav_tree(p_session_token) nt
+    WHERE nt.node_path IN ('/app/admin/roles', '/app/admin/navigation')
+  ) THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'operator nav entitlement denied');
+  END IF;
   RETURN QUERY SELECT * FROM portal.sp_list_roles();
 END;
 $$;

@@ -120,6 +120,13 @@ export class PortalMetaValidationError extends Error {
   }
 }
 
+export class PortalMetaConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PortalMetaConflictError";
+  }
+}
+
 export type MetaObjectDocumentRow = {
   objId: number;
   classId: number;
@@ -193,6 +200,12 @@ function mapPgPortalError(err: unknown): never {
       throw new PortalMetaNotFoundError("meta class not found");
     }
     throw new PortalMetaNotFoundError();
+  }
+  if (pgCode === "GS400" || message.includes("GS400")) {
+    throw new PortalMetaValidationError(message);
+  }
+  if (pgCode === "GS409" || message.includes("GS409") || message.includes("already exists")) {
+    throw new PortalMetaConflictError(message);
   }
   if (
     message.includes("unknown field") ||
