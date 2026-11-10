@@ -4,7 +4,10 @@
   to existing portal.sp_* catalog procs or semantic tables.
 */
 
-CREATE OR REPLACE FUNCTION portal.fn_session_operator_require(p_session_token text)
+CREATE OR REPLACE FUNCTION portal.fn_session_operator_require(
+  p_session_token text,
+  p_node_path text DEFAULT NULL
+)
 RETURNS TABLE (
   session_id integer,
   user_id integer,
@@ -31,6 +34,16 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS403', 'session active scope required');
   END IF;
 
+  IF p_node_path IS NOT NULL AND btrim(p_node_path) <> '' THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM portal.sp_session_operator_nav_tree(p_session_token) nt
+      WHERE nt.node_path = p_node_path
+    ) THEN
+      PERFORM portal.fn_semantic_raise('GS403', 'operator nav entitlement denied');
+    END IF;
+  END IF;
+
   RETURN QUERY
   SELECT v_sess.session_id, v_sess.user_id, v_sess.active_scope_id;
 END;
@@ -52,7 +65,7 @@ SECURITY DEFINER
 SET search_path = portal, "RBAC", pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/admin/users');
   RETURN QUERY SELECT * FROM portal.sp_list_users(p_include_inactive);
 END;
 $$;
@@ -69,7 +82,7 @@ SECURITY DEFINER
 SET search_path = portal, "RBAC", pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/admin/roles');
   RETURN QUERY SELECT * FROM portal.sp_list_roles();
 END;
 $$;
@@ -91,7 +104,7 @@ SECURITY DEFINER
 SET search_path = portal, "RBAC", pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/admin/permissions');
   RETURN QUERY SELECT * FROM portal.sp_list_permissions(p_role_id);
 END;
 $$;
@@ -114,7 +127,7 @@ SECURITY DEFINER
 SET search_path = portal, "RBAC", pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/admin/scopes');
   RETURN QUERY SELECT * FROM portal.sp_list_scopes(p_include_inactive);
 END;
 $$;
@@ -143,7 +156,7 @@ SECURITY DEFINER
 SET search_path = portal, "RBAC", "Onboarding", pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/admin/invitations');
   RETURN QUERY SELECT * FROM portal.sp_list_invitations(p_scope_id, p_status);
 END;
 $$;
@@ -166,7 +179,7 @@ SECURITY DEFINER
 SET search_path = portal, wf, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/workflows/definitions');
   RETURN QUERY SELECT * FROM portal.sp_list_workflow_defs(p_source_filter);
 END;
 $$;
@@ -194,7 +207,7 @@ SECURITY DEFINER
 SET search_path = portal, wf, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/workflows/actions');
   RETURN QUERY SELECT * FROM portal.sp_list_workflow_actions();
 END;
 $$;
@@ -218,7 +231,7 @@ SECURITY DEFINER
 SET search_path = portal, wf, cfg, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/workflows/runs');
   RETURN QUERY SELECT * FROM portal.sp_list_recent_instances(p_hours_back, p_limit);
 END;
 $$;
@@ -240,7 +253,7 @@ SECURITY DEFINER
 SET search_path = portal, cfg, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/workflows/domain-programs');
   RETURN QUERY SELECT * FROM portal.sp_list_domain_programs(p_published_only);
 END;
 $$;
@@ -265,7 +278,7 @@ SECURITY DEFINER
 SET search_path = portal, wf, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/workflows/workers');
   RETURN QUERY SELECT * FROM portal.sp_list_worker_enrollments(p_cluster_key);
 END;
 $$;
@@ -293,7 +306,7 @@ SECURITY DEFINER
 SET search_path = portal, wf, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/operations/worker-fleet');
   RETURN QUERY SELECT * FROM portal.sp_list_worker_health(p_cluster_key);
 END;
 $$;
@@ -318,7 +331,7 @@ SECURITY DEFINER
 SET search_path = portal, cfg, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/config/pipeline-profiles');
   RETURN QUERY SELECT * FROM portal.sp_list_pipeline_profiles(p_published_only);
 END;
 $$;
@@ -337,7 +350,7 @@ SECURITY DEFINER
 SET search_path = portal, cfg, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/config/site');
   RETURN QUERY SELECT * FROM portal.sp_list_sites(false);
 END;
 $$;
@@ -361,7 +374,7 @@ SECURITY DEFINER
 SET search_path = portal, wf, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/workflows/definitions');
   RETURN QUERY SELECT * FROM portal.sp_list_workflow_versions(p_workflow_def_id, NULL);
 END;
 $$;
@@ -382,7 +395,7 @@ SECURITY DEFINER
 SET search_path = portal, wf, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/workflows/steps');
   RETURN QUERY
   SELECT
     wd.name,
@@ -413,7 +426,7 @@ SECURITY DEFINER
 SET search_path = portal, wf, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/operations/schedules');
   RETURN QUERY
   SELECT wd.name, wn.node_key, wn.schedule_interval_seconds
   FROM wf.workflow_node wn
@@ -447,7 +460,7 @@ SECURITY DEFINER
 SET search_path = portal, wf, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/meta/data-types');
   RETURN QUERY SELECT * FROM portal.sp_list_data_types(p_published_only);
 END;
 $$;
@@ -464,7 +477,7 @@ SECURITY DEFINER
 SET search_path = portal, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/semantic/namespaces');
   RETURN QUERY
   SELECT n.code, n.display_name, n.owner_app
   FROM portal.semantic_namespace n
@@ -486,7 +499,7 @@ SECURITY DEFINER
 SET search_path = portal, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/semantic/entities');
   RETURN QUERY
   SELECT e.id, e.namespace, e.code, e.display_name, e.schema_version
   FROM portal.semantic_entity e
@@ -512,7 +525,7 @@ SECURITY DEFINER
 SET search_path = portal, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/semantic/attributes');
   RETURN QUERY
   SELECT a.id, a.entity_id, a.code, a.column_name, a.json_type, a.role::text
   FROM portal.semantic_attribute a
@@ -539,7 +552,7 @@ DECLARE
   v_user_id integer;
 BEGIN
   SELECT user_id INTO v_user_id
-  FROM portal.fn_session_operator_require(p_session_token)
+  FROM portal.fn_session_operator_require(p_session_token, '/app/semantic/requests')
   LIMIT 1;
 
   RETURN QUERY
@@ -570,7 +583,7 @@ SECURITY DEFINER
 SET search_path = portal, wf, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/operations/events');
   RETURN QUERY
   SELECT et.id, et.name, et.created_at_utc
   FROM wf.event_type et
@@ -595,7 +608,7 @@ SECURITY DEFINER
 SET search_path = portal, wf, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/workflows/subscriptions');
   RETURN QUERY
   SELECT
     s.id,
@@ -631,7 +644,7 @@ SECURITY DEFINER
 SET search_path = portal, wf, pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/operations/events');
   RETURN QUERY
   SELECT ev.id, et.name, ev.occurred_at_utc, ev.source, ev.correlation_key
   FROM wf.event ev
@@ -656,7 +669,7 @@ SECURITY DEFINER
 SET search_path = portal, "Meta", pg_temp
 AS $$
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token);
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/semantic/entities');
   RETURN QUERY
   SELECT
     e.id,

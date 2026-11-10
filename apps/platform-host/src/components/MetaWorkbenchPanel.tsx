@@ -4,6 +4,8 @@ import { EXAMPLE_CHILD_EXTENSION } from "@/lib/child-extension";
 import { resolveMetaEditorManifestKey } from "@/lib/resolve-meta-editor";
 import { resolveMetaEditorComponent } from "@/lib/meta-editor-registry";
 import {
+  PortalForbiddenError,
+  PortalMetaNotFoundError,
   portalSessionMetaClassFields,
   portalSessionMetaClassGet,
   portalSessionMetaClassLineage,
@@ -17,11 +19,34 @@ export async function MetaWorkbenchPanel({ className }: { className: string }) {
   if (!token) {
     return null;
   }
-  const [summary, lineage, fields] = await Promise.all([
-    portalSessionMetaClassGet(token, className),
-    portalSessionMetaClassLineage(token, className),
-    portalSessionMetaClassFields(token, className),
-  ]);
+  let summary;
+  let lineage;
+  let fields;
+  try {
+    [summary, lineage, fields] = await Promise.all([
+      portalSessionMetaClassGet(token, className),
+      portalSessionMetaClassLineage(token, className),
+      portalSessionMetaClassFields(token, className),
+    ]);
+  } catch (err) {
+    if (err instanceof PortalForbiddenError) {
+      return (
+        <div className="g-portal-stage" role="alert">
+          <h2>Access denied</h2>
+          <p>Your session lacks permission for this Meta class.</p>
+        </div>
+      );
+    }
+    if (err instanceof PortalMetaNotFoundError) {
+      return (
+        <div className="g-portal-stage" role="alert">
+          <h2>Meta class not found</h2>
+          <p>Open the class hierarchy and pick a registered Meta class.</p>
+        </div>
+      );
+    }
+    throw err;
+  }
   const classAncestry = lineage
     .filter((node) => node.lineageRole === "ancestor" || node.lineageRole === "self")
     .sort((a, b) => b.depth - a.depth)

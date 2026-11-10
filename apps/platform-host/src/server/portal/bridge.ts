@@ -613,22 +613,26 @@ export async function portalSessionRunSemanticRequest(
 
 export async function portalSessionListOperatorViews(sessionToken: string): Promise<OperatorViewRow[]> {
   return withClient(async (client) => {
-    const result = await client.query(
-      `SELECT view_id, title, description, semantic_request_code, semantic_request_version,
-              meta_class_name, params_json, updated_at_utc
-       FROM portal.sp_session_list_operator_views($1)`,
-      [sessionToken],
-    );
-    return result.rows.map((row) => ({
-      viewId: Number(row.view_id),
-      title: String(row.title),
-      description: String(row.description ?? ""),
-      semanticRequestCode: row.semantic_request_code == null ? null : String(row.semantic_request_code),
-      semanticRequestVersion: String(row.semantic_request_version ?? "1"),
-      metaClassName: row.meta_class_name == null ? null : String(row.meta_class_name),
-      paramsJson: (row.params_json ?? {}) as Record<string, unknown>,
-      updatedAtUtc: String(row.updated_at_utc),
-    }));
+    try {
+      const result = await client.query(
+        `SELECT view_id, title, description, semantic_request_code, semantic_request_version,
+                meta_class_name, params_json, updated_at_utc
+         FROM portal.sp_session_list_operator_views($1)`,
+        [sessionToken],
+      );
+      return result.rows.map((row) => ({
+        viewId: Number(row.view_id),
+        title: String(row.title),
+        description: String(row.description ?? ""),
+        semanticRequestCode: row.semantic_request_code == null ? null : String(row.semantic_request_code),
+        semanticRequestVersion: String(row.semantic_request_version ?? "1"),
+        metaClassName: row.meta_class_name == null ? null : String(row.meta_class_name),
+        paramsJson: (row.params_json ?? {}) as Record<string, unknown>,
+        updatedAtUtc: String(row.updated_at_utc),
+      }));
+    } catch (err) {
+      mapPgPortalError(err);
+    }
   });
 }
 
@@ -645,22 +649,26 @@ export async function portalSessionUpsertOperatorView(
   },
 ): Promise<number> {
   return withClient(async (client) => {
-    const result = await client.query(
-      `SELECT view_id FROM portal.sp_session_upsert_operator_view(
-         $1, $2, $3, $4, $5, $6, $7, $8::jsonb
-       )`,
-      [
-        sessionToken,
-        body.viewId ?? null,
-        body.title,
-        body.description ?? "",
-        body.semanticRequestCode ?? null,
-        body.semanticRequestVersion ?? "1",
-        body.metaClassName ?? null,
-        JSON.stringify(body.paramsJson ?? {}),
-      ],
-    );
-    return Number(result.rows[0]?.view_id);
+    try {
+      const result = await client.query(
+        `SELECT view_id FROM portal.sp_session_upsert_operator_view(
+           $1, $2, $3, $4, $5, $6, $7, $8::jsonb
+         )`,
+        [
+          sessionToken,
+          body.viewId ?? null,
+          body.title,
+          body.description ?? "",
+          body.semanticRequestCode ?? null,
+          body.semanticRequestVersion ?? "1",
+          body.metaClassName ?? null,
+          JSON.stringify(body.paramsJson ?? {}),
+        ],
+      );
+      return Number(result.rows[0]?.view_id);
+    } catch (err) {
+      mapPgPortalError(err);
+    }
   });
 }
 
@@ -668,18 +676,22 @@ export async function portalSessionListOperatorDashboards(
   sessionToken: string,
 ): Promise<OperatorDashboardRow[]> {
   return withClient(async (client) => {
-    const result = await client.query(
-      `SELECT dashboard_id, title, description, widget_count, updated_at_utc
-       FROM portal.sp_session_list_operator_dashboards($1)`,
-      [sessionToken],
-    );
-    return result.rows.map((row) => ({
-      dashboardId: Number(row.dashboard_id),
-      title: String(row.title),
-      description: String(row.description ?? ""),
-      widgetCount: Number(row.widget_count),
-      updatedAtUtc: String(row.updated_at_utc),
-    }));
+    try {
+      const result = await client.query(
+        `SELECT dashboard_id, title, description, widget_count, updated_at_utc
+         FROM portal.sp_session_list_operator_dashboards($1)`,
+        [sessionToken],
+      );
+      return result.rows.map((row) => ({
+        dashboardId: Number(row.dashboard_id),
+        title: String(row.title),
+        description: String(row.description ?? ""),
+        widgetCount: Number(row.widget_count),
+        updatedAtUtc: String(row.updated_at_utc),
+      }));
+    } catch (err) {
+      mapPgPortalError(err);
+    }
   });
 }
 
@@ -688,11 +700,15 @@ export async function portalSessionUpsertOperatorDashboard(
   body: { dashboardId?: number; title: string; description?: string },
 ): Promise<number> {
   return withClient(async (client) => {
-    const result = await client.query(
-      `SELECT dashboard_id FROM portal.sp_session_upsert_operator_dashboard($1, $2, $3, $4)`,
-      [sessionToken, body.dashboardId ?? null, body.title, body.description ?? ""],
-    );
-    return Number(result.rows[0]?.dashboard_id);
+    try {
+      const result = await client.query(
+        `SELECT dashboard_id FROM portal.sp_session_upsert_operator_dashboard($1, $2, $3, $4)`,
+        [sessionToken, body.dashboardId ?? null, body.title, body.description ?? ""],
+      );
+      return Number(result.rows[0]?.dashboard_id);
+    } catch (err) {
+      mapPgPortalError(err);
+    }
   });
 }
 
@@ -701,20 +717,24 @@ export async function portalSessionListDashboardWidgets(
   dashboardId: number,
 ): Promise<OperatorDashboardWidgetRow[]> {
   return withClient(async (client) => {
-    const result = await client.query(
-      `SELECT view_id, title, semantic_request_code, meta_class_name, params_json, sort_order, column_span
-       FROM portal.sp_session_list_dashboard_widgets($1, $2)`,
-      [sessionToken, dashboardId],
-    );
-    return result.rows.map((row) => ({
-      viewId: Number(row.view_id),
-      title: String(row.title),
-      semanticRequestCode: row.semantic_request_code == null ? null : String(row.semantic_request_code),
-      metaClassName: row.meta_class_name == null ? null : String(row.meta_class_name),
-      paramsJson: (row.params_json ?? {}) as Record<string, unknown>,
-      sortOrder: Number(row.sort_order),
-      columnSpan: Number(row.column_span),
-    }));
+    try {
+      const result = await client.query(
+        `SELECT view_id, title, semantic_request_code, meta_class_name, params_json, sort_order, column_span
+         FROM portal.sp_session_list_dashboard_widgets($1, $2)`,
+        [sessionToken, dashboardId],
+      );
+      return result.rows.map((row) => ({
+        viewId: Number(row.view_id),
+        title: String(row.title),
+        semanticRequestCode: row.semantic_request_code == null ? null : String(row.semantic_request_code),
+        metaClassName: row.meta_class_name == null ? null : String(row.meta_class_name),
+        paramsJson: (row.params_json ?? {}) as Record<string, unknown>,
+        sortOrder: Number(row.sort_order),
+        columnSpan: Number(row.column_span),
+      }));
+    } catch (err) {
+      mapPgPortalError(err);
+    }
   });
 }
 
@@ -724,20 +744,24 @@ export async function portalSessionSetDashboardWidgets(
   widgets: Array<{ viewId: number; sortOrder: number; columnSpan: number }>,
 ): Promise<number> {
   return withClient(async (client) => {
-    const result = await client.query(
-      `SELECT widget_count FROM portal.sp_session_set_dashboard_widgets($1, $2, $3::jsonb)`,
-      [
-        sessionToken,
-        dashboardId,
-        JSON.stringify(
-          widgets.map((w) => ({
-            view_id: w.viewId,
-            sort_order: w.sortOrder,
-            column_span: w.columnSpan,
-          })),
-        ),
-      ],
-    );
-    return Number(result.rows[0]?.widget_count ?? 0);
+    try {
+      const result = await client.query(
+        `SELECT widget_count FROM portal.sp_session_set_dashboard_widgets($1, $2, $3::jsonb)`,
+        [
+          sessionToken,
+          dashboardId,
+          JSON.stringify(
+            widgets.map((w) => ({
+              view_id: w.viewId,
+              sort_order: w.sortOrder,
+              column_span: w.columnSpan,
+            })),
+          ),
+        ],
+      );
+      return Number(result.rows[0]?.widget_count ?? 0);
+    } catch (err) {
+      mapPgPortalError(err);
+    }
   });
 }

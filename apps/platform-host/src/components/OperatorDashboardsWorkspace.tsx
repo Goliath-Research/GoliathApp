@@ -37,7 +37,11 @@ export function OperatorDashboardsWorkspace({
 
   const loadWidgets = useCallback(async (dashboardId: number) => {
     const res = await fetch(`/api/portal/dashboards/${dashboardId}/widgets`, { credentials: "same-origin" });
-    if (!res.ok) return;
+    if (!res.ok) {
+      setWidgets([]);
+      setWidgetPreviews([]);
+      return;
+    }
     const body = (await res.json()) as { widgets: Widget[] };
     setWidgets(body.widgets);
     const previews: WidgetPreview[] = [];
@@ -67,7 +71,10 @@ export function OperatorDashboardsWorkspace({
   }, []);
 
   useEffect(() => {
-    if (activeDashboardId != null) void loadWidgets(activeDashboardId);
+    if (activeDashboardId == null) return;
+    setWidgets([]);
+    setWidgetPreviews([]);
+    void loadWidgets(activeDashboardId);
   }, [activeDashboardId, loadWidgets]);
 
   async function createDashboard(e: React.FormEvent) {

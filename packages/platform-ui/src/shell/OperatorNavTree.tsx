@@ -21,7 +21,7 @@ function NavTreeBranch({
   depth: number;
   pathname: string;
   openFolders: Record<number, boolean>;
-  onToggle: (nodeId: number) => void;
+  onToggle: (nodeId: number, depth: number) => void;
 }) {
   const hasChildren = node.children.length > 0;
   const selected = pathMatches(node.href, pathname);
@@ -46,7 +46,7 @@ function NavTreeBranch({
         type="button"
         className="g-portal-nav__folder"
         style={{ paddingLeft: `${8 + depth * 14}px` }}
-        onClick={() => onToggle(node.nodeId)}
+        onClick={() => onToggle(node.nodeId, depth)}
         aria-expanded={expanded}
       >
         <span className={expanded ? "g-portal-nav__chev g-portal-nav__chev--open" : "g-portal-nav__chev"} aria-hidden />
@@ -110,7 +110,9 @@ export function OperatorNavTree({
           depth={0}
           pathname={currentPath}
           openFolders={openFolders}
-          onToggle={(id) => setOpenFolders((prev) => ({ ...prev, [id]: !(prev[id] ?? true) }))}
+          onToggle={(id, depth) =>
+            setOpenFolders((prev) => ({ ...prev, [id]: !(prev[id] ?? depth < 2) }))
+          }
         />
       ))}
     </nav>
