@@ -9,7 +9,7 @@ GoliathApp ships shared UI packages for descendant operator applications. Backen
 | `@goliath/ui` | **P0** | Allowlisted Lucide icons, kind defaults, class override resolution, `ObjectBadge`, theme CSS |
 | `@goliath/client` | **P1** | `GoliathUiManifest`, `createPlatformBffClient`, session/nav types |
 | `@goliath/platform-ui` | **P0** | Fixture demo table/tree using shared badges (not descendant product screens) |
-| `@goliath/platform-host` (`apps/platform-host`) | **P0 host + P1 BFF** | Runnable shell: `/`, `/fixture`, `/app`, session/nav APIs — [deploy/platform-host.md](deploy/platform-host.md), [P1 auth](deploy/platform-host-p1-auth.md) |
+| `@goliath/platform-host` (`apps/platform-host`) | **P0–P2+ host** | Public `/`, `/fixture`; signed-in **operator portal** at `/app` — [deploy/platform-host.md](deploy/platform-host.md), [operator portal plan](deploy/platform-host-operator-portal.md), [end-user guide](operator-portal-guide.md) |
 
 Install path for child repos: depend on **published semver tarballs** (`npm pack` / future registry). In this monorepo, `npm ci` + workspace builds apply. Run `npm run verify:consumer` to simulate an external child install.
 
@@ -44,16 +44,17 @@ Validate overrides with `diagnoseUiManifest` from `@goliath/client` in CI. Edito
 | Phase | Scope | Status |
 |-------|--------|--------|
 | **P0** | Workspace, `@goliath/ui` icons/badges/tokens, fixture demo, tests, consumer pack verify | **Implemented (this PR)** |
-| **P1** | BFF + `portal.sp_session_*` + scoped nav + OIDC methods PR | **Merged** |
-| **P2** | Meta hierarchy browser + read APIs + flattened-schema editor slice | **In progress (PR)** |
-| **P3** | Workflow designer/monitor (DomainPrograms, defs, runs) | Pending |
-| **P4** | Semantic + admin screens (`sp_run_semantic_request`, RBAC admin procs) | Pending |
-| **P5** | Declarative views/dashboards (semantic request widgets only) | Pending |
+| **P1** | BFF + `portal.sp_session_*` + scoped nav + OIDC methods | **Merged** |
+| **P2** | Meta hierarchy browser + read APIs + flattened-schema editor slice | **In portal PR** |
+| **P3** | Workflow designer/monitor (DomainPrograms, defs, runs) | Partial (lists); designer pending |
+| **P4** | Semantic + admin screens (`sp_run_semantic_request`, RBAC admin procs) | Partial via session list APIs |
+| **P5** | Views/dashboards — define views, arrange dashboards (semantic + Meta) | **In portal PR** |
 | **P6** | Two-child adoption (e.g. portal + one greenfield app on shared packages) | Pending |
+| **Docs** | **End-user operator portal guide (required deliverable)** | [operator-portal-guide.md](operator-portal-guide.md) |
 
 ## Seeds and apply order
 
-Platform population order is documented in [database-population.md](database-population.md): DDL (`apply_schema.sh`), Python catalog seeds, then **`seed_platform_nav_tree.sql`** for the inherited `/app` NavTree and `organization_admin` grants. P0 presentation overrides remain in child manifests; `NodeInfos.FrameKey` on baseline nodes supplies `presentation_kind` for `portal.sp_session_operator_nav_tree` (P1 host). Most leaf routes are placeholders until P3–P5 screens land — nodes are still registered so descendants extend a complete platform menu.
+Platform population order is documented in [database-population.md](database-population.md): DDL (`apply_schema.sh`), Python catalog seeds, then **`seed_platform_nav_tree.sql`** for the inherited `/app` NavTree and `organization_admin` grants. The signed-in host renders that tree with `node_path` routing. Operators follow [operator-portal-guide.md](operator-portal-guide.md); engineers follow [deploy/platform-host-operator-portal.md](deploy/platform-host-operator-portal.md).
 
 ## Commands
 

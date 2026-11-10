@@ -46,10 +46,10 @@ export default async function LoginPage({
       {providers.length === 0 ? (
         <p role="status">No OIDC providers are configured on this host (`GOLIATH_AUTH_OIDC_PROVIDERS_JSON`).</p>
       ) : (
-        <ul className="g-operator-nav" aria-label="Configured sign-in providers">
+        <ul className="g-login-providers" aria-label="Configured sign-in providers">
           {providers.map((p) => (
             <li key={p.providerId}>
-              <a href={p.signInUrl}>
+              <a href={p.signInUrl} className="g-login-provider-button">
                 <ObjectBadge kind={p.presentationKind} label={`Sign in with ${p.displayName}`} />
               </a>
             </li>

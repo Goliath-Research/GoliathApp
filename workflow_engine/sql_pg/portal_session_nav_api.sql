@@ -16,7 +16,8 @@ RETURNS TABLE (
   parent_id integer,
   caption text,
   seq smallint,
-  presentation_kind text
+  presentation_kind text,
+  node_path text
 )
 LANGUAGE plpgsql
 STABLE
@@ -73,7 +74,8 @@ BEGIN
       n."Caption"::text AS caption,
       n."Seq"::smallint AS seq,
       n."InfoID"::integer AS info_id,
-      n."SortPath"::text AS sort_path
+      n."SortPath"::text AS sort_path,
+      n."NodePath"::text AS node_path
     FROM portal."NavTree" n
     WHERE EXISTS (
       SELECT 1
@@ -92,7 +94,8 @@ BEGIN
     vt.parent_id,
     vt.caption,
     vt.seq,
-    COALESCE(NULLIF(btrim(ni."FrameKey"), ''), 'view')::text AS presentation_kind
+    COALESCE(NULLIF(btrim(ni."FrameKey"), ''), 'view')::text AS presentation_kind,
+    vt.node_path
   FROM visible_tree vt
   LEFT JOIN portal."NodeInfos" ni ON ni."Id" = vt.info_id
   ORDER BY vt.sort_path, vt.node_id;

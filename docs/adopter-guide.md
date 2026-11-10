@@ -2,6 +2,8 @@
 
 This guide is for engineers **evaluating** GoliathApp or **starting** a new specialized application that extends the platform. It sticks to **neutral** platform concepts: anything domain-specific (science, industry verticals, geography) belongs in **your** repository, not in GoliathApp.
 
+**Operators** who use the signed-in portal (`/app`) should read the [Operator portal guide](operator-portal-guide.md) instead. It describes the two supported starting paths — **extend your deployment in place** vs **duplicate GoliathApp as your base** — and how class hierarchy, views, and dashboards appear in the UI. Product data must not accumulate on the shared **clean generic baseline** database; use your tenant database or a forked copy.
+
 ## What you are extending
 
 GoliathApp provides:

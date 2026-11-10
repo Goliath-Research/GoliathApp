@@ -32,6 +32,7 @@ export async function GET() {
         caption: row.caption,
         seq: row.seq,
         presentationKind: coercePresentationKind(row.presentationKind),
+        nodePath: row.nodePath,
       })),
     });
     response.headers.append("Set-Cookie", buildSessionSetCookie(token));
