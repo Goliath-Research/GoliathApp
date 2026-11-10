@@ -45,6 +45,23 @@ Expected for Goliath production (post-migration):
 | `organization_admin` grant on scope 1 | yes | yes |
 | Entra external identity for David | provider 1, subject preserved | n/a |
 
+## Legacy table drop plan (post-PR C)
+
+After one release with Meta-only enforcement verified on Neon backup + production smoke:
+
+| Phase | Action |
+|-------|--------|
+| **D1** | Stop writing `RBAC.UserRoleGrants`, `ExternalIdentities`, `Onboarding.Invitations` (sync helpers removed) |
+| **D2** | Drop read paths from session SQL; keep tables read-only for audit export |
+| **D3** | Archive tables to `legacy_*` schema, then `DROP` when no downstream BI depends on them |
+
+Tables targeted: `"RBAC"."UserRoleGrants"`, `"RBAC"."ExternalIdentities"`, `"RBAC"."Users"` (sessions retain numeric user id via `platform/User.LegacyUserId`), `"Onboarding"."Invitations"`.  
+Retain: `"RBAC"."Sessions"`, `"RBAC"."SessionTokens"`, `"RBAC"."Session_Roles"`, `"RBAC"."IdentityProviders"`, `"RBAC"."ScopeIdentityProviders"` until OIDC catalog moves to Meta.
+
+## God Architect (platform model authority)
+
+GoliathApp-owned **`platform/*` schema and catalog** (class definitions, NavTree platform nodes, platform roles/permissions, platform semantic entries, identity provider catalog) is editable only by the global **`god_architect`** role and **`platform.model.architect`** permission. User **1** receives the global grant at apply time; production verify checks it. See [God Architect role](platform-god-architect.md).
+
 ## Stacked PR plan (recommended)
 
 This direction is **too large for one safe merge**. Use three stacks:

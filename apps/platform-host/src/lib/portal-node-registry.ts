@@ -111,9 +111,10 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     platformQuery: "semantic_requests",
   },
   "/app/admin/users": {
-    kind: "admin_users",
+    kind: "meta_workbench",
     title: "Users",
-    description: "Create users, invitations, and scoped role assignments.",
+    description: "Platform User objects (Meta), scoped grants, sign-in and invitations.",
+    metaClass: "platform/User",
   },
   "/app/admin/organizations": {
     kind: "platform_query",
@@ -121,9 +122,10 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     semanticRequest: "core.list_organizations",
   },
   "/app/admin/roles": {
-    kind: "admin_roles",
+    kind: "meta_workbench",
     title: "Roles",
-    description: "Create roles and edit global permission sets.",
+    description: "Platform Role and RoleGrant objects (Meta).",
+    metaClass: "platform/Role",
   },
   "/app/admin/permissions": {
     kind: "admin_permissions",

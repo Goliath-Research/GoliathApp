@@ -30,6 +30,8 @@ nav:
       - Operator portal (end users): operator-portal-guide.md
       - Platform generic Meta: platform-generic-meta.md
       - Platform security Meta: platform-security-meta.md
+      - God Architect role: platform-god-architect.md
+      - Platform self-model plan: platform-self-model.md
       - Layered security model: platform-layered-security.md
       - Architecture: architecture.md
       - Platform visualization (UI): visualization.md
