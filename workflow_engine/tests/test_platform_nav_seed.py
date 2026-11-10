@@ -30,9 +30,10 @@ BASELINE_PATHS: tuple[str, ...] = (
     "/app/operations/events",
     "/app/views/dashboards",
     "/app/inv/items",
+    "/app/admin/navigation",
 )
 
-EXPECTED_BASELINE_NODE_COUNT = 45
+EXPECTED_BASELINE_NODE_COUNT = 46
 
 
 def _pg_env() -> dict[str, str]:

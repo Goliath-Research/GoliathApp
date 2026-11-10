@@ -20,4 +20,78 @@ test.describe("model authoring (CI postgres)", () => {
     await expect(page.getByRole("heading", { name: "Model authoring" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Create class" })).toBeVisible();
   });
+
+  test("subclass, field, object, semantic entity, and saved meta view", async ({ page, request }) => {
+    const suffix = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const className = `e2e/E2eModel_${suffix}`;
+    const objectLabel = `E2E Person ${suffix}`;
+    const nickValue = `Nick_${suffix}`;
+    const viewTitle = `E2E View ${suffix}`;
+    const entityCode = `e2e_party_${suffix}`;
+    const namespace = "e2e";
+    const encodedClass = encodeURIComponent(className);
+
+    await page.goto("/app/meta/classes");
+    const createForm = page.locator("form").filter({
+      has: page.getByRole("heading", { name: "Create subclass" }),
+    });
+    await createForm.getByLabel("Parent class").selectOption("platform/Person");
+    await createForm.getByLabel("New class FQN").fill(className);
+    await createForm.getByRole("button", { name: "Create class" }).click();
+    await page.waitForLoadState("load");
+    await expect(page.getByRole("link", { name: className })).toBeVisible();
+
+    const fieldForm = page.locator("form").filter({
+      has: page.getByRole("heading", { name: "Add or update field" }),
+    });
+    await fieldForm.getByLabel("Class").fill(className);
+    await fieldForm.getByLabel("Field name").fill("Nickname");
+    await fieldForm.getByRole("button", { name: "Save field" }).click();
+    await expect(page.getByRole("status")).toContainText("Nickname saved");
+
+    const createRes = await request.post(`/api/meta/classes/${encodedClass}/objects`, {
+      data: { document: { Label: objectLabel, Nickname: nickValue } },
+    });
+    expect(createRes.status()).toBe(201);
+    const { objId } = (await createRes.json()) as { objId: number };
+
+    const getRes = await request.get(`/api/meta/objects/${objId}`);
+    expect(getRes.ok()).toBeTruthy();
+    const row = (await getRes.json()) as { object: { document: Record<string, unknown> } };
+    expect(row.object.document.Label).toBe(objectLabel);
+    expect(row.object.document.Nickname).toBe(nickValue);
+
+    await page.goto(`/app/meta?class=${encodedClass}`);
+    await expect(page.locator(".g-meta-explorer")).toBeVisible();
+    await expect(page.getByTestId("pi-row-Label")).toBeVisible();
+    await expect(page.getByTestId("pi-row-Nickname")).toBeVisible();
+
+    await page.goto("/app/semantic");
+    const entitySection = page.locator("section").filter({
+      has: page.getByRole("heading", { name: "Register entity" }),
+    });
+    await entitySection.getByLabel("Namespace").fill(namespace);
+    await entitySection.getByLabel("Entity code").fill(entityCode);
+    await entitySection.getByLabel("Display name").fill(`E2E entity ${suffix}`);
+    await entitySection.getByLabel("Meta class").selectOption(className);
+    await entitySection.getByRole("button", { name: "Save entity" }).click();
+    await page.waitForLoadState("load");
+    await expect(page.getByRole("cell", { name: className })).toBeVisible();
+    await expect(page.getByRole("cell", { name: entityCode })).toBeVisible();
+
+    await page.goto("/app/views/list");
+    await page.getByLabel("Title").fill(viewTitle);
+    await page.getByRole("radio", { name: /Meta class/ }).check();
+    await page.getByLabel("Meta class").selectOption(className);
+    await page.getByRole("button", { name: "Save view" }).click();
+    await expect(page.getByRole("status")).toContainText("View saved");
+    const savedView = page.getByRole("button", { name: viewTitle });
+    await expect(savedView).toBeVisible();
+    await expect(savedView.locator("xpath=..")).toContainText(className);
+
+    await savedView.click();
+    await page.waitForURL(`**/app/meta?class=${encodedClass}**`);
+    await expect(page.locator(".g-meta-explorer")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Meta class" })).toBeVisible();
+  });
 });

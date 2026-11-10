@@ -56,7 +56,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+SET search_path = portal, "Meta", wf, "RBAC", public, pg_temp
 AS $$
 DECLARE
   v_sess record;
@@ -115,7 +115,7 @@ CREATE OR REPLACE FUNCTION portal.sp_session_meta_class_create(
 RETURNS TABLE (class_id integer, class_name text)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+SET search_path = portal, "Meta", wf, "RBAC", public, pg_temp
 AS $$
 DECLARE
   v_ctx record;
@@ -172,7 +172,7 @@ CREATE OR REPLACE FUNCTION portal.sp_session_meta_field_upsert(
 RETURNS TABLE (field_id integer)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+SET search_path = portal, "Meta", wf, "RBAC", public, pg_temp
 AS $$
 DECLARE
   v_ctx record;
@@ -230,7 +230,7 @@ CREATE OR REPLACE FUNCTION portal.sp_session_meta_field_retire(
 RETURNS TABLE (ok boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+SET search_path = portal, "Meta", wf, "RBAC", public, pg_temp
 AS $$
 DECLARE
   v_ctx record;
@@ -268,7 +268,7 @@ CREATE OR REPLACE FUNCTION portal.sp_session_semantic_register_entity(
 RETURNS TABLE (entity_id integer)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+SET search_path = portal, "Meta", wf, "RBAC", public, pg_temp
 AS $$
 DECLARE
   v_ctx record;
@@ -339,7 +339,7 @@ CREATE OR REPLACE FUNCTION portal.sp_session_semantic_register_attribute(
 RETURNS TABLE (ok boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+SET search_path = portal, "Meta", wf, "RBAC", public, pg_temp
 AS $$
 DECLARE
   v_ctx record;
@@ -376,7 +376,7 @@ CREATE OR REPLACE FUNCTION portal.sp_session_nav_register_node(
 RETURNS TABLE (node_id integer)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+SET search_path = portal, "Meta", wf, "RBAC", public, pg_temp
 AS $$
 DECLARE
   v_ctx record;
@@ -408,7 +408,7 @@ CREATE OR REPLACE FUNCTION portal.sp_session_grant_role_nav_node(
 RETURNS TABLE (ok boolean)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+SET search_path = portal, "Meta", wf, "RBAC", public, pg_temp
 AS $$
 DECLARE
   v_ctx record;
@@ -441,7 +441,7 @@ CREATE OR REPLACE FUNCTION portal.sp_session_grant_user_role_scoped(
 RETURNS TABLE (inserted boolean, grant_id bigint)
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+SET search_path = portal, "Meta", wf, "RBAC", public, pg_temp
 AS $$
 DECLARE
   v_ctx record;
@@ -470,7 +470,7 @@ RETURNS TABLE (package_sql text)
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
-SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+SET search_path = portal, "Meta", wf, "RBAC", public, pg_temp
 AS $$
 DECLARE
   v_ctx record;
