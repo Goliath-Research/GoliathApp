@@ -146,12 +146,12 @@ def test_class_inheritance_and_session_get(layered_env: dict[str, str]) -> None:
         obj_id = insert_row[0]
 
         child_name = f"e2e/LayerChild_{uuid.uuid4().hex[:4]}"
-        create_child = conn.execute(
-            """INSERT INTO "Meta"."Classes" ("Name", "ParentID") VALUES (%s, %s) RETURNING "ID" """,
-            (child_name, person_id),
-        ).fetchone()
-        assert create_child is not None
-        child_id = create_child[0]
+        child_id = int(
+            _psql(
+                f"""INSERT INTO "Meta"."Classes" ("Name", "ParentID") VALUES ('{child_name}', {person_id}) RETURNING "ID" """,
+                env,
+            )
+        )
         inherit_row = conn.execute(
             "SELECT portal.fn_meta_effective_class_action(%s, %s, %s, %s)",
             (reader_id, scope_id, child_id, "read"),
@@ -190,7 +190,9 @@ def test_object_deny_gs403(layered_env: dict[str, str]) -> None:
     )
     org = _psql(f"SELECT * FROM portal.sp_organization_create('ObjOrg-{user_id}')", env)
     scope_id = int(org.split("|")[1])
-    role_id = _scoped_role(env, user_id, scope_id, ["meta.object.read", "meta.object.write"])
+    role_id = _scoped_role(
+        env, user_id, scope_id, ["meta.schema.read", "meta.object.read", "meta.object.write"]
+    )
     person_id = int(
         _psql("""SELECT "ID" FROM "Meta"."Classes" WHERE "Name" = 'platform/Person' LIMIT 1""", env)
     )

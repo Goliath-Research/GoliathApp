@@ -18,7 +18,13 @@ DECLARE
   v_obj_id int;
   v_doc jsonb;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_meta_require_instance_write(p_session_token) LIMIT 1;
+  SELECT * INTO v_ctx FROM portal.fn_session_resolve(p_session_token) LIMIT 1;
+  IF v_ctx.session_id IS NULL OR COALESCE(v_ctx.revoked, false) THEN
+    PERFORM portal.fn_semantic_raise('GS401', 'session denied');
+  END IF;
+  IF v_ctx.active_scope_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta instance access');
+  END IF;
 
   v_class_id := portal.sp_session_meta_resolve_class(p_session_token, p_class_name);
   PERFORM portal.fn_meta_assert_class_action(v_ctx.user_id, v_ctx.active_scope_id, v_class_id, 'create');
@@ -47,7 +53,13 @@ DECLARE
   v_ctx record;
   v_doc jsonb;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_meta_require_instance_write(p_session_token) LIMIT 1;
+  SELECT * INTO v_ctx FROM portal.fn_session_resolve(p_session_token) LIMIT 1;
+  IF v_ctx.session_id IS NULL OR COALESCE(v_ctx.revoked, false) THEN
+    PERFORM portal.fn_semantic_raise('GS401', 'session denied');
+  END IF;
+  IF v_ctx.active_scope_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta instance access');
+  END IF;
 
   PERFORM portal.fn_session_meta_assert_obj_in_active_scope(p_obj_id, v_ctx.active_scope_id);
   PERFORM portal.fn_meta_assert_object_action(v_ctx.user_id, v_ctx.active_scope_id, p_obj_id, 'update');
@@ -75,7 +87,13 @@ AS $$
 DECLARE
   v_ctx record;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_meta_require_instance(p_session_token, 'meta.object.read') LIMIT 1;
+  SELECT * INTO v_ctx FROM portal.fn_session_resolve(p_session_token) LIMIT 1;
+  IF v_ctx.session_id IS NULL OR COALESCE(v_ctx.revoked, false) THEN
+    PERFORM portal.fn_semantic_raise('GS401', 'session denied');
+  END IF;
+  IF v_ctx.active_scope_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta instance access');
+  END IF;
 
   PERFORM portal.fn_session_meta_assert_obj_in_active_scope(p_obj_id, v_ctx.active_scope_id);
   PERFORM portal.fn_meta_assert_object_action(v_ctx.user_id, v_ctx.active_scope_id, p_obj_id, 'read');
