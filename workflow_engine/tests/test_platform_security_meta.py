@@ -133,3 +133,13 @@ def test_grant_cache_matches_rbac_after_migrate(sec_meta_env: dict[str, str]) ->
     )
     assert map_line
     assert int(map_line) > 0
+
+
+def test_grant_cache_stable_on_re_migrate(sec_meta_env: dict[str, str]) -> None:
+    _psql("SELECT portal.sp_security_meta_migrate_from_legacy()", sec_meta_env)
+    _psql("SELECT portal.sp_security_meta_refresh_cache()", sec_meta_env)
+    count_first = int(_psql("SELECT COUNT(*) FROM portal.security_grant_cache", sec_meta_env))
+    _psql("SELECT portal.sp_security_meta_migrate_from_legacy()", sec_meta_env)
+    _psql("SELECT portal.sp_security_meta_refresh_cache()", sec_meta_env)
+    count_second = int(_psql("SELECT COUNT(*) FROM portal.security_grant_cache", sec_meta_env))
+    assert count_second == count_first
