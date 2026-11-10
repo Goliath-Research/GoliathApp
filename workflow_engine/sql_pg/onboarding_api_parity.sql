@@ -123,10 +123,10 @@ BEGIN
   END IF;
 
   -- Upsert user
-  SELECT u."ID" INTO v_user_id FROM "RBAC"."Users" u WHERE u."Email" = v_normalized_email FOR UPDATE;
+  SELECT u."ID" INTO v_user_id FROM "RBAC"."Users" u WHERE lower(btrim(u.email)) = v_normalized_email FOR UPDATE;
   IF v_user_id IS NULL THEN
-    INSERT INTO "RBAC"."Users" ("FullName", "Email", "Active")
-    VALUES (p_full_name, v_normalized_email, true)
+    INSERT INTO "RBAC"."Users" ("FullName", email, "Active")
+    VALUES (p_full_name, v_normalized_email, 1)
     RETURNING "ID" INTO v_user_id;
   ELSE
     UPDATE "RBAC"."Users"
