@@ -69,7 +69,7 @@ BEGIN
     RAISE EXCEPTION 'platform security meta classes are not installed';
   END IF;
 
-  -- Users first: reserve RBAC user ids on Meta.Objs before other rows consume low ids.
+  -- Users first: preserve RBAC user ids on Meta.Objs before other legacy rows consume the shared sequence.
   FOR r IN SELECT u.* FROM "RBAC"."Users" u ORDER BY u."ID"
   LOOP
     SELECT m.meta_obj_id INTO v_obj
@@ -122,8 +122,13 @@ BEGIN
 
   PERFORM setval(
     pg_get_serial_sequence('"Meta"."Objs"', 'ID'),
+<<<<<<< HEAD
     (SELECT COALESCE(MAX("ID"), 1) FROM "Meta"."Objs")
   );
+=======
+  (SELECT COALESCE(MAX("ID"), 1) FROM "Meta"."Objs")
+);
+>>>>>>> origin/cursor/portal-security-meta-75e9
 
   FOR r IN
     SELECT o."ID" AS org_id, o."Name" AS org_name, s."ScopeID" AS scope_id

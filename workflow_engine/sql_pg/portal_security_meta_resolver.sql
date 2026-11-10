@@ -116,6 +116,15 @@ AS $$
         g.bypass_scope
         OR g.scope_id = p_scope_id
       )
+      AND EXISTS (
+        SELECT 1
+        FROM "RBAC"."UserRoleGrants" rg
+        WHERE rg."UserID" = g.user_id
+          AND rg."RoleID" = g.role_id
+          AND rg."ScopeID" = g.scope_id
+          AND rg."Active"
+          AND rg."RevokedAtUtc" IS NULL
+      )
     UNION
     SELECT g."RoleID" AS role_id
     FROM "RBAC"."UserRoleGrants" g

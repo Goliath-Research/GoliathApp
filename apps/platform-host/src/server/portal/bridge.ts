@@ -1065,7 +1065,8 @@ export async function portalSessionSecurity(
         }
         case "list_users_admin": {
           const result = await client.query(
-            `SELECT user_id, full_name, email, active, scoped_role_count, sign_in_status, identity_provider_name
+            `SELECT user_id, full_name, email, active, scoped_role_count, sign_in_status,
+                    identity_provider_name, active_roles_summary
              FROM portal.sp_session_list_users_admin($1)`,
             [sessionToken],
           );

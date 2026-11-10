@@ -153,10 +153,15 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS401', 'session denied');
   END IF;
 
-  IF portal.fn_session_active_role_id(v_sess.session_id) IS NOT NULL THEN
-    RETURN QUERY
-    SELECT portal.fn_session_active_role_id(v_sess.session_id), false;
-    RETURN;
+  v_prior := portal.fn_session_active_role_id(v_sess.session_id);
+  IF v_prior IS NOT NULL THEN
+    IF v_sess.active_scope_id IS NOT NULL
+       AND portal.fn_session_role_grant_valid(v_sess.user_id, v_sess.active_scope_id, v_prior) THEN
+      RETURN QUERY SELECT v_prior, false;
+      RETURN;
+    END IF;
+    DELETE FROM "RBAC"."Session_Roles" WHERE "SessionID" = v_sess.session_id;
+    v_prior := NULL;
   END IF;
 
   IF v_sess.active_scope_id IS NULL THEN
@@ -255,6 +260,11 @@ BEGIN
   SELECT COUNT(*)::int
   INTO v_count
   FROM portal.fn_session_user_selectable_role_ids(v_sess.user_id, v_sess.active_scope_id) s;
+
+  IF v_active IS NOT NULL
+     AND NOT portal.fn_session_role_grant_valid(v_sess.user_id, v_sess.active_scope_id, v_active) THEN
+    v_active := NULL;
+  END IF;
 
   RETURN QUERY
   SELECT
