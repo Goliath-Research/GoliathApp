@@ -87,7 +87,13 @@ BEGIN
       ) THEN
         v_obj := r."ID";
       ELSE
-        RAISE EXCEPTION 'Meta.Objs id % is already allocated to another class; cannot preserve RBAC user id', r."ID";
+        v_doc := jsonb_build_object(
+          'Email', r.email,
+          'FullName', r."FullName",
+          'Active', (r."Active" = 1),
+          'LegacyUserId', r."ID"
+        );
+        v_obj := "Meta".sp_obj_insert(v_class_user, v_doc);
       END IF;
     END IF;
 
