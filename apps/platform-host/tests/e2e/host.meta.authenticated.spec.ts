@@ -48,7 +48,8 @@ test.describe("authenticated meta (CI postgres)", () => {
 
   test("meta explorer renders icons and child editor slot", async ({ page }, testInfo) => {
     await page.goto("/app/meta?class=portal%2FNavNode");
-    await expect(page.getByRole("heading", { name: "Inherited Meta class browser" })).toBeVisible();
+    await expect(page.locator(".g-meta-explorer")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Meta class" })).toBeVisible();
     await expect(page.getByRole("img").first()).toBeVisible();
     await expect(page.getByRole("status")).toContainText("Child editor slot");
 
