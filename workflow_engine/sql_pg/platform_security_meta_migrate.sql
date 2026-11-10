@@ -33,6 +33,41 @@ AS $$
     SET meta_obj_id = EXCLUDED.meta_obj_id;
 $$;
 
+CREATE OR REPLACE FUNCTION portal.sp_security_meta_mapped_obj(
+  p_kind text,
+  p_legacy_id bigint,
+  p_class_id int
+)
+RETURNS int
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, "Meta", pg_temp
+AS $$
+DECLARE
+  v_obj int;
+BEGIN
+  SELECT m.meta_obj_id
+  INTO v_obj
+  FROM portal.security_meta_legacy_map m
+  WHERE m.legacy_kind = lower(btrim(p_kind)) AND m.legacy_id = p_legacy_id;
+
+  IF v_obj IS NULL THEN
+    RETURN NULL;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM "Meta"."Objs" o
+    WHERE o."ID" = v_obj AND o."ClassID" = p_class_id
+  ) THEN
+    DELETE FROM portal.security_meta_legacy_map m
+    WHERE m.legacy_kind = lower(btrim(p_kind)) AND m.legacy_id = p_legacy_id;
+    RETURN NULL;
+  END IF;
+
+  RETURN v_obj;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION portal.sp_security_meta_migrate_from_legacy()
 RETURNS TABLE (
   step text,
@@ -72,9 +107,7 @@ BEGIN
   -- Users first: preserve RBAC user ids on Meta.Objs before other legacy rows consume the shared sequence.
   FOR r IN SELECT u.* FROM "RBAC"."Users" u ORDER BY u."ID"
   LOOP
-    SELECT m.meta_obj_id INTO v_obj
-    FROM portal.security_meta_legacy_map m
-    WHERE m.legacy_kind = 'user' AND m.legacy_id = r."ID";
+    v_obj := portal.sp_security_meta_mapped_obj('user', r."ID", v_class_user);
 
     IF v_obj IS NULL THEN
       IF NOT EXISTS (SELECT 1 FROM "Meta"."Objs" o WHERE o."ID" = r."ID") THEN
@@ -131,9 +164,7 @@ BEGIN
     LEFT JOIN "RBAC"."Scopes" s
       ON s."OrganizationID" = o."ID" AND s."ScopeType" = 'organization'
   LOOP
-    SELECT m.meta_obj_id INTO v_obj
-    FROM portal.security_meta_legacy_map m
-    WHERE m.legacy_kind = 'organization' AND m.legacy_id = r.org_id;
+    v_obj := portal.sp_security_meta_mapped_obj('organization', r.org_id, v_class_org);
     v_doc := jsonb_build_object(
       'Label', r.org_name,
       'LegacyOrganizationId', r.org_id,
@@ -154,9 +185,7 @@ BEGIN
 
   FOR r IN SELECT ro.* FROM "RBAC"."Roles" ro
   LOOP
-    SELECT m.meta_obj_id INTO v_obj
-    FROM portal.security_meta_legacy_map m
-    WHERE m.legacy_kind = 'role' AND m.legacy_id = r."ID";
+    v_obj := portal.sp_security_meta_mapped_obj('role', r."ID", v_class_role);
     v_doc := jsonb_build_object(
       'Label', r."Name",
       'RoleName', r."Name",
@@ -178,9 +207,7 @@ BEGIN
 
   FOR r IN SELECT p.* FROM "RBAC"."Permissions" p
   LOOP
-    SELECT m.meta_obj_id INTO v_obj
-    FROM portal.security_meta_legacy_map m
-    WHERE m.legacy_kind = 'permission' AND m.legacy_id = r."ID";
+    v_obj := portal.sp_security_meta_mapped_obj('permission', r."ID", v_class_perm);
     v_doc := jsonb_build_object(
       'Label', r."Name",
       'PermissionName', r."Name",
@@ -201,9 +228,7 @@ BEGIN
 
   FOR r IN SELECT g.* FROM "RBAC"."UserRoleGrants" g
   LOOP
-    SELECT m.meta_obj_id INTO v_obj
-    FROM portal.security_meta_legacy_map m
-    WHERE m.legacy_kind = 'role_grant' AND m.legacy_id = r."ID";
+    v_obj := portal.sp_security_meta_mapped_obj('role_grant', r."ID", v_class_grant);
     v_doc := jsonb_build_object(
       'Label', format('grant %s', r."ID"),
       'Active', r."Active",
@@ -233,9 +258,7 @@ BEGIN
 
   FOR r IN SELECT ei.* FROM "RBAC"."ExternalIdentities" ei
   LOOP
-    SELECT m.meta_obj_id INTO v_obj
-    FROM portal.security_meta_legacy_map m
-    WHERE m.legacy_kind = 'external_identity' AND m.legacy_id = r."ID";
+    v_obj := portal.sp_security_meta_mapped_obj('external_identity', r."ID", v_class_ext);
     v_doc := jsonb_build_object(
       'Label', format('%s@%s', r."Subject", r."ProviderID"),
       'ProviderId', r."ProviderID",
@@ -260,9 +283,7 @@ BEGIN
 
   FOR r IN SELECT i.* FROM "Onboarding"."Invitations" i
   LOOP
-    SELECT m.meta_obj_id INTO v_obj
-    FROM portal.security_meta_legacy_map m
-    WHERE m.legacy_kind = 'invitation' AND m.legacy_id = r."InvitationID";
+    v_obj := portal.sp_security_meta_mapped_obj('invitation', r."InvitationID", v_class_inv);
     v_doc := jsonb_build_object(
       'Label', r."Email",
       'Email', r."Email",
