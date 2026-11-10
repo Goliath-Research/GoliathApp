@@ -505,7 +505,15 @@ END
 $god_perm$;
 
 SELECT portal.sp_security_meta_ensure_god_architect_catalog();
-SELECT portal.sp_security_meta_grant_god_architect_to_user(1);
+DO $grant_god$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM "RBAC"."Users" u WHERE u."ID" = 1 AND u."Active" = 1
+  ) THEN
+    PERFORM portal.sp_security_meta_grant_god_architect_to_user(1);
+  END IF;
+END
+$grant_god$;
 SELECT portal.sp_security_meta_refresh_cache();
 
 DO $god_acl$
