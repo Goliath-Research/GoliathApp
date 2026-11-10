@@ -69,6 +69,56 @@ BEGIN
     RAISE EXCEPTION 'platform security meta classes are not installed';
   END IF;
 
+  -- Users first: preserve RBAC user ids on Meta.Objs before other legacy rows consume the shared sequence.
+  FOR r IN SELECT u.* FROM "RBAC"."Users" u
+  LOOP
+    SELECT m.meta_obj_id INTO v_obj
+    FROM portal.security_meta_legacy_map m
+    WHERE m.legacy_kind = 'user' AND m.legacy_id = r."ID";
+
+    IF v_obj IS NULL THEN
+      IF NOT EXISTS (SELECT 1 FROM "Meta"."Objs" o WHERE o."ID" = r."ID") THEN
+        INSERT INTO "Meta"."Objs" ("ID", "ClassID")
+        VALUES (r."ID", v_class_user);
+        v_obj := r."ID";
+      ELSIF EXISTS (
+        SELECT 1 FROM "Meta"."Objs" o
+        WHERE o."ID" = r."ID" AND o."ClassID" = v_class_user
+      ) THEN
+        v_obj := r."ID";
+      ELSE
+        RAISE EXCEPTION 'Meta.Objs id % is already allocated to another class; cannot preserve RBAC user id', r."ID";
+      END IF;
+    END IF;
+
+    INSERT INTO "Meta"."ObjValues" ("ObjID", "ClassID", "Data")
+    VALUES (
+      v_obj,
+      v_class_person,
+      jsonb_build_object('Label', COALESCE(NULLIF(btrim(r."FullName"), ''), r.email))
+    )
+    ON CONFLICT ("ObjID", "ClassID") DO UPDATE SET "Data" = EXCLUDED."Data";
+
+    v_doc := jsonb_build_object(
+      'Email', r.email,
+      'FullName', r."FullName",
+      'Active', (r."Active" = 1),
+      'LegacyUserId', r."ID"
+    );
+    INSERT INTO "Meta"."ObjValues" ("ObjID", "ClassID", "Data")
+    VALUES (v_obj, v_class_user, v_doc)
+    ON CONFLICT ("ObjID", "ClassID") DO UPDATE SET "Data" = EXCLUDED."Data";
+
+    PERFORM portal.sp_security_meta_upsert_map('user', r."ID", v_obj);
+  END LOOP;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN QUERY SELECT 'users'::text, v_n;
+
+  PERFORM setval(
+    pg_get_serial_sequence('"Meta"."Objs"', 'ID'),
+  (SELECT COALESCE(MAX("ID"), 1) FROM "Meta"."Objs")
+);
+
   FOR r IN
     SELECT o."ID" AS org_id, o."Name" AS org_name, s."ScopeID" AS scope_id
     FROM portal."Organizations" o
@@ -95,36 +145,6 @@ BEGIN
   END LOOP;
   GET DIAGNOSTICS v_n = ROW_COUNT;
   RETURN QUERY SELECT 'organizations'::text, v_n;
-
-  FOR r IN SELECT u.* FROM "RBAC"."Users" u
-  LOOP
-    v_obj := r."ID";
-    INSERT INTO "Meta"."Objs" ("ID", "ClassID")
-    VALUES (v_obj, v_class_user)
-    ON CONFLICT ("ID") DO UPDATE SET "ClassID" = EXCLUDED."ClassID";
-
-    INSERT INTO "Meta"."ObjValues" ("ObjID", "ClassID", "Data")
-    VALUES (
-      v_obj,
-      v_class_person,
-      jsonb_build_object('Label', COALESCE(NULLIF(btrim(r."FullName"), ''), r.email))
-    )
-    ON CONFLICT ("ObjID", "ClassID") DO UPDATE SET "Data" = EXCLUDED."Data";
-
-    v_doc := jsonb_build_object(
-      'Email', r.email,
-      'FullName', r."FullName",
-      'Active', (r."Active" = 1),
-      'LegacyUserId', r."ID"
-    );
-    INSERT INTO "Meta"."ObjValues" ("ObjID", "ClassID", "Data")
-    VALUES (v_obj, v_class_user, v_doc)
-    ON CONFLICT ("ObjID", "ClassID") DO UPDATE SET "Data" = EXCLUDED."Data";
-
-    PERFORM portal.sp_security_meta_upsert_map('user', r."ID", v_obj);
-  END LOOP;
-  GET DIAGNOSTICS v_n = ROW_COUNT;
-  RETURN QUERY SELECT 'users'::text, v_n;
 
   FOR r IN SELECT ro.* FROM "RBAC"."Roles" ro
   LOOP

@@ -714,6 +714,8 @@ BEGIN
     )
   );
 
+  PERFORM portal.sp_security_meta_refresh_cache();
+
   RETURN QUERY SELECT true;
 END;
 $$;

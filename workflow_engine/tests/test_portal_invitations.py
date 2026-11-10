@@ -140,7 +140,17 @@ def test_create_invitation_resolves_provider(invitation_env: dict[str, str]) -> 
     provider_id = _seed_scope_provider(env, scope_id, issuer)
     role_id = _default_contract_role_id(env)
     _seed_scope_contract(env, org_id, scope_id, role_id)
-    org_id, scope_id, _admin_id, token = _admin_session(env, "InvOrgAdmin")
+    admin_id = int(
+        _psql(
+            f"""INSERT INTO "RBAC"."Users" ("FullName", email, "Active")
+                VALUES ('Admin', 'admin-{uuid.uuid4().hex[:8]}@test', 1) RETURNING "ID" """,
+            env,
+        )
+    )
+    _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({org_id}, {admin_id})", env)
+    os.environ["GOLIATH_PORTAL_PASSWORD"] = PORTAL_TEST_PASSWORD
+    client = PortalClient(build_portal_conninfo())
+    token = client.session_open(admin_id, active_scope_id=scope_id).session_token
     email = f"invitee-{uuid.uuid4().hex[:8]}@fixture.example"
     with psycopg.connect(build_portal_conninfo()) as conn:
         inv_id = conn.execute(
