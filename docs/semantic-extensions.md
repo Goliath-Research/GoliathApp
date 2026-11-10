@@ -51,3 +51,5 @@ Exograph (`exo/`) connects as `goliath_portal`, exposes registry types read-only
 ## Portal client
 
 Application backends connect as `goliath_portal` and call only `portal.sp_*` entry points. See [semantic-layer.md](semantic-layer.md#python-portal-client) for `goliath_app.portal.PortalClient`.
+
+Operators browse registered entities and define **views** on semantic requests (or linked Meta classes) in the signed-in portal — [operator-portal-guide.md](operator-portal-guide.md).

@@ -27,6 +27,7 @@ nav:
   - Overview: index.md
   - Getting started:
       - Adopter guide: adopter-guide.md
+      - Operator portal (end users): operator-portal-guide.md
       - Architecture: architecture.md
       - Platform visualization (UI): visualization.md
       - Feature catalog: feature-catalog.md
@@ -51,6 +52,7 @@ nav:
   - Inventory module: inventory-module.md
   - Deployment: deployment.md
   - Platform UI host: deploy/platform-host.md
+  - Operator portal plan: deploy/platform-host-operator-portal.md
   - Platform host P1 auth: deploy/platform-host-p1-auth.md
   - Platform host P2 meta: deploy/platform-host-p2-meta.md
   - Platform host P2 meta slice 3: deploy/platform-host-p2-meta-slice3.md

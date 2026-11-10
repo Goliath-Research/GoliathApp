@@ -1,6 +1,6 @@
 # Architecture overview
 
-GoliathApp is a **database-governed platform**: workflow state, RBAC, semantic definitions, Meta classes, and portal navigation live in PostgreSQL; **`goliath-gateway`** exposes the worker REST API; optional façades (for example Exograph) call the same `portal.sp_*` entry points as application code. This page orients adopters before the deeper topic guides.
+GoliathApp is a **database-governed platform**: workflow state, RBAC, semantic definitions, Meta classes, and portal navigation live in PostgreSQL; **`goliath-gateway`** exposes the worker REST API; optional façades (for example Exograph) call the same `portal.sp_*` entry points as application code. This page orients adopters before the deeper topic guides. Operators using the platform host at `/app` should start with [operator-portal-guide.md](operator-portal-guide.md) (extend in place vs duplicate-as-base).
 
 ## Worker isolation (non-negotiable)
 

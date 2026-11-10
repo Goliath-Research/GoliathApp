@@ -4,6 +4,8 @@ This page describes **how data gets into PostgreSQL** for GoliathApp deployments
 
 **Boundary (non‑negotiable):** **Workers and device adapters do not connect to PostgreSQL.** They use **`goliath-gateway`** HTTP only (`contracts/openapi.yaml`). **Operational seeding** is done by **authorized operators** with `psql` or migration jobs using **privileged** database roles — never with worker credentials.
 
+**Clean baseline vs your product database:** The official GoliathApp generic baseline (schema + platform seeds such as `seed_platform_nav_tree.sql`) is meant to stay **clean** for every adopter. **Product and domain evolution** — new semantic classes, Meta objects, views, dashboards, and tenant data — belongs on **your** PostgreSQL deployment (extend in place) or on a **duplicated / child database** after you copy the platform apply path. Operators see this split in the [Operator portal guide](operator-portal-guide.md).
+
 A **product-specific companion** (for example a science stack that shares types with this platform) should link here for **generic** apply/seed order and keep domain recipes in its own repository.
 
 ## Layers of population

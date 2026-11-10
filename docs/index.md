@@ -4,7 +4,13 @@ GoliathApp is the general-purpose enterprise platform. Role-based access control
 
 Specialized applications extend it with their own actions, profiles, and worker handlers. This repository is the platform those applications build on. It does not depend on them.
 
-## Start here (adopters)
+## Start here
+
+**Operators (signed-in portal at `/app`):**
+
+- [Operator portal guide](operator-portal-guide.md) — two starting paths (extend in place vs duplicate as your base), class hierarchy, views, dashboards, and clean-baseline rules
+
+**Engineers (adopters):**
 
 - [Adopter guide](adopter-guide.md) — when to extend the platform vs ship a standalone tool, entry points, enrollment, schema apply, neutral examples  
 - [Database population](database-population.md) — `psql` apply, seeds, bootstrap vs descendant registrations, worker vs DBA boundaries  

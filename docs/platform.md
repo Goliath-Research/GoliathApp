@@ -4,6 +4,8 @@ GoliathApp is a database-governed application platform. A specialized applicatio
 
 **New to building on GoliathApp?** Read [adopter-guide.md](adopter-guide.md), skim the diagrams in [architecture.md](architecture.md), and use [feature-catalog.md](feature-catalog.md) as a navigation index.
 
+**Operating the signed-in portal?** See [operator-portal-guide.md](operator-portal-guide.md) for the two starting paths (extend in place vs duplicate as your base), Meta class hierarchy, views, and dashboards.
+
 The repository map is [workspace-index.md](workspace-index.md). Apply order is [schema-apply.md](schema-apply.md). The HTTP contract is [`contracts/openapi.yaml`](https://github.com/Goliath-Research/GoliathApp/blob/main/contracts/openapi.yaml).
 
 ## Schemas
