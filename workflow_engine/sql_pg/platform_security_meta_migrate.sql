@@ -109,14 +109,13 @@ BEGIN
   LOOP
     v_obj := portal.sp_security_meta_mapped_obj('user', r."ID", v_class_user);
 
-    IF v_obj IS NOT NULL AND NOT EXISTS (
-      SELECT 1 FROM "Meta"."ObjValues" ov
-      WHERE ov."ObjID" = v_obj AND ov."ClassID" = v_class_user
-    ) THEN
-      DELETE FROM portal.security_meta_legacy_map
-      WHERE legacy_kind = 'user' AND legacy_id = r."ID";
-      v_obj := NULL;
-    END IF;
+    v_doc := jsonb_build_object(
+      'Label', COALESCE(NULLIF(btrim(r."FullName"), ''), r.email),
+      'Email', r.email,
+      'FullName', r."FullName",
+      'Active', (r."Active" = 1),
+      'LegacyUserId', r."ID"
+    );
 
     IF v_obj IS NOT NULL AND EXISTS (
       SELECT 1 FROM "Meta"."ObjValues" ov
@@ -126,47 +125,16 @@ BEGIN
       CONTINUE;
     END IF;
 
-    IF v_obj IS NULL THEN
-      IF NOT EXISTS (SELECT 1 FROM "Meta"."Objs" o WHERE o."ID" = r."ID") THEN
-        INSERT INTO "Meta"."Objs" ("ID", "ClassID")
-        VALUES (r."ID", v_class_user);
-        v_obj := r."ID";
-      ELSIF EXISTS (
-        SELECT 1 FROM "Meta"."Objs" o
-        WHERE o."ID" = r."ID" AND o."ClassID" = v_class_user
-      ) AND EXISTS (
-        SELECT 1 FROM "Meta"."ObjValues" ov
-        WHERE ov."ObjID" = r."ID" AND ov."ClassID" = v_class_user
-      ) THEN
-        v_obj := r."ID";
-      ELSE
-        v_doc := jsonb_build_object(
-          'Email', r.email,
-          'FullName', r."FullName",
-          'Active', (r."Active" = 1),
-          'LegacyUserId', r."ID"
-        );
-        v_obj := "Meta".sp_obj_insert(v_class_user, v_doc);
-      END IF;
+    IF v_obj IS NOT NULL THEN
+      PERFORM "Meta".sp_obj_update(v_obj, v_doc);
+    ELSIF NOT EXISTS (SELECT 1 FROM "Meta"."Objs" o WHERE o."ID" = r."ID") THEN
+      INSERT INTO "Meta"."Objs" ("ID", "ClassID")
+      VALUES (r."ID", v_class_user);
+      PERFORM "Meta".sp_obj_update(r."ID", v_doc);
+      v_obj := r."ID";
+    ELSE
+      v_obj := "Meta".sp_obj_insert(v_class_user, v_doc);
     END IF;
-
-    INSERT INTO "Meta"."ObjValues" ("ObjID", "ClassID", "Data")
-    VALUES (
-      v_obj,
-      v_class_person,
-      jsonb_build_object('Label', COALESCE(NULLIF(btrim(r."FullName"), ''), r.email))
-    )
-    ON CONFLICT ("ObjID", "ClassID") DO UPDATE SET "Data" = EXCLUDED."Data";
-
-    v_doc := jsonb_build_object(
-      'Email', r.email,
-      'FullName', r."FullName",
-      'Active', (r."Active" = 1),
-      'LegacyUserId', r."ID"
-    );
-    INSERT INTO "Meta"."ObjValues" ("ObjID", "ClassID", "Data")
-    VALUES (v_obj, v_class_user, v_doc)
-    ON CONFLICT ("ObjID", "ClassID") DO UPDATE SET "Data" = EXCLUDED."Data";
 
     PERFORM portal.sp_security_meta_upsert_map('user', r."ID", v_obj);
   END LOOP;
