@@ -33,6 +33,8 @@ export async function GET() {
       email: session.email,
       fullName: session.fullName,
       activeScopeId: session.activeScopeId,
+      activeRoleId: session.activeRoleId,
+      activeRoleName: session.activeRoleName,
       expiresAtUtc: session.expiresAtUtc.toISOString(),
     });
     response.headers.append("Set-Cookie", buildSessionSetCookie(token));

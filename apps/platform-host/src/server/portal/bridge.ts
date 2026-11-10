@@ -10,8 +10,22 @@ export type ResolvedPortalSession = {
   email: string;
   fullName: string;
   activeScopeId: number | null;
+  activeRoleId: number | null;
+  activeRoleName: string | null;
   expiresAtUtc: Date;
   revoked: boolean;
+};
+
+export type PortalActiveRoleState = {
+  activeRoleId: number | null;
+  activeRoleName: string | null;
+  selectableCount: number;
+  needsSelection: boolean;
+};
+
+export type SelectablePortalRole = {
+  roleId: number;
+  roleName: string;
 };
 
 export type OperatorNavRow = {
@@ -167,10 +181,39 @@ export type MetaClassFieldRow = {
   isLocal: boolean;
 };
 
+export function portalBridgeErrorMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  const gs = message.match(/\bGS\d{3}\b[:\s]+(.+)/i);
+  if (gs?.[1]) {
+    return gs[1].trim();
+  }
+  if (message.includes("BusinessRule:")) {
+    return message.split("BusinessRule:")[1]?.trim() ?? message;
+  }
+  if (message.includes("ValidationError:")) {
+    return message.split("ValidationError:")[1]?.trim() ?? message;
+  }
+  return message;
+}
+
+export function logPortalBridgeError(context: string, err: unknown): void {
+  const pgCode =
+    err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
+  const detail =
+    err && typeof err === "object" && "detail" in err ? String((err as { detail?: string }).detail ?? "") : "";
+  const safeMessage = portalBridgeErrorMessage(err).slice(0, 500);
+  console.error(`[portal-bridge] ${context}`, {
+    pgCode: pgCode || undefined,
+    detail: detail || undefined,
+    message: safeMessage,
+  });
+}
+
 function mapPgPortalError(err: unknown): never {
   const pgCode =
     err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
   const message = err instanceof Error ? err.message : String(err);
+  const friendly = portalBridgeErrorMessage(err);
   if (pgCode === "GS401" || message.includes("GS401") || message.includes("session denied")) {
     throw new PortalSessionDeniedError();
   }
@@ -181,7 +224,7 @@ function mapPgPortalError(err: unknown): never {
     ) {
       throw new PortalForbiddenError("meta permission denied");
     }
-    throw new PortalForbiddenError("forbidden");
+    throw new PortalForbiddenError(friendly);
   }
   if (
     pgCode === "GS404" ||
@@ -202,18 +245,27 @@ function mapPgPortalError(err: unknown): never {
     throw new PortalMetaNotFoundError();
   }
   if (pgCode === "GS400" || message.includes("GS400")) {
-    throw new PortalMetaValidationError(message);
+    throw new PortalMetaValidationError(friendly);
   }
   if (pgCode === "GS409" || message.includes("GS409") || message.includes("already exists")) {
-    throw new PortalMetaConflictError(message);
+    throw new PortalMetaConflictError(friendly);
+  }
+  if (pgCode === "23502" || pgCode === "23503" || pgCode === "23505") {
+    throw new PortalMetaValidationError(
+      pgCode === "23505" ? "a conflicting record already exists" : "invalid or incomplete data",
+    );
   }
   if (
     message.includes("unknown field") ||
     message.includes("missing required field") ||
     message.includes("ValidationError")
   ) {
-    throw new PortalMetaValidationError(message);
+    throw new PortalMetaValidationError(friendly);
   }
+  if (message.includes("BusinessRule:")) {
+    throw new PortalMetaValidationError(friendly);
+  }
+  logPortalBridgeError("unmapped database error", err);
   throw err;
 }
 
@@ -235,6 +287,8 @@ function mapSessionRow(row: QueryResultRow | undefined): ResolvedPortalSession |
     email: String(row.email ?? ""),
     fullName: String(row.full_name ?? ""),
     activeScopeId: row.active_scope_id == null ? null : Number(row.active_scope_id),
+    activeRoleId: row.active_role_id == null ? null : Number(row.active_role_id),
+    activeRoleName: row.active_role_name == null ? null : String(row.active_role_name),
     expiresAtUtc: new Date(String(row.expires_at_utc)),
     revoked: Boolean(row.revoked),
   };
@@ -243,11 +297,73 @@ function mapSessionRow(row: QueryResultRow | undefined): ResolvedPortalSession |
 export async function portalSessionResolve(sessionToken: string): Promise<ResolvedPortalSession | null> {
   return withClient(async (client) => {
     const result = await client.query(
-      `SELECT session_id, user_id, email, full_name, active_scope_id, expires_at_utc, revoked
+      `SELECT session_id, user_id, email, full_name, active_scope_id,
+              active_role_id, active_role_name, expires_at_utc, revoked
        FROM portal.fn_session_resolve($1) LIMIT 1`,
       [sessionToken],
     );
     return mapSessionRow(result.rows[0]);
+  });
+}
+
+export async function portalActiveRoleState(sessionToken: string): Promise<PortalActiveRoleState> {
+  return withClient(async (client) => {
+    const result = await client.query(
+      `SELECT active_role_id, active_role_name, selectable_count, needs_selection
+       FROM portal.sp_session_get_active_role_state($1)`,
+      [sessionToken],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new PortalSessionDeniedError();
+    }
+    return {
+      activeRoleId: row.active_role_id == null ? null : Number(row.active_role_id),
+      activeRoleName: row.active_role_name == null ? null : String(row.active_role_name),
+      selectableCount: Number(row.selectable_count ?? 0),
+      needsSelection: Boolean(row.needs_selection),
+    };
+  });
+}
+
+export async function portalAutoSelectActiveRole(sessionToken: string): Promise<void> {
+  await withClient(async (client) => {
+    await client.query(`SELECT role_id, auto_selected FROM portal.sp_session_auto_select_active_role($1)`, [
+      sessionToken,
+    ]);
+  });
+}
+
+export async function portalListSelectableRoles(sessionToken: string): Promise<SelectablePortalRole[]> {
+  return withClient(async (client) => {
+    const result = await client.query(
+      `SELECT role_id, role_name FROM portal.sp_session_list_selectable_roles($1)`,
+      [sessionToken],
+    );
+    return result.rows.map((row) => ({
+      roleId: Number(row.role_id),
+      roleName: String(row.role_name ?? ""),
+    }));
+  });
+}
+
+export async function portalSetActiveRole(
+  sessionToken: string,
+  roleId: number,
+): Promise<{ roleId: number; roleName: string }> {
+  return withClient(async (client) => {
+    const result = await client.query(
+      `SELECT role_id, role_name FROM portal.sp_session_set_active_role($1, $2)`,
+      [sessionToken, roleId],
+    );
+    const row = result.rows[0];
+    if (!row) {
+      throw new PortalSessionDeniedError("active role not set");
+    }
+    return {
+      roleId: Number(row.role_id),
+      roleName: String(row.role_name ?? ""),
+    };
   });
 }
 
@@ -921,10 +1037,56 @@ export async function portalSessionSecurity(
           );
           return { inserted: result.rows[0]?.inserted, grantId: result.rows[0]?.grant_id };
         }
-        case "invite_user": {
+        case "list_user_role_grants": {
           const result = await client.query(
-            `SELECT invitation_id FROM portal.sp_session_create_invitation_scoped($1, $2, $3)`,
-            [sessionToken, String(body.email ?? ""), Number(body.defaultRoleId)],
+            `SELECT grant_id, user_id, role_id, role_name, grant_type, scope_id, scope_name
+             FROM portal.sp_session_list_user_role_grants_scoped($1, $2)`,
+            [sessionToken, Number(body.targetUserId)],
+          );
+          return { grants: result.rows };
+        }
+        case "revoke_user_role_grant": {
+          const grantId = Number(body.grantId);
+          if (!Number.isFinite(grantId) || grantId <= 0) {
+            throw new PortalMetaValidationError("grant id is required");
+          }
+          const result = await client.query(
+            `SELECT revoked FROM portal.sp_session_revoke_user_role_grant($1, $2)`,
+            [sessionToken, grantId],
+          );
+          return { revoked: result.rows[0]?.revoked };
+        }
+        case "list_scope_identity_providers": {
+          const result = await client.query(
+            `SELECT provider_id, provider_name, issuer FROM portal.sp_session_list_scope_identity_providers($1)`,
+            [sessionToken],
+          );
+          return { providers: result.rows };
+        }
+        case "list_users_admin": {
+          const result = await client.query(
+            `SELECT user_id, full_name, email, active, scoped_role_count, sign_in_status, identity_provider_name
+             FROM portal.sp_session_list_users_admin($1)`,
+            [sessionToken],
+          );
+          return { users: result.rows };
+        }
+        case "invite_user": {
+          const roleId = Number(body.defaultRoleId);
+          if (!Number.isFinite(roleId) || roleId <= 0) {
+            throw new PortalMetaValidationError("default role is required");
+          }
+          const providerRaw = body.expectedProviderId;
+          const providerId =
+            providerRaw == null || providerRaw === ""
+              ? null
+              : Number(providerRaw);
+          if (providerId != null && (!Number.isFinite(providerId) || providerId <= 0)) {
+            throw new PortalMetaValidationError("invalid identity provider");
+          }
+          const result = await client.query(
+            `SELECT invitation_id FROM portal.sp_session_create_invitation_scoped($1, $2, $3, $4)`,
+            [sessionToken, String(body.email ?? ""), roleId, providerId],
           );
           return { invitationId: result.rows[0]?.invitation_id };
         }

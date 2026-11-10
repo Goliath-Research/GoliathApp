@@ -15,7 +15,16 @@ A user is allowed when **any** scoped role succeeds. **Deny** on a class applies
 
 Operators with `platform.security.admin` and NavTree entitlements use:
 
-- `/app/admin/users` — users, invitations, scoped role grants
+- `/app/admin/users` — users, invitations, scoped role grants (roles column + per-grant revoke in active scope)
+
+### Invitations and first sign-in (Entra / OIDC)
+
+- **Record invitation** picks the scope’s identity provider (or asks you to choose when several are linked). Invitations store `ExpectedProviderID`; pending duplicates for the same email return **GS409**.
+- **No invitation email** is sent from the platform host unless you add outbound email. Use **Copy sign-in link** (`/login`) so the user opens the correct OIDC provider.
+- On **first sign-in**, the host passes verified `email` / `preferred_username` claims in the auth snapshot. The portal:
+  1. Accepts a matching **pending invitation** (creates/links user, grants default role, marks `ACCEPTED`), or
+  2. Links an **admin-pre-created** active user when email matches, the user belongs to the organization scope, and they have **no** external identity for that provider yet.
+- Existing `ExternalIdentities` are never re-bound to a different subject. Mismatched issuer/tenant or duplicate subjects are rejected (**GS403**). Every new link is recorded in `portal.external_identity_link_audit`.
 - `/app/admin/roles` — create roles, toggle permissions
 - `/app/admin/permissions` — permission catalog
 - Meta workbench **Security** tab — class grants and effective-permission checker

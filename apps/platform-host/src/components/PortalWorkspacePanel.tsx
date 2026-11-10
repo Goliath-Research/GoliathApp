@@ -18,12 +18,14 @@ import {
   portalSessionMetaListClasses,
   portalSessionPlatformQuery,
   portalSessionRunSemanticRequest,
+  portalSessionSecurity,
   portalSessionSemanticEntities,
 } from "@/server/portal/bridge";
+import { cookies, headers } from "next/headers";
+import { requestOriginFromHeaderStore } from "@/server/http/request-origin";
 import type { PortalWorkspaceSpec } from "@/lib/portal-node-registry";
 import { PLATFORM_QUERY_SQL } from "@/lib/portal-platform-queries";
 import { SESSION_COOKIE_NAME } from "@/server/session/cookies";
-import { cookies } from "next/headers";
 
 const SEMANTIC_REQUEST_COLUMNS: Record<string, { key: string; label: string }[]> = {
   "core.list_organizations": [
@@ -153,18 +155,30 @@ export async function PortalWorkspacePanel({
     }
 
     if (spec.kind === "admin_users") {
-      const users = await portalSessionPlatformQuery(token, PLATFORM_QUERY_SQL.users.sql);
+      const hdrs = await headers();
+      const origin = requestOriginFromHeaderStore((name) => hdrs.get(name), "http://localhost:3400");
+      const adminPayload = (await portalSessionSecurity(token, "list_users_admin", {})) as {
+        users?: Record<string, unknown>[];
+      };
+      const users = adminPayload.users ?? [];
       const roles = await portalSessionPlatformQuery(token, PLATFORM_QUERY_SQL.roles.sql);
       return (
         <div className="g-portal-stage">
           <h2>{spec.title}</h2>
           {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
           <AdminUsersWorkspace
+            signInUrl={`${origin}/login`}
             users={users.map((u) => ({
               user_id: Number(u.user_id),
               full_name: String(u.full_name ?? ""),
               email: String(u.email ?? ""),
               active: Number(u.active ?? 0),
+              scoped_role_count: Number(u.scoped_role_count ?? 0),
+              active_roles_summary:
+                u.active_roles_summary == null ? null : String(u.active_roles_summary),
+              sign_in_status: String(u.sign_in_status ?? ""),
+              identity_provider_name:
+                u.identity_provider_name == null ? null : String(u.identity_provider_name),
             }))}
             roles={roles.map((r) => ({
               role_id: Number(r.role_id),
