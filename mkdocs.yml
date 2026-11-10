@@ -29,6 +29,7 @@ nav:
       - Adopter guide: adopter-guide.md
       - Operator portal (end users): operator-portal-guide.md
       - Platform generic Meta: platform-generic-meta.md
+      - Layered security model: platform-layered-security.md
       - Architecture: architecture.md
       - Platform visualization (UI): visualization.md
       - Feature catalog: feature-catalog.md

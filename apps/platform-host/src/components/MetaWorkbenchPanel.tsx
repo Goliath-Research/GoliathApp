@@ -1,5 +1,7 @@
 import { MetaClassExplorer } from "@goliath/platform-ui";
+import { MetaClassSecurityPanel } from "@/components/MetaClassSecurityPanel";
 import { MetaInstanceWorkbench } from "@/components/MetaInstanceWorkbench";
+import { PLATFORM_QUERY_SQL } from "@/lib/portal-platform-queries";
 import { EXAMPLE_CHILD_EXTENSION } from "@/lib/child-extension";
 import { resolveMetaEditorManifestKey } from "@/lib/resolve-meta-editor";
 import { resolveMetaEditorComponent } from "@/lib/meta-editor-registry";
@@ -9,6 +11,7 @@ import {
   portalSessionMetaClassFields,
   portalSessionMetaClassGet,
   portalSessionMetaClassLineage,
+  portalSessionPlatformQuery,
 } from "@/server/portal/bridge";
 import { SESSION_COOKIE_NAME } from "@/server/session/cookies";
 import { cookies } from "next/headers";
@@ -22,11 +25,13 @@ export async function MetaWorkbenchPanel({ className }: { className: string }) {
   let summary;
   let lineage;
   let fields;
+  let roleRows: Array<Record<string, unknown>> = [];
   try {
-    [summary, lineage, fields] = await Promise.all([
+    [summary, lineage, fields, roleRows] = await Promise.all([
       portalSessionMetaClassGet(token, className),
       portalSessionMetaClassLineage(token, className),
       portalSessionMetaClassFields(token, className),
+      portalSessionPlatformQuery(token, PLATFORM_QUERY_SQL.roles.sql).catch(() => []),
     ]);
   } catch (err) {
     if (err instanceof PortalForbiddenError) {
@@ -90,6 +95,15 @@ export async function MetaWorkbenchPanel({ className }: { className: string }) {
         isLocal: f.isLocal,
       }))}
       classIconOverrides={EXAMPLE_CHILD_EXTENSION.manifest.classIconOverrides}
+      securitySlot={
+        <MetaClassSecurityPanel
+          className={className}
+          roles={roleRows.map((r) => ({
+            role_id: Number(r.role_id),
+            role_name: String(r.name ?? ""),
+          }))}
+        />
+      }
       editorSlot={
         <>
           {resolveMetaEditorComponent(editorResolved.manifestKey, {
@@ -104,6 +118,10 @@ export async function MetaWorkbenchPanel({ className }: { className: string }) {
             flattenedSchema={summary.schemaFlattenedJson}
             bundledSchema={summary.schemaBundledJson}
             lineage={lineage}
+            roles={roleRows.map((r) => ({
+              role_id: Number(r.role_id),
+              role_name: String(r.name ?? ""),
+            }))}
           />
         </>
       }

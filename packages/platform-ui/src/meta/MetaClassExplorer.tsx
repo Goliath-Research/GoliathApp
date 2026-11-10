@@ -12,6 +12,8 @@ export type MetaClassExplorerProps = {
   classIconOverrides?: ClassIconOverrideManifest;
   /** Optional child-registered editor slot (opaque key from GoliathUiManifest). */
   editorSlot?: ReactNode;
+  /** Optional security administration slot (class-level ACL). */
+  securitySlot?: ReactNode;
 };
 
 function ancestryChain(lineage: MetaClassLineageNode[], className: string): string[] {
@@ -31,6 +33,7 @@ export function MetaClassExplorer({
   fields,
   classIconOverrides,
   editorSlot,
+  securitySlot,
 }: MetaClassExplorerProps) {
   const ancestry = ancestryChain(lineage, summary.className);
   const classPresentation = resolvePresentation({
@@ -126,6 +129,13 @@ export function MetaClassExplorer({
           </tbody>
         </table>
       </section>
+
+      {securitySlot ? (
+        <section aria-labelledby="meta-security-heading">
+          <h3 id="meta-security-heading">Security</h3>
+          {securitySlot}
+        </section>
+      ) : null}
 
       {editorSlot ? (
         <section aria-labelledby="meta-editor-heading">

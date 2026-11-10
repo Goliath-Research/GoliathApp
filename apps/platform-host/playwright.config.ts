@@ -19,7 +19,8 @@ export default defineConfig({
           { name: "setup", testMatch: /auth\.setup\.ts/ },
           {
             name: "chromium-auth",
-            testMatch: /host\.meta\.(authenticated|nested-grid)\.spec\.ts|host\.model-authoring\.spec\.ts/,
+            testMatch:
+              /host\.meta\.(authenticated|nested-grid)\.spec\.ts|host\.model-authoring\.spec\.ts|host\.layered-security\.spec\.ts/,
             dependencies: ["setup"],
             use: { ...devices["Desktop Chrome"], storageState: authFile },
           },

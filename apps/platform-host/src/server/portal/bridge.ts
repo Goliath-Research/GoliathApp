@@ -898,3 +898,113 @@ export async function portalSessionModelAuthoring(
     }
   });
 }
+
+export async function portalSessionSecurity(
+  sessionToken: string,
+  action: string,
+  body: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  return withClient(async (client) => {
+    try {
+      switch (action) {
+        case "upsert_user": {
+          const result = await client.query(
+            `SELECT user_id FROM portal.sp_session_upsert_user($1, $2, $3, $4)`,
+            [sessionToken, String(body.email ?? ""), String(body.fullName ?? ""), Number(body.active ?? 1)],
+          );
+          return { userId: result.rows[0]?.user_id };
+        }
+        case "grant_user_role": {
+          const result = await client.query(
+            `SELECT inserted, grant_id FROM portal.sp_session_grant_user_role_admin($1, $2, $3)`,
+            [sessionToken, Number(body.targetUserId), Number(body.roleId)],
+          );
+          return { inserted: result.rows[0]?.inserted, grantId: result.rows[0]?.grant_id };
+        }
+        case "invite_user": {
+          const result = await client.query(
+            `SELECT invitation_id FROM portal.sp_session_create_invitation_scoped($1, $2, $3)`,
+            [sessionToken, String(body.email ?? ""), Number(body.defaultRoleId)],
+          );
+          return { invitationId: result.rows[0]?.invitation_id };
+        }
+        case "create_role": {
+          const result = await client.query(`SELECT role_id FROM portal.sp_session_create_role($1, $2)`, [
+            sessionToken,
+            String(body.name ?? ""),
+          ]);
+          return { roleId: result.rows[0]?.role_id };
+        }
+        case "set_role_permission": {
+          const result = await client.query(
+            `SELECT granted FROM portal.sp_session_set_role_permission($1, $2, $3, $4)`,
+            [sessionToken, Number(body.roleId), String(body.permissionName ?? ""), Boolean(body.granted)],
+          );
+          return { granted: result.rows[0]?.granted };
+        }
+        case "upsert_class_access": {
+          const result = await client.query(
+            `SELECT access_id FROM portal.sp_session_upsert_class_role_access($1, $2, $3, $4, $5)`,
+            [
+              sessionToken,
+              String(body.className ?? ""),
+              Number(body.roleId),
+              String(body.metaAction ?? "read"),
+              String(body.effect ?? "allow"),
+            ],
+          );
+          return { accessId: result.rows[0]?.access_id };
+        }
+        case "list_class_access": {
+          const result = await client.query(
+            `SELECT access_id, role_id, role_name, class_id, class_name, action, effect, declared_depth
+             FROM portal.sp_session_list_class_role_access($1, $2)`,
+            [sessionToken, String(body.className ?? "")],
+          );
+          return { rows: result.rows };
+        }
+        case "upsert_object_access": {
+          const result = await client.query(
+            `SELECT access_id FROM portal.sp_session_upsert_object_access($1, $2, $3, $4, $5, $6)`,
+            [
+              sessionToken,
+              Number(body.objId),
+              body.roleId != null ? Number(body.roleId) : null,
+              body.userId != null ? Number(body.userId) : null,
+              String(body.metaAction ?? "read"),
+              String(body.effect ?? "deny"),
+            ],
+          );
+          return { accessId: result.rows[0]?.access_id };
+        }
+        case "list_object_access": {
+          const result = await client.query(
+            `SELECT access_id, role_id, role_name, user_id, user_name, action, effect
+             FROM portal.sp_session_list_object_access($1, $2)`,
+            [sessionToken, Number(body.objId)],
+          );
+          return { rows: result.rows };
+        }
+        case "effective_check": {
+          const result = await client.query(
+            `SELECT allowed, resolution_summary FROM portal.sp_session_effective_permissions_check($1, $2, $3, NULL, $4)`,
+            [
+              sessionToken,
+              Number(body.targetUserId),
+              body.className != null ? String(body.className) : null,
+              String(body.metaAction ?? "read"),
+            ],
+          );
+          return {
+            allowed: result.rows[0]?.allowed,
+            summary: result.rows[0]?.resolution_summary,
+          };
+        }
+        default:
+          throw new Error("unknown security action");
+      }
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}

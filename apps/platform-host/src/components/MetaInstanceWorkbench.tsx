@@ -11,6 +11,7 @@ import {
   type MetaCatalogClassFixture,
 } from "@/lib/meta-catalog-resolver";
 import { MetaJsonDocumentEditor } from "./MetaJsonDocumentEditor";
+import { MetaObjectSecurityPanel } from "./MetaObjectSecurityPanel";
 
 export type MetaInstanceWorkbenchProps = {
   className: string;
@@ -19,6 +20,7 @@ export type MetaInstanceWorkbenchProps = {
   bundledSchema?: unknown;
   lineage?: MetaClassLineageNode[];
   catalogClassFixtures?: Record<string, MetaCatalogClassFixture>;
+  roles?: Array<{ role_id: number; role_name: string }>;
 };
 
 export function MetaInstanceWorkbench({
@@ -28,6 +30,7 @@ export function MetaInstanceWorkbench({
   bundledSchema,
   lineage,
   catalogClassFixtures,
+  roles = [],
 }: MetaInstanceWorkbenchProps) {
   const client = useMemo(() => createPlatformBffClient(), []);
   const catalogResolver = useMemo(
@@ -82,6 +85,9 @@ export function MetaInstanceWorkbench({
           <summary>Merged document from portal.sp_session_meta_obj_get</summary>
           <pre className="g-host-code-block">{roundtrip}</pre>
         </details>
+      ) : null}
+      {lastObjId != null && roles.length > 0 ? (
+        <MetaObjectSecurityPanel objId={lastObjId} roles={roles} />
       ) : null}
       <MetaJsonDocumentEditor flattenedSchema={flattenedSchema} />
     </div>
