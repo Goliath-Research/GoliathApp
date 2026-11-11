@@ -93,19 +93,23 @@ export function MetaInstanceWorkbench({
   }
 
   async function save(document: Record<string, unknown>) {
-    ++selectRequestRef.current;
+    const requestId = ++selectRequestRef.current;
     setStatus(null);
     setError(null);
     if (selectedObjId != null) {
       await client.updateMetaObject(selectedObjId, document);
+      if (requestId !== selectRequestRef.current) return;
       const row = await client.getMetaObject(selectedObjId);
+      if (requestId !== selectRequestRef.current) return;
       setEditorDocument(row.document ?? {});
       setStatus(`Updated object #${selectedObjId}.`);
       await refreshList();
       return;
     }
     const { objId } = await client.createMetaObject(className, document);
+    if (requestId !== selectRequestRef.current) return;
     const row = await client.getMetaObject(objId);
+    if (requestId !== selectRequestRef.current) return;
     setEditorDocument(row.document ?? {});
     setSelectedObjId(objId);
     setStatus(`Created object #${objId}.`);
