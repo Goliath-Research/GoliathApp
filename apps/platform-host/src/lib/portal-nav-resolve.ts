@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { nodePathFromUrlPathname, resolvePortalWorkspace } from "@/lib/portal-node-registry";
 import type { PortalWorkspaceSpec } from "@/lib/portal-node-registry";
-import { portalOperatorNavTree } from "@/server/portal/bridge";
+import { portalAutoSelectActiveRole, portalOperatorNavTree } from "@/server/portal/bridge";
 import { SESSION_COOKIE_NAME } from "@/server/session/cookies";
 
 export async function resolveWorkspaceForPathname(pathname: string): Promise<{
@@ -13,6 +13,7 @@ export async function resolveWorkspaceForPathname(pathname: string): Promise<{
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (token) {
     try {
+      await portalAutoSelectActiveRole(token);
       const rows = await portalOperatorNavTree(token);
       const row = rows.find((r) => r.nodePath === nodePath);
       if (row) {
