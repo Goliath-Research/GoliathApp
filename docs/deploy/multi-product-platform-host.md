@@ -4,7 +4,7 @@ The platform host can serve **multiple child products** from a single Node proce
 
 ## Runtime configuration
 
-Set `GOLIATH_PLATFORM_PRODUCTS_JSON` to a JSON document matching [`products/host-registry.example.json`](../../products/host-registry.example.json). Each product uses **environment variables derived from its id** (uppercase):
+Set `GOLIATH_PLATFORM_PRODUCTS_JSON` to a JSON document matching `products/host-registry.example.json` in the repository root. Each product uses **environment variables derived from its id** (uppercase):
 
 | Variable | Purpose |
 |----------|---------|

@@ -274,7 +274,7 @@ function mapPgPortalError(err: unknown): never {
 }
 
 async function withClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await getPool().connect();
+  const client = await (await getPool()).connect();
   try {
     return await fn(client);
   } finally {
