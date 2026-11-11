@@ -242,6 +242,11 @@ export function SchemaPropertyGridSurface({
           const val = objectValues[fieldName];
           if (!val || Object.keys(val).length === 0) {
             if (!editor.optional && required) {
+              const initialVal = initialDocument[fieldName];
+              if (isSchemaRecord(initialVal) && Object.keys(initialVal).length > 0) {
+                document[fieldName] = initialVal;
+                break;
+              }
               return fail(`Field ${fieldName} requires a nested object`);
             }
             if (hadInitial(fieldName)) {
@@ -303,7 +308,7 @@ export function SchemaPropertyGridSurface({
     }
     if (!embedded && isSchemaRecord(schema)) {
       const validationSchema = isSchemaRecord(bundledSchema) ? bundledSchema : schema;
-      const forValidation = { ...document };
+      const forValidation = { ...initialDocument, ...document };
       for (const key of Object.keys(forValidation)) {
         if (forValidation[key] === null) {
           delete forValidation[key];
