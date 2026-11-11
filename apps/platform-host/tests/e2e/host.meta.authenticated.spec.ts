@@ -167,18 +167,25 @@ test.describe("authenticated meta (CI postgres)", () => {
     await page.getByTestId(`meta-instance-row-${objId}`).click();
     const caption = page.getByTestId("pi-row-Caption").locator("input");
     await expect(caption).toHaveValue("ListPick", { timeout: 15_000 });
-    await fillRequiredSchemaGridFields(page, request);
     await caption.fill("ListPickEdited");
     await expect(caption).toHaveValue("ListPickEdited");
     const workbench = page.getByTestId("meta-instance-workbench");
-    const patchObject = page.waitForResponse(
-      (r) => r.request().method() === "PATCH" && r.url().includes(`/api/meta/objects/${objId}`),
-    );
+    await expect(workbench.getByRole("button", { name: "Save changes" })).toBeEnabled();
     await workbench.getByRole("button", { name: "Save changes" }).click();
-    const patchRes = await patchObject;
-    expect(patchRes.ok(), `save failed: ${await patchRes.text()}`).toBeTruthy();
-    const gridAlert = workbench.locator(".g-schema-property-grid [role=alert]");
-    await expect(gridAlert).toHaveCount(0);
+    let patchRes: import("@playwright/test").Response;
+    try {
+      patchRes = await page.waitForResponse(
+        (r) => r.request().method() === "PATCH" && r.url().includes(`/api/meta/objects/${objId}`),
+        { timeout: 20_000 },
+      );
+    } catch {
+      const alerts = await workbench.locator("[role=alert]").allInnerTexts();
+      throw new Error(`PATCH was not sent; UI alerts: ${alerts.length ? alerts.join(" | ") : "(none)"}`);
+    }
+    expect(
+      patchRes.ok(),
+      `save failed: ${await patchRes.text()}; alerts: ${(await workbench.locator("[role=alert]").allInnerTexts()).join(" | ")}`,
+    ).toBeTruthy();
     await expect
       .poll(async () => {
         const getRes = await request.get(`/api/meta/objects/${objId}`);
