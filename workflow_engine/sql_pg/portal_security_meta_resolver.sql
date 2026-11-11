@@ -171,6 +171,25 @@ AS $$
   );
 $$;
 
+CREATE OR REPLACE FUNCTION portal.fn_security_meta_user_legacy_map_ok(p_user_id integer)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "Meta", pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM portal.security_meta_legacy_map m
+    INNER JOIN "Meta"."ObjValues" ov ON ov."ObjID" = m.meta_obj_id
+    INNER JOIN "Meta"."Classes" c ON c."ID" = ov."ClassID"
+    WHERE m.legacy_kind = 'user'
+      AND m.legacy_id = p_user_id
+      AND c."Name" = 'platform/User'
+      AND (ov."Data"->>'LegacyUserId')::int = p_user_id
+  );
+$$;
+
 CREATE OR REPLACE FUNCTION portal.sp_security_meta_verify_production()
 RETURNS TABLE (
   check_name text,
@@ -221,15 +240,9 @@ BEGIN
   RETURN QUERY
   SELECT
     'meta_user_ids_preserved'::text,
-    EXISTS (
-      SELECT 1 FROM portal.security_meta_legacy_map m
-      WHERE m.legacy_kind = 'user' AND m.legacy_id = 1 AND m.meta_obj_id = 1
-    )
-    AND EXISTS (
-      SELECT 1 FROM portal.security_meta_legacy_map m
-      WHERE m.legacy_kind = 'user' AND m.legacy_id = 2 AND m.meta_obj_id = 2
-    ),
-    'Users 1 and 2 map to Meta objs with same ids'::text;
+    portal.fn_security_meta_user_legacy_map_ok(1)
+      AND portal.fn_security_meta_user_legacy_map_ok(2),
+    'Users 1 and 2 map via security_meta_legacy_map to platform/User with LegacyUserId'::text;
 END;
 $$;
 

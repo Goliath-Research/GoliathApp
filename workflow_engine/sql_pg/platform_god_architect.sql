@@ -409,39 +409,9 @@ BEGIN
   RETURN QUERY
   SELECT
     'meta_user_ids_preserved'::text,
-    (
-      EXISTS (
-        SELECT 1 FROM portal.security_meta_legacy_map m
-        WHERE m.legacy_kind = 'user' AND m.legacy_id = 1 AND m.meta_obj_id = 1
-      )
-      AND EXISTS (
-        SELECT 1 FROM portal.security_meta_legacy_map m
-        WHERE m.legacy_kind = 'user' AND m.legacy_id = 2 AND m.meta_obj_id = 2
-      )
-    )
-    OR (
-      EXISTS (
-        SELECT 1 FROM "RBAC"."Users" u
-        WHERE u."ID" = 1 AND u.email LIKE '%-prod-fixture@test'
-      )
-      AND EXISTS (
-        SELECT 1 FROM portal.security_meta_legacy_map m
-        WHERE m.legacy_kind = 'user' AND m.legacy_id IN (1, 2)
-        GROUP BY m.legacy_kind
-        HAVING COUNT(*) = 2
-      )
-      AND (
-        SELECT COUNT(DISTINCT m.legacy_id)
-        FROM "Meta"."ObjValues" ov
-        INNER JOIN portal.security_meta_legacy_map m
-          ON m.legacy_kind = 'user' AND m.meta_obj_id = ov."ObjID"
-        INNER JOIN "Meta"."Classes" c ON c."ID" = ov."ClassID"
-        WHERE c."Name" = 'platform/User'
-          AND (ov."Data"->>'LegacyUserId')::int = m.legacy_id
-          AND m.legacy_id IN (1, 2)
-      ) = 2
-    ),
-    'Users 1 and 2 map to Meta objs with same ids (or CI production fixture mapping)'::text;
+    portal.fn_security_meta_user_legacy_map_ok(1)
+      AND portal.fn_security_meta_user_legacy_map_ok(2),
+    'Users 1 and 2 map via security_meta_legacy_map to platform/User with LegacyUserId'::text;
 END;
 $$;
 

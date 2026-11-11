@@ -132,7 +132,23 @@ def test_grant_cache_matches_rbac_after_migrate(sec_meta_env: dict[str, str]) ->
         sec_meta_env,
     )
     assert map_line
-    assert int(map_line) > 0
+    meta_obj_id = int(map_line)
+    assert meta_obj_id > 0
+    legacy_ok = _psql(
+        f"SELECT portal.fn_security_meta_user_legacy_map_ok({user_id})",
+        sec_meta_env,
+    )
+    assert legacy_ok == "t"
+    doc_legacy = _psql(
+        f"""
+        SELECT (ov."Data"->>'LegacyUserId')::int
+        FROM "Meta"."ObjValues" ov
+        WHERE ov."ObjID" = {meta_obj_id}
+          AND ov."ClassID" = (SELECT "ID" FROM "Meta"."Classes" WHERE "Name" = 'platform/User')
+        """,
+        sec_meta_env,
+    )
+    assert int(doc_legacy) == user_id
 
 
 def test_grant_cache_stable_on_re_migrate(sec_meta_env: dict[str, str]) -> None:

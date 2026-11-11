@@ -33,6 +33,7 @@ Sessions remain **single active role**. David (or any grantee) must **select God
 |-------|-------------|
 | `god_architect_role_seeded` | Role exists |
 | `david_god_architect_global` | User 1 has active global god_architect in `mv_security_effective_grants` |
+| `meta_user_ids_preserved` | Users `1` and `2` have `security_meta_legacy_map` entries pointing at `platform/User` rows whose `LegacyUserId` matches (Meta obj id may differ) |
 
 ## Child applications
 
