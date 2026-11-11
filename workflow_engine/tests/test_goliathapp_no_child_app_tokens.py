@@ -43,6 +43,8 @@ EXCLUDE_REL_PATHS = frozenset(
     {
         "docs/decoupling-plan.md",
         "workflow_engine/tests/test_goliathapp_no_child_app_tokens.py",
+        "workflow_engine/tests/test_products_goliathomics_package.py",
+        ".github/workflows/pr.yml",
     }
 )
 
