@@ -85,6 +85,7 @@ export function MetaInstanceWorkbench({
   }
 
   function handleNew() {
+    ++selectRequestRef.current;
     setSelectedObjId(null);
     setEditorDocument({});
     setStatus("Create mode — fill properties and save.");
@@ -92,6 +93,7 @@ export function MetaInstanceWorkbench({
   }
 
   async function save(document: Record<string, unknown>) {
+    ++selectRequestRef.current;
     setStatus(null);
     setError(null);
     if (selectedObjId != null) {
