@@ -133,9 +133,6 @@ export function SchemaPropertyGridSurface({
     initObjects(plans, initialDocument),
   );
   const [arrayValues, setArrayValues] = useState<Record<string, unknown[]>>(() => initArrays(plans, initialDocument));
-  const [schemalessValues, setSchemalessValues] = useState<Record<string, string>>(() =>
-    initSchemaless(plans, initialDocument),
-  );
   const [dialog, setDialog] = useState<InspectorDialogRequest>(null);
 
   useEffect(() => {
@@ -181,7 +178,7 @@ export function SchemaPropertyGridSurface({
   useEffect(() => {
     if (!onDraftChange) return;
     onDraftChange(buildPartialDocument());
-  }, [onDraftChange, primitiveValues, objectValues, arrayValues, schemalessValues]);
+  }, [onDraftChange, primitiveValues, objectValues, arrayValues]);
 
   function buildPartialDocument(): Record<string, unknown> {
     const document: Record<string, unknown> = {};
@@ -629,7 +626,6 @@ export function SchemaPropertyGridSurface({
 
   function renderRow(plan: FieldPlan) {
     const { fieldName, editor } = plan;
-    const id = `meta-field-${fieldName}`;
     if (editor.mode === "typedMetaClass" || editor.mode === "typedDataType") {
       const val = objectValues[fieldName];
       return renderNestedValueRow(plan, summaryObject(val), true);
@@ -995,12 +991,3 @@ function initArrays(plans: FieldPlan[], doc: Record<string, unknown>): Record<st
   return next;
 }
 
-function initSchemaless(plans: FieldPlan[], doc: Record<string, unknown>): Record<string, string> {
-  const next: Record<string, string> = {};
-  for (const plan of plans) {
-    if (plan.editor.mode !== "schemaless") continue;
-    const raw = doc[plan.fieldName];
-    next[plan.fieldName] = raw == null ? "" : JSON.stringify(raw);
-  }
-  return next;
-}
