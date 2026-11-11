@@ -77,6 +77,25 @@ test.describe("authenticated meta (CI postgres)", () => {
     };
     for (const field of fields.filter((f) => f.required)) {
       const row = page.getByTestId(`pi-row-${field.fieldName}`);
+      const openNested = row.getByTestId(`pi-open-${field.fieldName}`);
+      if ((await openNested.count()) > 0) {
+        await openNested.click();
+        const modal = page.getByTestId("property-inspector-modal");
+        await expect(modal).toBeVisible({ timeout: 15_000 });
+        const textInputs = modal.locator("input:not([type='checkbox']):not([type='number'])");
+        const count = await textInputs.count();
+        for (let i = 0; i < count; i++) {
+          await textInputs.nth(i).fill("e2e");
+        }
+        const numberInputs = modal.locator("input[type='number']");
+        const nCount = await numberInputs.count();
+        for (let i = 0; i < nCount; i++) {
+          await numberInputs.nth(i).fill("1");
+        }
+        await modal.getByTestId("property-inspector-ok").click();
+        await expect(page.getByTestId("property-inspector-modal")).toHaveCount(0, { timeout: 15_000 });
+        continue;
+      }
       const checkbox = row.locator('input[type="checkbox"]');
       if ((await checkbox.count()) > 0) {
         await checkbox.check();
@@ -145,10 +164,12 @@ test.describe("authenticated meta (CI postgres)", () => {
     await page.goto("/app/meta?class=portal%2FNavNode");
     await expect(page.getByTestId(`meta-instance-row-${objId}`)).toBeVisible({ timeout: 15_000 });
     await page.getByTestId(`meta-instance-row-${objId}`).click();
-    await fillRequiredSchemaGridFields(page, request);
     const caption = page.getByTestId("pi-row-Caption").locator("input");
-    await expect(caption).toBeVisible();
+    await expect(caption).toBeVisible({ timeout: 15_000 });
+    await expect(caption).toHaveValue("ListPick");
+    await fillRequiredSchemaGridFields(page, request);
     await caption.fill("ListPickEdited");
+    await expect(page.getByRole("button", { name: "Save changes" })).toBeEnabled();
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByTestId("meta-workbench-status")).toContainText(`Updated object #${objId}`, {
       timeout: 15_000,
