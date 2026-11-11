@@ -171,13 +171,14 @@ test.describe("authenticated meta (CI postgres)", () => {
     await expect(caption).toHaveValue("ListPickEdited");
     const workbench = page.getByTestId("meta-instance-workbench");
     await expect(workbench.getByRole("button", { name: "Save changes" })).toBeEnabled();
+    const patchPromise = page.waitForResponse(
+      (r) => r.request().method() === "PATCH" && r.url().includes(`/api/meta/objects/${objId}`),
+      { timeout: 20_000 },
+    );
     await workbench.getByRole("button", { name: "Save changes" }).click();
     let patchRes: import("@playwright/test").Response;
     try {
-      patchRes = await page.waitForResponse(
-        (r) => r.request().method() === "PATCH" && r.url().includes(`/api/meta/objects/${objId}`),
-        { timeout: 20_000 },
-      );
+      patchRes = await patchPromise;
     } catch {
       const alerts = await workbench.locator("[role=alert]").allInnerTexts();
       throw new Error(`PATCH was not sent; UI alerts: ${alerts.length ? alerts.join(" | ") : "(none)"}`);

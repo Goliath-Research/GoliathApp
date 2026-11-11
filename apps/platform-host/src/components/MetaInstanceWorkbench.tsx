@@ -76,6 +76,8 @@ export function MetaInstanceWorkbench({
 
   async function handleSelect(objId: number) {
     if (selectedObjIdRef.current === objId) {
+      ++saveRequestRef.current;
+      ++selectRequestRef.current;
       return;
     }
     setStatus(null);
