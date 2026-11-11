@@ -104,6 +104,7 @@ export function MetaInstanceWorkbench({
       if (targetObjId != null) {
         const payload = { ...editorDocument, ...document };
         await client.updateMetaObject(targetObjId, payload);
+        setStatus(`Updated object #${targetObjId}.`);
         await refreshList();
         if (saveId !== saveRequestRef.current) return;
         const row = await client.getMetaObject(targetObjId);
@@ -111,17 +112,16 @@ export function MetaInstanceWorkbench({
         if (selectedObjId !== targetObjId) return;
         setEditorDocument(row.document ?? {});
         setSelectedObjId(targetObjId);
-        setStatus(`Updated object #${targetObjId}.`);
         return;
       }
       const { objId } = await client.createMetaObject(className, document);
+      setStatus(`Created object #${objId}.`);
       await refreshList();
       if (saveId !== saveRequestRef.current) return;
       const row = await client.getMetaObject(objId);
       if (saveId !== saveRequestRef.current) return;
       setEditorDocument(row.document ?? {});
       setSelectedObjId(objId);
-      setStatus(`Created object #${objId}.`);
     } catch (e) {
       if (saveId !== saveRequestRef.current) return;
       setError(e instanceof Error ? e.message : "save failed");
