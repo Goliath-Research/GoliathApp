@@ -57,7 +57,6 @@ nav:
   - Inventory module: inventory-module.md
   - Deployment: deployment.md
   - Platform UI host: deploy/platform-host.md
-  - Multi-product platform host: deploy/multi-product-platform-host.md
   - Operator portal plan: deploy/platform-host-operator-portal.md
   - Platform host P1 auth: deploy/platform-host-p1-auth.md
   - Platform host P2 meta: deploy/platform-host-p2-meta.md
