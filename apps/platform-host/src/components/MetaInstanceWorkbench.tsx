@@ -132,7 +132,11 @@ export function MetaInstanceWorkbench({
           {error}
         </p>
       ) : null}
-      {status ? <p role="status">{status}</p> : null}
+      {status ? (
+        <p role="status" data-testid="meta-workbench-status">
+          {status}
+        </p>
+      ) : null}
       <SchemaPropertyGrid
         key={gridKey}
         fields={fields}

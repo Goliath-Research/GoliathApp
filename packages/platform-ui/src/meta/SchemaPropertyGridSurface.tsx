@@ -1,8 +1,8 @@
 "use client";
 
 import type { MetaClassField } from "@goliath/client";
-import type { FormEvent, KeyboardEvent, ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import type { FormEvent, KeyboardEvent, MutableRefObject, ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   isSchemaRecord,
   type SyntheticSchemaField,
@@ -46,6 +46,8 @@ export type SchemaPropertyGridSurfaceProps = {
   headerSlot?: ReactNode;
   depth?: number;
   embedded?: boolean;
+  /** When set, updated each commit with a snapshot builder for modal OK handlers. */
+  commitSnapshotRef?: MutableRefObject<(() => Record<string, unknown>) | undefined>;
 };
 
 type FieldPlan = {
@@ -82,6 +84,7 @@ export function SchemaPropertyGridSurface({
   headerSlot,
   depth = 0,
   embedded = false,
+  commitSnapshotRef,
 }: SchemaPropertyGridSurfaceProps) {
   const plans = useMemo((): FieldPlan[] => {
     if (fields?.length) {
@@ -210,6 +213,11 @@ export function SchemaPropertyGridSurface({
     }
     return document;
   }
+
+  useLayoutEffect(() => {
+    if (!commitSnapshotRef) return;
+    commitSnapshotRef.current = buildPartialDocument;
+  });
 
   function buildDocument(opts?: { silent?: boolean }): Record<string, unknown> | null {
     const silent = opts?.silent === true;

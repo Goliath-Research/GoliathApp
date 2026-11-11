@@ -87,7 +87,7 @@ export function NestedSchemaDialog({
             bundledSchema={bundledSchema ?? rootSchema}
             registry={registry}
             catalogResolver={catalogResolver}
-            initialDocument={draft}
+            initialDocument={initialValue}
             depth={depth}
             submitLabel="Save"
             embedded

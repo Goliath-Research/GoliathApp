@@ -10,7 +10,7 @@ export type MetaEditorComponentProps = {
 
 const REGISTRY: Record<string, (props: MetaEditorComponentProps) => ReactNode> = {
   ExampleStudyManifestEditor: ({ className, matchedClassFqn, resolution }) => (
-    <p role="status">
+    <p data-testid="meta-child-editor-slot">
       Child editor slot <code>ExampleStudyManifestEditor</code> for <code>{className}</code>
       {matchedClassFqn ? (
         <>

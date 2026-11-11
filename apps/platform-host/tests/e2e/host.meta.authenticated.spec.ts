@@ -51,9 +51,8 @@ test.describe("authenticated meta (CI postgres)", () => {
     await expect(page.locator(".g-meta-explorer")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Meta class" })).toBeVisible();
     await expect(page.getByRole("img").first()).toBeVisible();
-    await expect(page.locator(".g-meta-explorer").getByRole("status")).toContainText(
-      "Child editor slot",
-    );
+    await expect(page.getByTestId("meta-child-editor-slot")).toContainText("Child editor slot");
+    await expect(page.getByTestId("meta-instance-workbench")).toBeVisible();
 
     const dir = process.env.PLAYWRIGHT_SCREENSHOT_DIR;
     const shot = dir
@@ -150,7 +149,7 @@ test.describe("authenticated meta (CI postgres)", () => {
     await expect(caption).toBeVisible();
     await caption.fill("ListPickEdited");
     await page.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByRole("status")).toContainText(`Updated object #${objId}`);
+    await expect(page.getByTestId("meta-workbench-status")).toContainText(`Updated object #${objId}`);
 
     const getRes = await request.get(`/api/meta/objects/${objId}`);
     const doc = (await getRes.json()) as { object: { document: Record<string, unknown> } };

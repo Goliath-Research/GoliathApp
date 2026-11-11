@@ -2,7 +2,7 @@
 
 import type { MetaClassField } from "@goliath/client";
 import type { ReactNode } from "react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { CatalogRef } from "./catalogRef.js";
 import { isSchemaRecord, SCHEMA_PROPERTY_GRID_MAX_DEPTH, syntheticFieldsFromSchema } from "./jsonSchema.js";
 import type { MetaCatalogResolver } from "./metaCatalogResolver.js";
@@ -17,6 +17,8 @@ import { PropertyInspectorModal } from "./PropertyInspectorModal.js";
 const LazySchemaPropertyGridSurface = lazy(() =>
   import("./SchemaPropertyGridSurface.js").then((m) => ({ default: m.SchemaPropertyGridSurface })),
 );
+
+const EMPTY_OBJECT_SCHEMA: Record<string, unknown> = { type: "object", properties: {} };
 
 export type CatalogNestedSchemaDialogProps = {
   title: string;
@@ -48,6 +50,7 @@ export function CatalogNestedSchemaDialog({
   usePropertyInspectorChrome = false,
 }: CatalogNestedSchemaDialogProps) {
   const titleId = useId();
+  const commitSnapshotRef = useRef<(() => Record<string, unknown>) | undefined>(undefined);
   const [draft, setDraft] = useState(initialValue);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -136,6 +139,17 @@ export function CatalogNestedSchemaDialog({
     };
   }, [catalogTarget, catalogResolver, registry, bundledSchema]);
 
+  const root = useMemo(
+    () => (isSchemaRecord(bundled) ? bundled : isSchemaRecord(flattened) ? flattened : EMPTY_OBJECT_SCHEMA),
+    [bundled, flattened],
+  );
+
+  const syntheticFields = useMemo(
+    () =>
+      fields ? undefined : syntheticFieldsFromSchema(isSchemaRecord(flattened) ? flattened : root, root),
+    [fields, flattened, root],
+  );
+
   if (depth >= SCHEMA_PROPERTY_GRID_MAX_DEPTH) {
     return (
       <DialogBackdrop onCancel={onCancel}>
@@ -150,16 +164,11 @@ export function CatalogNestedSchemaDialog({
     );
   }
 
-  const root =
-    isSchemaRecord(bundled) ? bundled : isSchemaRecord(flattened) ? flattened : { type: "object", properties: {} };
-
   const grid = !loading && !error && flattened != null ? (
     <Suspense fallback={<p>Loading nested grid…</p>}>
       <LazySchemaPropertyGridSurface
         fields={fields}
-        syntheticFields={
-          fields ? undefined : syntheticFieldsFromSchema(isSchemaRecord(flattened) ? flattened : root, root)
-        }
+        syntheticFields={syntheticFields}
         schema={flattened}
         rootSchema={fields != null ? root : isSchemaRecord(flattened) ? flattened : root}
         bundledSchema={bundled}
@@ -173,11 +182,12 @@ export function CatalogNestedSchemaDialog({
               )
             : undefined
         }
-        initialDocument={draft}
+        initialDocument={initialValue}
         depth={depth}
         embedded
         headerSlot={gridHeader ?? headerSlot}
         onDraftChange={setDraft}
+        commitSnapshotRef={commitSnapshotRef}
         onSubmit={usePropertyInspectorChrome ? undefined : onSave}
         submitLabel={usePropertyInspectorChrome ? undefined : "Save"}
       />
@@ -190,7 +200,7 @@ export function CatalogNestedSchemaDialog({
         open
         title={title}
         breadcrumb={breadcrumb}
-        onOk={() => onSave(draft)}
+        onOk={() => onSave(commitSnapshotRef.current?.() ?? draft)}
         onCancel={onCancel}
         okDisabled={loading || !!error || flattened == null}
       >
