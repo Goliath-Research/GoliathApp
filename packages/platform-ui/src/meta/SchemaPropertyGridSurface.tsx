@@ -459,6 +459,7 @@ export function SchemaPropertyGridSurface({
   return (
     <>
       <form
+        noValidate
         onSubmit={handleSubmit}
         className={`g-meta-field-form ${gridClass}`}
         data-has-catalog-resolver={catalogResolver ? "true" : "false"}

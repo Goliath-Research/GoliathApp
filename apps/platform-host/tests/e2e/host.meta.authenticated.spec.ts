@@ -170,12 +170,15 @@ test.describe("authenticated meta (CI postgres)", () => {
     await fillRequiredSchemaGridFields(page, request);
     await caption.fill("ListPickEdited");
     await expect(caption).toHaveValue("ListPickEdited");
+    const workbench = page.getByTestId("meta-instance-workbench");
     const patchObject = page.waitForResponse(
       (r) => r.request().method() === "PATCH" && r.url().includes(`/api/meta/objects/${objId}`),
     );
-    await page.getByTestId("meta-instance-workbench").getByRole("button", { name: "Save changes" }).click();
+    await workbench.locator("form.g-meta-field-form").requestSubmit();
     const patchRes = await patchObject;
     expect(patchRes.ok(), `save failed: ${await patchRes.text()}`).toBeTruthy();
+    const gridAlert = workbench.locator(".g-schema-property-grid [role=alert]");
+    await expect(gridAlert).toHaveCount(0);
     await expect
       .poll(async () => {
         const getRes = await request.get(`/api/meta/objects/${objId}`);
