@@ -68,6 +68,40 @@ def test_upgrade_idempotent_and_cache_wired(upgrade_env: dict[str, str]) -> None
     assert user_map >= 1
 
 
+def test_production_user_map_uses_legacy_user_id_not_meta_obj_id(upgrade_env: dict[str, str]) -> None:
+    rows = _psql(
+        """
+        SELECT m.legacy_id, m.meta_obj_id, (ov."Data"->>'LegacyUserId')::int
+        FROM portal.security_meta_legacy_map m
+        INNER JOIN "Meta"."ObjValues" ov ON ov."ObjID" = m.meta_obj_id
+        INNER JOIN "Meta"."Classes" c ON c."ID" = ov."ClassID"
+        WHERE m.legacy_kind = 'user' AND m.legacy_id IN (1, 2)
+          AND c."Name" = 'platform/User'
+        ORDER BY m.legacy_id
+        """,
+        upgrade_env,
+    )
+    assert rows
+    lines = [ln for ln in rows.splitlines() if ln.strip()]
+    assert len(lines) == 2
+    for line in lines:
+        legacy_id, meta_obj_id, doc_legacy = (int(x) for x in line.split("|"))
+        assert doc_legacy == legacy_id
+        assert meta_obj_id > 0
+    nav_nodes = int(
+        _psql(
+            """
+            SELECT COUNT(*)::int
+            FROM "Meta"."Objs" o
+            INNER JOIN "Meta"."Classes" c ON c."ID" = o."ClassID"
+            WHERE c."Name" = 'portal/NavNode'
+            """,
+            upgrade_env,
+        )
+    )
+    assert nav_nodes >= 1
+
+
 def test_verify_production_checks_after_upgrade(upgrade_env: dict[str, str]) -> None:
     rows = _psql(
         """

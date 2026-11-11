@@ -1,4 +1,6 @@
 -- Production-shaped principals for portal.sp_security_meta_verify_production() in CI.
+-- Simulates post-NavTree production: Meta.Objs ids 1..N may already be catalog rows before
+-- user migrate; users 1/2 must still map via security_meta_legacy_map + LegacyUserId.
 -- Idempotent: users 1/2, organization scope 1, org-admin grants, Entra link on provider 1.
 
 INSERT INTO "RBAC"."Users" ("ID", "FullName", email, "Active")

@@ -6,7 +6,7 @@ GoliathApp is moving **users, roles, permissions, grants, external identities, a
 
 | FQN | Extends | Purpose |
 |-----|---------|---------|
-| `platform/User` | `platform/Person` | Portal operator; `Email`, `FullName`, `Active`, `LegacyUserId` (stable session key) |
+| `platform/User` | `platform/Person` | Portal operator; `Email`, `FullName`, `Active`, `LegacyUserId` (= `RBAC.Users.ID`; **not** necessarily equal to `Meta.Objs.ID`) |
 | `platform/Role` | `platform/Entity` | Named role; `RoleName`, `BypassScope` |
 | `platform/Permission` | `platform/Entity` | Permission name; `PermissionName` |
 | `platform/RoleGrant` | `platform/Entity` | Grant linking user, role, organization scope; `Active`, `GrantedAtUtc`, `RevokedAtUtc`, `GrantType` |
@@ -44,6 +44,9 @@ Expected for Goliath production (post-migration):
 |-------|----------------|---------------|
 | `organization_admin` grant on scope 1 | yes | yes |
 | Entra external identity for David | provider 1, subject preserved | n/a |
+| `meta_user_ids_preserved` | `security_meta_legacy_map` → `platform/User` with `LegacyUserId` = RBAC user id | same |
+
+`meta_user_ids_preserved` does **not** require `Meta.Objs.ID = RBAC.Users.ID`. Production may already have low `Meta.Objs` ids (for example NavNodes `1..47`); users `1` and `2` then become `platform/User` instances `48` and `49` as long as the legacy map and `LegacyUserId` match.
 
 ## Legacy table drop plan (post-PR C)
 
