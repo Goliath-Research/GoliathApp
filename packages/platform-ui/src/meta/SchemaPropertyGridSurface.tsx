@@ -139,7 +139,6 @@ export function SchemaPropertyGridSurface({
     setPrimitiveValues(initPrimitives(plans, initialDocument));
     setObjectValues(initObjects(plans, initialDocument));
     setArrayValues(initArrays(plans, initialDocument));
-    setSchemalessValues(initSchemaless(plans, initialDocument));
   }, [initialDocument, plans]);
 
   const [error, setError] = useState<string | null>(null);
