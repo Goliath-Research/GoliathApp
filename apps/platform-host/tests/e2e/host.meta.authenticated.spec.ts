@@ -145,11 +145,14 @@ test.describe("authenticated meta (CI postgres)", () => {
     await page.goto("/app/meta?class=portal%2FNavNode");
     await expect(page.getByTestId(`meta-instance-row-${objId}`)).toBeVisible({ timeout: 15_000 });
     await page.getByTestId(`meta-instance-row-${objId}`).click();
+    await fillRequiredSchemaGridFields(page, request);
     const caption = page.getByTestId("pi-row-Caption").locator("input");
     await expect(caption).toBeVisible();
     await caption.fill("ListPickEdited");
     await page.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByTestId("meta-workbench-status")).toContainText(`Updated object #${objId}`);
+    await expect(page.getByTestId("meta-workbench-status")).toContainText(`Updated object #${objId}`, {
+      timeout: 15_000,
+    });
 
     const getRes = await request.get(`/api/meta/objects/${objId}`);
     const doc = (await getRes.json()) as { object: { document: Record<string, unknown> } };

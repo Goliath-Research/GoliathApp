@@ -97,7 +97,8 @@ export function MetaInstanceWorkbench({
     setStatus(null);
     setError(null);
     if (selectedObjId != null) {
-      await client.updateMetaObject(selectedObjId, document);
+      const payload = { ...editorDocument, ...document };
+      await client.updateMetaObject(selectedObjId, payload);
       if (requestId !== selectRequestRef.current) return;
       const row = await client.getMetaObject(selectedObjId);
       if (requestId !== selectRequestRef.current) return;
