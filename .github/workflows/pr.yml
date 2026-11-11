@@ -96,6 +96,7 @@ jobs:
             workflow_engine/tests/test_platform_security_meta.py \
             workflow_engine/tests/test_platform_god_architect.py \
             workflow_engine/tests/test_god_architect_operator_entitlements.py \
+            workflow_engine/tests/test_products_goliathomics_package.py \
             workflow_engine/tests/test_security_meta_upgrade_path.py \
             workflow_engine/tests/test_portal_session_identity.py \
             workflow_engine/tests/test_portal_session_meta.py \

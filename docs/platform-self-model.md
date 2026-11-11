@@ -110,6 +110,7 @@ Legend: **Risk** = migration difficulty (L/M/H). **Cache** = needs materialized 
 |----|--------|-------------|
 | **S** (B/C) | Security Meta + enforcement + God Architect | `verify_security_meta_migration.sh`, upgrade-path pytest |
 | **N1** | NavTree + Role2Node as Meta; god_architect-only platform nav writes | `seed_platform_nav_tree` idempotent + nav pytest |
+| **N2** | Child product package on dedicated DB | `products/<product_id>/sql/apply_package.sh` after App baseline; host routes by hostname ([multi-product platform host](deploy/multi-product-platform-host.md)) |
 | **V1** | Operator views/dashboards as Meta documents | host e2e |
 | **E1** | Semantic catalog as Meta; platform namespace god-only | semantic pytest |
 | **W1** | Workflow **definitions** as Meta; instances remain runtime | compiler + worker tests |
