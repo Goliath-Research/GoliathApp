@@ -37,7 +37,6 @@ export function NestedSchemaDialog({
   onCancel,
 }: NestedSchemaDialogProps) {
   const titleId = useId();
-  const [draft, setDraft] = useState<Record<string, unknown>>(initialValue);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -91,7 +90,6 @@ export function NestedSchemaDialog({
             depth={depth}
             submitLabel="Save"
             embedded
-            onDraftChange={setDraft}
             onSubmit={(document) => {
               setError(null);
               onSave(document);
