@@ -34,8 +34,8 @@ describe("nested schema editors", () => {
     expect(editor.mode).toBe("nestedObject");
   });
 
-  it("uses schemaless only for unknown nodes", () => {
+  it("maps composition branches to nestedObject editor (no JSON textarea)", () => {
     const editor = parsePropertySchema({ oneOf: [{ type: "string" }] }, true, root);
-    expect(editor.mode).toBe("schemaless");
+    expect(editor.mode).toBe("nestedObject");
   });
 });
