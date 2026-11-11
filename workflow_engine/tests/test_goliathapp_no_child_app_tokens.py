@@ -46,12 +46,6 @@ EXCLUDE_REL_PATHS = frozenset(
     }
 )
 
-# Child product packages and their deployment docs (intentional product names).
-EXCLUDE_PATH_PREFIXES = (
-    "products/",
-    "docs/deploy/multi-product-platform-host.md",
-)
-
 # Case-insensitive child-app / utility tokens.
 _COMPOUND_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("methyl", re.compile(r"methyl", re.I)),
@@ -94,8 +88,6 @@ def _iter_scan_files() -> list[Path]:
             continue
         rel = path.relative_to(REPO_ROOT).as_posix()
         if rel in EXCLUDE_REL_PATHS:
-            continue
-        if rel.startswith(EXCLUDE_PATH_PREFIXES):
             continue
         files.append(path)
     return files

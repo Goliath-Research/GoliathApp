@@ -8,10 +8,10 @@
       "hostnames": ["app.goliathresearch.com", "localhost", "127.0.0.1"]
     },
     {
-      "id": "goliathomics",
-      "displayName": "GoliathOmics",
-      "portalSubtitle": "Omics operator portal",
-      "hostnames": ["omics.goliathresearch.com"]
+      "id": "childapp",
+      "displayName": "Child application",
+      "portalSubtitle": "Child operator portal",
+      "hostnames": ["childapp.example.com"]
     }
   ]
 }
