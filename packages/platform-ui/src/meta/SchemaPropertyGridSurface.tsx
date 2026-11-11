@@ -138,6 +138,13 @@ export function SchemaPropertyGridSurface({
   );
   const [dialog, setDialog] = useState<InspectorDialogRequest>(null);
 
+  useEffect(() => {
+    setPrimitiveValues(initPrimitives(plans, initialDocument));
+    setObjectValues(initObjects(plans, initialDocument));
+    setArrayValues(initArrays(plans, initialDocument));
+    setSchemalessValues(initSchemaless(plans, initialDocument));
+  }, [initialDocument, plans]);
+
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [expandedInline, setExpandedInline] = useState<Set<string>>(() => new Set());
@@ -904,7 +911,7 @@ function coercePrimitive(editor: ParsedFieldEditor, raw: string): unknown {
   if (editor.mode === "boolean") return raw === "true";
   if (editor.mode === "integer") return Math.trunc(Number(raw));
   if (editor.mode === "number") return Number(raw);
-  if (editor.mode === "date") return raw;
+  if (editor.mode === "date") return coerceDateInputValue(raw, editor.inputType);
   return raw;
 }
 
@@ -931,9 +938,34 @@ function initPrimitives(plans: FieldPlan[], doc: Record<string, unknown>): Recor
     ) {
       continue;
     }
-    next[plan.fieldName] = raw == null ? "" : String(raw);
+    if (plan.editor.mode === "date") {
+      next[plan.fieldName] = formatDateInputValue(raw, plan.editor.inputType);
+    } else {
+      next[plan.fieldName] = raw == null ? "" : String(raw);
+    }
   }
   return next;
+}
+
+function formatDateInputValue(raw: unknown, inputType: "date" | "datetime-local"): string {
+  if (raw == null || raw === "") return "";
+  const text = typeof raw === "number" ? new Date(raw).toISOString() : String(raw);
+  if (inputType === "date") {
+    const match = /^(\d{4}-\d{2}-\d{2})/.exec(text);
+    return match ? match[1] : text.slice(0, 10);
+  }
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+}
+
+function coerceDateInputValue(raw: string, inputType: "date" | "datetime-local"): string {
+  if (raw === "") return raw;
+  if (inputType === "date") return raw;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toISOString();
 }
 
 function initObjects(plans: FieldPlan[], doc: Record<string, unknown>): Record<string, Record<string, unknown>> {

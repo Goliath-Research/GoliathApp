@@ -3,7 +3,7 @@
 import type { MetaClassField, MetaClassLineageNode, MetaObjectListRow } from "@goliath/client";
 import { createPlatformBffClient } from "@goliath/client";
 import { SchemaPropertyGrid } from "@goliath/platform-ui";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXAMPLE_CHILD_EXTENSION } from "@/lib/child-extension";
 import { hierarchyRegistryFromManifest } from "@/lib/hierarchy-registry";
 import {
@@ -50,6 +50,7 @@ export function MetaInstanceWorkbench({
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const gridKey = selectedObjId == null ? `new:${className}` : `obj:${selectedObjId}`;
+  const selectRequestRef = useRef(0);
 
   const refreshList = useCallback(async () => {
     setListLoading(true);
@@ -71,11 +72,14 @@ export function MetaInstanceWorkbench({
   async function handleSelect(objId: number) {
     setStatus(null);
     setError(null);
-    setSelectedObjId(objId);
+    const requestId = ++selectRequestRef.current;
     try {
       const row = await client.getMetaObject(objId);
+      if (requestId !== selectRequestRef.current) return;
       setEditorDocument(row.document ?? {});
+      setSelectedObjId(objId);
     } catch (e) {
+      if (requestId !== selectRequestRef.current) return;
       setError(e instanceof Error ? e.message : "failed to load object");
     }
   }
@@ -99,9 +103,9 @@ export function MetaInstanceWorkbench({
       return;
     }
     const { objId } = await client.createMetaObject(className, document);
-    setSelectedObjId(objId);
     const row = await client.getMetaObject(objId);
     setEditorDocument(row.document ?? {});
+    setSelectedObjId(objId);
     setStatus(`Created object #${objId}.`);
     await refreshList();
   }

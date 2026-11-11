@@ -127,6 +127,92 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION portal.sp_session_meta_obj_list(
+  p_session_token text,
+  p_class_name text,
+  p_include_subclasses boolean DEFAULT false,
+  p_limit integer DEFAULT 50,
+  p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+  obj_id integer,
+  class_id integer,
+  class_name text,
+  display_label text,
+  updated_at_utc timestamptz
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "Meta", wf, "RBAC", public, pg_temp
+AS $$
+DECLARE
+  v_ctx record;
+  v_class_id int;
+  v_limit int;
+  v_offset int;
+BEGIN
+  SELECT * INTO v_ctx FROM portal.fn_session_resolve(p_session_token) LIMIT 1;
+  IF v_ctx.session_id IS NULL OR COALESCE(v_ctx.revoked, false) THEN
+    PERFORM portal.fn_semantic_raise('GS401', 'session denied');
+  END IF;
+  IF v_ctx.active_scope_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta instance access');
+  END IF;
+
+  IF NOT portal.fn_session_meta_permission_in_active_scope(
+    v_ctx.user_id, 'meta.object.read', v_ctx.active_scope_id
+  ) THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied for active scope');
+  END IF;
+  IF NOT portal.fn_semantic_session_has_permission(v_ctx.user_id, 'meta.schema.read') THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied');
+  END IF;
+
+  v_class_id := portal.sp_session_meta_resolve_class(p_session_token, p_class_name);
+  PERFORM portal.fn_meta_assert_class_action(v_ctx.user_id, v_ctx.active_scope_id, v_class_id, 'read');
+  v_limit := GREATEST(1, LEAST(COALESCE(p_limit, 50), 500));
+  v_offset := GREATEST(COALESCE(p_offset, 0), 0);
+
+  RETURN QUERY
+  SELECT
+    o."ID"::integer AS obj_id,
+    o."ClassID"::integer AS class_id,
+    c."Name"::text AS class_name,
+    COALESCE(
+      NULLIF(btrim(doc.document->>'name'), ''),
+      NULLIF(btrim(doc.document->>'Name'), ''),
+      NULLIF(btrim(doc.document->>'Caption'), ''),
+      NULLIF(btrim(doc.document->>'title'), ''),
+      '#' || o."ID"::text
+    ) AS display_label,
+    sm."CreatedAtUtc" AS updated_at_utc
+  FROM portal."ScopedMetaObjects" sm
+  INNER JOIN "Meta"."Objs" o ON o."ID" = sm."ObjID"
+  INNER JOIN "Meta"."Classes" c ON c."ID" = o."ClassID"
+  CROSS JOIN LATERAL (
+    SELECT "Meta".fn_merged_obj_document(o."ID") AS document
+  ) doc
+  WHERE sm."ScopeID" = v_ctx.active_scope_id
+    AND portal.fn_meta_effective_object_action(v_ctx.user_id, v_ctx.active_scope_id, o."ID", 'read')
+    AND (
+      (NOT COALESCE(p_include_subclasses, false) AND o."ClassID" = v_class_id)
+      OR (
+        COALESCE(p_include_subclasses, false)
+        AND EXISTS (
+          SELECT 1
+          FROM "Meta"."ClassClosure" cc
+          WHERE cc."AncestorID" = v_class_id
+            AND cc."DescendantID" = o."ClassID"
+        )
+      )
+    )
+  ORDER BY sm."CreatedAtUtc" DESC, o."ID" DESC
+  LIMIT v_limit
+  OFFSET v_offset;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION portal.sp_run_semantic_request(
   p_session_token text,
   p_request_code text,

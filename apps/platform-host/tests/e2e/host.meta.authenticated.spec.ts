@@ -126,7 +126,7 @@ test.describe("authenticated meta (CI postgres)", () => {
     }
     await expect(page.locator(".g-meta-workbench textarea")).toHaveCount(0);
     await fillRequiredSchemaGridFields(page, request);
-    await expect(page.getByRole("button", { name: /Create via BFF/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /Create instance/ })).toBeEnabled();
   });
 
   test("meta workbench has no JSON textarea", async ({ page }) => {
