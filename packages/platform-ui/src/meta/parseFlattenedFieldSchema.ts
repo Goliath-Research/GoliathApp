@@ -6,12 +6,23 @@ import {
   schemaAllowsNull,
 } from "./jsonSchema.js";
 
+const FALLBACK_OBJECT_SCHEMA: Record<string, unknown> = { type: "object", properties: {} };
+
+function nestedObjectFallback(optional: boolean, schema?: Record<string, unknown>): ParsedFieldEditor {
+  return {
+    mode: "nestedObject",
+    optional,
+    objectSchema: isSchemaRecord(schema) ? schema : FALLBACK_OBJECT_SCHEMA,
+  };
+}
+
 export type ParsedFieldEditor =
   | {
       mode: "string" | "integer" | "number" | "boolean";
       optional: boolean;
       enumValues?: readonly string[];
     }
+  | { mode: "date"; optional: boolean; inputType: "date" | "datetime-local" }
   | { mode: "typedMetaClass"; className: string; optional: boolean }
   | { mode: "typedDataType"; typeName: string; optional: boolean; expectArray?: boolean }
   | {
@@ -35,7 +46,7 @@ export function parsePropertySchema(
   rootSchema: Record<string, unknown> | null | undefined,
 ): ParsedFieldEditor {
   if (!isSchemaRecord(prop)) {
-    return { mode: "schemaless", optional: !required, reason: "non-object schema node" };
+    return nestedObjectFallback(!required);
   }
 
   const optional = !required || schemaAllowsNull(prop);
@@ -61,7 +72,16 @@ export function parsePropertySchema(
 
   const type = primaryType(resolved);
 
-  if (type === "string") return { mode: "string", optional };
+  if (type === "string") {
+    const format = typeof resolved.format === "string" ? resolved.format : "";
+    if (format === "date") {
+      return { mode: "date", optional, inputType: "date" };
+    }
+    if (format === "date-time") {
+      return { mode: "date", optional, inputType: "datetime-local" };
+    }
+    return { mode: "string", optional };
+  }
   if (type === "integer") return { mode: "integer", optional };
   if (type === "number") return { mode: "number", optional };
   if (type === "boolean") return { mode: "boolean", optional };
@@ -70,7 +90,13 @@ export function parsePropertySchema(
     const items = resolved.items;
     const itemNode = resolveSchemaNode(items, rootSchema);
     if (!isSchemaRecord(itemNode)) {
-      return { mode: "schemaless", optional, reason: "array without resolvable items schema" };
+      return {
+        mode: "nestedArray",
+        optional,
+        itemsAreObject: false,
+        itemsSchema: { type: "string" },
+        primitiveItemMode: "string",
+      };
     }
     const itemType = primaryType(itemNode);
     if (typeof itemNode.$ref === "string") {
@@ -102,7 +128,13 @@ export function parsePropertySchema(
     if (itemType === "number") {
       return { mode: "nestedArray", optional, itemsAreObject: false, itemsSchema: itemNode, primitiveItemMode: "number" };
     }
-    return { mode: "schemaless", optional, reason: "array items not object or primitive" };
+    return {
+      mode: "nestedArray",
+      optional,
+      itemsAreObject: false,
+      itemsSchema: itemNode,
+      primitiveItemMode: "string",
+    };
   }
 
   if (type === "object" || isSchemaRecord(resolved.properties)) {
@@ -110,10 +142,10 @@ export function parsePropertySchema(
   }
 
   if (resolved.allOf != null || resolved.oneOf != null) {
-    return { mode: "schemaless", optional, reason: "unexpanded composition branch" };
+    return nestedObjectFallback(optional, resolved);
   }
 
-  return { mode: "schemaless", optional, reason: "missing or unsupported type" };
+  return nestedObjectFallback(optional);
 }
 
 export function parseFlattenedFieldSchema(

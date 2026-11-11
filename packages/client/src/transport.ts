@@ -4,6 +4,7 @@ import type {
   MetaClassSummary,
   MetaDataTypeSummary,
   MetaObjectDocument,
+  MetaObjectListRow,
 } from "./meta.js";
 import type { OperatorNavNode } from "./nav.js";
 import { coercePresentationKind } from "./nav.js";
@@ -109,6 +110,27 @@ export function createPlatformBffClient(options: PlatformBffClientOptions = {}) 
       );
       const body = await readJson<{ fields: MetaClassField[] }>(res);
       return body.fields;
+    },
+
+    async listMetaObjects(
+      className: string,
+      opts?: { includeSubclasses?: boolean; limit?: number; offset?: number },
+    ): Promise<MetaObjectListRow[]> {
+      const params = new URLSearchParams();
+      if (opts?.includeSubclasses) params.set("includeSubclasses", "1");
+      if (opts?.limit != null) params.set("limit", String(opts.limit));
+      if (opts?.offset != null) params.set("offset", String(opts.offset));
+      const qs = params.toString();
+      const res = await fetchFn(
+        `${base}/api/meta/classes/${encodeURIComponent(className)}/objects${qs ? `?${qs}` : ""}`,
+        {
+          method: "GET",
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+        },
+      );
+      const body = await readJson<{ objects: MetaObjectListRow[] }>(res);
+      return body.objects;
     },
 
     async createMetaObject(

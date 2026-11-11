@@ -194,13 +194,8 @@ export function SchemaPropertyGridSurface({
           break;
         }
         case "schemaless": {
-          const raw = schemalessValues[fieldName] ?? "";
-          if (raw === "") break;
-          try {
-            document[fieldName] = JSON.parse(raw);
-          } catch {
-            /* partial draft — keep last valid omit */
-          }
+          const val = objectValues[fieldName];
+          if (val && Object.keys(val).length > 0) document[fieldName] = val;
           break;
         }
         default: {
@@ -254,18 +249,14 @@ export function SchemaPropertyGridSurface({
           break;
         }
         case "schemaless": {
-          const raw = schemalessValues[fieldName] ?? "";
-          if (raw === "") {
+          const val = objectValues[fieldName];
+          if (!val || Object.keys(val).length === 0) {
             if (!editor.optional && required) {
-              return fail(`Field ${fieldName} requires a value (schemaless)`);
+              return fail(`Field ${fieldName} requires a nested object`);
             }
             break;
           }
-          try {
-            document[fieldName] = JSON.parse(raw);
-          } catch {
-            return fail(`Field ${fieldName} must be valid JSON`);
-          }
+          document[fieldName] = val;
           break;
         }
         default: {
@@ -590,6 +581,9 @@ export function SchemaPropertyGridSurface({
     if (editor.mode === "nestedObject") {
       openObjectDialog(fieldName, editor.objectSchema, val);
     }
+    if (editor.mode === "schemaless") {
+      openObjectDialog(fieldName, { type: "object", properties: {} }, val);
+    }
   }
 
   function renderNestedValueRow(plan: FieldPlan, summary: string, expandable = true) {
@@ -717,50 +711,71 @@ export function SchemaPropertyGridSurface({
       );
     }
     if (editor.mode === "nestedArray" && !editor.itemsAreObject) {
+      const primitiveItems = (arrayValues[fieldName] ?? []) as unknown[];
+      const coerceItem = (raw: string): unknown => {
+        if (editor.primitiveItemMode === "integer") return Math.trunc(Number(raw));
+        if (editor.primitiveItemMode === "number") return Number(raw);
+        return raw;
+      };
       return (
         <tr key={fieldName} className="g-property-inspector__row" data-testid={`pi-row-${fieldName}`}>
           <td className="g-property-inspector__name">{inspectorNameCell(plan, false)}</td>
           <td className="g-property-inspector__value">
-            <input
-              id={id}
-              className="g-host-input"
-              value={(arrayValues[fieldName] ?? []).map(String).join(", ")}
+            <ul className="g-schema-array-list">
+              {primitiveItems.map((item, index) => (
+                <li key={index}>
+                  <input
+                    className="g-host-input"
+                    aria-label={`${fieldName} item ${index}`}
+                    value={item == null ? "" : String(item)}
+                    disabled={disabled || busy}
+                    onChange={(e) =>
+                      setArrayValues((prev) => {
+                        const list = [...(prev[fieldName] ?? [])];
+                        list[index] = coerceItem(e.target.value);
+                        return { ...prev, [fieldName]: list };
+                      })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="g-host-button"
+                    data-testid={`pi-array-remove-${fieldName}-${index}`}
+                    onClick={() =>
+                      setArrayValues((prev) => ({
+                        ...prev,
+                        [fieldName]: (prev[fieldName] ?? []).filter((_, i) => i !== index),
+                      }))
+                    }
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              className="g-host-button"
+              data-testid={`pi-array-add-${fieldName}`}
               disabled={disabled || busy}
-              onChange={(e) => {
-                const parts = e.target.value.split(",").map((s) => s.trim()).filter(Boolean);
-                const coerced = parts.map((p) =>
-                  editor.primitiveItemMode === "integer"
-                    ? Math.trunc(Number(p))
-                    : editor.primitiveItemMode === "number"
-                      ? Number(p)
-                      : p,
-                );
-                setArrayValues((prev) => ({ ...prev, [fieldName]: coerced }));
-              }}
-            />
+              onClick={() =>
+                setArrayValues((prev) => ({
+                  ...prev,
+                  [fieldName]: [...(prev[fieldName] ?? []), ""],
+                }))
+              }
+            >
+              Add item
+            </button>
           </td>
         </tr>
       );
     }
     if (editor.mode === "schemaless") {
-      if (plan.catalogTarget && catalogResolver) {
-        return renderNestedValueRow(plan, summaryObject(objectValues[fieldName]), false);
-      }
-      return (
-        <tr key={fieldName} className="g-property-inspector__row" data-testid={`pi-row-${fieldName}`}>
-          <td className="g-property-inspector__name">{inspectorNameCell(plan, false)}</td>
-          <td className="g-property-inspector__value">
-            <textarea
-              id={id}
-              rows={2}
-              className="g-host-textarea"
-              value={schemalessValues[fieldName] ?? ""}
-              disabled={disabled || busy}
-              onChange={(e) => setSchemalessValues((prev) => ({ ...prev, [fieldName]: e.target.value }))}
-            />
-            <span className="g-host-home__lead">{editor.reason}</span>
-          </td>
-        </tr>
+      return renderNestedValueRow(
+        { ...plan, editor: { mode: "nestedObject", optional: editor.optional, objectSchema: { type: "object", properties: {} } } },
+        summaryObject(objectValues[fieldName]),
+        true,
       );
     }
     return renderPrimitiveRow(plan);
@@ -782,6 +797,23 @@ export function SchemaPropertyGridSurface({
               onChange={(e) =>
                 setPrimitiveValues((prev) => ({ ...prev, [fieldName]: e.target.checked ? "true" : "false" }))
               }
+            />
+          </td>
+        </tr>
+      );
+    }
+    if (editor.mode === "date") {
+      return (
+        <tr key={fieldName} className="g-property-inspector__row" data-testid={`pi-row-${fieldName}`}>
+          <td className="g-property-inspector__name">{inspectorNameCell(plan, false)}</td>
+          <td className="g-property-inspector__value">
+            <input
+              id={id}
+              type={editor.inputType}
+              className="g-host-input"
+              value={primitiveValues[fieldName] ?? ""}
+              disabled={disabled || busy}
+              onChange={(e) => setPrimitiveValues((prev) => ({ ...prev, [fieldName]: e.target.value }))}
             />
           </td>
         </tr>
@@ -872,6 +904,7 @@ function coercePrimitive(editor: ParsedFieldEditor, raw: string): unknown {
   if (editor.mode === "boolean") return raw === "true";
   if (editor.mode === "integer") return Math.trunc(Number(raw));
   if (editor.mode === "number") return Number(raw);
+  if (editor.mode === "date") return raw;
   return raw;
 }
 
@@ -909,7 +942,8 @@ function initObjects(plans: FieldPlan[], doc: Record<string, unknown>): Record<s
     if (
       plan.editor.mode !== "nestedObject" &&
       plan.editor.mode !== "typedMetaClass" &&
-      plan.editor.mode !== "typedDataType"
+      plan.editor.mode !== "typedDataType" &&
+      plan.editor.mode !== "schemaless"
     ) {
       continue;
     }

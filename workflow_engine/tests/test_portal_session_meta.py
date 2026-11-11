@@ -372,6 +372,31 @@ def test_session_meta_obj_insert_get_roundtrip(
         assert int(merged["Seq"]) == 42
 
 
+def test_session_meta_obj_list_returns_scoped_instances(
+    portal_client: PortalClient,
+    portal_meta_env: dict[str, str],
+) -> None:
+    user_id = _create_user(portal_meta_env, "MetaList")
+    scope_id = _create_org_scope(portal_meta_env, f"MetaList-{user_id}")
+    _grant_meta_permissions_scoped(portal_meta_env, user_id, scope_id)
+    token = _open_session_scoped(portal_client, user_id, scope_id=scope_id)
+    doc = {"Caption": "ListedNode", "Seq": 11}
+    conninfo = build_portal_conninfo()
+    obj_id = _meta_obj_insert(conninfo, token, doc)
+    with psycopg.connect(conninfo) as conn:
+        rows = conn.execute(
+            """
+            SELECT obj_id, display_label
+            FROM portal.sp_session_meta_obj_list(%s, %s, %s, %s, %s)
+            """,
+            (token, "portal/NavNode", False, 50, 0),
+        ).fetchall()
+    ids = [int(row[0]) for row in rows]
+    labels = {int(row[0]): str(row[1]) for row in rows}
+    assert obj_id in ids
+    assert labels[obj_id] == "ListedNode"
+
+
 def test_session_meta_obj_rejects_unknown_field(
     portal_client: PortalClient,
     portal_meta_env: dict[str, str],

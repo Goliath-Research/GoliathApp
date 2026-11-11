@@ -24,6 +24,7 @@ export type {
   MetaClassField,
   MetaDataTypeSummary,
   MetaObjectDocument,
+  MetaObjectListRow,
 } from "./meta.js";
 export type { PlatformAuthMethodKind, PublicAuthProvider, ChildAuthProviderRegistration } from "./auth.js";
 export type { GoliathUiManifest } from "./manifest.js";

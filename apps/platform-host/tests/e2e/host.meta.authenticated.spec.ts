@@ -88,9 +88,13 @@ test.describe("authenticated meta (CI postgres)", () => {
         await select.selectOption({ index: 1 });
         continue;
       }
-      const textarea = row.locator("textarea");
-      if ((await textarea.count()) > 0) {
-        await textarea.fill("[]");
+      const addArrayItem = row.getByTestId(/^pi-array-add-/);
+      if ((await addArrayItem.count()) > 0) {
+        await addArrayItem.click();
+        const itemInput = row.locator(".g-schema-array-list input").first();
+        if ((await itemInput.count()) > 0) {
+          await itemInput.fill("e2e-item");
+        }
         continue;
       }
       const input = row.locator("input").first();
@@ -118,10 +122,39 @@ test.describe("authenticated meta (CI postgres)", () => {
     const requiredNames = fields.filter((f) => f.required).map((f) => f.fieldName);
     expect(requiredNames.length).toBeGreaterThan(0);
     for (const name of requiredNames) {
-      await expect(page.getByTestId(`pi-row-${name}`).locator("input, select, textarea")).toBeVisible();
+      await expect(page.getByTestId(`pi-row-${name}`).locator("input, select, button")).toBeVisible();
     }
+    await expect(page.locator(".g-meta-workbench textarea")).toHaveCount(0);
     await fillRequiredSchemaGridFields(page, request);
     await expect(page.getByRole("button", { name: /Create via BFF/ })).toBeEnabled();
+  });
+
+  test("meta workbench has no JSON textarea", async ({ page }) => {
+    await page.goto("/app/meta?class=portal%2FNavNode");
+    await expect(page.getByTestId("meta-instance-workbench")).toBeVisible();
+    await expect(page.locator(".g-meta-workbench textarea")).toHaveCount(0);
+    await expect(page.locator(".g-schema-property-grid textarea")).toHaveCount(0);
+  });
+
+  test("list select edit save round-trip", async ({ page, request }) => {
+    const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
+      data: { document: { Caption: "ListPick", Seq: 41 } },
+    });
+    expect(createRes.status()).toBe(201);
+    const { objId } = (await createRes.json()) as { objId: number };
+
+    await page.goto("/app/meta?class=portal%2FNavNode");
+    await expect(page.getByTestId(`meta-instance-row-${objId}`)).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId(`meta-instance-row-${objId}`).click();
+    const caption = page.getByTestId("pi-row-Caption").locator("input");
+    await expect(caption).toBeVisible();
+    await caption.fill("ListPickEdited");
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page.getByRole("status")).toContainText(`Updated object #${objId}`);
+
+    const getRes = await request.get(`/api/meta/objects/${objId}`);
+    const doc = (await getRes.json()) as { object: { document: Record<string, unknown> } };
+    expect(doc.object.document.Caption).toBe("ListPickEdited");
   });
 
   test("authenticated BFF create get patch round-trip", async ({ request }) => {

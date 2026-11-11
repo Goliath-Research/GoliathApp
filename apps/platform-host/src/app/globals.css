@@ -352,6 +352,10 @@
   margin-top: 1.5rem;
 }
 
+.g-host-table__row--selected {
+  background: color-mix(in srgb, var(--g-accent, #3b82f6) 12%, transparent);
+}
+
 .g-host-textarea {
   width: 100%;
   font-family: ui-monospace, monospace;

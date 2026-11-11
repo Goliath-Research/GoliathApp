@@ -577,3 +577,74 @@ BEGIN
   WHERE o."ID" = p_obj_id;
 END;
 $$;
+
+DROP FUNCTION IF EXISTS portal.sp_session_meta_obj_list(text, text, boolean, integer, integer);
+
+CREATE OR REPLACE FUNCTION portal.sp_session_meta_obj_list(
+  p_session_token text,
+  p_class_name text,
+  p_include_subclasses boolean DEFAULT false,
+  p_limit integer DEFAULT 50,
+  p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+  obj_id integer,
+  class_id integer,
+  class_name text,
+  display_label text,
+  updated_at_utc timestamptz
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "Meta", wf, "RBAC", pg_temp
+AS $$
+DECLARE
+  v_ctx record;
+  v_class_id int;
+  v_limit int;
+  v_offset int;
+BEGIN
+  SELECT * INTO v_ctx FROM portal.fn_session_meta_require_instance(p_session_token, 'meta.object.read') LIMIT 1;
+
+  v_class_id := portal.sp_session_meta_resolve_class(p_session_token, p_class_name);
+  v_limit := GREATEST(1, LEAST(COALESCE(p_limit, 50), 500));
+  v_offset := GREATEST(COALESCE(p_offset, 0), 0);
+
+  RETURN QUERY
+  SELECT
+    o."ID"::integer AS obj_id,
+    o."ClassID"::integer AS class_id,
+    c."Name"::text AS class_name,
+    COALESCE(
+      NULLIF(btrim(doc.document->>'name'), ''),
+      NULLIF(btrim(doc.document->>'Name'), ''),
+      NULLIF(btrim(doc.document->>'Caption'), ''),
+      NULLIF(btrim(doc.document->>'title'), ''),
+      '#' || o."ID"::text
+    ) AS display_label,
+    sm."CreatedAtUtc" AS updated_at_utc
+  FROM portal."ScopedMetaObjects" sm
+  INNER JOIN "Meta"."Objs" o ON o."ID" = sm."ObjID"
+  INNER JOIN "Meta"."Classes" c ON c."ID" = o."ClassID"
+  CROSS JOIN LATERAL (
+    SELECT "Meta".fn_merged_obj_document(o."ID") AS document
+  ) doc
+  WHERE sm."ScopeID" = v_ctx.active_scope_id
+    AND (
+      (NOT COALESCE(p_include_subclasses, false) AND o."ClassID" = v_class_id)
+      OR (
+        COALESCE(p_include_subclasses, false)
+        AND EXISTS (
+          SELECT 1
+          FROM "Meta"."ClassClosure" cc
+          WHERE cc."AncestorID" = v_class_id
+            AND cc."DescendantID" = o."ClassID"
+        )
+      )
+    )
+  ORDER BY sm."CreatedAtUtc" DESC, o."ID" DESC
+  LIMIT v_limit
+  OFFSET v_offset;
+END;
+$$;
