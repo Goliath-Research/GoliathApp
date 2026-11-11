@@ -67,6 +67,7 @@ SCRIPTS=(
   meta_schema.sql
   meta_model_phase_a.sql
   meta_model_phase_b.sql
+  meta_model_action_method_api.sql
   meta_model_phase_c.sql
   meta_model_tree_maintenance.sql
   meta_model_phase_d.sql

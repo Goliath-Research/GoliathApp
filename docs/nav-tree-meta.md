@@ -70,6 +70,18 @@ LIMIT 50;
 
 Descendant application plans assume **additive** NavTree nodes and Role2Node grants. No framework rebuild is required in child repositories after this platform change; adopt the new apply list and run backfill once per environment.
 
+### Meta object screens (generic host fallback)
+
+Child apps register NavTree leaves that open the platform host **Meta instance workbench** (list / create / edit via SchemaPropertyGrid) without shipping React code:
+
+| Field | Value |
+| --- | --- |
+| `portal."NodeInfos"."FrameKey"` | `meta_object` |
+| `portal."NodeInfos"."Name"` | `platform.nav.meta_object:<MetaClassName>` (e.g. `platform.nav.meta_object:childapp/Sample`) |
+| `portal."NavTree"."NodePath"` | App-chosen URL under `/app/...` |
+
+Explicit routes in the platform host registry (baseline `/app/meta/*`, admin, workflows, …) **take precedence** over this fallback. The host resolves the screen from the signed-in operator NavTree row for the current `node_path`.
+
 ## Workers
 
 Workers remain **gateway-only**; navigation is portal/DB only.

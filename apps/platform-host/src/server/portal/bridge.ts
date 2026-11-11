@@ -37,6 +37,7 @@ export type OperatorNavRow = {
   seq: number;
   presentationKind: string;
   nodePath: string | null;
+  navInfoName: string | null;
 };
 
 export type MetaClassCatalogRow = {
@@ -448,7 +449,7 @@ export async function portalOperatorNavTree(sessionToken: string): Promise<Opera
   return withClient(async (client) => {
     try {
       const result = await client.query(
-        `SELECT node_id, parent_id, caption, seq, presentation_kind, node_path
+        `SELECT node_id, parent_id, caption, seq, presentation_kind, node_path, nav_info_name
          FROM portal.sp_session_operator_nav_tree($1)`,
         [sessionToken],
       );
@@ -459,6 +460,7 @@ export async function portalOperatorNavTree(sessionToken: string): Promise<Opera
         seq: Number(row.seq),
         presentationKind: String(row.presentation_kind),
         nodePath: row.node_path == null ? null : String(row.node_path),
+        navInfoName: row.nav_info_name == null ? null : String(row.nav_info_name),
       }));
     } catch (err) {
       mapPgPortalError(err);

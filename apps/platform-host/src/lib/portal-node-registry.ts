@@ -35,6 +35,22 @@ export type PortalWorkspaceSpec = {
 
 const META_ROOT_DEFAULT = "portal/NavNode";
 
+/** NodeInfos.Name prefix for generic Meta object list/editor screens (child apps). */
+export const NAV_META_OBJECT_INFO_PREFIX = "platform.nav.meta_object:";
+
+export type PortalNavResolveHint = {
+  /** portal."NodeInfos"."FrameKey" (presentation_kind), e.g. meta_object */
+  presentationKind?: string | null;
+  /** portal."NodeInfos"."Name" */
+  infoName?: string | null;
+};
+
+export function metaClassFromNavInfoName(infoName: string | null | undefined): string | null {
+  if (!infoName?.startsWith(NAV_META_OBJECT_INFO_PREFIX)) return null;
+  const cls = infoName.slice(NAV_META_OBJECT_INFO_PREFIX.length).trim();
+  return cls.length > 0 ? cls : null;
+}
+
 const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
   "/app": {
     kind: "meta_home",
@@ -239,9 +255,23 @@ const PARENT_FALLBACK: Record<string, PortalWorkspaceSpec> = {
   },
 };
 
-export function resolvePortalWorkspace(nodePath: string | null | undefined): PortalWorkspaceSpec {
+export function resolvePortalWorkspace(
+  nodePath: string | null | undefined,
+  hint?: PortalNavResolveHint,
+): PortalWorkspaceSpec {
   const path = (nodePath ?? "/app").replace(/\/+$/, "") || "/app";
   if (PATH_SPECS[path]) return PATH_SPECS[path];
+  const metaClassFromNav = metaClassFromNavInfoName(hint?.infoName);
+  const frame = hint?.presentationKind?.trim() ?? "";
+  if (metaClassFromNav && (frame === "meta_object" || frame.startsWith("meta_object"))) {
+    const leaf = path.split("/").filter(Boolean).pop() ?? "Objects";
+    return {
+      kind: "meta_workbench",
+      title: leaf.replace(/-/g, " "),
+      metaClass: metaClassFromNav,
+      description: `Meta instances for ${metaClassFromNav} (SchemaPropertyGrid).`,
+    };
+  }
   if (PARENT_FALLBACK[path]) return PARENT_FALLBACK[path];
   if (path.startsWith("/app/meta")) {
     return {
