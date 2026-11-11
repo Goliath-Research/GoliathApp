@@ -450,7 +450,8 @@ RETURNS TABLE (
   caption text,
   seq smallint,
   presentation_kind text,
-  node_path text
+  node_path text,
+  nav_info_name text
 )
 LANGUAGE plpgsql
 STABLE
@@ -522,7 +523,8 @@ BEGIN
     vt.caption,
     vt.seq,
     COALESCE(NULLIF(btrim(ni."FrameKey"), ''), 'view')::text AS presentation_kind,
-    vt.node_path
+    vt.node_path,
+    ni."Name"::text AS nav_info_name
   FROM visible_tree vt
   LEFT JOIN portal."NodeInfos" ni ON ni."Id" = vt.info_id
   ORDER BY vt.sort_path NULLS LAST, vt.seq, vt.caption;

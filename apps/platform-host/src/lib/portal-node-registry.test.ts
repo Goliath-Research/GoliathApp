@@ -27,6 +27,24 @@ describe("resolvePortalWorkspace", () => {
     expect(resolvePortalWorkspace("/app/admin/roles").kind).toBe("admin_roles");
     expect(resolvePortalWorkspace("/app/admin/permissions").kind).toBe("admin_permissions");
   });
+
+  it("falls back to Meta workbench when NavTree uses meta_object + platform.nav.meta_object:class", () => {
+    const spec = resolvePortalWorkspace("/app/childapp/samples", {
+      presentationKind: "meta_object",
+      infoName: "platform.nav.meta_object:childapp/Sample",
+    });
+    expect(spec.kind).toBe("meta_workbench");
+    expect(spec.metaClass).toBe("childapp/Sample");
+  });
+
+  it("prefers explicit PATH_SPECS over NavTree meta_object hints", () => {
+    const spec = resolvePortalWorkspace("/app/meta/objects", {
+      presentationKind: "meta_object",
+      infoName: "platform.nav.meta_object:childapp/Sample",
+    });
+    expect(spec.kind).toBe("meta_workbench");
+    expect(spec.metaClass).toBe("portal/NavNode");
+  });
 });
 
 describe("nodePathFromUrlPathname", () => {
