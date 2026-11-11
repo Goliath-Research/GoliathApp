@@ -7,7 +7,8 @@
 --   python3 workflow_engine/sql_pg/seed_action_catalog.py --use-db   (typical)
 --
 -- Idempotent: register missing baseline nodes under /app; upsert NodeInfos FrameKey; grant
--- organization_admin Role_Permissions and Role2Node for every active organization scope.
+-- organization_admin Role_Permissions and Role2Node for every active organization scope;
+-- mirror operator entitlements to god_architect (superset + platform.model.architect).
 -- Re-run after creating a new organization if an earlier run had no scopes yet.
 -- Descendant apps add nodes under their own NodePath prefixes — never replace this tree.
 --
@@ -329,6 +330,10 @@ BEGIN
         PERFORM portal.sp_grant_role_nav_node(v_role_id, v_node_id, v_scope_id);
       END LOOP;
     END LOOP;
+  END IF;
+
+  IF to_regprocedure('portal.sp_sync_god_architect_operator_entitlements()') IS NOT NULL THEN
+    PERFORM portal.sp_sync_god_architect_operator_entitlements();
   END IF;
 END
 $seed$;

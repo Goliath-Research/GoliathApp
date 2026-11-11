@@ -34,4 +34,4 @@ Session APIs live in `portal_session_security_admin_api.sql`; enforcement is in 
 
 ## Production apply
 
-After `apply_schema.sh` (includes layered security SQL) and `seed_platform_nav_tree.sql`, `organization_admin` receives `platform.security.admin` alongside existing meta permissions.
+After `apply_schema.sh` (includes layered security SQL) and `seed_platform_nav_tree.sql`, `organization_admin` receives `platform.security.admin` alongside existing meta permissions. **`god_architect`** receives the same operator permission and NavTree grant set, plus `platform.model.architect`, via `portal.sp_sync_god_architect_operator_entitlements()`.

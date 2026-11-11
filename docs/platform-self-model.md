@@ -32,7 +32,7 @@ Legend: **Risk** = migration difficulty (L/M/H). **Cache** = needs materialized 
 | `RBAC.Scopes` | extend `platform/Organization` scope facet | `platform/Party` | — | H |
 | `RBAC.Sessions` / `SessionTokens` | `platform/Session` (runtime) | — | token cache | H |
 | `RBAC.Session_Roles` | session facet on `platform/Session` | — | — | M |
-| `god_architect` (global role) | `platform/Role` + GLOBAL grant | — | MV | L — shipped |
+| `god_architect` (global role) | `platform/Role` + GLOBAL grant; operator perms/nav = `organization_admin` ⊕ `platform.model.architect` (`sp_sync_god_architect_operator_entitlements`) | — | MV | L — shipped |
 
 ### Portal shell & navigation (Phase N)
 

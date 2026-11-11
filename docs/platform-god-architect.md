@@ -17,6 +17,8 @@ GoliathApp **dogfoods** its Meta model: the platform namespace (`platform/*`, in
 
 Sessions remain **single active role**. David (or any grantee) must **select God Architect** at sign-in to run platform model authoring APIs. Scoped org-admin work (users, role grants in the active organization, invitations) still uses the **organization_admin** active role.
 
+**Operator portal access:** When God Architect is the active role, the session must still carry **`organization_admin`-grade operator permissions** (`meta.schema.read`, `meta.object.read`, `meta.object.write`, `platform.security.admin`, inventory/workflow gates, and baseline `Role2Node` grants) plus **`platform.model.architect`**. `portal.sp_sync_god_architect_operator_entitlements()` idempotently copies `organization_admin` `Role_Permissions` and `Role2Node` rows (excluding `semantic.restricted.probe`) and grants every `/app%` NavTree node on active organization scopes. It runs at the end of `apply_schema.sh` (`platform_god_architect.sql`) and again after `seed_platform_nav_tree.sql`.
+
 ## Enforcement
 
 - **Class-level security**: `MetaClassRoleAccess` denies `organization_admin` create/update/delete on platform catalog classes; allows `god_architect`.
