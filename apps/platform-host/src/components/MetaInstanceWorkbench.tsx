@@ -52,6 +52,8 @@ export function MetaInstanceWorkbench({
   const gridKey = selectedObjId == null ? `new:${className}` : `obj:${selectedObjId}`;
   const selectRequestRef = useRef(0);
   const saveRequestRef = useRef(0);
+  const selectedObjIdRef = useRef<number | null>(selectedObjId);
+  selectedObjIdRef.current = selectedObjId;
 
   const refreshList = useCallback(async () => {
     setListLoading(true);
@@ -71,6 +73,9 @@ export function MetaInstanceWorkbench({
   }, [refreshList]);
 
   async function handleSelect(objId: number) {
+    if (selectedObjIdRef.current === objId) {
+      return;
+    }
     setStatus(null);
     setError(null);
     ++saveRequestRef.current;
@@ -97,29 +102,37 @@ export function MetaInstanceWorkbench({
 
   async function save(document: Record<string, unknown>) {
     const saveId = ++saveRequestRef.current;
-    const targetObjId = selectedObjId;
+    const selectId = selectRequestRef.current;
+    const targetObjId = selectedObjIdRef.current;
     setStatus(null);
     setError(null);
     try {
       if (targetObjId != null) {
         const payload = { ...editorDocument, ...document };
         await client.updateMetaObject(targetObjId, payload);
-        setStatus(`Updated object #${targetObjId}.`);
         await refreshList();
         if (saveId !== saveRequestRef.current) return;
+        if (selectId !== selectRequestRef.current) return;
+        if (selectedObjIdRef.current !== targetObjId) return;
+        setStatus(`Updated object #${targetObjId}.`);
         const row = await client.getMetaObject(targetObjId);
         if (saveId !== saveRequestRef.current) return;
-        if (selectedObjId !== targetObjId) return;
+        if (selectId !== selectRequestRef.current) return;
+        if (selectedObjIdRef.current !== targetObjId) return;
         setEditorDocument(row.document ?? {});
         setSelectedObjId(targetObjId);
         return;
       }
       const { objId } = await client.createMetaObject(className, document);
-      setStatus(`Created object #${objId}.`);
       await refreshList();
       if (saveId !== saveRequestRef.current) return;
+      if (selectId !== selectRequestRef.current) return;
+      if (selectedObjIdRef.current != null) return;
+      setStatus(`Created object #${objId}.`);
       const row = await client.getMetaObject(objId);
       if (saveId !== saveRequestRef.current) return;
+      if (selectId !== selectRequestRef.current) return;
+      if (selectedObjIdRef.current != null) return;
       setEditorDocument(row.document ?? {});
       setSelectedObjId(objId);
     } catch (e) {

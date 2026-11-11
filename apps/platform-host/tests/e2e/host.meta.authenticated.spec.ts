@@ -163,11 +163,25 @@ test.describe("authenticated meta (CI postgres)", () => {
 
     await page.goto("/app/meta?class=portal%2FNavNode");
     await expect(page.getByTestId(`meta-instance-row-${objId}`)).toBeVisible({ timeout: 15_000 });
+    const loadObject = page.waitForResponse(
+      (r) =>
+        r.request().method() === "GET" &&
+        r.url().includes(`/api/meta/objects/${objId}`) &&
+        r.ok(),
+    );
     await page.getByTestId(`meta-instance-row-${objId}`).click();
+    await loadObject;
     const caption = page.getByTestId("pi-row-Caption").locator("input");
     await expect(caption).toHaveValue("ListPick", { timeout: 15_000 });
     await caption.fill("ListPickEdited");
+    const patchObject = page.waitForResponse(
+      (r) =>
+        r.request().method() === "PATCH" &&
+        r.url().includes(`/api/meta/objects/${objId}`) &&
+        r.ok(),
+    );
     await page.getByRole("button", { name: "Save changes" }).click();
+    await patchObject;
     await expect
       .poll(async () => {
         const getRes = await request.get(`/api/meta/objects/${objId}`);

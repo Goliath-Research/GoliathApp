@@ -143,11 +143,15 @@ export function SchemaPropertyGridSurface({
     [plans],
   );
 
+  const initialSnapshotKey = useMemo(() => JSON.stringify(initialDocument), [initialDocument]);
+
   useEffect(() => {
     setPrimitiveValues(initPrimitives(plans, initialDocument));
     setObjectValues(initObjects(plans, initialDocument));
     setArrayValues(initArrays(plans, initialDocument));
-  }, [initialDocument, planIdentity, plans]);
+    // planIdentity tracks plan content; omit `plans` reference to avoid spurious resets.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- plans align with planIdentity
+  }, [initialSnapshotKey, planIdentity]);
 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

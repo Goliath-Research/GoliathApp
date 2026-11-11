@@ -62,6 +62,65 @@ describe("SchemaPropertyGridSurface submit", () => {
     expect(screen.getByRole("alert")).toBeTruthy();
   });
 
+  it("keeps in-progress edits when parent re-renders with the same initial snapshot", async () => {
+    const onSubmit = vi.fn();
+    const { rerender } = render(
+      <SchemaPropertyGridSurface
+        fields={fields}
+        schema={flattened}
+        rootSchema={flattened}
+        initialDocument={{ Caption: "Keep", NodePath: "was-set" }}
+        onSubmit={onSubmit}
+        submitLabel="Save"
+      />,
+    );
+    const input = screen.getByTestId("pi-row-Caption").querySelector("input")!;
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "Edited" } });
+    });
+    rerender(
+      <SchemaPropertyGridSurface
+        fields={[...fields]}
+        schema={flattened}
+        rootSchema={flattened}
+        initialDocument={{ Caption: "Keep", NodePath: "was-set" }}
+        onSubmit={onSubmit}
+        submitLabel="Save"
+      />,
+    );
+    expect(input).toHaveValue("Edited");
+  });
+
+  it("formats date-time values for datetime-local inputs", () => {
+    const dateFields: MetaClassField[] = [
+      {
+        fieldName: "When",
+        typeId: 1,
+        typeName: "core/When",
+        typeKind: "datetime",
+        required: false,
+        declaredOnClassId: 1,
+        declaredOnClassName: "portal/NavNode",
+        definedAtDepth: 0,
+        isLocal: true,
+      },
+    ];
+    const schema = {
+      type: "object",
+      properties: { When: { type: "string", format: "date-time" } },
+    };
+    render(
+      <SchemaPropertyGridSurface
+        fields={dateFields}
+        schema={schema}
+        rootSchema={schema}
+        initialDocument={{ When: "2024-06-15T14:30:00.000Z" }}
+      />,
+    );
+    const input = screen.getByTestId("pi-row-When").querySelector("input[type='datetime-local']") as HTMLInputElement;
+    expect(input.value).toMatch(/^2024-06-15T\d{2}:\d{2}$/);
+  });
+
   it("emits null for cleared optional fields present in initialDocument", async () => {
     const onSubmit = vi.fn();
     render(
