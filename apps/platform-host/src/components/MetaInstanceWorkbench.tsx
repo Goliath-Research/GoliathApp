@@ -102,7 +102,8 @@ export function MetaInstanceWorkbench({
     setError(null);
     try {
       if (targetObjId != null) {
-        await client.updateMetaObject(targetObjId, document);
+        const payload = { ...editorDocument, ...document };
+        await client.updateMetaObject(targetObjId, payload);
         await refreshList();
         if (saveId !== saveRequestRef.current) return;
         const row = await client.getMetaObject(targetObjId);
