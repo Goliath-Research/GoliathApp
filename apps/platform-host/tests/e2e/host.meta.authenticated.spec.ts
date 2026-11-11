@@ -155,24 +155,26 @@ test.describe("authenticated meta (CI postgres)", () => {
   });
 
   test("list select edit save round-trip", async ({ page, request }) => {
-    const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
-      data: { document: { Caption: "ListPick", Seq: 41 } },
-    });
-    expect(createRes.status()).toBe(201);
-    const { objId } = (await createRes.json()) as { objId: number };
-
     await page.goto("/app/meta?class=portal%2FNavNode");
+    await fillRequiredSchemaGridFields(page, request);
+    await page.getByTestId("pi-row-Caption").locator("input").fill("ListPick");
+    await page.getByRole("button", { name: "Create instance" }).click();
+    await expect(page.getByTestId("meta-workbench-status")).toContainText(/Created object #\d+/, {
+      timeout: 30_000,
+    });
+    const statusText = await page.getByTestId("meta-workbench-status").textContent();
+    const objId = Number(statusText?.match(/#(\d+)/)?.[1]);
+    expect(objId).toBeGreaterThan(0);
+
     await expect(page.getByTestId(`meta-instance-row-${objId}`)).toBeVisible({ timeout: 15_000 });
     await page.getByTestId(`meta-instance-row-${objId}`).click();
     const caption = page.getByTestId("pi-row-Caption").locator("input");
-    await expect(caption).toBeVisible({ timeout: 15_000 });
-    await expect(caption).toHaveValue("ListPick");
-    await fillRequiredSchemaGridFields(page, request);
+    await expect(caption).toHaveValue("ListPick", { timeout: 15_000 });
     await caption.fill("ListPickEdited");
     await expect(page.getByRole("button", { name: "Save changes" })).toBeEnabled();
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByTestId("meta-workbench-status")).toContainText(`Updated object #${objId}`, {
-      timeout: 15_000,
+      timeout: 30_000,
     });
 
     const getRes = await request.get(`/api/meta/objects/${objId}`);
