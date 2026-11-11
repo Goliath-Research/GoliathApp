@@ -295,7 +295,11 @@ export function SchemaPropertyGridSurface({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    const document = buildDocument();
+    const partial = buildPartialDocument();
+    let document = buildDocument();
+    if (!document && Object.keys(initialDocument).length > 0 && Object.keys(partial).length > 0) {
+      document = { ...initialDocument, ...partial };
+    }
     if (!document) return;
     onDraftChange?.(document);
     if (!onSubmit) return;

@@ -93,28 +93,33 @@ export function MetaInstanceWorkbench({
   }
 
   async function save(document: Record<string, unknown>) {
-    const requestId = ++selectRequestRef.current;
     setStatus(null);
     setError(null);
-    if (selectedObjId != null) {
-      const payload = { ...editorDocument, ...document };
-      await client.updateMetaObject(selectedObjId, payload);
-      if (requestId !== selectRequestRef.current) return;
-      const row = await client.getMetaObject(selectedObjId);
-      if (requestId !== selectRequestRef.current) return;
+    const generationAtStart = selectRequestRef.current;
+    try {
+      if (selectedObjId != null) {
+        const payload = { ...editorDocument, ...document };
+        await client.updateMetaObject(selectedObjId, payload);
+        if (generationAtStart !== selectRequestRef.current) return;
+        const row = await client.getMetaObject(selectedObjId);
+        if (generationAtStart !== selectRequestRef.current) return;
+        setEditorDocument(row.document ?? {});
+        setStatus(`Updated object #${selectedObjId}.`);
+        await refreshList();
+        return;
+      }
+      const { objId } = await client.createMetaObject(className, document);
+      if (generationAtStart !== selectRequestRef.current) return;
+      const row = await client.getMetaObject(objId);
+      if (generationAtStart !== selectRequestRef.current) return;
       setEditorDocument(row.document ?? {});
-      setStatus(`Updated object #${selectedObjId}.`);
+      setSelectedObjId(objId);
+      setStatus(`Created object #${objId}.`);
       await refreshList();
-      return;
+    } catch (e) {
+      if (generationAtStart !== selectRequestRef.current) return;
+      setError(e instanceof Error ? e.message : "save failed");
     }
-    const { objId } = await client.createMetaObject(className, document);
-    if (requestId !== selectRequestRef.current) return;
-    const row = await client.getMetaObject(objId);
-    if (requestId !== selectRequestRef.current) return;
-    setEditorDocument(row.document ?? {});
-    setSelectedObjId(objId);
-    setStatus(`Created object #${objId}.`);
-    await refreshList();
   }
 
   return (
