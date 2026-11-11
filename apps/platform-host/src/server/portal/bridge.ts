@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Pool, PoolClient, QueryResultRow } from "pg";
 import { Pool as PgPool } from "pg";
+import { getRequestProductDefinition } from "../product/request-product";
 import { resolvePortalBridgeConfig } from "./env";
 
 export type ResolvedPortalSession = {
@@ -82,19 +83,22 @@ export type OperatorDashboardWidgetRow = {
   columnSpan: number;
 };
 
-let pool: Pool | null = null;
+const pools = new Map<string, Pool>();
 
 export function isPortalBridgeConfigured(): boolean {
   return resolvePortalBridgeConfig() !== null;
 }
 
-function getPool(): Pool {
-  const cfg = resolvePortalBridgeConfig();
+async function getPool(): Promise<Pool> {
+  const product = await getRequestProductDefinition();
+  const cfg = resolvePortalBridgeConfig(product);
   if (!cfg) {
     throw new PortalBridgeMisconfiguredError();
   }
+  let pool = pools.get(cfg.productId);
   if (!pool) {
     pool = new PgPool({ connectionString: cfg.connString, max: 5 });
+    pools.set(cfg.productId, pool);
   }
   return pool;
 }
