@@ -279,6 +279,75 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION portal.sp_sync_god_architect_operator_entitlements()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, "Meta", "RBAC", pg_temp
+AS $$
+DECLARE
+  v_god_role int;
+  v_admin_role int;
+  v_scope_id int;
+  v_node_id int;
+  r record;
+BEGIN
+  v_god_role := portal.fn_god_architect_role_id();
+  SELECT role_row."ID" INTO v_admin_role
+  FROM "RBAC"."Roles" role_row
+  WHERE role_row."Name" = 'organization_admin'
+  LIMIT 1;
+
+  IF v_god_role IS NULL THEN
+    RETURN;
+  END IF;
+
+  PERFORM portal.sp_set_role_permission(v_god_role, 'platform.model.architect', true);
+
+  IF v_admin_role IS NOT NULL THEN
+    FOR r IN
+      SELECT p."ID" AS permission_id
+      FROM "RBAC"."Role_Permissions" rp
+      INNER JOIN "RBAC"."Permissions" p ON p."ID" = rp."PermissionID"
+      WHERE rp."RoleID" = v_admin_role
+        AND p."Name" <> 'semantic.restricted.probe'
+    LOOP
+      INSERT INTO "RBAC"."Role_Permissions" ("RoleID", "PermissionID")
+      SELECT v_god_role, r.permission_id
+      WHERE NOT EXISTS (
+        SELECT 1 FROM "RBAC"."Role_Permissions" existing
+        WHERE existing."RoleID" = v_god_role AND existing."PermissionID" = r.permission_id
+      );
+    END LOOP;
+
+    FOR r IN
+      SELECT rn."ScopeId", rn."NodeId"
+      FROM portal."Role2Node" rn
+      WHERE rn."RoleId" = v_admin_role
+    LOOP
+      PERFORM portal.sp_grant_role_nav_node(v_god_role, r."NodeId", r."ScopeId");
+    END LOOP;
+  END IF;
+
+  FOR v_scope_id IN
+    SELECT s."ScopeID"
+    FROM "RBAC"."Scopes" s
+    WHERE s."ScopeType" = 'organization'
+      AND COALESCE(s."Active", true)
+  LOOP
+    FOR v_node_id IN
+      SELECT n."ID"
+      FROM portal."NavTree" n
+      WHERE n."NodePath" LIKE '/app%'
+    LOOP
+      PERFORM portal.sp_grant_role_nav_node(v_god_role, v_node_id, v_scope_id);
+    END LOOP;
+  END LOOP;
+
+  PERFORM portal.sp_security_meta_refresh_cache();
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION portal.fn_security_user_grant_role_ids(
   p_user_id integer,
   p_scope_id integer
@@ -465,6 +534,7 @@ BEGIN
 END
 $grant_god$;
 SELECT portal.sp_security_meta_refresh_cache();
+SELECT portal.sp_sync_god_architect_operator_entitlements();
 
 DO $god_acl$
 DECLARE

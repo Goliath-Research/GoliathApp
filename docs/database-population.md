@@ -38,7 +38,7 @@ flowchart TB
 | **`apply_schema.sh`** (DDL) | Any PostgreSQL surface in this repo | Platform release / DBA |
 | **`seed_action_catalog.py --use-db`** | **Any** workflow graph whose nodes reference **`action_name`** values (including engine actions such as `workflow.const_string`) — `wf_repo_create_workflow_graph` fails on unknown names | Platform release automation (`goliath.action_catalogs` in `workflow_engine/pyproject.toml` → `goliath_app/actions/registry.py`) |
 | **`seed_semantic_catalog.py`** | Portal semantic registry as shipped; not required to create `wf.*` graphs alone | Platform release automation |
-| **`seed_platform_nav_tree.sql`** | **Inherited platform operator menu** (`portal."NavTree"` under `/app`, `organization_admin` Role2Node + Role_Permissions); empty databases stay at NavTree count 0 without it | Platform release automation (after catalog seeds; re-run after new org scopes) |
+| **`seed_platform_nav_tree.sql`** | **Inherited platform operator menu** (`portal."NavTree"` under `/app`, `organization_admin` Role2Node + Role_Permissions, then **`god_architect` operator superset** via `portal.sp_sync_god_architect_operator_entitlements()`); empty databases stay at NavTree count 0 without it | Platform release automation (after catalog seeds; re-run after new org scopes) |
 | **Org + RBAC** (`portal.sp_organization_*`, sessions, roles) | **Interactive portal** and RBAC-gated operations | Tenant admin / bootstrap |
 | **`portal.semantic_*` + `Meta.*`** | Semantic UI, Meta validation, typed catalogs that tie to portal | Platform seeds + **descendant** registrations |
 | **`wf.workflow_*` graph rows** | Runnable workflow instances | **Product** (SQL, `portal.sp_create_workflow_graph`, gateway, or `ops` deploy tools — not DDL) |
