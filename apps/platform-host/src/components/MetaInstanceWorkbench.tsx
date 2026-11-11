@@ -49,6 +49,8 @@ export function MetaInstanceWorkbench({
   const [editorDocument, setEditorDocument] = useState<Record<string, unknown>>({});
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const editorDocumentRef = useRef(editorDocument);
+  editorDocumentRef.current = editorDocument;
   const gridKey = selectedObjId == null ? `new:${className}` : `obj:${selectedObjId}`;
   const selectRequestRef = useRef(0);
   const saveRequestRef = useRef(0);
@@ -108,7 +110,7 @@ export function MetaInstanceWorkbench({
     setError(null);
     try {
       if (targetObjId != null) {
-        const payload = { ...editorDocument, ...document };
+        const payload = { ...editorDocumentRef.current, ...document };
         await client.updateMetaObject(targetObjId, payload);
         await refreshList();
         if (saveId !== saveRequestRef.current) return;

@@ -164,26 +164,18 @@ test.describe("authenticated meta (CI postgres)", () => {
 
     await page.goto("/app/meta?class=portal%2FNavNode");
     await expect(page.getByTestId(`meta-instance-row-${objId}`)).toBeVisible({ timeout: 15_000 });
-    const loadObject = page.waitForResponse(
-      (r) =>
-        r.request().method() === "GET" &&
-        r.url().includes(`/api/meta/objects/${objId}`) &&
-        r.ok(),
-    );
     await page.getByTestId(`meta-instance-row-${objId}`).click();
-    await loadObject;
     const caption = page.getByTestId("pi-row-Caption").locator("input");
     await expect(caption).toHaveValue("ListPick", { timeout: 15_000 });
     await fillRequiredSchemaGridFields(page, request);
     await caption.fill("ListPickEdited");
+    await expect(caption).toHaveValue("ListPickEdited");
     const patchObject = page.waitForResponse(
-      (r) =>
-        r.request().method() === "PATCH" &&
-        r.url().includes(`/api/meta/objects/${objId}`) &&
-        r.ok(),
+      (r) => r.request().method() === "PATCH" && r.url().includes(`/api/meta/objects/${objId}`),
     );
-    await page.getByRole("button", { name: "Save changes" }).click();
-    await patchObject;
+    await page.getByTestId("meta-instance-workbench").getByRole("button", { name: "Save changes" }).click();
+    const patchRes = await patchObject;
+    expect(patchRes.ok(), `save failed: ${await patchRes.text()}`).toBeTruthy();
     await expect
       .poll(async () => {
         const getRes = await request.get(`/api/meta/objects/${objId}`);
