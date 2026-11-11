@@ -429,6 +429,73 @@
   font-size: 0.9rem;
 }
 
+.g-portal__header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.g-host-button--ghost {
+  margin-top: 0;
+}
+
+.g-onboarding {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.g-onboarding__card {
+  max-width: 32rem;
+  width: 100%;
+  padding: 1.5rem;
+  border: 1px solid var(--g-host-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--g-bg) 92%, var(--g-fg) 8%);
+}
+
+.g-onboarding__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.35rem;
+}
+
+.g-onboarding__lead {
+  margin: 0 0 1rem;
+  line-height: 1.5;
+  color: var(--g-fg-muted);
+}
+
+.g-onboarding__muted,
+.g-onboarding__error {
+  margin: 0.75rem 0 0;
+}
+
+.g-onboarding__error {
+  color: #c62828;
+}
+
+.g-onboarding__actions {
+  margin-top: 1.25rem;
+}
+
+.g-role-picker__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.g-role-picker__option {
+  width: 100%;
+  text-align: left;
+  margin-top: 0;
+}
+
 .g-portal__body {
   flex: 1;
   display: grid;
@@ -634,6 +701,37 @@
 
 .g-portal-status {
   color: var(--g-host-accent, #2563eb);
+}
+
+.g-admin-error {
+  color: #b91c1c;
+}
+
+.g-portal-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.g-button-secondary {
+  background: transparent;
+  border: 1px solid var(--g-host-border);
+}
+
+.g-admin-grant-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.g-admin-grant-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 @media (max-width: 800px) {

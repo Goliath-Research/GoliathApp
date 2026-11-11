@@ -8,8 +8,13 @@ import uuid
 from pathlib import Path
 
 import pytest
+import psycopg
 
 from goliath_app.portal import PortalClient, PortalSemanticError
+from workflow_engine.tests.helpers.portal_session_test_helpers import (
+    create_org_with_admin,
+    open_session_token,
+)
 from goliath_app.portal.connection import build_portal_conninfo
 from goliath_app.semantic.models import FilterOrganizationsParams, ListOrganizationsParams
 
@@ -58,18 +63,8 @@ def _create_user(env: dict[str, str]) -> int:
     )
 
 
-def _create_org(env: dict[str, str], user_id: int, name: str) -> int:
-    escaped = name.replace("'", "''")
-    row = _psql(
-        f"SELECT * FROM portal.sp_organization_create('{escaped}')",
-        env,
-    )
-    org_id = int(row.split("|")[0])
-    _psql(
-        f"SELECT inserted FROM portal.sp_organization_add_member({org_id}, {user_id})",
-        env,
-    )
-    return org_id
+def _create_org(env: dict[str, str], user_id: int, name: str) -> tuple[int, int]:
+    return create_org_with_admin(lambda sql: _psql(sql, env), user_id, name)
 
 
 @pytest.fixture(scope="module")
@@ -110,9 +105,11 @@ def test_session_and_semantic_round_trip(
 ) -> None:
     user_id = _create_user(portal_client_env)
     org_name = f"PortalRoundTrip-{user_id}"
-    _create_org(portal_client_env, user_id, org_name)
+    _org_id, scope_id = _create_org(portal_client_env, user_id, org_name)
 
-    opened = portal_client.session_open(user_id)
+    opened = portal_client.session_open(user_id, active_scope_id=scope_id)
+    with psycopg.connect(build_portal_conninfo()) as conn:
+        conn.execute("SELECT role_id FROM portal.sp_session_auto_select_active_role(%s)", (opened.session_token,))
     assert opened.session_token
     assert portal_client.session_touch(opened.session_token)
 

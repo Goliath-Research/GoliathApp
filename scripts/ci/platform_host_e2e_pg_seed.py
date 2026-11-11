@@ -163,7 +163,81 @@ def _ensure_e2e_nested_hierarchy(env: dict[str, str]) -> None:
     _psql("SELECT portal.sp_nav_ensure_meta_catalog()", env)
 
 
-def _grant_scoped(env: dict[str, str], user_id: int, scope_id: int) -> None:
+def _grant_role_nav_tree(env: dict[str, str], role_id: int, scope_id: int) -> None:
+    _psql(
+        f"""
+        DO $grant$
+        DECLARE
+          v_node int;
+        BEGIN
+          FOR v_node IN
+            SELECT n."ID" FROM portal."NavTree" n WHERE n."NodePath" LIKE '/app%'
+          LOOP
+            PERFORM portal.sp_grant_role_nav_node({role_id}, v_node, {scope_id});
+          END LOOP;
+        END $grant$;
+        """,
+        env,
+    )
+
+
+def _seed_scope_provider(env: dict[str, str], scope_id: int) -> None:
+    issuer = f"https://login.e2e.example/{uuid.uuid4().hex[:8]}/"
+    provider_id = int(
+        _psql(
+            f"""
+            INSERT INTO "RBAC"."IdentityProviders" ("Name","ProviderType","Issuer","Active","CreatedAtUtc")
+            VALUES ('e2e-oidc', 'oidc', '{issuer.replace("'", "''")}', true, now() AT TIME ZONE 'utc')
+            RETURNING "ProviderID"
+            """,
+            env,
+        )
+    )
+    _psql(
+        f"""
+        INSERT INTO "RBAC"."ScopeIdentityProviders" ("ScopeID","ProviderID","Active","CreatedAtUtc")
+        VALUES ({scope_id}, {provider_id}, true, now() AT TIME ZONE 'utc')
+        ON CONFLICT DO NOTHING
+        """,
+        env,
+    )
+
+
+def _seed_scope_contract(env: dict[str, str], org_id: int, scope_id: int, role_id: int) -> None:
+    import json
+
+    contract_id = int(
+        _psql(
+            f"SELECT contract_id FROM portal.sp_upsert_contract({org_id}, 'E2EDefault', 'ACTIVE')",
+            env,
+        )
+    )
+    scopes_json = json.dumps([{"scope_id": scope_id, "status": "ACTIVE"}])
+    _psql(
+        f"SELECT 1 FROM portal.sp_set_contract_scopes({contract_id}, '{scopes_json}'::jsonb)",
+        env,
+    )
+    _psql(
+        f"""
+        INSERT INTO "Contract"."ContractRolePolicies"
+          ("ContractID", "RoleID", "GrantTypeAllowed", "RequiresApproval", "CreatedAtUtc")
+        VALUES ({contract_id}, {role_id}, 'SCOPED', false, now() AT TIME ZONE 'utc')
+        ON CONFLICT ("ContractID", "RoleID") DO NOTHING
+        """,
+        env,
+    )
+
+
+def _grant_organization_admin(env: dict[str, str], org_id: int, user_id: int, scope_id: int) -> None:
+    _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({org_id}, {user_id})", env)
+    org_admin_role = _psql(
+        """SELECT "ID" FROM "RBAC"."Roles" WHERE "Name" = 'organization_admin' LIMIT 1""",
+        env,
+    )
+    _grant_role_nav_tree(env, int(org_admin_role), scope_id)
+
+
+def _grant_scoped(env: dict[str, str], user_id: int, scope_id: int) -> int:
     role_name = f"e2e_meta_{uuid.uuid4().hex[:8]}"
     role_id = int(
         _psql(
@@ -206,6 +280,8 @@ def _grant_scoped(env: dict[str, str], user_id: int, scope_id: int) -> None:
         """,
         env,
     )
+    _grant_role_nav_tree(env, role_id, scope_id)
+    return role_id
 
 
 def main() -> int:
@@ -231,8 +307,13 @@ def main() -> int:
     org_a_id = int(org_a.split("|")[0])
     scope_a = int(org_a.split("|")[1])
     subprocess.run(["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(NAV_SEED)], env=env, check=True)
-    _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({org_a_id}, {user_a})", env)
-    _grant_scoped(env, user_a, scope_a)
+    org_admin_role = int(
+        _psql("""SELECT "ID" FROM "RBAC"."Roles" WHERE "Name" = 'organization_admin' LIMIT 1""", env)
+    )
+    _seed_scope_provider(env, scope_a)
+    _seed_scope_contract(env, org_a_id, scope_a, org_admin_role)
+    e2e_role_id = _grant_scoped(env, user_a, scope_a)
+    _seed_scope_contract(env, org_a_id, scope_a, e2e_role_id)
 
     email_b = f"e2e-denied-{uuid.uuid4().hex[:8]}@test"
     user_b = int(
@@ -247,6 +328,27 @@ def main() -> int:
     )
     org_b = _psql(f"SELECT * FROM portal.sp_organization_create('E2EOrgB')", env)
     scope_b = int(org_b.split("|")[1])
+    subprocess.run(["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(NAV_SEED)], env=env, check=True)
+    denied_role = int(
+        _psql(
+            f"""
+            INSERT INTO "RBAC"."Roles" ("Name", "BypassScope")
+            VALUES ('e2e_denied_{uuid.uuid4().hex[:8]}', false)
+            RETURNING "ID"
+            """,
+            env,
+        )
+    )
+    _psql(
+        f"""
+        INSERT INTO "RBAC"."UserRoleGrants" (
+          "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc"
+        )
+        VALUES ({user_b}, {denied_role}, 'SCOPED', {scope_b}, true, now() AT TIME ZONE 'utc')
+        """,
+        env,
+    )
+    _grant_role_nav_tree(env, denied_role, scope_b)
     _grant_scoped(env, user_a, scope_b)
 
     out_dir = REPO / "apps" / "platform-host" / ".e2e"

@@ -41,7 +41,7 @@ def _psql(sql: str, env: dict[str, str]) -> str:
     return proc.stdout.strip()
 
 
-def _grant_platform_author(env: dict[str, str], user_id: int, scope_id: int) -> None:
+def _grant_platform_author(env: dict[str, str], user_id: int, scope_id: int) -> int:
     perm_id = _psql(
         """SELECT "ID" FROM "RBAC"."Permissions" WHERE "Name" = 'platform.model.author' LIMIT 1""",
         env,
@@ -76,6 +76,7 @@ def _grant_platform_author(env: dict[str, str], user_id: int, scope_id: int) -> 
             VALUES ({user_id}, {role_id}, 'DIRECT', {scope_id}, true, now() AT TIME ZONE 'utc')""",
         env,
     )
+    return role_id
 
 
 @pytest.fixture(scope="module")
@@ -148,26 +149,34 @@ def test_session_model_author_create_subclass_and_export(model_author_env: dict[
     org_id = int(org.split("|")[0])
     scope_id = int(org.split("|")[1])
     subprocess.run(["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(NAV_SEED)], env=env, check=True)
-    _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({org_id}, {user_id})", env)
-    _grant_platform_author(env, user_id, scope_id)
-    client = PortalClient(build_portal_conninfo())
-    opened = client.session_open(user_id, active_scope_id=scope_id)
+    from workflow_engine.tests.helpers.portal_session_test_helpers import (
+        grant_organization_admin,
+        grant_role_nav_tree,
+        open_session_token,
+    )
+
+    psql = lambda sql: _psql(sql, env)
+    grant_organization_admin(psql, org_id, user_id)
+    author_role_id = _grant_platform_author(env, user_id, scope_id)
+    grant_role_nav_tree(psql, author_role_id, scope_id)
+    os.environ["GOLIATH_PORTAL_PASSWORD"] = PORTAL_TEST_PASSWORD
+    session_token = open_session_token(psql, user_id, scope_id=scope_id, role_id=author_role_id)
     class_name = f"your_app/TestParty_{uuid.uuid4().hex[:6]}"
     conninfo = build_portal_conninfo()
     with psycopg.connect(conninfo) as conn:
         cur = conn.execute(
             "SELECT class_id, class_name FROM portal.sp_session_meta_class_create(%s, %s, %s)",
-            (opened.session_token, class_name, "platform/Person"),
+            (session_token, class_name, "platform/Person"),
         )
         row = cur.fetchone()
         assert row is not None
         conn.execute(
             "SELECT field_id FROM portal.sp_session_meta_field_upsert(%s, %s, %s, %s, %s, %s)",
-            (opened.session_token, class_name, "Nickname", "portal/nav/Caption", "1.0", True),
+            (session_token, class_name, "Nickname", "portal/nav/Caption", "1.0", True),
         )
         pkg = conn.execute(
             "SELECT package_sql FROM portal.sp_session_export_model_package(%s, %s)",
-            (opened.session_token, "your_app/"),
+            (session_token, "your_app/"),
         ).fetchone()
         assert pkg is not None
         assert class_name in str(pkg[0])

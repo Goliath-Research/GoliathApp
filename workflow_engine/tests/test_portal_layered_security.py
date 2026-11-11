@@ -10,8 +10,12 @@ from pathlib import Path
 import psycopg
 import pytest
 
-from goliath_app.portal import PortalClient
 from goliath_app.portal.connection import build_portal_conninfo
+from workflow_engine.tests.helpers.portal_session_test_helpers import (
+    grant_organization_admin,
+    grant_role_nav_tree,
+    open_session_token,
+)
 
 SQL_PG = Path(__file__).resolve().parents[1] / "sql_pg"
 APPLY_SH = SQL_PG / "apply_schema.sh"
@@ -103,13 +107,15 @@ def test_class_inheritance_and_session_get(layered_env: dict[str, str]) -> None:
     org_id = int(org.split("|")[0])
     scope_id = int(org.split("|")[1])
     subprocess.run(["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(NAV_SEED)], env=env, check=True)
-    _psql(f"SELECT grant_id FROM portal.sp_organization_set_admin({org_id}, {admin_id})", env)
-    _scoped_role(
+    psql = lambda sql: _psql(sql, env)
+    grant_organization_admin(psql, org_id, admin_id)
+    admin_role_id = _scoped_role(
         env,
         admin_id,
         scope_id,
         ["platform.security.admin", "meta.schema.read", "meta.object.read", "meta.object.write"],
     )
+    grant_role_nav_tree(psql, admin_role_id, scope_id)
 
     reader_id = int(
         _psql(
@@ -135,8 +141,7 @@ def test_class_inheritance_and_session_get(layered_env: dict[str, str]) -> None:
         env,
     )
 
-    client = PortalClient(build_portal_conninfo())
-    admin_token = client.session_open(admin_id, active_scope_id=scope_id).session_token
+    admin_token = open_session_token(psql, admin_id, scope_id=scope_id, role_id=admin_role_id)
     with psycopg.connect(build_portal_conninfo()) as conn:
         insert_row = conn.execute(
             "SELECT portal.sp_session_meta_obj_insert(%s, %s, %s::jsonb)",
@@ -159,7 +164,8 @@ def test_class_inheritance_and_session_get(layered_env: dict[str, str]) -> None:
         assert inherit_row is not None
         assert inherit_row[0]
 
-    reader_token = client.session_open(reader_id, active_scope_id=scope_id).session_token
+    grant_role_nav_tree(psql, restricted_role, scope_id)
+    reader_token = open_session_token(psql, reader_id, scope_id=scope_id, role_id=restricted_role)
     with psycopg.connect(build_portal_conninfo()) as conn:
         assert conn.execute(
             "SELECT obj_id FROM portal.sp_session_meta_obj_get(%s, %s)",
@@ -200,8 +206,10 @@ def test_object_deny_gs403(layered_env: dict[str, str]) -> None:
         f"""SELECT portal.sp_upsert_class_role_access({scope_id}, {role_id}, {person_id}, 'read', 'allow')""",
         env,
     )
-    client = PortalClient(build_portal_conninfo())
-    token = client.session_open(user_id, active_scope_id=scope_id).session_token
+    psql = lambda sql: _psql(sql, env)
+    subprocess.run(["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(NAV_SEED)], env=env, check=True)
+    grant_role_nav_tree(psql, role_id, scope_id)
+    token = open_session_token(psql, user_id, scope_id=scope_id, role_id=role_id)
     with psycopg.connect(build_portal_conninfo()) as conn:
         obj_row = conn.execute(
             "SELECT portal.sp_session_meta_obj_insert(%s, %s, %s::jsonb)",

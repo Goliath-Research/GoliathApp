@@ -242,7 +242,7 @@ BEGIN
   -- Check role policy for this contract
   IF NOT EXISTS (
     SELECT 1 FROM "Contract"."ContractRolePolicies" crp
-    WHERE crp."ContractID" = v_cid AND crp."RoleID" = p_role_id AND crp."AllowGrant" = true
+    WHERE crp."ContractID" = v_cid AND crp."RoleID" = p_role_id
   ) THEN
     RETURN QUERY SELECT false, v_cid, 'ROLE_GRANT_NOT_PERMITTED';
     RETURN;

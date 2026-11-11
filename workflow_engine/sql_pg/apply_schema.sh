@@ -109,11 +109,16 @@ SCRIPTS=(
   portal_layered_security_schema.sql
   portal_layered_security_api.sql
   portal_session_security_admin_api.sql
+  portal_session_invitation_api.sql
   portal_semantic_schema.sql
   portal_semantic_row_types.sql
   inv_semantic.sql
   portal_semantic_api.sql
   portal_layered_security_enforcement.sql
+  portal_session_active_role_api.sql
+  platform_security_meta_classes.sql
+  platform_security_meta_migrate.sql
+  portal_security_meta_resolver.sql
   meta_model_semantic.sql
   portal_contract_api.sql
   portal_study_ops_api.sql

@@ -32,10 +32,25 @@ export function OperatorPortalShell({
         </div>
         <p className="g-portal__operator">
           {session.fullName} · <code>{session.email}</code>
+          {session.activeRoleName ? (
+            <>
+              {" "}
+              · Role <strong>{session.activeRoleName}</strong>
+            </>
+          ) : null}
         </p>
-        <button type="button" className="g-host-button" onClick={() => void signOut()}>
-          Sign out
-        </button>
+        <div className="g-portal__header-actions">
+          <button
+            type="button"
+            className="g-host-button g-host-button--ghost"
+            onClick={() => router.push("/app/onboarding/select-role?switch=1")}
+          >
+            Switch role
+          </button>
+          <button type="button" className="g-host-button" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </div>
       </header>
       <div className="g-portal__body">
         <aside className="g-portal__navigate" aria-label="Navigate">

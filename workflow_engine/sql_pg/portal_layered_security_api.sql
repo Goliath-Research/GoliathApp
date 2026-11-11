@@ -17,6 +17,9 @@ AS $$
   END;
 $$;
 
+DROP FUNCTION IF EXISTS portal.fn_meta_role_ids_in_scope(integer, integer, integer);
+DROP FUNCTION IF EXISTS portal.fn_meta_role_ids_in_scope(integer, integer);
+
 CREATE OR REPLACE FUNCTION portal.fn_meta_role_ids_in_scope(
   p_user_id integer,
   p_scope_id integer

@@ -12,7 +12,19 @@ After Microsoft (or another registered) sign-in, you land in the **operator port
 |------|------------|
 | **Navigate (left)** | Official **NavTree** from `portal.sp_session_operator_nav_tree` — permission-filtered, nested, clickable (`node_path` routes). |
 | **Main workspace** | Depends on the node you opened (see below). |
-| **Header / footer** | Your name and email, sign out, active organization **scope**. |
+| **Header / footer** | Your name and email, sign out, active organization **scope**, and the **active role** for this session. |
+
+### One role per session
+
+A person may hold **multiple role grants** in an organization scope, but each portal session acts as **exactly one** selected role:
+
+- **One grant** — the platform auto-selects that role when the session opens.
+- **Several grants** — you choose a role on `/app/onboarding/select-role` before the NavTree loads.
+- **No grants** — you see **No role assigned** (`/app/onboarding/no-role`) instead of an empty menu.
+
+The active role is stored **server-side** in `RBAC.Session_Roles` via `portal.sp_session_set_active_role` (the host never trusts a browser-supplied role without verifying an active scoped grant). NavTree, semantic permissions, Meta class/object checks, and layered security evaluate **only that role**, not the union of all grants.
+
+Use **Switch role** in the header to open the picker again; role changes are written to `portal.session_active_role_audit`.
 
 The default home (`/app`) foregrounds the **Meta class hierarchy**: inherited GoliathApp classes plus any **semantic** classes your application added. Selecting a class opens the **Meta workbench** (class lineage, fields, **SchemaPropertyGrid**, nested property inspector, instance create/update when permitted).
 
@@ -37,7 +49,9 @@ Every GoliathApp deployment should follow **one** of these patterns. Mixing prod
 | 5 | **Define views** on entities you care about | **Views** (`/app/views/list`) — save a view on a semantic request or Meta class |
 | 6 | **Arrange dashboards** from saved views | **Dashboards** (`/app/views/dashboards`) |
 | 7 | Subclass platform parents, add fields, NavTree, grants | **Meta** home authoring panel; **Administration → Navigation** for nodes and role grants; **Export as package SQL** for child repos — see [NavTree on Meta](nav-tree-meta.md) |
-| 8 | Users, roles, class/object security | **Administration → Users/Roles**; **Security** tab on Meta classes; [Layered security model](platform-layered-security.md) |
+| 8 | Users, roles, class/object security | **Administration → Users** (sign-in status, invitations, scoped roles); **Roles**; Meta **Security** tab; [Layered security model](platform-layered-security.md) |
+
+**Users workflow:** Create the person with their work email (no password — Entra/OIDC only). Grant a **scoped role** so NavTree and permissions apply; the table flags **None — grant role** until then. **Awaiting first … sign-in** means they should use **Copy sign-in link** and authenticate with the org provider; invitations are fulfilled on that first login when the verified email matches.
 
 **Database rule:** Product and domain data for Path A live on **your** PostgreSQL instance (or your Neon branch / dedicated database). The official GoliathApp **reference** database used only to ship the platform stays a **clean generic baseline** — do not use it as your production tenant store.
 

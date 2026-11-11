@@ -497,6 +497,12 @@ DECLARE
   v_id bigint;
   v_grant varchar(16) := upper(COALESCE(p_grant_type, 'SCOPED'));
 BEGIN
+  IF p_expected_provider_id IS NULL OR p_expected_provider_id <= 0 THEN
+    RAISE EXCEPTION 'ValidationError: expected identity provider is required';
+  END IF;
+  IF p_scope_id IS NULL OR p_scope_id <= 0 THEN
+    RAISE EXCEPTION 'ValidationError: scope_id is required';
+  END IF;
   INSERT INTO "Onboarding"."Invitations" (
     "BatchID", "ScopeID", "Email", "ExpectedProviderID", "ExpectedDomain",
     "DefaultRoleID", "GrantType", "ExpiresAtUtc", "Status", "CreatedAtUtc"

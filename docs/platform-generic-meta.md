@@ -24,6 +24,8 @@ GoliathApp ships a **small, product-neutral class hierarchy** in `workflow_engin
 
 Each concrete leaf above includes a required **`Label`** field (`portal/nav/Caption`).
 
+Security modeling (users, roles, grants) is documented in [Platform security Meta](platform-security-meta.md) — classes `platform/User`, `platform/Role`, `platform/Permission`, `platform/RoleGrant`, `platform/ExternalIdentity`, `platform/Invitation`.
+
 ## How child apps should extend
 
 1. Sign in to the operator portal → **Meta class hierarchy** or **Semantic layer**.

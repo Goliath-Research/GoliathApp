@@ -217,6 +217,8 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS portal.sp_session_list_user_role_grants_scoped(text, integer);
+
 CREATE OR REPLACE FUNCTION portal.sp_session_list_user_role_grants_scoped(
   p_session_token text,
   p_target_user_id integer

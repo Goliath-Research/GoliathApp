@@ -13,6 +13,7 @@ import pytest
 
 from goliath_app.portal import PortalClient
 from goliath_app.portal.connection import build_portal_conninfo
+from workflow_engine.tests.helpers.portal_session_test_helpers import ensure_active_role
 
 SQL_PG = Path(__file__).resolve().parents[1] / "sql_pg"
 APPLY_SH = SQL_PG / "apply_schema.sh"
@@ -90,12 +91,14 @@ def _grant_meta_permissions(
             """,
             env,
         )
+    grant_type = "SCOPED" if scope_id is not None else "GLOBAL"
+    scope_sql = str(scope_id) if scope_id is not None else "NULL"
     _psql(
         f"""
         INSERT INTO "RBAC"."UserRoleGrants" (
           "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc"
         )
-        VALUES ({user_id}, {role_id}, 'DIRECT', {scope_id if scope_id is not None else 'NULL'}, true, now() AT TIME ZONE 'utc')
+        VALUES ({user_id}, {role_id}, '{grant_type}', {scope_sql}, true, now() AT TIME ZONE 'utc')
         """,
         env,
     )
@@ -193,8 +196,12 @@ def _open_session_scoped(
     portal_client: PortalClient,
     user_id: int,
     scope_id: int | None = None,
+    *,
+    role_id: int | None = None,
 ) -> str:
     opened = portal_client.session_open(user_id, active_scope_id=scope_id)
+    if scope_id is not None:
+        ensure_active_role(opened.session_token, role_id=role_id)
     return opened.session_token
 
 
@@ -257,13 +264,16 @@ def test_session_meta_portal_nav_node_lineage_and_fields(
     portal_meta_env: dict[str, str],
 ) -> None:
     user_id = _create_user(portal_meta_env, "MetaReader")
-    _grant_meta_permissions(portal_meta_env, user_id, ("meta.schema.read",))
-    opened = portal_client.session_open(user_id, active_scope_id=None)
+    scope_id = _create_org_scope(portal_meta_env, f"MetaReader-{user_id}")
+    role_id = _grant_meta_permissions(
+        portal_meta_env, user_id, ("meta.schema.read",), scope_id=scope_id
+    )
+    token = _open_session_scoped(portal_client, user_id, scope_id=scope_id, role_id=role_id)
     conninfo = build_portal_conninfo()
     with psycopg.connect(conninfo) as conn:
         row = conn.execute(
             "SELECT class_name, schema_flattened_json IS NOT NULL FROM portal.sp_session_meta_class_get(%s, %s)",
-            (opened.session_token, "portal/NavNode"),
+            (token, "portal/NavNode"),
         ).fetchone()
         assert row is not None
         assert row[0] == "portal/NavNode"
@@ -271,14 +281,14 @@ def test_session_meta_portal_nav_node_lineage_and_fields(
 
         lineage = conn.execute(
             "SELECT lineage_role, class_name FROM portal.sp_session_meta_class_lineage(%s, %s)",
-            (opened.session_token, "portal/NavNode"),
+            (token, "portal/NavNode"),
         ).fetchall()
         roles = {str(r[0]) for r in lineage}
         assert "self" in roles
 
         fields = conn.execute(
             "SELECT field_name, is_local FROM portal.sp_session_meta_class_fields(%s, %s)",
-            (opened.session_token, "portal/NavNode"),
+            (token, "portal/NavNode"),
         ).fetchall()
         assert isinstance(fields, list)
 
@@ -288,27 +298,33 @@ def test_session_meta_unknown_class_gs404(
     portal_meta_env: dict[str, str],
 ) -> None:
     user_id = _create_user(portal_meta_env, "MetaMiss")
-    _grant_meta_permissions(portal_meta_env, user_id, ("meta.schema.read",))
-    opened = portal_client.session_open(user_id)
+    scope_id = _create_org_scope(portal_meta_env, f"MetaMiss-{user_id}")
+    role_id = _grant_meta_permissions(
+        portal_meta_env, user_id, ("meta.schema.read",), scope_id=scope_id
+    )
+    token = _open_session_scoped(portal_client, user_id, scope_id=scope_id, role_id=role_id)
     conninfo = build_portal_conninfo()
     with psycopg.connect(conninfo) as conn:
         with pytest.raises(psycopg.Error) as excinfo:
             conn.execute(
                 "SELECT class_id FROM portal.sp_session_meta_class_get(%s, %s)",
-                (opened.session_token, f"no/such/class_{uuid.uuid4().hex}"),
+                (token, f"no/such/class_{uuid.uuid4().hex}"),
             )
         assert "GS404" in str(excinfo.value)
 
 
 def test_session_get_data_type_wrapped(portal_client: PortalClient, portal_meta_env: dict[str, str]) -> None:
     user_id = _create_user(portal_meta_env, "DT")
-    _grant_meta_permissions(portal_meta_env, user_id, ("meta.schema.read",))
-    opened = portal_client.session_open(user_id)
+    scope_id = _create_org_scope(portal_meta_env, f"DT-{user_id}")
+    role_id = _grant_meta_permissions(
+        portal_meta_env, user_id, ("meta.schema.read",), scope_id=scope_id
+    )
+    token = _open_session_scoped(portal_client, user_id, scope_id=scope_id, role_id=role_id)
     conninfo = build_portal_conninfo()
     with psycopg.connect(conninfo) as conn:
         row = conn.execute(
             "SELECT name, schema_json IS NOT NULL FROM portal.sp_session_get_data_type(%s, %s, %s)",
-            (opened.session_token, "meta/class/portal/NavNode", None),
+            (token, "meta/class/portal/NavNode", None),
         ).fetchone()
         assert row is not None
         assert row[0] == "meta/class/portal/NavNode"

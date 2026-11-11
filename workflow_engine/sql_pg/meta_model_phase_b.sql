@@ -228,7 +228,7 @@ RETURNS text
 LANGUAGE sql
 IMMUTABLE
 AS $$
-  SELECT encode(digest(p_schema::text, 'sha256'), 'hex');
+  SELECT encode(public.digest(p_schema::text, 'sha256'), 'hex');
 $$;
 
 CREATE OR REPLACE FUNCTION "Meta".fn_bump_type_version(p_current text, p_breaking boolean)

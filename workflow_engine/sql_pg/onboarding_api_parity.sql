@@ -123,10 +123,10 @@ BEGIN
   END IF;
 
   -- Upsert user
-  SELECT u."ID" INTO v_user_id FROM "RBAC"."Users" u WHERE u."Email" = v_normalized_email FOR UPDATE;
+  SELECT u."ID" INTO v_user_id FROM "RBAC"."Users" u WHERE lower(btrim(u.email)) = v_normalized_email FOR UPDATE;
   IF v_user_id IS NULL THEN
-    INSERT INTO "RBAC"."Users" ("FullName", "Email", "Active")
-    VALUES (p_full_name, v_normalized_email, true)
+    INSERT INTO "RBAC"."Users" ("FullName", email, "Active")
+    VALUES (p_full_name, v_normalized_email, 1)
     RETURNING "ID" INTO v_user_id;
   ELSE
     UPDATE "RBAC"."Users"
@@ -146,8 +146,8 @@ BEGIN
 
   IF v_existing_ei_user_id IS NULL THEN
     INSERT INTO "RBAC"."ExternalIdentities"
-      ("UserID","ProviderID","Subject","EmailSnapshot","Active","LastLoginAtUtc")
-    VALUES (v_user_id, v_expected_provider_id, p_subject, v_normalized_email, true, v_now);
+      ("UserID","ProviderID","Subject","EmailSnapshot","Active","CreatedAtUtc","LastLoginAtUtc")
+    VALUES (v_user_id, v_expected_provider_id, p_subject, v_normalized_email, true, v_now, v_now);
   ELSE
     UPDATE "RBAC"."ExternalIdentities"
     SET "UserID" = v_user_id, "EmailSnapshot" = v_normalized_email,
@@ -170,8 +170,8 @@ BEGIN
 
     v_granted_scope_id := CASE WHEN v_grant_type = 'SCOPED' THEN v_scope_id ELSE NULL END;
 
-    INSERT INTO "RBAC"."UserRoleGrants" ("UserID","RoleID","GrantType","ScopeID","Active")
-    VALUES (v_user_id, v_default_role_id, v_grant_type, v_granted_scope_id, true)
+    INSERT INTO "RBAC"."UserRoleGrants" ("UserID","RoleID","GrantType","ScopeID","Active","GrantedAtUtc")
+    VALUES (v_user_id, v_default_role_id, v_grant_type, v_granted_scope_id, true, v_now)
     ON CONFLICT DO NOTHING;
 
     v_granted_role_id := v_default_role_id;
@@ -184,7 +184,7 @@ BEGIN
 
   -- Audit
   INSERT INTO "Onboarding"."AuditLog"
-    ("ScopeID","InvitationID","ActorUserID","EventType","EventDataJson")
+    ("ScopeID","InvitationID","ActorUserID","EventType","EventDataJson","CreatedAtUtc")
   VALUES (
     v_scope_id, p_invitation_id, v_user_id, 'INVITATION_ACCEPTED',
     jsonb_build_object(
@@ -193,7 +193,8 @@ BEGIN
       'GrantedRoleID', v_granted_role_id,
       'GrantType', v_grant_type,
       'RolePolicyReasonCode', COALESCE(v_role_reason, 'OK')
-    )
+    ),
+    v_now
   );
 
   RETURN QUERY

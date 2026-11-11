@@ -120,6 +120,8 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS portal.fn_session_resolve(text);
+
 CREATE OR REPLACE FUNCTION portal.fn_session_resolve(p_session_token text)
 RETURNS TABLE (
   session_id int,

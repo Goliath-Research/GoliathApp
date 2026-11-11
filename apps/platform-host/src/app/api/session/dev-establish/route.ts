@@ -4,7 +4,11 @@ import {
   devLoginSecret,
   resolveDevEstablishUserId,
 } from "@/server/portal/env";
-import { isPortalBridgeConfigured, portalSessionOpen } from "@/server/portal/bridge";
+import {
+  isPortalBridgeConfigured,
+  portalAutoSelectActiveRole,
+  portalSessionOpen,
+} from "@/server/portal/bridge";
 import { buildSessionSetCookie } from "@/server/session/cookies";
 import { jsonError } from "@/server/http/errors";
 
@@ -40,6 +44,9 @@ export async function POST(request: Request) {
     scopeHeader && Number.isInteger(Number(scopeHeader)) ? Number(scopeHeader) : null;
 
   const opened = await portalSessionOpen(userId, activeScopeId);
+  if (activeScopeId != null) {
+    await portalAutoSelectActiveRole(opened.sessionToken);
+  }
   const response = NextResponse.json({
     ok: true,
     expiresAtUtc: opened.expiresAtUtc.toISOString(),

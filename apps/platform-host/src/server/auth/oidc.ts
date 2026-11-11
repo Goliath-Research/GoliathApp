@@ -40,10 +40,20 @@ export async function exchangeOidcCallback(
   }
   const issuer = String(claims.iss ?? cfg.issuer);
   const subject = String(claims.sub);
+  const emailClaim =
+    typeof claims.email === "string"
+      ? claims.email
+      : typeof claims.preferred_username === "string"
+        ? claims.preferred_username
+        : typeof claims.upn === "string"
+          ? claims.upn
+          : null;
   const snapshot = JSON.stringify({
     iss: issuer,
     sub: subject,
     aud: claims.aud,
+    email: emailClaim,
+    name: typeof claims.name === "string" ? claims.name : null,
   });
   return { issuer, subject, snapshot };
 }
