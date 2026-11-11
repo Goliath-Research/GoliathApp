@@ -155,6 +155,7 @@ test.describe("authenticated meta (CI postgres)", () => {
   });
 
   test("list select edit save round-trip", async ({ page, request }) => {
+    test.setTimeout(60_000);
     const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
       data: { document: { Caption: "ListPick", Seq: 41 } },
     });
@@ -173,6 +174,7 @@ test.describe("authenticated meta (CI postgres)", () => {
     await loadObject;
     const caption = page.getByTestId("pi-row-Caption").locator("input");
     await expect(caption).toHaveValue("ListPick", { timeout: 15_000 });
+    await fillRequiredSchemaGridFields(page, request);
     await caption.fill("ListPickEdited");
     const patchObject = page.waitForResponse(
       (r) =>
