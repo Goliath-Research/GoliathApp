@@ -93,31 +93,33 @@ export function MetaInstanceWorkbench({
   }
 
   async function save(document: Record<string, unknown>) {
+    const saveGeneration = ++selectRequestRef.current;
+    const targetObjId = selectedObjId;
     setStatus(null);
     setError(null);
-    const generationAtStart = selectRequestRef.current;
     try {
-      if (selectedObjId != null) {
-        const payload = { ...editorDocument, ...document };
-        await client.updateMetaObject(selectedObjId, payload);
-        if (generationAtStart !== selectRequestRef.current) return;
-        const row = await client.getMetaObject(selectedObjId);
-        if (generationAtStart !== selectRequestRef.current) return;
-        setEditorDocument(row.document ?? {});
-        setStatus(`Updated object #${selectedObjId}.`);
+      if (targetObjId != null) {
+        await client.updateMetaObject(targetObjId, document);
         await refreshList();
+        if (saveGeneration !== selectRequestRef.current) return;
+        const row = await client.getMetaObject(targetObjId);
+        if (saveGeneration !== selectRequestRef.current) return;
+        if (selectedObjId !== targetObjId) return;
+        setEditorDocument(row.document ?? {});
+        setSelectedObjId(targetObjId);
+        setStatus(`Updated object #${targetObjId}.`);
         return;
       }
       const { objId } = await client.createMetaObject(className, document);
-      if (generationAtStart !== selectRequestRef.current) return;
+      await refreshList();
+      if (saveGeneration !== selectRequestRef.current) return;
       const row = await client.getMetaObject(objId);
-      if (generationAtStart !== selectRequestRef.current) return;
+      if (saveGeneration !== selectRequestRef.current) return;
       setEditorDocument(row.document ?? {});
       setSelectedObjId(objId);
       setStatus(`Created object #${objId}.`);
-      await refreshList();
     } catch (e) {
-      if (generationAtStart !== selectRequestRef.current) return;
+      if (saveGeneration !== selectRequestRef.current) return;
       setError(e instanceof Error ? e.message : "save failed");
     }
   }

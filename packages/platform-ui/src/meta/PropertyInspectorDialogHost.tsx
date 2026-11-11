@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useRef } from "react";
 import type { CatalogRef } from "./catalogRef.js";
 import { CatalogNestedSchemaDialog } from "./CatalogNestedSchemaDialog.js";
 import { isSchemaRecord, syntheticFieldsFromSchema } from "./jsonSchema.js";
@@ -104,7 +104,6 @@ function ObjectInspectorModalBody({
   onDismiss,
 }: PropertyInspectorDialogHostProps & { request: NonNullable<InspectorDialogRequest> }) {
   const commitSnapshotRef = useRef<(() => Record<string, unknown>) | undefined>(undefined);
-  const [draft, setDraft] = useState<Record<string, unknown>>(request.value);
   const objectSchema = request.kind === "object" || request.kind === "array-item" ? request.objectSchema : {};
   const rootSchema = request.kind === "object" || request.kind === "array-item" ? request.rootSchema : objectSchema;
 
@@ -119,8 +118,8 @@ function ObjectInspectorModalBody({
       : request.fieldName;
 
   const onOk = useCallback(
-    () => onCommit(commitSnapshotRef.current?.() ?? draft),
-    [draft, onCommit],
+    () => onCommit(commitSnapshotRef.current?.() ?? request.value),
+    [onCommit, request.value],
   );
 
   return (
@@ -142,7 +141,6 @@ function ObjectInspectorModalBody({
           initialDocument={request.value}
           depth={depth + 1}
           embedded
-          onDraftChange={setDraft}
           commitSnapshotRef={commitSnapshotRef}
         />
       </Suspense>

@@ -51,7 +51,6 @@ export function CatalogNestedSchemaDialog({
 }: CatalogNestedSchemaDialogProps) {
   const titleId = useId();
   const commitSnapshotRef = useRef<(() => Record<string, unknown>) | undefined>(undefined);
-  const [draft, setDraft] = useState(initialValue);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fields, setFields] = useState<MetaClassField[] | undefined>();
@@ -150,6 +149,16 @@ export function CatalogNestedSchemaDialog({
     [fields, flattened, root],
   );
 
+  const declaringClassAncestryByField = useMemo(
+    () =>
+      fields
+        ? Object.fromEntries(
+            fields.map((f) => [f.fieldName, classAncestry.length ? classAncestry : [f.declaredOnClassName]]),
+          )
+        : undefined,
+    [fields, classAncestry],
+  );
+
   if (depth >= SCHEMA_PROPERTY_GRID_MAX_DEPTH) {
     return (
       <DialogBackdrop onCancel={onCancel}>
@@ -175,18 +184,11 @@ export function CatalogNestedSchemaDialog({
         registry={registry}
         catalogResolver={catalogResolver}
         documentClassFqn={catalogTarget.kind === "metaClass" ? catalogTarget.className : undefined}
-        declaringClassAncestryByField={
-          fields
-            ? Object.fromEntries(
-                fields.map((f) => [f.fieldName, classAncestry.length ? classAncestry : [f.declaredOnClassName]]),
-              )
-            : undefined
-        }
+        declaringClassAncestryByField={declaringClassAncestryByField}
         initialDocument={initialValue}
         depth={depth}
         embedded
         headerSlot={gridHeader ?? headerSlot}
-        onDraftChange={setDraft}
         commitSnapshotRef={commitSnapshotRef}
         onSubmit={usePropertyInspectorChrome ? undefined : onSave}
         submitLabel={usePropertyInspectorChrome ? undefined : "Save"}
@@ -200,7 +202,7 @@ export function CatalogNestedSchemaDialog({
         open
         title={title}
         breadcrumb={breadcrumb}
-        onOk={() => onSave(commitSnapshotRef.current?.() ?? draft)}
+        onOk={() => onSave(commitSnapshotRef.current?.() ?? initialValue)}
         onCancel={onCancel}
         okDisabled={loading || !!error || flattened == null}
       >

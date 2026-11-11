@@ -138,11 +138,16 @@ export function SchemaPropertyGridSurface({
   const [arrayValues, setArrayValues] = useState<Record<string, unknown[]>>(() => initArrays(plans, initialDocument));
   const [dialog, setDialog] = useState<InspectorDialogRequest>(null);
 
+  const planIdentity = useMemo(
+    () => plans.map((p) => `${p.fieldName}:${p.required}:${p.editor.mode}`).join("|"),
+    [plans],
+  );
+
   useEffect(() => {
     setPrimitiveValues(initPrimitives(plans, initialDocument));
     setObjectValues(initObjects(plans, initialDocument));
     setArrayValues(initArrays(plans, initialDocument));
-  }, [initialDocument, plans]);
+  }, [initialDocument, planIdentity, plans]);
 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -225,6 +230,8 @@ export function SchemaPropertyGridSurface({
       if (!silent) setError(message);
       return null;
     };
+    const hadInitial = (fieldName: string): boolean =>
+      Object.prototype.hasOwnProperty.call(initialDocument, fieldName);
     const document: Record<string, unknown> = {};
     for (const plan of plans) {
       const { fieldName, required, editor } = plan;
@@ -236,6 +243,9 @@ export function SchemaPropertyGridSurface({
           if (!val || Object.keys(val).length === 0) {
             if (!editor.optional && required) {
               return fail(`Field ${fieldName} requires a nested object`);
+            }
+            if (hadInitial(fieldName)) {
+              document[fieldName] = null;
             }
             break;
           }
@@ -254,6 +264,9 @@ export function SchemaPropertyGridSurface({
             if (!editor.optional && required) {
               return fail(`Field ${fieldName} requires at least one array item`);
             }
+            if (hadInitial(fieldName)) {
+              document[fieldName] = [];
+            }
             break;
           }
           document[fieldName] = val;
@@ -264,6 +277,9 @@ export function SchemaPropertyGridSurface({
           if (!val || Object.keys(val).length === 0) {
             if (!editor.optional && required) {
               return fail(`Field ${fieldName} requires a nested object`);
+            }
+            if (hadInitial(fieldName)) {
+              document[fieldName] = null;
             }
             break;
           }
@@ -276,6 +292,9 @@ export function SchemaPropertyGridSurface({
             if (!editor.optional && required) {
               return fail(`Field ${fieldName} is required`);
             }
+            if (hadInitial(fieldName)) {
+              document[fieldName] = null;
+            }
             break;
           }
           document[fieldName] = coercePrimitive(editor, raw);
@@ -284,7 +303,13 @@ export function SchemaPropertyGridSurface({
     }
     if (!embedded && isSchemaRecord(schema)) {
       const validationSchema = isSchemaRecord(bundledSchema) ? bundledSchema : schema;
-      const rootErr = validateSubSchema(validationSchema, document);
+      const forValidation = { ...document };
+      for (const key of Object.keys(forValidation)) {
+        if (forValidation[key] === null) {
+          delete forValidation[key];
+        }
+      }
+      const rootErr = validateSubSchema(validationSchema, forValidation);
       if (rootErr) {
         return fail(rootErr);
       }
@@ -295,11 +320,7 @@ export function SchemaPropertyGridSurface({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
-    const partial = buildPartialDocument();
-    let document = buildDocument();
-    if (!document && Object.keys(initialDocument).length > 0 && Object.keys(partial).length > 0) {
-      document = { ...initialDocument, ...partial };
-    }
+    const document = buildDocument();
     if (!document) return;
     onDraftChange?.(document);
     if (!onSubmit) return;

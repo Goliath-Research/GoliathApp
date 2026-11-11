@@ -605,9 +605,25 @@ DECLARE
   v_limit int;
   v_offset int;
 BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_meta_require_instance(p_session_token, 'meta.object.read') LIMIT 1;
+  SELECT * INTO v_ctx FROM portal.fn_session_resolve(p_session_token) LIMIT 1;
+  IF v_ctx.session_id IS NULL OR COALESCE(v_ctx.revoked, false) THEN
+    PERFORM portal.fn_semantic_raise('GS401', 'session denied');
+  END IF;
+  IF v_ctx.active_scope_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'active scope required for meta instance access');
+  END IF;
+
+  IF NOT portal.fn_session_meta_permission_in_active_scope(
+    v_ctx.user_id, 'meta.object.read', v_ctx.active_scope_id
+  ) THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied for active scope');
+  END IF;
+  IF NOT portal.fn_semantic_session_has_permission(v_ctx.user_id, 'meta.schema.read') THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'meta permission denied');
+  END IF;
 
   v_class_id := portal.sp_session_meta_resolve_class(p_session_token, p_class_name);
+  PERFORM portal.fn_meta_assert_class_action(v_ctx.user_id, v_ctx.active_scope_id, v_class_id, 'read');
   v_limit := GREATEST(1, LEAST(COALESCE(p_limit, 50), 500));
   v_offset := GREATEST(COALESCE(p_offset, 0), 0);
 
@@ -631,6 +647,7 @@ BEGIN
     SELECT "Meta".fn_merged_obj_document(o."ID") AS document
   ) doc
   WHERE sm."ScopeID" = v_ctx.active_scope_id
+    AND portal.fn_meta_effective_object_action(v_ctx.user_id, v_ctx.active_scope_id, o."ID", 'read')
     AND (
       (NOT COALESCE(p_include_subclasses, false) AND o."ClassID" = v_class_id)
       OR (
