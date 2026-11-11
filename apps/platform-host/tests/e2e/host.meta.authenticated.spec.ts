@@ -174,7 +174,7 @@ test.describe("authenticated meta (CI postgres)", () => {
     const patchObject = page.waitForResponse(
       (r) => r.request().method() === "PATCH" && r.url().includes(`/api/meta/objects/${objId}`),
     );
-    await workbench.locator("form.g-meta-field-form").requestSubmit();
+    await workbench.getByRole("button", { name: "Save changes" }).click();
     const patchRes = await patchObject;
     expect(patchRes.ok(), `save failed: ${await patchRes.text()}`).toBeTruthy();
     const gridAlert = workbench.locator(".g-schema-property-grid [role=alert]");
