@@ -94,6 +94,8 @@ jobs:
             workflow_engine/tests/test_portal_invitations.py \
             workflow_engine/tests/test_portal_session_active_role.py \
             workflow_engine/tests/test_platform_security_meta.py \
+            workflow_engine/tests/test_platform_god_architect.py \
+            workflow_engine/tests/test_security_meta_upgrade_path.py \
             workflow_engine/tests/test_portal_session_identity.py \
             workflow_engine/tests/test_portal_session_meta.py \
             workflow_engine/tests/test_portal_client_types.py \
