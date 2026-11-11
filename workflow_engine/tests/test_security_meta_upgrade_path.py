@@ -11,6 +11,7 @@ import pytest
 SQL_PG = Path(__file__).resolve().parents[1] / "sql_pg"
 APPLY_SH = SQL_PG / "apply_schema.sh"
 PRODUCTION_FIXTURE = SQL_PG / "test_fixtures" / "security_meta_production_shape.sql"
+UPGRADE_TEST_DB = "goliathapp_security_upgrade_test"
 
 
 def _pg_env() -> dict[str, str]:
@@ -42,11 +43,18 @@ def upgrade_env() -> dict[str, str]:
 
     if not which("psql"):
         pytest.skip("psql not installed")
-    env = _pg_env()
+    admin_env = _pg_env()
+    admin_env["PGDATABASE"] = "postgres"
+    if not admin_env.get("PGPASSWORD"):
+        admin_env.setdefault("PGPASSWORD", os.environ.get("POSTGRES_PASSWORD", "goliath"))
     try:
-        _psql("SELECT 1", env)
+        _psql("SELECT 1", admin_env)
     except RuntimeError:
         pytest.skip("PostgreSQL not reachable")
+    _psql(f'DROP DATABASE IF EXISTS "{UPGRADE_TEST_DB}" WITH (FORCE)', admin_env)
+    _psql(f'CREATE DATABASE "{UPGRADE_TEST_DB}"', admin_env)
+    env = _pg_env()
+    env["PGDATABASE"] = UPGRADE_TEST_DB
     subprocess.run(["bash", str(APPLY_SH)], env=env, check=True)
     subprocess.run(["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(PRODUCTION_FIXTURE)], env=env, check=True)
     subprocess.run(["bash", str(APPLY_SH)], env=env, check=True)

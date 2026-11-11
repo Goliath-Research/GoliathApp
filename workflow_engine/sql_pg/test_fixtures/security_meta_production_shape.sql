@@ -30,9 +30,13 @@ BEGIN
       SELECT o."ID" INTO v_org_id FROM portal."Organizations" o WHERE o."Name" = 'Production Fixture Org' LIMIT 1;
     END IF;
 
-    INSERT INTO "RBAC"."Scopes" ("ScopeID", "Name", "ScopeType", "OrganizationID", "Active")
+    INSERT INTO "RBAC"."Scopes" (
+      "ScopeID", "Name", "ScopeType", "OrganizationID", "Active", "CreatedAtUtc"
+    )
     OVERRIDING SYSTEM VALUE
-    VALUES (1, 'Production Fixture Org', 'organization', v_org_id, true);
+    VALUES (
+      1, 'Production Fixture Org', 'organization', v_org_id, true, now() AT TIME ZONE 'utc'
+    );
   ELSE
     SELECT s."OrganizationID" INTO v_org_id FROM "RBAC"."Scopes" s WHERE s."ScopeID" = 1;
   END IF;

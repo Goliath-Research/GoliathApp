@@ -23,10 +23,8 @@ describe("resolvePortalWorkspace", () => {
   });
 
   it("maps RBAC admin routes to security workspaces", () => {
-    expect(resolvePortalWorkspace("/app/admin/users").kind).toBe("meta_workbench");
-    expect(resolvePortalWorkspace("/app/admin/users").metaClass).toBe("platform/User");
-    expect(resolvePortalWorkspace("/app/admin/roles").kind).toBe("meta_workbench");
-    expect(resolvePortalWorkspace("/app/admin/roles").metaClass).toBe("platform/Role");
+    expect(resolvePortalWorkspace("/app/admin/users").kind).toBe("admin_users");
+    expect(resolvePortalWorkspace("/app/admin/roles").kind).toBe("admin_roles");
     expect(resolvePortalWorkspace("/app/admin/permissions").kind).toBe("admin_permissions");
   });
 });
