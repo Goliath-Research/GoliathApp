@@ -168,13 +168,16 @@ test.describe("authenticated meta (CI postgres)", () => {
     await expect(caption).toHaveValue("ListPick", { timeout: 15_000 });
     await caption.fill("ListPickEdited");
     await page.getByRole("button", { name: "Save changes" }).click();
+    await expect
+      .poll(async () => {
+        const getRes = await request.get(`/api/meta/objects/${objId}`);
+        const row = (await getRes.json()) as { object: { document: Record<string, unknown> } };
+        return row.object.document.Caption;
+      })
+      .toBe("ListPickEdited");
     await expect(page.getByTestId("meta-workbench-status")).toContainText(`Updated object #${objId}`, {
-      timeout: 30_000,
+      timeout: 15_000,
     });
-
-    const getRes = await request.get(`/api/meta/objects/${objId}`);
-    const doc = (await getRes.json()) as { object: { document: Record<string, unknown> } };
-    expect(doc.object.document.Caption).toBe("ListPickEdited");
   });
 
   test("authenticated BFF create get patch round-trip", async ({ request }) => {
