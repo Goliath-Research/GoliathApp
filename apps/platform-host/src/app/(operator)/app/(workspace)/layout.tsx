@@ -10,6 +10,7 @@ import {
   portalOperatorNavTree,
   portalSessionResolve,
 } from "@/server/portal/bridge";
+import { getRequestProductDefinition } from "@/server/product/request-product";
 import { requirePortalSession } from "@/server/session/require";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE_NAME } from "@/server/session/cookies";
@@ -36,6 +37,7 @@ export default async function OperatorWorkspaceLayout({ children }: { children: 
       redirect("/app/onboarding/select-role");
     }
 
+    const product = await getRequestProductDefinition();
     const rows = await portalOperatorNavTree(token);
     const nodes: OperatorNavNode[] = rows.map((row) => ({
       nodeId: row.nodeId,
@@ -47,7 +49,12 @@ export default async function OperatorWorkspaceLayout({ children }: { children: 
     }));
 
     return (
-      <OperatorPortalShell session={resolved} nodes={nodes}>
+      <OperatorPortalShell
+        session={resolved}
+        nodes={nodes}
+        brandName={product.displayName}
+        brandSubtitle={product.portalSubtitle}
+      >
         {children}
       </OperatorPortalShell>
     );

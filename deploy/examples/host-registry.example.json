@@ -1,0 +1,17 @@
+{
+  "defaultProductId": "goliathapp",
+  "products": [
+    {
+      "id": "goliathapp",
+      "displayName": "Goliath",
+      "portalSubtitle": "Platform portal",
+      "hostnames": ["app.goliathresearch.com", "localhost", "127.0.0.1"]
+    },
+    {
+      "id": "childapp",
+      "displayName": "Child application",
+      "portalSubtitle": "Child operator portal",
+      "hostnames": ["childapp.example.com"]
+    }
+  ]
+}

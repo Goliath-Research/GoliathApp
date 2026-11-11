@@ -9,10 +9,14 @@ export function OperatorPortalShell({
   session,
   nodes,
   children,
+  brandName = "Goliath",
+  brandSubtitle = "Platform portal",
 }: {
   session: ResolvedPortalSession;
   nodes: OperatorNavNode[];
   children: React.ReactNode;
+  brandName?: string;
+  brandSubtitle?: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -27,8 +31,8 @@ export function OperatorPortalShell({
     <div className="g-portal">
       <header className="g-portal__bar">
         <div className="g-portal__brand">
-          <p className="g-portal__brand-name">Goliath</p>
-          <p className="g-portal__brand-sub">Platform portal</p>
+          <p className="g-portal__brand-name">{brandName}</p>
+          <p className="g-portal__brand-sub">{brandSubtitle}</p>
         </div>
         <p className="g-portal__operator">
           {session.fullName} · <code>{session.email}</code>

@@ -35,7 +35,7 @@ This page tracks the **signed-in operator portal** for `apps/platform-host` and 
 | P3 | Workflow designer / monitor depth | Partial lists; designer TBD |
 | P4 | Semantic + admin screens | Lists via session platform API |
 | P5 | Views/dashboards | **Define + arrange** in portal PR; widget layout refinements follow |
-| P6 | Multi-child adoption | Pending |
+| P6 | Multi-child adoption | In progress — [multi-product platform host](multi-product-platform-host.md) |
 
 Updating [visualization.md](../visualization.md) and this plan together is mandatory when portal scope changes.
 

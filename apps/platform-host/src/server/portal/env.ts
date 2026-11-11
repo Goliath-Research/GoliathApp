@@ -1,32 +1,20 @@
+import { defaultGoliathAppProduct } from "../product/database-env";
+import { resolvePortalBridgeConfigForProduct } from "../product/portal-db";
+import type { PlatformProductDefinition } from "../product/types";
+
 export type PortalBridgeConfig = {
   connString: string;
+  productId: string;
 };
 
-export function resolvePortalBridgeConfig(): PortalBridgeConfig | null {
-  const override = process.env.GOLIATH_PORTAL_DB?.trim();
-  if (override) {
-    return { connString: override };
-  }
-
-  const host = process.env.PGHOST?.trim() || process.env.POSTGRES_HOST?.trim();
-  const port = process.env.PGPORT?.trim() || process.env.POSTGRES_PORT?.trim() || "5432";
-  const database = process.env.PGDATABASE?.trim() || process.env.POSTGRES_DB?.trim();
-  const user = process.env.GOLIATH_PORTAL_USER?.trim() || "goliath_portal";
-  const password =
-    process.env.GOLIATH_PORTAL_PASSWORD?.trim() ||
-    process.env.PGPASSWORD?.trim() ||
-    process.env.POSTGRES_PASSWORD?.trim();
-
-  if (!host || !database || !password) {
+export function resolvePortalBridgeConfig(
+  product: PlatformProductDefinition = defaultGoliathAppProduct(),
+): PortalBridgeConfig | null {
+  const cfg = resolvePortalBridgeConfigForProduct(product);
+  if (!cfg) {
     return null;
   }
-
-  const sslmode = process.env.PGSSLMODE?.trim() || "prefer";
-  const encodedUser = encodeURIComponent(user);
-  const encodedPassword = encodeURIComponent(password);
-  return {
-    connString: `postgresql://${encodedUser}:${encodedPassword}@${host}:${port}/${database}?sslmode=${sslmode}`,
-  };
+  return { connString: cfg.connString, productId: product.id };
 }
 
 /**
