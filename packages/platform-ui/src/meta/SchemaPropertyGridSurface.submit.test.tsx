@@ -121,6 +121,51 @@ describe("SchemaPropertyGridSurface submit", () => {
     expect(input.value).toMatch(/^2024-06-15T\d{2}:\d{2}$/);
   });
 
+  it("submits merged caption edits when flattened schema validates", async () => {
+    const onSubmit = vi.fn();
+    const withSeq: MetaClassField[] = [
+      ...fields,
+      {
+        fieldName: "Seq",
+        typeId: 3,
+        typeName: "portal/nav/Seq",
+        typeKind: "int",
+        required: true,
+        declaredOnClassId: 1,
+        declaredOnClassName: "portal/NavNode",
+        definedAtDepth: 0,
+        isLocal: true,
+      },
+    ];
+    const flatWithSeq = {
+      ...flattened,
+      properties: { ...flattened.properties, Seq: { type: "integer" } },
+      required: ["Caption", "Seq"],
+    };
+    render(
+      <SchemaPropertyGridSurface
+        fields={withSeq}
+        schema={flatWithSeq}
+        rootSchema={flatWithSeq}
+        bundledSchema={{
+          allOf: [{ required: ["Caption"] }, { required: ["Seq"] }],
+          type: "object",
+          properties: flatWithSeq.properties,
+        }}
+        initialDocument={{ Caption: "Keep", Seq: 41 }}
+        onSubmit={onSubmit}
+        submitLabel="Save"
+      />,
+    );
+    await act(async () => {
+      fireEvent.change(screen.getByTestId("pi-row-Caption").querySelector("input")!, {
+        target: { value: "Edited" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    });
+    expect(onSubmit).toHaveBeenCalledWith({ Caption: "Edited", Seq: 41 });
+  });
+
   it("emits null for cleared optional fields present in initialDocument", async () => {
     const onSubmit = vi.fn();
     render(

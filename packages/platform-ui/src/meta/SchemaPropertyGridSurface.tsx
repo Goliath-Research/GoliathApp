@@ -311,7 +311,9 @@ export function SchemaPropertyGridSurface({
       }
     }
     if (!embedded && isSchemaRecord(schema)) {
-      const validationSchema = isSchemaRecord(bundledSchema) ? bundledSchema : schema;
+      // Flattened schema validates instance documents; bundled JSON Schema uses allOf merges
+      // that reject partial UI payloads when links/refs are not expanded in the editor snapshot.
+      const validationSchema = schema;
       const forValidation = { ...initialDocument, ...document };
       for (const key of Object.keys(forValidation)) {
         if (forValidation[key] === null) {
