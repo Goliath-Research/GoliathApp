@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Pool, PoolClient, QueryResultRow } from "pg";
 import { Pool as PgPool } from "pg";
+import { isAnyProductBridgeConfigured } from "../product/portal-db";
 import { getRequestProductDefinition } from "../product/request-product";
 import { resolvePortalBridgeConfig } from "./env";
 
@@ -86,7 +87,7 @@ export type OperatorDashboardWidgetRow = {
 const pools = new Map<string, Pool>();
 
 export function isPortalBridgeConfigured(): boolean {
-  return resolvePortalBridgeConfig() !== null;
+  return isAnyProductBridgeConfigured();
 }
 
 async function getPool(): Promise<Pool> {
