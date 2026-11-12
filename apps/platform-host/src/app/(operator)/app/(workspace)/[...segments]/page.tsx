@@ -8,7 +8,7 @@ export default async function OperatorCatchAllPage({
   searchParams,
 }: {
   params: Promise<{ segments: string[] }>;
-  searchParams: Promise<{ class?: string; view?: string; dashboard?: string }>;
+  searchParams: Promise<{ class?: string; view?: string; dashboard?: string; range?: string }>;
 }) {
   const { segments } = await params;
   const query = await searchParams;
@@ -23,6 +23,8 @@ export default async function OperatorCatchAllPage({
       viewId={Number.isFinite(viewId) ? viewId : undefined}
       dashboardId={Number.isFinite(dashboardId) ? dashboardId : undefined}
       semanticHighlight={pathname.startsWith("/app/semantic") ? "" : undefined}
+      runsRange={query.range}
+      pathname={pathname}
     />
   );
 }

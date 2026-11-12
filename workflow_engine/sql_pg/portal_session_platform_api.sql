@@ -244,7 +244,11 @@ SET search_path = portal, wf, cfg, pg_temp
 AS $$
 BEGIN
   PERFORM portal.fn_session_operator_require(p_session_token, '/app/workflows/runs');
-  RETURN QUERY SELECT * FROM portal.sp_list_recent_instances(p_hours_back, p_limit);
+  -- p_hours_back NULL (or <= 0) lists all runs; the page size is always clamped to 1..500.
+  RETURN QUERY SELECT * FROM portal.sp_list_recent_instances(
+    p_hours_back,
+    GREATEST(1, LEAST(COALESCE(p_limit, 100), 500))
+  );
 END;
 $$;
 

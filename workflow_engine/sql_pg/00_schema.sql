@@ -138,6 +138,7 @@ CREATE TABLE IF NOT EXISTS wf.workflow_instance (
 );
 
 CREATE INDEX IF NOT EXISTS ix_wi_version_status ON wf.workflow_instance(workflow_version_id, status);
+CREATE INDEX IF NOT EXISTS ix_wi_started_at ON wf.workflow_instance(started_at_utc DESC NULLS LAST, id DESC);
 
 CREATE TABLE IF NOT EXISTS wf.node_execution (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
