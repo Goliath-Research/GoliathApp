@@ -300,6 +300,8 @@ DECLARE
   v_params_type bigint;
   v_action jsonb := COALESCE(v_doc->'action', '{}'::jsonb);
   v_old_defaults jsonb;
+  v_old_params jsonb;
+  v_params_changed boolean := false;
 BEGIN
   SELECT * INTO v_ctx
   FROM portal.fn_session_record_editor_require(
@@ -393,6 +395,10 @@ BEGIN
     INTO v_old_defaults
     FROM "Meta"."MethodParams" mp WHERE mp."MethodID" = v_method_id AND mp."DefaultValue" IS NOT NULL;
 
+    SELECT COALESCE(jsonb_agg(jsonb_build_array(mp."Name", mp."TypeID", mp."Required") ORDER BY mp."Ordinal"), '[]'::jsonb)
+    INTO v_old_params
+    FROM "Meta"."MethodParams" mp WHERE mp."MethodID" = v_method_id;
+
     DELETE FROM "Meta"."MethodParams" mp WHERE mp."MethodID" = v_method_id;
     FOR v_param IN SELECT value FROM jsonb_array_elements(v_doc->'parameters')
     LOOP
@@ -421,6 +427,10 @@ BEGIN
         END
       );
     END LOOP;
+    v_params_changed := v_old_params IS DISTINCT FROM (
+      SELECT COALESCE(jsonb_agg(jsonb_build_array(mp."Name", mp."TypeID", mp."Required") ORDER BY mp."Ordinal"), '[]'::jsonb)
+      FROM "Meta"."MethodParams" mp WHERE mp."MethodID" = v_method_id
+    );
   END IF;
 
   IF v_impl_kind = 'action' THEN
@@ -438,7 +448,10 @@ BEGIN
       output_type_id = COALESCE(v_return_type, a.output_type_id)
     WHERE a.action_name = v_impl_ref;
 
-    IF v_doc ? 'parameters'
+    -- Republish the params type / input schema when the method has parameters or its
+    -- parameter list changed (e.g. all removed). An unchanged empty list (existing methods
+    -- without parameters) leaves the catalog's current input schema untouched.
+    IF v_params_changed
        OR EXISTS (SELECT 1 FROM "Meta"."MethodParams" mp WHERE mp."MethodID" = v_method_id) THEN
       v_params_type := "Meta".sp_meta_publish_method_params_type(v_method_id, false);
       UPDATE wf.workflow_action a SET input_type_id = v_params_type WHERE a.action_name = v_impl_ref;

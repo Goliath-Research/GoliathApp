@@ -431,3 +431,34 @@ def test_platform_class_methods_require_god_architect(editor_env: dict[str, str]
             })}::jsonb)""",
             editor_env,
         )
+
+
+def test_parameterless_method_keeps_catalog_input_schema(editor_env: dict[str, str], author_token: str) -> None:
+    env = editor_env
+    suffix = uuid.uuid4().hex[:6]
+    cls = f"your_app/NoParams_{suffix}"
+    _class(env, author_token, cls, "platform/Entity")
+    action = f"noparam_action_{suffix}"
+    _psql(f"CALL wf.wf_repo_upsert_workflow_action({_lit(action)}, 'cpu')", env)
+    _psql(
+        f"""CALL wf.wf_repo_upsert_action_schema({_lit(action)}, 'input',
+            '{{"type": "object", "properties": {{"keep": {{"type": "string"}}}}}}'::jsonb)""",
+        env,
+    )
+    before = _psql(f"SELECT input_type_id IS NULL FROM wf.workflow_action WHERE action_name = {_lit(action)}", env)
+    method_id = _psql(
+        f"""SELECT portal.sp_session_save_class_method({_lit(author_token)}, NULL, {_lit({
+            "class_name": cls, "method_name": "go", "impl_kind": "action", "action_name": action,
+            "parameters": [],
+        })}::jsonb)""",
+        env,
+    )
+    _psql(
+        f"""SELECT portal.sp_session_save_class_method({_lit(author_token)}, {method_id}, {_lit({
+            "impl_kind": "action", "action_name": action, "parameters": [], "description": "edited",
+        })}::jsonb)""",
+        env,
+    )
+    after = _psql(f"SELECT input_type_id IS NULL FROM wf.workflow_action WHERE action_name = {_lit(action)}", env)
+    assert before == after
+
