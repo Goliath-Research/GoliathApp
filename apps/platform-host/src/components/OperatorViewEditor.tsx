@@ -395,7 +395,6 @@ export function OperatorViewEditor({ catalog, metaClasses, initialViews, initial
               <MetaClassHierarchyList
                 classes={hierarchyClasses}
                 selectedClassName={metaClass}
-                semanticHighlight="platform/"
               />
               <ul className="g-operator-nav">
                 {metaClasses.map((row) => (
