@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  buildSemanticRunParams,
   DEFAULT_VIEW_DEFINITION,
   mergeVizOverride,
   parseViewDefinition,
@@ -122,7 +123,7 @@ export function OperatorDashboardEditor({
     setWidgets(widgetBody.widgets);
   }, []);
 
-  const loadPreviews = useCallback(async (widgetList: GridWidget[]) => {
+  const loadPreviews = useCallback(async (widgetList: GridWidget[], filters: DashboardFilter[]) => {
     const next: WidgetPreview[] = [];
     for (const w of widgetList) {
       const definition = parseViewDefinition(w.paramsJson);
@@ -132,18 +133,32 @@ export function OperatorDashboardEditor({
       );
       let rows: Record<string, unknown>[] = [];
       if (w.semanticRequestCode) {
+        const params = buildSemanticRunParams({
+          ...definition,
+          filters: [...definition.filters, ...filters],
+        });
         const res = await fetch("/api/portal/semantic/run", {
           method: "POST",
           credentials: "same-origin",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             requestCode: w.semanticRequestCode,
-            params: { limit: definition.limit },
+            params,
           }),
         });
         if (res.ok) {
           const body = (await res.json()) as { rows: Record<string, unknown>[] };
           rows = body.rows;
+        }
+      } else if (w.metaClassName) {
+        const res = await fetch(`/api/meta/classes/${encodeURIComponent(w.metaClassName)}/objects`, {
+          credentials: "same-origin",
+        });
+        if (res.ok) {
+          const body = (await res.json()) as {
+            objects: Array<{ document: Record<string, unknown> }>;
+          };
+          rows = body.objects.slice(0, definition.limit).map((o) => flattenMetaDocument(o.document));
         }
       }
       next.push({ widget: w, rows, definition: { ...definition, visualization: viz }, viz });
@@ -157,8 +172,8 @@ export function OperatorDashboardEditor({
   }, [activeDashboardId, loadDashboard]);
 
   useEffect(() => {
-    void loadPreviews(widgets);
-  }, [widgets, loadPreviews]);
+    void loadPreviews(widgets, dashboardFilters);
+  }, [widgets, dashboardFilters, loadPreviews]);
 
   const maxRow = useMemo(() => {
     if (widgets.length === 0) return 4;
@@ -260,8 +275,8 @@ export function OperatorDashboardEditor({
       return;
     }
     const body = (await res.json()) as { dashboardId: number };
-  const dashId = body.dashboardId;
-    setActiveDashboardId(dashId);
+    const dashId = body.dashboardId;
+    const isNewDashboard = activeDashboardId == null;
     await refreshDashboards();
     const widgetRes = await fetch(`/api/portal/dashboards/${dashId}/widgets`, {
       method: "POST",
@@ -284,6 +299,9 @@ export function OperatorDashboardEditor({
     if (!widgetRes.ok) {
       setStatus("Dashboard saved; widget layout failed");
       return;
+    }
+    if (isNewDashboard) {
+      setActiveDashboardId(dashId);
     }
     setStatus("Dashboard saved");
     await loadDashboard(dashId);
@@ -598,4 +616,18 @@ function GridDropCell({
       }}
     />
   );
+}
+
+function flattenMetaDocument(doc: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(doc)) {
+    if (value != null && typeof value === "object" && !Array.isArray(value)) {
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        out[`${key}.${k}`] = v;
+      }
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
 }

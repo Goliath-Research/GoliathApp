@@ -103,6 +103,32 @@ ALTER TABLE portal.operator_dashboard_widget
 CREATE INDEX IF NOT EXISTS ix_operator_dashboard_widget_dashboard
   ON portal.operator_dashboard_widget (dashboard_id, sort_order);
 
+CREATE OR REPLACE FUNCTION portal.fn_operator_scope_visible(
+  p_active_scope_id integer,
+  p_row_scope_id integer,
+  p_visibility text
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT
+    CASE
+      WHEN p_visibility IN ('scope', 'private') THEN p_row_scope_id = p_active_scope_id
+      WHEN p_visibility = 'organization' THEN
+        EXISTS (
+          SELECT 1
+          FROM "RBAC"."Scopes" sa
+          INNER JOIN "RBAC"."Scopes" so
+            ON so."OrganizationID" = sa."OrganizationID"
+          WHERE sa."ScopeID" = p_active_scope_id
+            AND so."ScopeID" = p_row_scope_id
+            AND sa."OrganizationID" IS NOT NULL
+        )
+      ELSE false
+    END;
+$$;
+
 CREATE OR REPLACE FUNCTION portal.fn_operator_view_sync_meta(
   p_scope_id integer,
   p_view_id bigint,
@@ -210,6 +236,14 @@ BEGIN
 END;
 $$;
 
+/*
+  Return-shape upgrades: CREATE OR REPLACE cannot widen RETURNS TABLE when an older overload exists.
+  portal._drop_if_proc drops every overload before create (database_gateway_roles.sql re-grants EXECUTE).
+*/
+SELECT portal._drop_if_proc('portal', 'sp_session_list_operator_views');
+SELECT portal._drop_if_proc('portal', 'sp_session_list_operator_dashboards');
+SELECT portal._drop_if_proc('portal', 'sp_session_list_dashboard_widgets');
+
 CREATE OR REPLACE FUNCTION portal.sp_session_list_operator_views(p_session_token text)
 RETURNS TABLE (
   view_id bigint,
@@ -230,8 +264,9 @@ SET search_path = portal, "RBAC", pg_temp
 AS $$
 DECLARE
   v_scope_id integer;
+  v_user_id integer;
 BEGIN
-  SELECT active_scope_id INTO v_scope_id
+  SELECT active_scope_id, user_id INTO v_scope_id, v_user_id
   FROM portal.fn_session_operator_require(p_session_token)
   LIMIT 1;
 
@@ -249,10 +284,10 @@ BEGIN
     v.updated_at_utc
   FROM portal.operator_view v
   LEFT JOIN portal.operator_view_meta_map m ON m.legacy_view_id = v.id
-  WHERE v.scope_id = v_scope_id
+  WHERE portal.fn_operator_scope_visible(v_scope_id, v.scope_id, v.visibility)
     AND (
       v.visibility <> 'private'
-      OR v.created_by_user_id = (SELECT user_id FROM portal.fn_session_operator_require(p_session_token) LIMIT 1)
+      OR v.created_by_user_id = v_user_id
     )
   ORDER BY v.updated_at_utc DESC, v.id DESC;
 END;
@@ -290,7 +325,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM portal.operator_view v
     WHERE v.id = p_view_id
-      AND v.scope_id = v_scope_id
+      AND portal.fn_operator_scope_visible(v_scope_id, v.scope_id, v.visibility)
       AND (
         v.visibility <> 'private'
         OR v.created_by_user_id = v_user_id
@@ -314,7 +349,6 @@ BEGIN
   FROM portal.operator_view v
   LEFT JOIN portal.operator_view_meta_map m ON m.legacy_view_id = v.id
   WHERE v.id = p_view_id
-    AND v.scope_id = v_scope_id
   LIMIT 1;
 END;
 $$;
@@ -414,23 +448,31 @@ SET search_path = portal, "RBAC", pg_temp
 AS $$
 DECLARE
   v_scope_id integer;
+  v_user_id integer;
+  v_meta_obj_id integer;
   v_n bigint;
 BEGIN
-  SELECT active_scope_id INTO v_scope_id
+  SELECT active_scope_id, user_id INTO v_scope_id, v_user_id
   FROM portal.fn_session_operator_require(p_session_token)
   LIMIT 1;
+
+  SELECT m.meta_obj_id INTO v_meta_obj_id
+  FROM portal.operator_view_meta_map m
+  WHERE m.legacy_view_id = p_view_id;
 
   DELETE FROM portal.operator_view v
   WHERE v.id = p_view_id
     AND v.scope_id = v_scope_id
     AND (
-      v.created_by_user_id = (SELECT user_id FROM portal.fn_session_operator_require(p_session_token) LIMIT 1)
-      OR portal.fn_semantic_session_has_permission(
-        (SELECT user_id FROM portal.fn_session_operator_require(p_session_token) LIMIT 1),
-        'meta.object.write'
-      )
+      v.created_by_user_id = v_user_id
+      OR portal.fn_semantic_session_has_permission(v_user_id, 'meta.object.write')
     );
   GET DIAGNOSTICS v_n = ROW_COUNT;
+
+  IF v_n > 0 AND v_meta_obj_id IS NOT NULL THEN
+    DELETE FROM "Meta"."Objs" o WHERE o."ID" = v_meta_obj_id;
+  END IF;
+
   RETURN QUERY SELECT v_n > 0;
 END;
 $$;
@@ -453,8 +495,9 @@ SET search_path = portal, "RBAC", pg_temp
 AS $$
 DECLARE
   v_scope_id integer;
+  v_user_id integer;
 BEGIN
-  SELECT active_scope_id INTO v_scope_id
+  SELECT active_scope_id, user_id INTO v_scope_id, v_user_id
   FROM portal.fn_session_operator_require(p_session_token)
   LIMIT 1;
 
@@ -470,10 +513,10 @@ BEGIN
     d.updated_at_utc
   FROM portal.operator_dashboard d
   LEFT JOIN portal.operator_dashboard_meta_map m ON m.legacy_dashboard_id = d.id
-  WHERE d.scope_id = v_scope_id
+  WHERE portal.fn_operator_scope_visible(v_scope_id, d.scope_id, d.visibility)
     AND (
       d.visibility <> 'private'
-      OR d.created_by_user_id = (SELECT user_id FROM portal.fn_session_operator_require(p_session_token) LIMIT 1)
+      OR d.created_by_user_id = v_user_id
     )
   ORDER BY d.updated_at_utc DESC, d.id DESC;
 END;
@@ -508,7 +551,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM portal.operator_dashboard d
     WHERE d.id = p_dashboard_id
-      AND d.scope_id = v_scope_id
+      AND portal.fn_operator_scope_visible(v_scope_id, d.scope_id, d.visibility)
       AND (
         d.visibility <> 'private'
         OR d.created_by_user_id = v_user_id
@@ -529,7 +572,6 @@ BEGIN
   FROM portal.operator_dashboard d
   LEFT JOIN portal.operator_dashboard_meta_map m ON m.legacy_dashboard_id = d.id
   WHERE d.id = p_dashboard_id
-    AND d.scope_id = v_scope_id
   LIMIT 1;
 END;
 $$;
@@ -545,9 +587,14 @@ SET search_path = portal, "RBAC", pg_temp
 AS $$
 DECLARE
   v_sess record;
+  v_meta_obj_id integer;
   v_n bigint;
 BEGIN
   SELECT * INTO v_sess FROM portal.fn_session_operator_require(p_session_token) LIMIT 1;
+
+  SELECT m.meta_obj_id INTO v_meta_obj_id
+  FROM portal.operator_dashboard_meta_map m
+  WHERE m.legacy_dashboard_id = p_dashboard_id;
 
   DELETE FROM portal.operator_dashboard d
   WHERE d.id = p_dashboard_id
@@ -557,6 +604,11 @@ BEGIN
       OR portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
     );
   GET DIAGNOSTICS v_n = ROW_COUNT;
+
+  IF v_n > 0 AND v_meta_obj_id IS NOT NULL THEN
+    DELETE FROM "Meta"."Objs" o WHERE o."ID" = v_meta_obj_id;
+  END IF;
+
   RETURN QUERY SELECT v_n > 0;
 END;
 $$;
@@ -661,7 +713,13 @@ BEGIN
 
   IF NOT EXISTS (
     SELECT 1 FROM portal.operator_dashboard d
-    WHERE d.id = p_dashboard_id AND d.scope_id = v_sess.active_scope_id
+    WHERE d.id = p_dashboard_id
+      AND portal.fn_operator_scope_visible(v_sess.active_scope_id, d.scope_id, d.visibility)
+      AND (
+        d.visibility <> 'private'
+        OR d.created_by_user_id = v_sess.user_id
+        OR portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
+      )
   ) THEN
     PERFORM portal.fn_semantic_raise('GS404', 'dashboard not found');
   END IF;
@@ -689,7 +747,13 @@ BEGIN
     END IF;
     IF NOT EXISTS (
       SELECT 1 FROM portal.operator_view v
-      WHERE v.id = v_view_id AND v.scope_id = v_sess.active_scope_id
+      WHERE v.id = v_view_id
+        AND portal.fn_operator_scope_visible(v_sess.active_scope_id, v.scope_id, v.visibility)
+        AND (
+          v.visibility <> 'private'
+          OR v.created_by_user_id = v_sess.user_id
+          OR portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
+        )
     ) THEN
       PERFORM portal.fn_semantic_raise('GS403', 'view not in active scope');
     END IF;
@@ -736,14 +800,20 @@ SET search_path = portal, "RBAC", pg_temp
 AS $$
 DECLARE
   v_scope_id integer;
+  v_user_id integer;
 BEGIN
-  SELECT active_scope_id INTO v_scope_id
+  SELECT active_scope_id, user_id INTO v_scope_id, v_user_id
   FROM portal.fn_session_operator_require(p_session_token)
   LIMIT 1;
 
   IF NOT EXISTS (
     SELECT 1 FROM portal.operator_dashboard d
-    WHERE d.id = p_dashboard_id AND d.scope_id = v_scope_id
+    WHERE d.id = p_dashboard_id
+      AND portal.fn_operator_scope_visible(v_scope_id, d.scope_id, d.visibility)
+      AND (
+        d.visibility <> 'private'
+        OR d.created_by_user_id = v_user_id
+      )
   ) THEN
     PERFORM portal.fn_semantic_raise('GS404', 'dashboard not found');
   END IF;
@@ -766,6 +836,11 @@ BEGIN
   FROM portal.operator_dashboard_widget w
   JOIN portal.operator_view v ON v.id = w.view_id
   WHERE w.dashboard_id = p_dashboard_id
+    AND portal.fn_operator_scope_visible(v_scope_id, v.scope_id, v.visibility)
+    AND (
+      v.visibility <> 'private'
+      OR v.created_by_user_id = v_user_id
+    )
   ORDER BY w.grid_y, w.grid_x, w.sort_order, v.title;
 END;
 $$;
