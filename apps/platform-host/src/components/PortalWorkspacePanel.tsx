@@ -75,12 +75,14 @@ export async function PortalWorkspacePanel({
   metaClassOverride,
   semanticHighlight,
   dashboardId,
+  dashboardViewMode,
   viewId,
 }: {
   spec: PortalWorkspaceSpec;
   metaClassOverride?: string;
   semanticHighlight?: string;
   dashboardId?: number;
+  dashboardViewMode?: boolean;
   viewId?: number;
 }) {
   const cookieStore = await cookies();
@@ -252,7 +254,10 @@ export async function PortalWorkspacePanel({
         <div className="g-portal-stage">
           <h2>{spec.title}</h2>
           {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
-          <OperatorDashboardsWorkspaceServer selectedDashboardId={dashboardId} />
+          <OperatorDashboardsWorkspaceServer
+            selectedDashboardId={dashboardId}
+            viewMode={dashboardViewMode}
+          />
         </div>
       );
     }

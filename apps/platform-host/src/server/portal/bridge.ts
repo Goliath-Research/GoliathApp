@@ -64,6 +64,8 @@ export type OperatorViewRow = {
   semanticRequestVersion: string;
   metaClassName: string | null;
   paramsJson: Record<string, unknown>;
+  visibility: string;
+  metaObjId: number | null;
   updatedAtUtc: string;
 };
 
@@ -71,6 +73,9 @@ export type OperatorDashboardRow = {
   dashboardId: number;
   title: string;
   description: string;
+  layoutJson: Record<string, unknown>;
+  visibility: string;
+  metaObjId: number | null;
   widgetCount: number;
   updatedAtUtc: string;
 };
@@ -83,6 +88,19 @@ export type OperatorDashboardWidgetRow = {
   paramsJson: Record<string, unknown>;
   sortOrder: number;
   columnSpan: number;
+  gridX: number;
+  gridY: number;
+  gridW: number;
+  gridH: number;
+  widgetTitle: string;
+  vizOverrideJson: Record<string, unknown>;
+};
+
+export type SemanticFieldRow = {
+  fieldCode: string;
+  columnName: string;
+  jsonType: string;
+  role: string;
 };
 
 const pools = new Map<string, Pool>();
@@ -787,7 +805,7 @@ export async function portalSessionListOperatorViews(sessionToken: string): Prom
     try {
       const result = await client.query(
         `SELECT view_id, title, description, semantic_request_code, semantic_request_version,
-                meta_class_name, params_json, updated_at_utc
+                meta_class_name, params_json, visibility, meta_obj_id, updated_at_utc
          FROM portal.sp_session_list_operator_views($1)`,
         [sessionToken],
       );
@@ -799,8 +817,61 @@ export async function portalSessionListOperatorViews(sessionToken: string): Prom
         semanticRequestVersion: String(row.semantic_request_version ?? "1"),
         metaClassName: row.meta_class_name == null ? null : String(row.meta_class_name),
         paramsJson: (row.params_json ?? {}) as Record<string, unknown>,
+        visibility: String(row.visibility ?? "scope"),
+        metaObjId: row.meta_obj_id == null ? null : Number(row.meta_obj_id),
         updatedAtUtc: String(row.updated_at_utc),
       }));
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionGetOperatorView(
+  sessionToken: string,
+  viewId: number,
+): Promise<OperatorViewRow> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT view_id, title, description, semantic_request_code, semantic_request_version,
+                meta_class_name, params_json, visibility, meta_obj_id, updated_at_utc
+         FROM portal.sp_session_get_operator_view($1, $2)`,
+        [sessionToken, viewId],
+      );
+      const row = result.rows[0];
+      if (!row) {
+        throw new PortalMetaNotFoundError("operator view not found");
+      }
+      return {
+        viewId: Number(row.view_id),
+        title: String(row.title),
+        description: String(row.description ?? ""),
+        semanticRequestCode: row.semantic_request_code == null ? null : String(row.semantic_request_code),
+        semanticRequestVersion: String(row.semantic_request_version ?? "1"),
+        metaClassName: row.meta_class_name == null ? null : String(row.meta_class_name),
+        paramsJson: (row.params_json ?? {}) as Record<string, unknown>,
+        visibility: String(row.visibility ?? "scope"),
+        metaObjId: row.meta_obj_id == null ? null : Number(row.meta_obj_id),
+        updatedAtUtc: String(row.updated_at_utc),
+      };
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionDeleteOperatorView(
+  sessionToken: string,
+  viewId: number,
+): Promise<boolean> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT deleted FROM portal.sp_session_delete_operator_view($1, $2)`,
+        [sessionToken, viewId],
+      );
+      return Boolean(result.rows[0]?.deleted);
     } catch (err) {
       mapPgPortalError(err);
     }
@@ -817,13 +888,14 @@ export async function portalSessionUpsertOperatorView(
     semanticRequestVersion?: string;
     metaClassName?: string | null;
     paramsJson?: Record<string, unknown>;
+    visibility?: string;
   },
 ): Promise<number> {
   return withClient(async (client) => {
     try {
       const result = await client.query(
         `SELECT view_id FROM portal.sp_session_upsert_operator_view(
-           $1, $2, $3, $4, $5, $6, $7, $8::jsonb
+           $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9
          )`,
         [
           sessionToken,
@@ -834,9 +906,33 @@ export async function portalSessionUpsertOperatorView(
           body.semanticRequestVersion ?? "1",
           body.metaClassName ?? null,
           JSON.stringify(body.paramsJson ?? {}),
+          body.visibility ?? null,
         ],
       );
       return Number(result.rows[0]?.view_id);
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionSemanticFieldsForRequest(
+  sessionToken: string,
+  requestCode: string,
+): Promise<SemanticFieldRow[]> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT field_code, column_name, json_type, role
+         FROM portal.sp_session_semantic_fields_for_request($1, $2)`,
+        [sessionToken, requestCode],
+      );
+      return result.rows.map((row) => ({
+        fieldCode: String(row.field_code),
+        columnName: String(row.column_name),
+        jsonType: String(row.json_type),
+        role: String(row.role),
+      }));
     } catch (err) {
       mapPgPortalError(err);
     }
@@ -849,7 +945,8 @@ export async function portalSessionListOperatorDashboards(
   return withClient(async (client) => {
     try {
       const result = await client.query(
-        `SELECT dashboard_id, title, description, widget_count, updated_at_utc
+        `SELECT dashboard_id, title, description, layout_json, visibility, meta_obj_id,
+                widget_count, updated_at_utc
          FROM portal.sp_session_list_operator_dashboards($1)`,
         [sessionToken],
       );
@@ -857,6 +954,9 @@ export async function portalSessionListOperatorDashboards(
         dashboardId: Number(row.dashboard_id),
         title: String(row.title),
         description: String(row.description ?? ""),
+        layoutJson: (row.layout_json ?? {}) as Record<string, unknown>,
+        visibility: String(row.visibility ?? "scope"),
+        metaObjId: row.meta_obj_id == null ? null : Number(row.meta_obj_id),
         widgetCount: Number(row.widget_count),
         updatedAtUtc: String(row.updated_at_utc),
       }));
@@ -866,15 +966,78 @@ export async function portalSessionListOperatorDashboards(
   });
 }
 
+export async function portalSessionGetOperatorDashboard(
+  sessionToken: string,
+  dashboardId: number,
+): Promise<OperatorDashboardRow> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT dashboard_id, title, description, layout_json, visibility, meta_obj_id, updated_at_utc
+         FROM portal.sp_session_get_operator_dashboard($1, $2)`,
+        [sessionToken, dashboardId],
+      );
+      const row = result.rows[0];
+      if (!row) {
+        throw new PortalMetaNotFoundError("dashboard not found");
+      }
+      return {
+        dashboardId: Number(row.dashboard_id),
+        title: String(row.title),
+        description: String(row.description ?? ""),
+        layoutJson: (row.layout_json ?? {}) as Record<string, unknown>,
+        visibility: String(row.visibility ?? "scope"),
+        metaObjId: row.meta_obj_id == null ? null : Number(row.meta_obj_id),
+        widgetCount: 0,
+        updatedAtUtc: String(row.updated_at_utc),
+      };
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
+export async function portalSessionDeleteOperatorDashboard(
+  sessionToken: string,
+  dashboardId: number,
+): Promise<boolean> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT deleted FROM portal.sp_session_delete_operator_dashboard($1, $2)`,
+        [sessionToken, dashboardId],
+      );
+      return Boolean(result.rows[0]?.deleted);
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
 export async function portalSessionUpsertOperatorDashboard(
   sessionToken: string,
-  body: { dashboardId?: number; title: string; description?: string },
+  body: {
+    dashboardId?: number;
+    title: string;
+    description?: string;
+    layoutJson?: Record<string, unknown>;
+    visibility?: string;
+  },
 ): Promise<number> {
   return withClient(async (client) => {
     try {
       const result = await client.query(
-        `SELECT dashboard_id FROM portal.sp_session_upsert_operator_dashboard($1, $2, $3, $4)`,
-        [sessionToken, body.dashboardId ?? null, body.title, body.description ?? ""],
+        `SELECT dashboard_id FROM portal.sp_session_upsert_operator_dashboard(
+           $1, $2, $3, $4, $5::jsonb, $6
+         )`,
+        [
+          sessionToken,
+          body.dashboardId ?? null,
+          body.title,
+          body.description ?? "",
+          JSON.stringify(body.layoutJson ?? {}),
+          body.visibility ?? null,
+        ],
       );
       return Number(result.rows[0]?.dashboard_id);
     } catch (err) {
@@ -890,7 +1053,8 @@ export async function portalSessionListDashboardWidgets(
   return withClient(async (client) => {
     try {
       const result = await client.query(
-        `SELECT view_id, title, semantic_request_code, meta_class_name, params_json, sort_order, column_span
+        `SELECT view_id, title, semantic_request_code, meta_class_name, params_json, sort_order, column_span,
+                grid_x, grid_y, grid_w, grid_h, widget_title, viz_override_json
          FROM portal.sp_session_list_dashboard_widgets($1, $2)`,
         [sessionToken, dashboardId],
       );
@@ -902,6 +1066,12 @@ export async function portalSessionListDashboardWidgets(
         paramsJson: (row.params_json ?? {}) as Record<string, unknown>,
         sortOrder: Number(row.sort_order),
         columnSpan: Number(row.column_span),
+        gridX: Number(row.grid_x ?? 0),
+        gridY: Number(row.grid_y ?? 0),
+        gridW: Number(row.grid_w ?? 4),
+        gridH: Number(row.grid_h ?? 2),
+        widgetTitle: String(row.widget_title ?? ""),
+        vizOverrideJson: (row.viz_override_json ?? {}) as Record<string, unknown>,
       }));
     } catch (err) {
       mapPgPortalError(err);
@@ -912,7 +1082,17 @@ export async function portalSessionListDashboardWidgets(
 export async function portalSessionSetDashboardWidgets(
   sessionToken: string,
   dashboardId: number,
-  widgets: Array<{ viewId: number; sortOrder: number; columnSpan: number }>,
+  widgets: Array<{
+    viewId: number;
+    sortOrder: number;
+    columnSpan: number;
+    gridX?: number;
+    gridY?: number;
+    gridW?: number;
+    gridH?: number;
+    widgetTitle?: string;
+    vizOverride?: Record<string, unknown>;
+  }>,
 ): Promise<number> {
   return withClient(async (client) => {
     try {
@@ -926,6 +1106,12 @@ export async function portalSessionSetDashboardWidgets(
               view_id: w.viewId,
               sort_order: w.sortOrder,
               column_span: w.columnSpan,
+              grid_x: w.gridX ?? 0,
+              grid_y: w.gridY ?? 0,
+              grid_w: w.gridW ?? 4,
+              grid_h: w.gridH ?? 2,
+              widget_title: w.widgetTitle ?? "",
+              viz_override: w.vizOverride ?? {},
             })),
           ),
         ],

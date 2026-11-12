@@ -44,6 +44,15 @@ export async function POST(
       viewId: Number(w.viewId),
       sortOrder: w.sortOrder == null ? (idx + 1) * 10 : Number(w.sortOrder),
       columnSpan: w.columnSpan == null ? 1 : Number(w.columnSpan),
+      gridX: w.gridX == null ? 0 : Number(w.gridX),
+      gridY: w.gridY == null ? 0 : Number(w.gridY),
+      gridW: w.gridW == null ? 4 : Number(w.gridW),
+      gridH: w.gridH == null ? 2 : Number(w.gridH),
+      widgetTitle: w.widgetTitle == null ? "" : String(w.widgetTitle),
+      vizOverride:
+        typeof w.vizOverride === "object" && w.vizOverride !== null
+          ? (w.vizOverride as Record<string, unknown>)
+          : {},
     }));
     const count = await portalSessionSetDashboardWidgets(token, Number(dashboardId), widgets);
     const response = NextResponse.json({ widgetCount: count });

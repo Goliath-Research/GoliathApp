@@ -107,6 +107,7 @@ SCRIPTS=(
   portal_operator_views_api.sql
   portal_session_model_authoring_api.sql
   platform_generic_meta_baseline.sql
+  platform_operator_view_dashboard_meta.sql
   portal_layered_security_schema.sql
   portal_layered_security_api.sql
   portal_session_security_admin_api.sql
