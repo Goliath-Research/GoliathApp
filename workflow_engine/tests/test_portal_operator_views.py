@@ -219,8 +219,9 @@ def test_private_operator_view_meta_redacts_definition(
                    ov."Data"->>'SemanticRequestCode'
             FROM "Meta"."ObjValues" ov
             WHERE ov."ObjID" = %s
-            ORDER BY ov."ClassID"
-            LIMIT 1
+              AND ov."ClassID" = (
+                SELECT "ID" FROM "Meta"."Classes" WHERE "Name" = 'platform/OperatorView'
+              )
             """,
             (meta_obj_id,),
         ).fetchone()
