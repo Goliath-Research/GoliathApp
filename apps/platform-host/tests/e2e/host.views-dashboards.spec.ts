@@ -20,10 +20,7 @@ test.describe("views and dashboards editors", () => {
     await page.getByLabel("Row limit").fill("15");
     await page.getByLabel("Chart type").selectOption("bar");
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(page.locator(".g-portal-view-editor, .g-portal-dashboard-editor").getByRole("status")).toContainText(
-      "saved",
-      { timeout: 15_000 },
-    );
+    await expect(page.getByText("View saved")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("button", { name: title })).toBeVisible();
 
     await page.reload();
@@ -41,10 +38,7 @@ test.describe("views and dashboards editors", () => {
     await page.getByRole("button", { name: "New view" }).click();
     await page.getByLabel("Title").fill(viewTitle);
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(page.locator(".g-portal-view-editor, .g-portal-dashboard-editor").getByRole("status")).toContainText(
-      "saved",
-      { timeout: 15_000 },
-    );
+    await expect(page.getByText("View saved")).toBeVisible({ timeout: 15_000 });
 
     await page.goto("/app/views/dashboards");
     await expect(page.getByRole("heading", { name: "Layout canvas" })).toBeVisible();
@@ -53,20 +47,14 @@ test.describe("views and dashboards editors", () => {
     await page.getByRole("button", { name: "New dashboard" }).click();
     await page.getByLabel("Title").fill(dashTitle);
     await page.getByRole("button", { name: "Save dashboard" }).click();
-    await expect(page.locator(".g-portal-view-editor, .g-portal-dashboard-editor").getByRole("status")).toContainText(
-      "saved",
-      { timeout: 15_000 },
-    );
+    await expect(page.getByText("Dashboard saved")).toBeVisible({ timeout: 15_000 });
 
     const dragSource = page.getByRole("button", { name: viewTitle });
     const dropCell = page.locator(".g-portal-dashboard-editor__cell").first();
     await dragSource.dragTo(dropCell);
 
     await page.getByRole("button", { name: "Save dashboard" }).click();
-    await expect(page.locator(".g-portal-view-editor, .g-portal-dashboard-editor").getByRole("status")).toContainText(
-      "saved",
-      { timeout: 15_000 },
-    );
+    await expect(page.getByText("Dashboard saved")).toBeVisible({ timeout: 15_000 });
 
     await page.reload();
     await page.getByRole("button", { name: new RegExp(dashTitle) }).click();

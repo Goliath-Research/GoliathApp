@@ -86,7 +86,7 @@ test.describe("model authoring (CI postgres)", () => {
     await page.getByRole("radio", { name: /Meta class/ }).check();
     await page.getByRole("button", { name: new RegExp(`Use ${className}`) }).click();
     await page.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(page.locator(".g-portal-view-editor").getByRole("status")).toContainText("saved");
+    await expect(page.getByText("View saved")).toBeVisible();
     const savedView = page.getByRole("button", { name: viewTitle });
     await expect(savedView).toBeVisible();
     await expect(page.getByLabel("Selected Meta class")).toHaveValue(className);
