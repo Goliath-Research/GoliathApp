@@ -49,9 +49,11 @@ export function MetaInstanceWorkbench({
   const [editorDocument, setEditorDocument] = useState<Record<string, unknown>>({});
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [newSession, setNewSession] = useState(0);
   const editorDocumentRef = useRef(editorDocument);
   editorDocumentRef.current = editorDocument;
-  const gridKey = selectedObjId == null ? `new:${className}` : `obj:${selectedObjId}`;
+  const gridKey =
+    selectedObjId == null ? `new:${className}:${newSession}` : `obj:${selectedObjId}`;
   const selectRequestRef = useRef(0);
   const saveRequestRef = useRef(0);
   const selectedObjIdRef = useRef<number | null>(selectedObjId);
@@ -98,6 +100,7 @@ export function MetaInstanceWorkbench({
   function handleNew() {
     ++saveRequestRef.current;
     ++selectRequestRef.current;
+    setNewSession((n) => n + 1);
     setSelectedObjId(null);
     setEditorDocument({});
     setStatus("Create mode — fill properties and save.");
@@ -106,13 +109,14 @@ export function MetaInstanceWorkbench({
 
   async function save(document: Record<string, unknown>) {
     const saveId = ++saveRequestRef.current;
-    const selectId = selectRequestRef.current;
+    const selectId = ++selectRequestRef.current;
     const targetObjId = selectedObjIdRef.current;
+    const baseEditorDocument = editorDocumentRef.current;
     setStatus(null);
     setError(null);
     try {
       if (targetObjId != null) {
-        const payload = { ...editorDocumentRef.current, ...document };
+        const payload = { ...baseEditorDocument, ...document };
         await client.updateMetaObject(targetObjId, payload);
         await refreshList();
         if (saveId !== saveRequestRef.current) return;
