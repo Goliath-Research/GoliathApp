@@ -117,6 +117,7 @@ def test_operator_view_dashboard_meta_and_crud(portal_views_env: dict[str, str])
             "SELECT title FROM portal.sp_session_get_operator_view(%s, %s)",
             (token, view_id),
         ).fetchone()
+        assert fetched is not None
         assert fetched[0] == "SQL Test View"
 
         dash = conn.execute(
@@ -127,6 +128,7 @@ def test_operator_view_dashboard_meta_and_crud(portal_views_env: dict[str, str])
             """,
             (token,),
         ).fetchone()
+        assert dash is not None
         dashboard_id = int(dash[0])
 
         widgets = json.dumps(
@@ -148,6 +150,7 @@ def test_operator_view_dashboard_meta_and_crud(portal_views_env: dict[str, str])
             "SELECT widget_count FROM portal.sp_session_set_dashboard_widgets(%s, %s, %s::jsonb)",
             (token, dashboard_id, widgets),
         ).fetchone()
+        assert cnt is not None
         assert int(cnt[0]) == 1
 
         wrows = conn.execute(
@@ -161,6 +164,7 @@ def test_operator_view_dashboard_meta_and_crud(portal_views_env: dict[str, str])
             "SELECT deleted FROM portal.sp_session_delete_operator_view(%s, %s)",
             (token, view_id),
         ).fetchone()
+        assert deleted is not None
         assert deleted[0] is True
 
         class_row = conn.execute(

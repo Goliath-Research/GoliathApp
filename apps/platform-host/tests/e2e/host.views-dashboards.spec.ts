@@ -19,7 +19,7 @@ test.describe("views and dashboards editors", () => {
     await page.getByLabel("Description").fill("E2E structured editor");
     await page.getByLabel("Row limit").fill("15");
     await page.getByLabel("Chart type").selectOption("bar");
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("status")).toContainText("saved", { timeout: 15_000 });
     await expect(page.getByRole("button", { name: title })).toBeVisible();
 
@@ -37,7 +37,7 @@ test.describe("views and dashboards editors", () => {
     await page.goto("/app/views/list");
     await page.getByRole("button", { name: "New view" }).click();
     await page.getByLabel("Title").fill(viewTitle);
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("status")).toContainText("saved", { timeout: 15_000 });
 
     await page.goto("/app/views/dashboards");
