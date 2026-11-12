@@ -54,9 +54,12 @@ export function WorkflowGraphWorkspace({ mode }: { mode: GraphEditorMode }) {
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      setRows((await fetchRecordRows(ENTITY)).map(asVersionRow));
+      const next = (await fetchRecordRows(ENTITY)).map(asVersionRow);
+      setRows(next);
+      return next;
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      return undefined;
     } finally {
       setLoading(false);
     }
@@ -122,8 +125,11 @@ export function WorkflowGraphWorkspace({ mode }: { mode: GraphEditorMode }) {
       try {
         await runRecordEditorAction(ENTITY, "activate", String(row.workflow_version_id));
         setStatus(`Activated ${row.workflow_def_name} v${row.version}`);
-        await reload();
-        setSelected((cur) => (cur && cur.workflow_version_id === row.workflow_version_id ? { ...cur, is_active: true } : cur));
+        const nextRows = await reload();
+        setSelected((cur) => {
+          if (!cur || !nextRows) return cur;
+          return nextRows.find((r) => r.workflow_version_id === cur.workflow_version_id) ?? cur;
+        });
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       }
