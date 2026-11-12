@@ -761,8 +761,11 @@ LANGUAGE sql STABLE AS $$
   JOIN wf.workflow_def wd ON wd.id = wv.workflow_def_id
   LEFT JOIN cfg.study_instance_link sil ON sil.workflow_instance_id = wi.id
   LEFT JOIN cfg.study s ON s.id = sil.study_row_id
-  WHERE wi.started_at_utc >= (now() AT TIME ZONE 'utc') - (p_hours_back || ' hours')::interval
-  ORDER BY wi.started_at_utc DESC
+  -- p_hours_back NULL or <= 0 means no lower bound (all runs).
+  WHERE p_hours_back IS NULL
+     OR p_hours_back <= 0
+     OR wi.started_at_utc >= now() - make_interval(hours => p_hours_back)
+  ORDER BY wi.started_at_utc DESC NULLS LAST, wi.id DESC
   LIMIT p_limit;
 $$;
 

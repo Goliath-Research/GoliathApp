@@ -59,11 +59,12 @@ export const PLATFORM_QUERY_SQL: Record<
     ],
   },
   workflow_runs: {
-    sql: `SELECT * FROM portal.sp_session_list_recent_instances($1, 168, 100)`,
+    sql: `SELECT * FROM portal.sp_session_list_recent_instances($1, 168, 200)`,
     columns: [
       { key: "instance_id", label: "Instance" },
       { key: "workflow_def_name", label: "Workflow" },
       { key: "status", label: "Status" },
+      { key: "study_name", label: "Study" },
       { key: "started_at_utc", label: "Started" },
     ],
   },

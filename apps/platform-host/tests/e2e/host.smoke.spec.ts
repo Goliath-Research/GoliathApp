@@ -78,4 +78,9 @@ test.describe("platform host", () => {
     await page.emulateMedia({ colorScheme: "dark" });
     await page.screenshot({ path: darkPath, fullPage: true });
   });
+
+  test("workflow runs API requires a session", async ({ request }) => {
+    const res = await request.get("/api/portal/workflows/runs?range=all");
+    expect([401, 503]).toContain(res.status());
+  });
 });

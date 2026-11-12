@@ -15,6 +15,7 @@ import {
   PortalForbiddenError,
   PortalMetaNotFoundError,
   portalOperatorNavTree,
+  portalSessionListRecentInstances,
   portalSessionMetaListClasses,
   portalSessionPlatformQuery,
   portalSessionRunSemanticRequest,
@@ -26,6 +27,21 @@ import { requestOriginFromHeaderStore } from "@/server/http/request-origin";
 import type { PortalWorkspaceSpec } from "@/lib/portal-node-registry";
 import { PLATFORM_QUERY_SQL } from "@/lib/portal-platform-queries";
 import { SESSION_COOKIE_NAME } from "@/server/session/cookies";
+import {
+  DEFAULT_WORKFLOW_RUNS_LIMIT,
+  WORKFLOW_RUNS_RANGES,
+  resolveWorkflowRunsRange,
+  workflowRunsRangeHref,
+} from "@/lib/workflow-runs-range";
+
+const WORKFLOW_RUNS_COLUMNS: { key: string; label: string }[] = [
+  { key: "instance_id", label: "Instance" },
+  { key: "workflow_def_name", label: "Workflow" },
+  { key: "status", label: "Status" },
+  { key: "study_name", label: "Study" },
+  { key: "started_at_utc", label: "Started" },
+  { key: "completed_at_utc", label: "Completed" },
+];
 
 const SEMANTIC_REQUEST_COLUMNS: Record<string, { key: string; label: string }[]> = {
   "core.list_organizations": [
@@ -77,6 +93,8 @@ export async function PortalWorkspacePanel({
   dashboardId,
   dashboardViewMode,
   viewId,
+  runsRange,
+  pathname,
 }: {
   spec: PortalWorkspaceSpec;
   metaClassOverride?: string;
@@ -84,6 +102,10 @@ export async function PortalWorkspacePanel({
   dashboardId?: number;
   dashboardViewMode?: boolean;
   viewId?: number;
+  /** `?range=` for the Workflow runs page (24h | 7d | 30d | all). */
+  runsRange?: string;
+  /** Current URL pathname, used for in-page links. */
+  pathname?: string;
 }) {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
@@ -276,6 +298,40 @@ export async function PortalWorkspacePanel({
       const queryKey = spec.platformQuery;
       if (!queryKey || !PLATFORM_QUERY_SQL[queryKey]) {
         return <PlaceholderPanel title={spec.title} description="Query mapping is missing." />;
+      }
+      if (queryKey === "workflow_runs") {
+        const range = resolveWorkflowRunsRange(runsRange);
+        const rows = await portalSessionListRecentInstances(
+          token,
+          range.hoursBack,
+          DEFAULT_WORKFLOW_RUNS_LIMIT,
+        );
+        const basePath = pathname ?? "/app/workflows/runs";
+        return (
+          <div className="g-portal-stage">
+            <h2>{spec.title}</h2>
+            {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
+            <nav className="g-runs-range" aria-label="Time range">
+              {WORKFLOW_RUNS_RANGES.map((r) => (
+                <a
+                  key={r.key}
+                  href={workflowRunsRangeHref(basePath, r.key)}
+                  className="g-runs-range__option"
+                  aria-current={r.key === range.key ? "page" : undefined}
+                  data-range={r.key}
+                >
+                  {r.label}
+                </a>
+              ))}
+            </nav>
+            <p role="status" className="g-host-home__lead">
+              {rows.length >= DEFAULT_WORKFLOW_RUNS_LIMIT
+                ? `Showing the ${DEFAULT_WORKFLOW_RUNS_LIMIT} most recent runs (${range.label.toLowerCase()}).`
+                : `${rows.length} run${rows.length === 1 ? "" : "s"} (${range.label.toLowerCase()}).`}
+            </p>
+            <PlatformRecordTable caption={spec.title} columns={WORKFLOW_RUNS_COLUMNS} rows={rows} />
+          </div>
+        );
       }
       const def = PLATFORM_QUERY_SQL[queryKey];
       const rows = await portalSessionPlatformQuery(token, def.sql);

@@ -778,6 +778,28 @@ export async function portalSessionPlatformQuery(
   });
 }
 
+/**
+ * Workflow runs for the operator Runs page. `hoursBack = null` means no lower
+ * time bound (all runs); the session function clamps `limit` to 1..500.
+ */
+export async function portalSessionListRecentInstances(
+  sessionToken: string,
+  hoursBack: number | null,
+  limit: number,
+): Promise<Record<string, unknown>[]> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT * FROM portal.sp_session_list_recent_instances($1, $2::int, $3::int)`,
+        [sessionToken, hoursBack, limit],
+      );
+      return result.rows as Record<string, unknown>[];
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
 export async function portalSessionRunSemanticRequest(
   sessionToken: string,
   requestCode: string,
