@@ -1,5 +1,7 @@
 import { ActionMethodsWorkspace } from "./ActionMethodsWorkspace";
 import { RecordEditorWorkspace } from "./RecordEditorWorkspace";
+import { RunInspector } from "./RunInspector";
+import { WorkflowGraphWorkspace } from "./WorkflowGraphWorkspace";
 import {
   MetaClassHierarchyList,
   PlatformRecordTable,
@@ -286,6 +288,16 @@ export async function PortalWorkspacePanel({
       );
     }
 
+    if (spec.kind === "workflow_graph") {
+      return (
+        <div className="g-portal-stage">
+          <h2>{spec.title}</h2>
+          {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
+          <WorkflowGraphWorkspace mode={spec.graphMode ?? "definitions"} />
+        </div>
+      );
+    }
+
     if (spec.kind === "record_editor") {
       return (
         <div className="g-portal-stage">
@@ -348,6 +360,7 @@ export async function PortalWorkspacePanel({
                 : `${rows.length} run${rows.length === 1 ? "" : "s"} (${range.label.toLowerCase()}).`}
             </p>
             <PlatformRecordTable caption={spec.title} columns={WORKFLOW_RUNS_COLUMNS} rows={rows} />
+            <RunInspector />
           </div>
         );
       }

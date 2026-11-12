@@ -71,7 +71,8 @@ BEGIN
   ELSIF v_kind = 'event_type' THEN
     PERFORM portal.fn_session_require_any_nav(
       p_session_token,
-      ARRAY['/app/workflows/subscriptions', '/app/operations/events']
+      ARRAY['/app/workflows/subscriptions', '/app/operations/events',
+            '/app/workflows/definitions', '/app/workflows/steps']
     );
   ELSIF v_kind IN ('cluster', 'cluster_id', 'worker') THEN
     PERFORM portal.fn_session_require_any_nav(

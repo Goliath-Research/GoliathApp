@@ -90,7 +90,15 @@ test.describe("platform host", () => {
   });
 
   test("record editor APIs require a session", async ({ request }) => {
-    for (const entity of ["class_method", "domain_program", "cluster", "worker_enrollment", "event_subscription"]) {
+    for (const entity of [
+      "class_method",
+      "domain_program",
+      "cluster",
+      "worker_enrollment",
+      "event_subscription",
+      "workflow_version",
+      "workflow_run",
+    ]) {
       const list = await request.get(`/api/portal/records/${entity}`);
       expect([401, 503]).toContain(list.status());
     }

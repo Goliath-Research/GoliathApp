@@ -14,6 +14,8 @@ export const RECORD_EDITOR_ENTITIES = [
   "cluster",
   "worker_enrollment",
   "event_subscription",
+  "workflow_version",
+  "workflow_run",
 ] as const;
 
 export type RecordEditorEntity = (typeof RECORD_EDITOR_ENTITIES)[number];
@@ -66,6 +68,10 @@ export async function listRecords(token: string, entity: RecordEditorEntity): Pr
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_worker_enrollments($1, NULL)");
     case "event_subscription":
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_event_subscriptions($1)");
+    case "workflow_version":
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_graph_versions($1)");
+    case "workflow_run":
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_recent_instances($1, NULL, 200)");
   }
 }
 
@@ -88,6 +94,14 @@ export async function getRecord(
     case "event_subscription":
       return jsonbScalar(token, "SELECT portal.sp_session_get_event_subscription($1, $2::bigint) AS doc", [
         intKey(key, "subscription id"),
+      ]);
+    case "workflow_version":
+      return jsonbScalar(token, "SELECT portal.sp_session_get_workflow_version_spec($1, $2::bigint) AS doc", [
+        intKey(key, "workflow version id"),
+      ]);
+    case "workflow_run":
+      return jsonbScalar(token, "SELECT portal.sp_session_get_run($1, $2::bigint) AS doc", [
+        intKey(key, "workflow run id"),
       ]);
     case "worker_enrollment": {
       const rows = await listRecords(token, "worker_enrollment");
@@ -145,6 +159,17 @@ export async function saveRecord(
       );
       return { key: String(rows[0]?.id ?? "") };
     }
+    case "workflow_version": {
+      // Never edits in place: the key is the base version; the result is a new inactive version.
+      const rows = await portalSessionCall(
+        token,
+        "SELECT * FROM portal.sp_session_save_workflow_version($1, $2::bigint, $3::jsonb)",
+        [intKey(key, "base workflow version id"), json],
+      );
+      return { key: String(rows[0]?.workflow_version_id ?? "") };
+    }
+    case "workflow_run":
+      throw new RecordEditorInputError("workflow runs are not edited; use cancel, retry or link_study");
   }
 }
 
@@ -181,6 +206,41 @@ export async function runRecordAction(
       token,
       "SELECT portal.sp_session_save_method_param_defaults($1, $2::int, $3::jsonb) AS updated",
       [intKey(key, "method id"), JSON.stringify(asObject(document ?? {}))],
+    );
+    return rows[0] ?? {};
+  }
+  if (entity === "workflow_version" && action === "activate") {
+    const rows = await portalSessionCall(
+      token,
+      "SELECT * FROM portal.sp_session_activate_workflow_version($1, $2::bigint)",
+      [intKey(key, "workflow version id")],
+    );
+    return rows[0] ?? {};
+  }
+  if (entity === "workflow_run" && action === "cancel") {
+    const doc = document == null ? {} : asObject(document);
+    const reason = typeof doc.reason === "string" && doc.reason.trim() ? doc.reason.trim() : null;
+    const rows = await portalSessionCall(
+      token,
+      "SELECT * FROM portal.sp_session_cancel_run($1, $2::bigint, $3)",
+      [intKey(key, "workflow run id"), reason],
+    );
+    return rows[0] ?? {};
+  }
+  if (entity === "workflow_run" && action === "retry") {
+    const rows = await portalSessionCall(
+      token,
+      "SELECT * FROM portal.sp_session_retry_run_node($1, $2::bigint)",
+      [intKey(key, "node execution id")],
+    );
+    return rows[0] ?? {};
+  }
+  if (entity === "workflow_run" && action === "link_study") {
+    const doc = asObject(document ?? {});
+    const rows = await portalSessionCall(
+      token,
+      "SELECT portal.sp_session_link_run_study($1, $2::bigint, $3::bigint) AS id",
+      [intKey(key, "workflow run id"), intKey(String(doc.study_row_id ?? ""), "study_row_id")],
     );
     return rows[0] ?? {};
   }

@@ -6,7 +6,12 @@
   Returns jsonb: { workflow_def_id, workflow_version_id, root_node_id, name }
 */
 
-CREATE OR REPLACE FUNCTION wf.wf_repo_create_workflow_graph(p_spec jsonb)
+/*
+  Add a version graph (nodes, edges, bindings, templates, collection bindings, event
+  triggers) to an existing workflow_def. Used for the first version of a new definition and
+  for saving a new version of an existing definition (portal graph editor).
+*/
+CREATE OR REPLACE FUNCTION wf.wf_repo_create_workflow_graph_version(p_def_id bigint, p_spec jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 AS $$
@@ -49,9 +54,10 @@ BEGIN
     RAISE EXCEPTION 'workflow spec requires nodes array';
   END IF;
 
-  INSERT INTO wf.workflow_def (name, description)
-  VALUES (v_name, p_spec->>'description')
-  RETURNING id INTO v_def_id;
+  v_def_id := p_def_id;
+  IF NOT EXISTS (SELECT 1 FROM wf.workflow_def d WHERE d.id = v_def_id) THEN
+    RAISE EXCEPTION 'workflow_def % not found', p_def_id;
+  END IF;
 
   INSERT INTO wf.workflow_version (workflow_def_id, version_major, version_minor, is_active)
   VALUES (
@@ -265,5 +271,32 @@ BEGIN
     'root_node_id', v_root_node_id,
     'name', v_name
   );
+END;
+$$;
+
+/*
+  Create a new workflow_def plus its first version graph from a JSON spec.
+*/
+CREATE OR REPLACE FUNCTION wf.wf_repo_create_workflow_graph(p_spec jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_def_id bigint;
+  v_name text;
+BEGIN
+  IF p_spec IS NULL THEN
+    RAISE EXCEPTION 'workflow spec is required';
+  END IF;
+  v_name := p_spec->>'name';
+  IF v_name IS NULL OR btrim(v_name) = '' THEN
+    RAISE EXCEPTION 'workflow spec missing name';
+  END IF;
+
+  INSERT INTO wf.workflow_def (name, description)
+  VALUES (v_name, p_spec->>'description')
+  RETURNING id INTO v_def_id;
+
+  RETURN wf.wf_repo_create_workflow_graph_version(v_def_id, p_spec);
 END;
 $$;
