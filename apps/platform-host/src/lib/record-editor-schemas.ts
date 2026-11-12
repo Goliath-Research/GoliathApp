@@ -19,8 +19,14 @@ export type RecordEditorDefinition = {
   rowKey: (row: Record<string, unknown>) => string;
   rowLabel: (row: Record<string, unknown>) => string;
   canCreate: boolean;
+  /** When set, only matching rows offer the Edit inspector action. */
+  canEdit?: (row: Record<string, unknown>) => boolean;
   /** Extra per-row actions (POST /api/portal/records/:entity/action). */
-  rowActions?: { action: string; label: string; visible: (row: Record<string, unknown>) => boolean }[];
+  rowActions?: {
+    action: string;
+    label: string;
+    visible: (row: Record<string, unknown>) => boolean;
+  }[];
 };
 
 const str = (description?: string, extra: Record<string, unknown> = {}) => ({
@@ -33,7 +39,11 @@ export const CLASS_METHOD_PARAMETER_SCHEMA: Record<string, unknown> = {
   type: "object",
   properties: {
     name: str("Parameter name"),
-    type_id: { type: "integer", "x-goliath-ref": "data_type", description: "Catalog data type" },
+    type_id: {
+      type: "integer",
+      "x-goliath-ref": "data_type",
+      description: "Catalog data type",
+    },
     required: { type: "boolean" },
   },
   required: ["name", "type_id"],
@@ -44,7 +54,10 @@ const CLASS_METHOD_ACTION_SCHEMA: Record<string, unknown> = {
   description: "Engine catalog settings synchronised to wf.workflow_action",
   properties: {
     capability: str("Worker capability"),
-    implementation_status: { type: "string", enum: ["scaffolded", "present", "retired"] },
+    implementation_status: {
+      type: "string",
+      enum: ["scaffolded", "present", "retired"],
+    },
     execution_mode: { type: "string", enum: ["in_process", "cli"] },
     cli_tool: str(),
     in_process_handler: str(),
@@ -58,7 +71,11 @@ const CLASS_METHOD_ACTION_SCHEMA: Record<string, unknown> = {
 const CLASS_METHOD_BODY: Record<string, unknown> = {
   description: str(),
   impl_kind: { type: "string", enum: ["action", "sql", "python", "abstract"] },
-  action_name: { type: "string", "x-goliath-ref": "action", description: "Bound workflow action" },
+  action_name: {
+    type: "string",
+    "x-goliath-ref": "action",
+    description: "Bound workflow action",
+  },
   impl_ref: str("sql / python implementation reference, or a new action name"),
   return_type_id: { type: "integer", "x-goliath-ref": "data_type" },
   is_final: { type: "boolean" },
@@ -75,7 +92,11 @@ export const CLASS_METHOD_EDIT_SCHEMA: Record<string, unknown> = {
 export const CLASS_METHOD_CREATE_SCHEMA: Record<string, unknown> = {
   type: "object",
   properties: {
-    class_name: { type: "string", "x-goliath-ref": "meta_class", description: "Owning Meta class" },
+    class_name: {
+      type: "string",
+      "x-goliath-ref": "meta_class",
+      description: "Owning Meta class",
+    },
     method_name: str("Method name"),
     ...CLASS_METHOD_BODY,
   },
@@ -93,13 +114,20 @@ const CLUSTER_BODY = {
   status: { type: "string", enum: ["ACTIVE", "DISABLED"] },
   shared_storage_uri: str(),
   worker_mount_path: str(),
-  allowed_source_cidrs: { type: "array", items: { type: "string" }, description: "Allowed worker source CIDRs" },
+  allowed_source_cidrs: {
+    type: "array",
+    items: { type: "string" },
+    description: "Allowed worker source CIDRs",
+  },
 };
 
 const EVENT_SUBSCRIPTION_BODY = {
   event_type: { type: "string", "x-goliath-ref": "event_type" },
   workflow_version_id: { type: "integer", "x-goliath-ref": "workflow_version" },
-  mode: { type: "string", enum: ["start_instance", "signal_wait", "start_or_signal"] },
+  mode: {
+    type: "string",
+    enum: ["start_instance", "signal_wait", "start_or_signal"],
+  },
   enabled: { type: "boolean" },
   filter: {
     type: "array",
@@ -128,14 +156,24 @@ export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
     ],
     createSchema: {
       type: "object",
-      properties: { name: str("Program name"), version: str("Version"), ...DOMAIN_PROGRAM_BODY },
+      properties: {
+        name: str("Program name"),
+        version: str("Version"),
+        ...DOMAIN_PROGRAM_BODY,
+      },
       required: ["name", "version"],
     },
     editSchema: { type: "object", properties: DOMAIN_PROGRAM_BODY },
     rowKey: (row) => `${row.name}@${row.version}`,
     rowLabel: (row) => `${row.name} v${row.version}`,
     canCreate: true,
-    rowActions: [{ action: "publish", label: "Publish", visible: (row) => row.status === "draft" }],
+    rowActions: [
+      {
+        action: "publish",
+        label: "Publish",
+        visible: (row) => row.status === "draft",
+      },
+    ],
   },
   cluster: {
     entity: "cluster",
@@ -184,7 +222,14 @@ export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
     rowKey: (row) => `${row.cluster_key}/${row.external_worker_key}`,
     rowLabel: (row) => `${row.cluster_key}/${row.external_worker_key}`,
     canCreate: true,
-    rowActions: [{ action: "revoke", label: "Revoke", visible: (row) => row.status !== "REVOKED" }],
+    canEdit: (row) => row.status !== "REVOKED",
+    rowActions: [
+      {
+        action: "revoke",
+        label: "Revoke",
+        visible: (row) => row.status !== "REVOKED",
+      },
+    ],
   },
   event_subscription: {
     entity: "event_subscription",

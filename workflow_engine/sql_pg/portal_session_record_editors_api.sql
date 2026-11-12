@@ -438,7 +438,8 @@ BEGIN
       output_type_id = COALESCE(v_return_type, a.output_type_id)
     WHERE a.action_name = v_impl_ref;
 
-    IF EXISTS (SELECT 1 FROM "Meta"."MethodParams" mp WHERE mp."MethodID" = v_method_id) THEN
+    IF v_doc ? 'parameters'
+       OR EXISTS (SELECT 1 FROM "Meta"."MethodParams" mp WHERE mp."MethodID" = v_method_id) THEN
       v_params_type := "Meta".sp_meta_publish_method_params_type(v_method_id, false);
       UPDATE wf.workflow_action a SET input_type_id = v_params_type WHERE a.action_name = v_impl_ref;
       CALL wf.wf_repo_upsert_action_schema(
@@ -776,6 +777,16 @@ BEGIN
      OR portal.fn_doc_text(v_doc, 'external_worker_key') IS NULL THEN
     PERFORM portal.fn_semantic_raise('GS400', 'cluster_key, public_ip and external_worker_key are required');
   END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM wf.worker_enrollment e
+    JOIN wf.cluster c ON c.id = e.cluster_id
+    WHERE c.cluster_key = portal.fn_doc_text(v_doc, 'cluster_key')
+      AND e.external_worker_key = btrim(portal.fn_doc_text(v_doc, 'external_worker_key'))
+      AND e.status = 'REVOKED'
+  ) THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'cannot update a revoked enrollment');
+  END IF;
   SELECT e.id INTO v_id FROM portal.sp_upsert_worker_enrollment(
     portal.fn_doc_text(v_doc, 'cluster_key'),
     portal.fn_doc_text(v_doc, 'public_ip'),
@@ -884,6 +895,7 @@ DECLARE
   v_filter jsonb := '{}'::jsonb;
   v_cond jsonb;
   v_val jsonb;
+  v_filter_key text;
   v_id bigint := p_subscription_id;
 BEGIN
   SELECT * INTO v_ctx
@@ -907,10 +919,19 @@ BEGIN
       IF portal.fn_doc_text(v_cond, 'key') IS NULL THEN
         PERFORM portal.fn_semantic_raise('GS400', 'every filter condition needs a key');
       END IF;
-      v_val := CASE lower(COALESCE(v_cond->>'value_type', 'string'))
-        WHEN 'number' THEN to_jsonb((v_cond->>'value')::numeric)
-        WHEN 'boolean' THEN to_jsonb((v_cond->>'value')::boolean)
-        ELSE to_jsonb(COALESCE(v_cond->>'value', ''))
+      v_filter_key := btrim(v_cond->>'key');
+      BEGIN
+        v_val := CASE lower(COALESCE(v_cond->>'value_type', 'string'))
+          WHEN 'number' THEN to_jsonb((v_cond->>'value')::numeric)
+          WHEN 'boolean' THEN to_jsonb((v_cond->>'value')::boolean)
+          ELSE to_jsonb(COALESCE(v_cond->>'value', ''))
+        END;
+      EXCEPTION
+        WHEN invalid_text_representation OR numeric_value_out_of_range THEN
+          PERFORM portal.fn_semantic_raise(
+            'GS400',
+            format('filter value for key %s must match value_type', v_filter_key)
+          );
       END;
       v_filter := v_filter || jsonb_build_object(btrim(v_cond->>'key'), v_val);
     END LOOP;

@@ -35,13 +35,20 @@ export type RecordEditorWorkspaceProps = {
 export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
   const def: RecordEditorDefinition | undefined = RECORD_EDITORS[entity];
   const client = useMemo(() => createPlatformBffClient(), []);
-  const catalogResolver = useMemo(() => createHostMetaCatalogResolver(client), [client]);
+  const catalogResolver = useMemo(
+    () => createHostMetaCatalogResolver(client),
+    [client],
+  );
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [document, setDocument] = useState<Record<string, unknown> | null>(null);
-  const [original, setOriginal] = useState<Record<string, unknown> | null>(null);
+  const [document, setDocument] = useState<Record<string, unknown> | null>(
+    null,
+  );
+  const [original, setOriginal] = useState<Record<string, unknown> | null>(
+    null,
+  );
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState(0);
@@ -80,7 +87,8 @@ export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
         setDocument(editableDocument(def.editSchema, doc));
         setSession((n) => n + 1);
       } catch (e) {
-        if (seq === selectSeq.current) setError(e instanceof Error ? e.message : String(e));
+        if (seq === selectSeq.current)
+          setError(e instanceof Error ? e.message : String(e));
       }
     },
     [def],
@@ -103,9 +111,20 @@ export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
       setError(null);
       setStatus("Saving…");
       try {
-        const payload = mergeIdentityForSave(def.entity, selectedKey, original, edited);
-        const key = await saveRecordDocument(def.entity, creating ? null : selectedKey, payload);
-        setStatus(creating ? `Created ${def.noun} ${key}` : `Saved ${def.noun} ${key}`);
+        const payload = mergeIdentityForSave(
+          def.entity,
+          selectedKey,
+          original,
+          edited,
+        );
+        const key = await saveRecordDocument(
+          def.entity,
+          creating ? null : selectedKey,
+          payload,
+        );
+        setStatus(
+          creating ? `Created ${def.noun} ${key}` : `Saved ${def.noun} ${key}`,
+        );
         await reload();
         const doc = await fetchRecordDocument(def.entity, key);
         setCreating(false);
@@ -144,14 +163,21 @@ export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
   const selectedRow = rows.find((r) => def.rowKey(r) === selectedKey);
 
   return (
-    <section className="g-record-editor" data-testid={`record-editor-${def.entity}`}>
+    <section
+      className="g-record-editor"
+      data-testid={`record-editor-${def.entity}`}
+    >
       <header className="g-record-editor__toolbar">
         <h3>{def.title}</h3>
         <button type="button" onClick={() => void reload()} disabled={loading}>
           {loading ? "Loading…" : "Refresh"}
         </button>
         {def.canCreate ? (
-          <button type="button" onClick={startNew} data-testid={`record-editor-new-${def.entity}`}>
+          <button
+            type="button"
+            onClick={startNew}
+            data-testid={`record-editor-new-${def.entity}`}
+          >
             New {def.noun}
           </button>
         ) : null}
@@ -179,28 +205,42 @@ export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={def.columns.length + 1}>{loading ? "Loading…" : "No records"}</td>
+                <td colSpan={def.columns.length + 1}>
+                  {loading ? "Loading…" : "No records"}
+                </td>
               </tr>
             ) : (
               rows.map((row) => {
                 const key = def.rowKey(row);
                 const active = key === selectedKey && !creating;
                 return (
-                  <tr key={key} aria-selected={active} className={active ? "is-selected" : undefined}>
+                  <tr
+                    key={key}
+                    aria-selected={active}
+                    className={active ? "is-selected" : undefined}
+                  >
                     {def.columns.map((c) => (
                       <td key={c.key}>{cell(row[c.key])}</td>
                     ))}
                     <td className="g-record-editor__row-actions">
-                      <button type="button" onClick={() => void select(row)} aria-label={`Edit ${def.rowLabel(row)}`}>
-                        Edit
-                      </button>
+                      {def.canEdit == null || def.canEdit(row) ? (
+                        <button
+                          type="button"
+                          onClick={() => void select(row)}
+                          aria-label={`Edit ${def.rowLabel(row)}`}
+                        >
+                          Edit
+                        </button>
+                      ) : null}
                       {(def.rowActions ?? [])
                         .filter((a) => a.visible(row))
                         .map((a) => (
                           <button
                             key={a.action}
                             type="button"
-                            onClick={() => void runAction(a.action, row, a.label)}
+                            onClick={() =>
+                              void runAction(a.action, row, a.label)
+                            }
                             aria-label={`${a.label} ${def.rowLabel(row)}`}
                           >
                             {a.label}
@@ -214,9 +254,16 @@ export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
           </tbody>
         </table>
         {document ? (
-          <div className="g-record-editor__inspector" aria-label={`${def.noun} inspector`}>
+          <div
+            className="g-record-editor__inspector"
+            aria-label={`${def.noun} inspector`}
+          >
             <h4>
-              {creating ? `New ${def.noun}` : selectedRow ? def.rowLabel(selectedRow) : (selectedKey ?? "")}
+              {creating
+                ? `New ${def.noun}`
+                : selectedRow
+                  ? def.rowLabel(selectedRow)
+                  : (selectedKey ?? "")}
             </h4>
             <SchemaPropertyGrid
               key={`${def.entity}:${selectedKey ?? "new"}:${session}`}
