@@ -194,7 +194,12 @@ DECLARE
   v_doc jsonb := COALESCE(p_document, '{}'::jsonb);
   v_base record;
   v_base_spec jsonb;
-  v_templates jsonb;
+  v_base_nodes jsonb;
+  v_base_node jsonb;
+  v_node_keys jsonb;
+  v_input_bindings jsonb;
+  v_output_bindings jsonb;
+  v_scope_defaults jsonb;
   v_spec jsonb;
   v_nodes jsonb := '[]'::jsonb;
   v_node jsonb;
@@ -225,10 +230,9 @@ BEGIN
   END LOOP;
 
   v_base_spec := wf.wf_workflow_version_export_spec(v_base.id);
-  SELECT COALESCE(jsonb_object_agg(n->>'node_key', n->'input_template'), '{}'::jsonb)
-  INTO v_templates
-  FROM jsonb_array_elements(v_base_spec->'nodes') n
-  WHERE n ? 'input_template';
+  SELECT COALESCE(jsonb_object_agg(n->>'node_key', n), '{}'::jsonb)
+  INTO v_base_nodes
+  FROM jsonb_array_elements(v_base_spec->'nodes') n;
 
   FOR v_node IN SELECT value FROM jsonb_array_elements(COALESCE(v_doc->'nodes', v_base_spec->'nodes'))
   LOOP
@@ -236,13 +240,50 @@ BEGIN
       PERFORM portal.fn_semantic_raise('GS400', 'every node needs a node_key');
     END IF;
     v_node := v_node - 'input_template';
-    IF v_templates ? (v_node->>'node_key') THEN
-      v_node := v_node || jsonb_build_object('input_template', v_templates->(v_node->>'node_key'));
+    IF v_base_nodes ? (v_node->>'node_key') THEN
+      v_base_node := v_base_nodes->(v_node->>'node_key');
+      IF portal.fn_doc_text(v_base_node, 'node_type') = portal.fn_doc_text(v_node, 'node_type')
+         AND (
+           portal.fn_doc_text(v_node, 'node_type') <> 'ACTION'
+           OR COALESCE(portal.fn_doc_text(v_base_node, 'action_name'), '')
+              = COALESCE(portal.fn_doc_text(v_node, 'action_name'), '')
+         )
+         AND v_base_node ? 'input_template' THEN
+        v_node := v_node || jsonb_build_object('input_template', v_base_node->'input_template');
+      END IF;
     END IF;
     v_nodes := v_nodes || jsonb_build_array(v_node);
   END LOOP;
   IF jsonb_array_length(v_nodes) = 0 THEN
     PERFORM portal.fn_semantic_raise('GS400', 'a workflow version needs at least one node');
+  END IF;
+
+  SELECT COALESCE(jsonb_object_agg(n->>'node_key', 'true'), '{}'::jsonb)
+  INTO v_node_keys
+  FROM jsonb_array_elements(v_nodes) n;
+
+  IF v_doc ? 'input_bindings' THEN
+    v_input_bindings := v_doc->'input_bindings';
+  ELSE
+    SELECT COALESCE(jsonb_agg(b), '[]'::jsonb) INTO v_input_bindings
+    FROM jsonb_array_elements(COALESCE(v_base_spec->'input_bindings', '[]'::jsonb)) b
+    WHERE v_node_keys ? (b->>'node_key');
+  END IF;
+
+  IF v_doc ? 'output_bindings' THEN
+    v_output_bindings := v_doc->'output_bindings';
+  ELSE
+    SELECT COALESCE(jsonb_agg(b), '[]'::jsonb) INTO v_output_bindings
+    FROM jsonb_array_elements(COALESCE(v_base_spec->'output_bindings', '[]'::jsonb)) b
+    WHERE v_node_keys ? (b->>'node_key');
+  END IF;
+
+  IF v_doc ? 'scope_defaults' THEN
+    v_scope_defaults := v_doc->'scope_defaults';
+  ELSE
+    SELECT COALESCE(jsonb_agg(b), '[]'::jsonb) INTO v_scope_defaults
+    FROM jsonb_array_elements(COALESCE(v_base_spec->'scope_defaults', '[]'::jsonb)) b
+    WHERE v_node_keys ? (b->>'node_key');
   END IF;
 
   SELECT COALESCE(max(v.version_minor), -1) + 1 INTO v_minor
@@ -257,9 +298,9 @@ BEGIN
     'is_active', false,
     'nodes', v_nodes,
     'edges', COALESCE(v_doc->'edges', v_base_spec->'edges'),
-    'input_bindings', COALESCE(v_doc->'input_bindings', v_base_spec->'input_bindings'),
-    'output_bindings', COALESCE(v_doc->'output_bindings', v_base_spec->'output_bindings'),
-    'scope_defaults', COALESCE(v_doc->'scope_defaults', v_base_spec->'scope_defaults'),
+    'input_bindings', v_input_bindings,
+    'output_bindings', v_output_bindings,
+    'scope_defaults', v_scope_defaults,
     'collection_bindings', COALESCE(v_doc->'collection_bindings', v_base_spec->'collection_bindings')
   );
 
