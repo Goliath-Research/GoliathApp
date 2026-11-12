@@ -91,6 +91,7 @@ jobs:
             workflow_engine/tests/test_portal_workflow_runs_range.py \
             workflow_engine/tests/test_portal_reference_search.py \
             workflow_engine/tests/test_portal_record_editors.py \
+            workflow_engine/tests/test_portal_workflow_editors.py \
             workflow_engine/tests/test_platform_nav_seed.py \
             workflow_engine/tests/test_portal_session_model_authoring.py \
             workflow_engine/tests/test_portal_layered_security.py \

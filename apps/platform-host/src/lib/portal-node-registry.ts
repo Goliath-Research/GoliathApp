@@ -18,6 +18,7 @@ export type PortalWorkspaceKind =
   | "operator_views"
   | "operator_dashboards"
   | "record_editor"
+  | "workflow_graph"
   | "placeholder";
 
 export type PortalWorkspaceSpec = {
@@ -34,6 +35,8 @@ export type PortalWorkspaceSpec = {
   semanticRequest?: string;
   /** Record editor entities (record-editor-schemas.ts) rendered by kind "record_editor". */
   recordEntities?: string[];
+  /** Graph editor mode for kind "workflow_graph". */
+  graphMode?: "definitions" | "steps";
 };
 
 const META_ROOT_DEFAULT = "portal/NavNode";
@@ -157,9 +160,10 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     description: "Register NavTree nodes and grant roles to users and menu entries in the active scope.",
   },
   "/app/workflows/definitions": {
-    kind: "platform_query",
+    kind: "workflow_graph",
     title: "Workflow definitions",
-    platformQuery: "workflow_defs",
+    description: "Edit a version graph and save it as a new inactive version, then activate it explicitly.",
+    graphMode: "definitions",
   },
   "/app/workflows/runs": {
     kind: "platform_query",
@@ -174,9 +178,10 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     recordEntities: ["class_method"],
   },
   "/app/workflows/steps": {
-    kind: "platform_query",
+    kind: "workflow_graph",
     title: "Workflow steps",
-    platformQuery: "workflow_steps",
+    description: "Edit the steps (nodes and edges) of a version; saving creates a new inactive version.",
+    graphMode: "steps",
   },
   "/app/workflows/domain-programs": {
     kind: "record_editor",
