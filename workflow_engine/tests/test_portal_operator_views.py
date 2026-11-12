@@ -171,3 +171,59 @@ def test_operator_view_dashboard_meta_and_crud(portal_views_env: dict[str, str])
             """SELECT 1 FROM "Meta"."Classes" c WHERE c."Name" = 'platform/OperatorView'"""
         ).fetchone()
         assert class_row is not None
+
+
+def test_private_operator_view_meta_redacts_definition(
+    portal_views_env: dict[str, str],
+) -> None:
+    token = _session(portal_views_env)
+    conninfo = build_portal_conninfo()
+    params = json.dumps(
+        {
+            "columns": [{"field": "secret", "label": "Secret"}],
+            "filters": [{"field": "id", "op": "eq", "value": 1}],
+            "sort": [],
+            "groupBy": [],
+            "aggregations": [],
+            "limit": 5,
+            "visualization": {"type": "table"},
+        }
+    )
+    with psycopg.connect(conninfo) as conn:
+        row = conn.execute(
+            """
+            SELECT view_id FROM portal.sp_session_upsert_operator_view(
+              %s, NULL, 'Private SQL View', 'private',
+              'core.list_organizations', '1', NULL, %s::jsonb, 'private'
+            )
+            """,
+            (token, params),
+        ).fetchone()
+        assert row is not None
+        view_id = int(row[0])
+
+        meta_row = conn.execute(
+            """
+            SELECT m.meta_obj_id
+            FROM portal.operator_view_meta_map m
+            WHERE m.legacy_view_id = %s
+            """,
+            (view_id,),
+        ).fetchone()
+        assert meta_row is not None
+        meta_obj_id = int(meta_row[0])
+
+        doc_row = conn.execute(
+            """
+            SELECT ov."Data"->>'DefinitionJson',
+                   ov."Data"->>'SemanticRequestCode'
+            FROM "Meta"."ObjValues" ov
+            WHERE ov."ObjID" = %s
+            ORDER BY ov."ClassID"
+            LIMIT 1
+            """,
+            (meta_obj_id,),
+        ).fetchone()
+        assert doc_row is not None
+        assert doc_row[0] == "{}"
+        assert doc_row[1] is None

@@ -150,6 +150,7 @@ DECLARE
   v_obj int;
   v_doc jsonb;
   v_kind text;
+  v_vis text;
 BEGIN
   SELECT c."ID" INTO v_class FROM "Meta"."Classes" c WHERE c."Name" = 'platform/OperatorView' LIMIT 1;
   IF v_class IS NULL THEN
@@ -157,14 +158,18 @@ BEGIN
   END IF;
 
   v_kind := CASE WHEN p_semantic_request_code IS NOT NULL THEN 'semantic' ELSE 'meta' END;
+  v_vis := COALESCE(NULLIF(btrim(p_visibility), ''), 'scope');
   v_doc := jsonb_build_object(
     'Label', btrim(p_title),
     'Description', COALESCE(p_description, ''),
     'SourceKind', v_kind,
-    'SemanticRequestCode', p_semantic_request_code,
-    'MetaClassName', p_meta_class_name,
-    'DefinitionJson', COALESCE(p_params_json, '{}'::jsonb)::text,
-    'Visibility', COALESCE(NULLIF(btrim(p_visibility), ''), 'scope'),
+    'SemanticRequestCode', CASE WHEN v_vis = 'private' THEN NULL ELSE p_semantic_request_code END,
+    'MetaClassName', CASE WHEN v_vis = 'private' THEN NULL ELSE p_meta_class_name END,
+    'DefinitionJson', CASE
+      WHEN v_vis = 'private' THEN '{}'
+      ELSE COALESCE(p_params_json, '{}'::jsonb)::text
+    END,
+    'Visibility', v_vis,
     'LegacyViewId', p_view_id
   );
 
@@ -204,17 +209,22 @@ DECLARE
   v_class int;
   v_obj int;
   v_doc jsonb;
+  v_vis text;
 BEGIN
   SELECT c."ID" INTO v_class FROM "Meta"."Classes" c WHERE c."Name" = 'platform/Dashboard' LIMIT 1;
   IF v_class IS NULL THEN
     RETURN NULL;
   END IF;
 
+  v_vis := COALESCE(NULLIF(btrim(p_visibility), ''), 'scope');
   v_doc := jsonb_build_object(
     'Label', btrim(p_title),
     'Description', COALESCE(p_description, ''),
-    'LayoutJson', COALESCE(p_layout_json, '{}'::jsonb)::text,
-    'Visibility', COALESCE(NULLIF(btrim(p_visibility), ''), 'scope'),
+    'LayoutJson', CASE
+      WHEN v_vis = 'private' THEN '{}'
+      ELSE COALESCE(p_layout_json, '{}'::jsonb)::text
+    END,
+    'Visibility', v_vis,
     'LegacyDashboardId', p_dashboard_id
   );
 
@@ -373,6 +383,7 @@ AS $$
 DECLARE
   v_sess record;
   v_id bigint;
+  v_vis text;
 BEGIN
   SELECT * INTO v_sess FROM portal.fn_session_operator_require(p_session_token) LIMIT 1;
 
@@ -423,6 +434,8 @@ BEGIN
     RETURNING id INTO v_id;
   END IF;
 
+  SELECT v.visibility INTO v_vis FROM portal.operator_view v WHERE v.id = v_id;
+
   PERFORM portal.fn_operator_view_sync_meta(
     v_sess.active_scope_id,
     v_id,
@@ -431,7 +444,7 @@ BEGIN
     p_semantic_request_code,
     NULLIF(btrim(p_meta_class_name), ''),
     COALESCE(p_params_json, '{}'::jsonb),
-    COALESCE(NULLIF(btrim(p_visibility), ''), 'scope')
+    v_vis
   );
 
   RETURN QUERY SELECT v_id;
@@ -630,6 +643,7 @@ AS $$
 DECLARE
   v_sess record;
   v_id bigint;
+  v_vis text;
 BEGIN
   SELECT * INTO v_sess FROM portal.fn_session_operator_require(p_session_token) LIMIT 1;
 
@@ -673,13 +687,15 @@ BEGIN
     RETURNING id INTO v_id;
   END IF;
 
+  SELECT d.visibility INTO v_vis FROM portal.operator_dashboard d WHERE d.id = v_id;
+
   PERFORM portal.fn_operator_dashboard_sync_meta(
     v_sess.active_scope_id,
     v_id,
     btrim(p_title),
     COALESCE(p_description, ''),
     COALESCE(p_layout_json, '{}'::jsonb),
-    COALESCE(NULLIF(btrim(p_visibility), ''), 'scope')
+    v_vis
   );
 
   RETURN QUERY SELECT v_id;
