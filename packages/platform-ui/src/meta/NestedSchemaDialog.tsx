@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { lazy, Suspense, useEffect, useId, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useMemo, useState } from "react";
 import type { SyntheticSchemaField } from "./jsonSchema.js";
 import { SCHEMA_PROPERTY_GRID_MAX_DEPTH } from "./jsonSchema.js";
 import type { MetaCatalogResolver } from "./metaCatalogResolver.js";
@@ -37,7 +37,6 @@ export function NestedSchemaDialog({
   onCancel,
 }: NestedSchemaDialogProps) {
   const titleId = useId();
-  const [draft, setDraft] = useState<Record<string, unknown>>(initialValue);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,6 +48,17 @@ export function NestedSchemaDialog({
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [onCancel]);
+
+  const syntheticFields: SyntheticSchemaField[] = useMemo(() => {
+    return Object.keys((objectSchema.properties as Record<string, unknown> | undefined) ?? {})
+      .sort()
+      .map((fieldName) => ({
+        fieldName,
+        required: Array.isArray(objectSchema.required)
+          ? (objectSchema.required as string[]).includes(fieldName)
+          : false,
+      }));
+  }, [objectSchema.properties, objectSchema.required]);
 
   if (depth >= SCHEMA_PROPERTY_GRID_MAX_DEPTH) {
     return (
@@ -64,17 +74,6 @@ export function NestedSchemaDialog({
     );
   }
 
-  const syntheticFields: SyntheticSchemaField[] = Object.keys(
-    (objectSchema.properties as Record<string, unknown> | undefined) ?? {},
-  )
-    .sort()
-    .map((fieldName) => ({
-      fieldName,
-      required: Array.isArray(objectSchema.required)
-        ? (objectSchema.required as string[]).includes(fieldName)
-        : false,
-    }));
-
   return (
     <DialogBackdrop onCancel={onCancel}>
       <div className="g-schema-dialog" role="dialog" aria-modal="true" aria-labelledby={titleId}>
@@ -87,11 +86,10 @@ export function NestedSchemaDialog({
             bundledSchema={bundledSchema ?? rootSchema}
             registry={registry}
             catalogResolver={catalogResolver}
-            initialDocument={draft}
+            initialDocument={initialValue}
             depth={depth}
             submitLabel="Save"
             embedded
-            onDraftChange={setDraft}
             onSubmit={(document) => {
               setError(null);
               onSave(document);

@@ -13,6 +13,18 @@ describe("parsePropertySchema", () => {
     expect(optional.optional).toBe(true);
   });
 
+  it("parses date and date-time string formats", () => {
+    const dateOnly = parsePropertySchema({ type: "string", format: "date" }, true, null);
+    expect(dateOnly.mode).toBe("date");
+    if (dateOnly.mode === "date") {
+      expect(dateOnly.inputType).toBe("date");
+    }
+    const dateTime = parsePropertySchema({ type: "string", format: "date-time" }, true, null);
+    if (dateTime.mode === "date") {
+      expect(dateTime.inputType).toBe("datetime-local");
+    }
+  });
+
   it("uses nested object instead of JSON textarea", () => {
     const parsed = parsePropertySchema(
       { type: "object", properties: { a: { type: "string" } } },

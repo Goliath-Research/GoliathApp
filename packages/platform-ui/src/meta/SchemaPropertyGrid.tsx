@@ -9,7 +9,7 @@
 import type { MetaClassField, MetaClassLineageNode } from "@goliath/client";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
-import { isSchemaRecord } from "./jsonSchema.js";
+import { isSchemaRecord, syntheticFieldsFromSchema } from "./jsonSchema.js";
 import type { MetaCatalogResolver } from "./metaCatalogResolver.js";
 import type { HierarchyPresentationRegistry } from "./metaHierarchyResolver.js";
 import { SchemaPropertyGridSurface } from "./SchemaPropertyGridSurface.js";
@@ -62,9 +62,28 @@ export function SchemaPropertyGrid({
     return Object.fromEntries(fields.map((f) => [f.fieldName, ancestry]));
   }, [fields, lineage, documentClassFqn]);
 
+  const resolvedFields = useMemo((): MetaClassField[] => {
+    if (fields.length > 0) return fields;
+    const flat = isSchemaRecord(flattenedSchema) ? flattenedSchema : null;
+    if (!flat) return fields;
+    const synthetics = syntheticFieldsFromSchema(flat, rootSchema);
+    const declareOn = documentClassFqn ?? "Schema";
+    return synthetics.map((s, index) => ({
+      fieldName: s.fieldName,
+      typeId: null,
+      typeName: null,
+      typeKind: null,
+      required: s.required,
+      declaredOnClassId: index,
+      declaredOnClassName: declareOn,
+      definedAtDepth: 0,
+      isLocal: true,
+    }));
+  }, [fields, flattenedSchema, rootSchema, documentClassFqn]);
+
   return (
     <SchemaPropertyGridSurface
-      fields={fields}
+      fields={resolvedFields}
       schema={flattenedSchema}
       rootSchema={rootSchema}
       bundledSchema={bundledSchema}

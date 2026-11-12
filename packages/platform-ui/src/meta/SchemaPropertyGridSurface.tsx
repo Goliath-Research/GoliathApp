@@ -1,8 +1,8 @@
 "use client";
 
 import type { MetaClassField } from "@goliath/client";
-import type { FormEvent, KeyboardEvent, ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import type { FormEvent, KeyboardEvent, MutableRefObject, ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import {
   isSchemaRecord,
   type SyntheticSchemaField,
@@ -46,6 +46,8 @@ export type SchemaPropertyGridSurfaceProps = {
   headerSlot?: ReactNode;
   depth?: number;
   embedded?: boolean;
+  /** When set, updated each commit with a snapshot builder for modal OK handlers. */
+  commitSnapshotRef?: MutableRefObject<(() => Record<string, unknown>) | undefined>;
 };
 
 type FieldPlan = {
@@ -82,6 +84,7 @@ export function SchemaPropertyGridSurface({
   headerSlot,
   depth = 0,
   embedded = false,
+  commitSnapshotRef,
 }: SchemaPropertyGridSurfaceProps) {
   const plans = useMemo((): FieldPlan[] => {
     if (fields?.length) {
@@ -133,10 +136,22 @@ export function SchemaPropertyGridSurface({
     initObjects(plans, initialDocument),
   );
   const [arrayValues, setArrayValues] = useState<Record<string, unknown[]>>(() => initArrays(plans, initialDocument));
-  const [schemalessValues, setSchemalessValues] = useState<Record<string, string>>(() =>
-    initSchemaless(plans, initialDocument),
-  );
   const [dialog, setDialog] = useState<InspectorDialogRequest>(null);
+
+  const planIdentity = useMemo(
+    () => plans.map((p) => `${p.fieldName}:${p.required}:${p.editor.mode}`).join("|"),
+    [plans],
+  );
+
+  const initialSnapshotKey = useMemo(() => JSON.stringify(initialDocument), [initialDocument]);
+
+  useEffect(() => {
+    setPrimitiveValues(initPrimitives(plans, initialDocument));
+    setObjectValues(initObjects(plans, initialDocument));
+    setArrayValues(initArrays(plans, initialDocument));
+    // planIdentity tracks plan content; omit `plans` reference to avoid spurious resets.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- plans align with planIdentity
+  }, [initialSnapshotKey, planIdentity]);
 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -174,7 +189,7 @@ export function SchemaPropertyGridSurface({
   useEffect(() => {
     if (!onDraftChange) return;
     onDraftChange(buildPartialDocument());
-  }, [onDraftChange, primitiveValues, objectValues, arrayValues, schemalessValues]);
+  }, [onDraftChange, primitiveValues, objectValues, arrayValues]);
 
   function buildPartialDocument(): Record<string, unknown> {
     const document: Record<string, unknown> = {};
@@ -194,13 +209,8 @@ export function SchemaPropertyGridSurface({
           break;
         }
         case "schemaless": {
-          const raw = schemalessValues[fieldName] ?? "";
-          if (raw === "") break;
-          try {
-            document[fieldName] = JSON.parse(raw);
-          } catch {
-            /* partial draft — keep last valid omit */
-          }
+          const val = objectValues[fieldName];
+          if (val && Object.keys(val).length > 0) document[fieldName] = val;
           break;
         }
         default: {
@@ -213,12 +223,19 @@ export function SchemaPropertyGridSurface({
     return document;
   }
 
+  useLayoutEffect(() => {
+    if (!commitSnapshotRef) return;
+    commitSnapshotRef.current = buildPartialDocument;
+  });
+
   function buildDocument(opts?: { silent?: boolean }): Record<string, unknown> | null {
     const silent = opts?.silent === true;
     const fail = (message: string): null => {
       if (!silent) setError(message);
       return null;
     };
+    const hadInitial = (fieldName: string): boolean =>
+      Object.prototype.hasOwnProperty.call(initialDocument, fieldName);
     const document: Record<string, unknown> = {};
     for (const plan of plans) {
       const { fieldName, required, editor } = plan;
@@ -229,7 +246,15 @@ export function SchemaPropertyGridSurface({
           const val = objectValues[fieldName];
           if (!val || Object.keys(val).length === 0) {
             if (!editor.optional && required) {
+              const initialVal = initialDocument[fieldName];
+              if (isSchemaRecord(initialVal) && Object.keys(initialVal).length > 0) {
+                document[fieldName] = initialVal;
+                break;
+              }
               return fail(`Field ${fieldName} requires a nested object`);
+            }
+            if (hadInitial(fieldName)) {
+              document[fieldName] = null;
             }
             break;
           }
@@ -248,24 +273,26 @@ export function SchemaPropertyGridSurface({
             if (!editor.optional && required) {
               return fail(`Field ${fieldName} requires at least one array item`);
             }
+            if (hadInitial(fieldName)) {
+              document[fieldName] = [];
+            }
             break;
           }
           document[fieldName] = val;
           break;
         }
         case "schemaless": {
-          const raw = schemalessValues[fieldName] ?? "";
-          if (raw === "") {
+          const val = objectValues[fieldName];
+          if (!val || Object.keys(val).length === 0) {
             if (!editor.optional && required) {
-              return fail(`Field ${fieldName} requires a value (schemaless)`);
+              return fail(`Field ${fieldName} requires a nested object`);
+            }
+            if (hadInitial(fieldName)) {
+              document[fieldName] = null;
             }
             break;
           }
-          try {
-            document[fieldName] = JSON.parse(raw);
-          } catch {
-            return fail(`Field ${fieldName} must be valid JSON`);
-          }
+          document[fieldName] = val;
           break;
         }
         default: {
@@ -274,6 +301,9 @@ export function SchemaPropertyGridSurface({
             if (!editor.optional && required) {
               return fail(`Field ${fieldName} is required`);
             }
+            if (hadInitial(fieldName)) {
+              document[fieldName] = null;
+            }
             break;
           }
           document[fieldName] = coercePrimitive(editor, raw);
@@ -281,8 +311,16 @@ export function SchemaPropertyGridSurface({
       }
     }
     if (!embedded && isSchemaRecord(schema)) {
-      const validationSchema = isSchemaRecord(bundledSchema) ? bundledSchema : schema;
-      const rootErr = validateSubSchema(validationSchema, document);
+      // Flattened schema validates instance documents; bundled JSON Schema uses allOf merges
+      // that reject partial UI payloads when links/refs are not expanded in the editor snapshot.
+      const validationSchema = schema;
+      const forValidation = { ...initialDocument, ...document };
+      for (const key of Object.keys(forValidation)) {
+        if (forValidation[key] === null) {
+          delete forValidation[key];
+        }
+      }
+      const rootErr = validateSubSchema(validationSchema, forValidation);
       if (rootErr) {
         return fail(rootErr);
       }
@@ -423,6 +461,7 @@ export function SchemaPropertyGridSurface({
   return (
     <>
       <form
+        noValidate
         onSubmit={handleSubmit}
         className={`g-meta-field-form ${gridClass}`}
         data-has-catalog-resolver={catalogResolver ? "true" : "false"}
@@ -590,6 +629,9 @@ export function SchemaPropertyGridSurface({
     if (editor.mode === "nestedObject") {
       openObjectDialog(fieldName, editor.objectSchema, val);
     }
+    if (editor.mode === "schemaless") {
+      openObjectDialog(fieldName, { type: "object", properties: {} }, val);
+    }
   }
 
   function renderNestedValueRow(plan: FieldPlan, summary: string, expandable = true) {
@@ -628,7 +670,6 @@ export function SchemaPropertyGridSurface({
 
   function renderRow(plan: FieldPlan) {
     const { fieldName, editor } = plan;
-    const id = `meta-field-${fieldName}`;
     if (editor.mode === "typedMetaClass" || editor.mode === "typedDataType") {
       const val = objectValues[fieldName];
       return renderNestedValueRow(plan, summaryObject(val), true);
@@ -717,50 +758,71 @@ export function SchemaPropertyGridSurface({
       );
     }
     if (editor.mode === "nestedArray" && !editor.itemsAreObject) {
+      const primitiveItems = (arrayValues[fieldName] ?? []) as unknown[];
+      const coerceItem = (raw: string): unknown => {
+        if (editor.primitiveItemMode === "integer") return Math.trunc(Number(raw));
+        if (editor.primitiveItemMode === "number") return Number(raw);
+        return raw;
+      };
       return (
         <tr key={fieldName} className="g-property-inspector__row" data-testid={`pi-row-${fieldName}`}>
           <td className="g-property-inspector__name">{inspectorNameCell(plan, false)}</td>
           <td className="g-property-inspector__value">
-            <input
-              id={id}
-              className="g-host-input"
-              value={(arrayValues[fieldName] ?? []).map(String).join(", ")}
+            <ul className="g-schema-array-list">
+              {primitiveItems.map((item, index) => (
+                <li key={index}>
+                  <input
+                    className="g-host-input"
+                    aria-label={`${fieldName} item ${index}`}
+                    value={item == null ? "" : String(item)}
+                    disabled={disabled || busy}
+                    onChange={(e) =>
+                      setArrayValues((prev) => {
+                        const list = [...(prev[fieldName] ?? [])];
+                        list[index] = coerceItem(e.target.value);
+                        return { ...prev, [fieldName]: list };
+                      })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="g-host-button"
+                    data-testid={`pi-array-remove-${fieldName}-${index}`}
+                    onClick={() =>
+                      setArrayValues((prev) => ({
+                        ...prev,
+                        [fieldName]: (prev[fieldName] ?? []).filter((_, i) => i !== index),
+                      }))
+                    }
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              className="g-host-button"
+              data-testid={`pi-array-add-${fieldName}`}
               disabled={disabled || busy}
-              onChange={(e) => {
-                const parts = e.target.value.split(",").map((s) => s.trim()).filter(Boolean);
-                const coerced = parts.map((p) =>
-                  editor.primitiveItemMode === "integer"
-                    ? Math.trunc(Number(p))
-                    : editor.primitiveItemMode === "number"
-                      ? Number(p)
-                      : p,
-                );
-                setArrayValues((prev) => ({ ...prev, [fieldName]: coerced }));
-              }}
-            />
+              onClick={() =>
+                setArrayValues((prev) => ({
+                  ...prev,
+                  [fieldName]: [...(prev[fieldName] ?? []), ""],
+                }))
+              }
+            >
+              Add item
+            </button>
           </td>
         </tr>
       );
     }
     if (editor.mode === "schemaless") {
-      if (plan.catalogTarget && catalogResolver) {
-        return renderNestedValueRow(plan, summaryObject(objectValues[fieldName]), false);
-      }
-      return (
-        <tr key={fieldName} className="g-property-inspector__row" data-testid={`pi-row-${fieldName}`}>
-          <td className="g-property-inspector__name">{inspectorNameCell(plan, false)}</td>
-          <td className="g-property-inspector__value">
-            <textarea
-              id={id}
-              rows={2}
-              className="g-host-textarea"
-              value={schemalessValues[fieldName] ?? ""}
-              disabled={disabled || busy}
-              onChange={(e) => setSchemalessValues((prev) => ({ ...prev, [fieldName]: e.target.value }))}
-            />
-            <span className="g-host-home__lead">{editor.reason}</span>
-          </td>
-        </tr>
+      return renderNestedValueRow(
+        { ...plan, editor: { mode: "nestedObject", optional: editor.optional, objectSchema: { type: "object", properties: {} } } },
+        summaryObject(objectValues[fieldName]),
+        true,
       );
     }
     return renderPrimitiveRow(plan);
@@ -782,6 +844,23 @@ export function SchemaPropertyGridSurface({
               onChange={(e) =>
                 setPrimitiveValues((prev) => ({ ...prev, [fieldName]: e.target.checked ? "true" : "false" }))
               }
+            />
+          </td>
+        </tr>
+      );
+    }
+    if (editor.mode === "date") {
+      return (
+        <tr key={fieldName} className="g-property-inspector__row" data-testid={`pi-row-${fieldName}`}>
+          <td className="g-property-inspector__name">{inspectorNameCell(plan, false)}</td>
+          <td className="g-property-inspector__value">
+            <input
+              id={id}
+              type={editor.inputType}
+              className="g-host-input"
+              value={primitiveValues[fieldName] ?? ""}
+              disabled={disabled || busy}
+              onChange={(e) => setPrimitiveValues((prev) => ({ ...prev, [fieldName]: e.target.value }))}
             />
           </td>
         </tr>
@@ -872,6 +951,7 @@ function coercePrimitive(editor: ParsedFieldEditor, raw: string): unknown {
   if (editor.mode === "boolean") return raw === "true";
   if (editor.mode === "integer") return Math.trunc(Number(raw));
   if (editor.mode === "number") return Number(raw);
+  if (editor.mode === "date") return coerceDateInputValue(raw, editor.inputType);
   return raw;
 }
 
@@ -898,9 +978,34 @@ function initPrimitives(plans: FieldPlan[], doc: Record<string, unknown>): Recor
     ) {
       continue;
     }
-    next[plan.fieldName] = raw == null ? "" : String(raw);
+    if (plan.editor.mode === "date") {
+      next[plan.fieldName] = formatDateInputValue(raw, plan.editor.inputType);
+    } else {
+      next[plan.fieldName] = raw == null ? "" : String(raw);
+    }
   }
   return next;
+}
+
+function formatDateInputValue(raw: unknown, inputType: "date" | "datetime-local"): string {
+  if (raw == null || raw === "") return "";
+  const text = typeof raw === "number" ? new Date(raw).toISOString() : String(raw);
+  if (inputType === "date") {
+    const match = /^(\d{4}-\d{2}-\d{2})/.exec(text);
+    return match ? match[1] : text.slice(0, 10);
+  }
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}T${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+}
+
+function coerceDateInputValue(raw: string, inputType: "date" | "datetime-local"): string {
+  if (raw === "") return raw;
+  if (inputType === "date") return raw;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toISOString();
 }
 
 function initObjects(plans: FieldPlan[], doc: Record<string, unknown>): Record<string, Record<string, unknown>> {
@@ -909,7 +1014,8 @@ function initObjects(plans: FieldPlan[], doc: Record<string, unknown>): Record<s
     if (
       plan.editor.mode !== "nestedObject" &&
       plan.editor.mode !== "typedMetaClass" &&
-      plan.editor.mode !== "typedDataType"
+      plan.editor.mode !== "typedDataType" &&
+      plan.editor.mode !== "schemaless"
     ) {
       continue;
     }
@@ -929,12 +1035,3 @@ function initArrays(plans: FieldPlan[], doc: Record<string, unknown>): Record<st
   return next;
 }
 
-function initSchemaless(plans: FieldPlan[], doc: Record<string, unknown>): Record<string, string> {
-  const next: Record<string, string> = {};
-  for (const plan of plans) {
-    if (plan.editor.mode !== "schemaless") continue;
-    const raw = doc[plan.fieldName];
-    next[plan.fieldName] = raw == null ? "" : JSON.stringify(raw);
-  }
-  return next;
-}

@@ -51,9 +51,8 @@ test.describe("authenticated meta (CI postgres)", () => {
     await expect(page.locator(".g-meta-explorer")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Meta class" })).toBeVisible();
     await expect(page.getByRole("img").first()).toBeVisible();
-    await expect(page.locator(".g-meta-explorer").getByRole("status")).toContainText(
-      "Child editor slot",
-    );
+    await expect(page.getByTestId("meta-child-editor-slot")).toContainText("Child editor slot");
+    await expect(page.getByTestId("meta-instance-workbench")).toBeVisible();
 
     const dir = process.env.PLAYWRIGHT_SCREENSHOT_DIR;
     const shot = dir
@@ -78,6 +77,25 @@ test.describe("authenticated meta (CI postgres)", () => {
     };
     for (const field of fields.filter((f) => f.required)) {
       const row = page.getByTestId(`pi-row-${field.fieldName}`);
+      const openNested = row.getByTestId(`pi-open-${field.fieldName}`);
+      if ((await openNested.count()) > 0) {
+        await openNested.click();
+        const modal = page.getByTestId("property-inspector-modal");
+        await expect(modal).toBeVisible({ timeout: 15_000 });
+        const textInputs = modal.locator("input:not([type='checkbox']):not([type='number'])");
+        const count = await textInputs.count();
+        for (let i = 0; i < count; i++) {
+          await textInputs.nth(i).fill("e2e");
+        }
+        const numberInputs = modal.locator("input[type='number']");
+        const nCount = await numberInputs.count();
+        for (let i = 0; i < nCount; i++) {
+          await numberInputs.nth(i).fill("1");
+        }
+        await modal.getByTestId("property-inspector-ok").click();
+        await expect(page.getByTestId("property-inspector-modal")).toHaveCount(0, { timeout: 15_000 });
+        continue;
+      }
       const checkbox = row.locator('input[type="checkbox"]');
       if ((await checkbox.count()) > 0) {
         await checkbox.check();
@@ -88,9 +106,13 @@ test.describe("authenticated meta (CI postgres)", () => {
         await select.selectOption({ index: 1 });
         continue;
       }
-      const textarea = row.locator("textarea");
-      if ((await textarea.count()) > 0) {
-        await textarea.fill("[]");
+      const addArrayItem = row.getByTestId(/^pi-array-add-/);
+      if ((await addArrayItem.count()) > 0) {
+        await addArrayItem.click();
+        const itemInput = row.locator(".g-schema-array-list input").first();
+        if ((await itemInput.count()) > 0) {
+          await itemInput.fill("e2e-item");
+        }
         continue;
       }
       const input = row.locator("input").first();
@@ -118,10 +140,63 @@ test.describe("authenticated meta (CI postgres)", () => {
     const requiredNames = fields.filter((f) => f.required).map((f) => f.fieldName);
     expect(requiredNames.length).toBeGreaterThan(0);
     for (const name of requiredNames) {
-      await expect(page.getByTestId(`pi-row-${name}`).locator("input, select, textarea")).toBeVisible();
+      await expect(page.getByTestId(`pi-row-${name}`).locator("input, select, button")).toBeVisible();
     }
+    await expect(page.locator(".g-meta-workbench textarea")).toHaveCount(0);
     await fillRequiredSchemaGridFields(page, request);
-    await expect(page.getByRole("button", { name: /Create via BFF/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /Create instance/ })).toBeEnabled();
+  });
+
+  test("meta workbench has no JSON textarea", async ({ page }) => {
+    await page.goto("/app/meta?class=portal%2FNavNode");
+    await expect(page.getByTestId("meta-instance-workbench")).toBeVisible();
+    await expect(page.locator(".g-meta-workbench textarea")).toHaveCount(0);
+    await expect(page.locator(".g-schema-property-grid textarea")).toHaveCount(0);
+  });
+
+  test("list select edit save round-trip", async ({ page, request }) => {
+    test.setTimeout(60_000);
+    const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
+      data: { document: { Caption: "ListPick", Seq: 41 } },
+    });
+    expect(createRes.status()).toBe(201);
+    const { objId } = (await createRes.json()) as { objId: number };
+
+    await page.goto("/app/meta?class=portal%2FNavNode");
+    await expect(page.getByTestId(`meta-instance-row-${objId}`)).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId(`meta-instance-row-${objId}`).click();
+    const caption = page.getByTestId("pi-row-Caption").locator("input");
+    await expect(caption).toHaveValue("ListPick", { timeout: 15_000 });
+    await caption.fill("ListPickEdited");
+    await expect(caption).toHaveValue("ListPickEdited");
+    const workbench = page.getByTestId("meta-instance-workbench");
+    await expect(workbench.getByRole("button", { name: "Save changes" })).toBeEnabled();
+    const patchPromise = page.waitForResponse(
+      (r) => r.request().method() === "PATCH" && r.url().includes(`/api/meta/objects/${objId}`),
+      { timeout: 20_000 },
+    );
+    await workbench.getByRole("button", { name: "Save changes" }).click();
+    let patchRes: import("@playwright/test").Response;
+    try {
+      patchRes = await patchPromise;
+    } catch {
+      const alerts = await workbench.locator("[role=alert]").allInnerTexts();
+      throw new Error(`PATCH was not sent; UI alerts: ${alerts.length ? alerts.join(" | ") : "(none)"}`);
+    }
+    expect(
+      patchRes.ok(),
+      `save failed: ${await patchRes.text()}; alerts: ${(await workbench.locator("[role=alert]").allInnerTexts()).join(" | ")}`,
+    ).toBeTruthy();
+    await expect
+      .poll(async () => {
+        const getRes = await request.get(`/api/meta/objects/${objId}`);
+        const row = (await getRes.json()) as { object: { document: Record<string, unknown> } };
+        return row.object.document.Caption;
+      })
+      .toBe("ListPickEdited");
+    await expect(page.getByTestId("meta-workbench-status")).toContainText(`Updated object #${objId}`, {
+      timeout: 15_000,
+    });
   });
 
   test("authenticated BFF create get patch round-trip", async ({ request }) => {

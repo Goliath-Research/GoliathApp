@@ -634,6 +634,41 @@ export async function portalSessionGetDataType(
   });
 }
 
+export type MetaObjectListRow = {
+  objId: number;
+  classId: number;
+  className: string;
+  displayLabel: string;
+  updatedAtUtc: string | null;
+};
+
+export async function portalSessionMetaObjList(
+  sessionToken: string,
+  className: string,
+  includeSubclasses: boolean,
+  limit: number,
+  offset: number,
+): Promise<MetaObjectListRow[]> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT obj_id, class_id, class_name, display_label, updated_at_utc
+         FROM portal.sp_session_meta_obj_list($1, $2, $3, $4, $5)`,
+        [sessionToken, className, includeSubclasses, limit, offset],
+      );
+      return result.rows.map((row) => ({
+        objId: Number(row.obj_id),
+        classId: Number(row.class_id),
+        className: String(row.class_name),
+        displayLabel: String(row.display_label),
+        updatedAtUtc: row.updated_at_utc == null ? null : String(row.updated_at_utc),
+      }));
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
 export async function portalSessionMetaObjGet(
   sessionToken: string,
   objId: number,

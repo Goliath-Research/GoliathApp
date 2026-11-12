@@ -38,6 +38,14 @@ export type MetaObjectDocument = {
   document: Record<string, unknown>;
 };
 
+export type MetaObjectListRow = {
+  objId: number;
+  classId: number;
+  className: string;
+  displayLabel: string;
+  updatedAtUtc: string | null;
+};
+
 export type MetaDataTypeSummary = {
   id: number;
   name: string;
