@@ -1,7 +1,10 @@
 /*
   Reference picker search for the platform host property grid (`x-goliath-ref` hint).
   Callable by goliath_portal only. Each kind requires the session to hold at least one of
-  the operator NavTree entitlements that edit or read that catalog. Read-only.
+  the operator NavTree leaf entitlements that edit or read that catalog (ancestor paths are
+  never listed, because the nav tree includes ungranted ancestors of granted leaves). Meta
+  catalog kinds (meta_class, meta_method, data_type) also require meta.schema.read.
+  Value per kind: cluster = cluster_key, cluster_id = numeric id; see the CASE below. Read-only.
 */
 
 CREATE OR REPLACE FUNCTION portal.fn_session_require_any_nav(
@@ -47,11 +50,18 @@ DECLARE
   v_q text := '%' || replace(replace(replace(btrim(coalesce(p_query, '')), '\', '\\'), '%', '\%'), '_', '\_') || '%';
   v_limit int := GREATEST(1, LEAST(coalesce(p_limit, 50), 200));
 BEGIN
-  IF v_kind IN ('action', 'meta_method') THEN
+  IF v_kind = 'action' THEN
     PERFORM portal.fn_session_require_any_nav(
       p_session_token,
       ARRAY['/app/workflows/actions', '/app/meta/methods', '/app/workflows/definitions', '/app/workflows/steps']
     );
+  ELSIF v_kind = 'meta_method' THEN
+    -- Method implementation refs are Meta catalog data: same gate as the Meta class APIs.
+    PERFORM portal.fn_session_require_any_nav(
+      p_session_token,
+      ARRAY['/app/workflows/actions', '/app/meta/methods', '/app/workflows/definitions', '/app/workflows/steps']
+    );
+    PERFORM 1 FROM portal.fn_session_meta_require(p_session_token, 'meta.schema.read');
   ELSIF v_kind IN ('workflow_def', 'workflow_version') THEN
     PERFORM portal.fn_session_require_any_nav(
       p_session_token,
@@ -63,7 +73,7 @@ BEGIN
       p_session_token,
       ARRAY['/app/workflows/subscriptions', '/app/operations/events']
     );
-  ELSIF v_kind IN ('cluster', 'worker') THEN
+  ELSIF v_kind IN ('cluster', 'cluster_id', 'worker') THEN
     PERFORM portal.fn_session_require_any_nav(
       p_session_token,
       ARRAY['/app/workflows/workers', '/app/operations/worker-fleet']
@@ -71,9 +81,9 @@ BEGIN
   ELSIF v_kind IN ('data_type', 'meta_class') THEN
     PERFORM portal.fn_session_require_any_nav(
       p_session_token,
-      ARRAY['/app/meta', '/app/meta/classes', '/app/meta/data-types', '/app/meta/methods',
-            '/app/workflows/actions']
+      ARRAY['/app/meta/classes', '/app/meta/data-types', '/app/meta/methods', '/app/workflows/actions']
     );
+    PERFORM 1 FROM portal.fn_session_meta_require(p_session_token, 'meta.schema.read');
   ELSIF v_kind = 'study' THEN
     PERFORM portal.fn_session_require_any_nav(p_session_token, ARRAY['/app/workflows/runs']);
   ELSE
@@ -122,6 +132,13 @@ BEGIN
     ORDER BY et.name
     LIMIT v_limit;
   ELSIF v_kind = 'cluster' THEN
+    RETURN QUERY
+    SELECT c.cluster_key, c.name, concat_ws(' · ', c.cluster_key, c.provider, c.status)
+    FROM wf.cluster c
+    WHERE c.cluster_key ILIKE v_q OR c.name ILIKE v_q
+    ORDER BY c.name
+    LIMIT v_limit;
+  ELSIF v_kind = 'cluster_id' THEN
     RETURN QUERY
     SELECT c.id::text, c.name, concat_ws(' · ', c.cluster_key, c.provider, c.status)
     FROM wf.cluster c

@@ -3,13 +3,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { parsePropertySchema } from "./parseFlattenedFieldSchema.js";
 import { parseReferenceHint } from "./referenceHint.js";
 import { ReferenceResolverProvider, type ReferenceResolver } from "./ReferenceResolverContext.js";
+import { PropertyInspectorModal } from "./PropertyInspectorModal.js";
 import { SchemaPropertyGridSurface } from "./SchemaPropertyGridSurface.js";
 
 const schema = {
   type: "object",
   properties: {
     action_name: { type: "string", "x-goliath-ref": "action" },
-    cluster_id: { type: "integer", "x-goliath-ref": { kind: "cluster" } },
+    cluster_id: { type: "integer", "x-goliath-ref": { kind: "cluster_id" } },
     nested: {
       type: "object",
       properties: {
@@ -46,7 +47,7 @@ describe("reference hint", () => {
     });
     expect(parsePropertySchema(schema.properties.cluster_id, false, schema)).toMatchObject({
       mode: "reference",
-      refKind: "cluster",
+      refKind: "cluster_id",
       valueType: "integer",
     });
   });
@@ -57,7 +58,7 @@ describe("reference hint", () => {
         { value: "core.echo", label: "core.echo", detail: "core" },
         { value: "core.sleep", label: "core.sleep" },
       ],
-      cluster: [{ value: "7", label: "lab-cluster" }],
+      cluster_id: [{ value: "7", label: "lab-cluster" }],
     });
     const onSubmit = vi.fn();
     render(
@@ -170,4 +171,35 @@ describe("reference hint", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => expect(screen.getAllByTestId("property-inspector-modal")).toHaveLength(1));
   });
+
+  it("a first-level array item inspector offers Cancel, not Back", async () => {
+    render(
+      <PropertyInspectorModal open title="Item 1" breadcrumb={["Root", "items", "0"]} onOk={() => {}} onCancel={() => {}}>
+        <p>body</p>
+      </PropertyInspectorModal>,
+    );
+    expect(await screen.findByTestId("property-inspector-cancel")).toHaveTextContent("Cancel");
+  });
+
+  it("integer references never coerce a non-numeric value to null", async () => {
+    const onSubmit = vi.fn();
+    const resolver = resolverWith({ cluster_id: [{ value: "abc", label: "odd" }] });
+    render(
+      <ReferenceResolverProvider resolver={resolver}>
+        <SchemaPropertyGridSurface
+          syntheticFields={[{ fieldName: "action_name", required: true }, { fieldName: "cluster_id", required: false }]}
+          schema={schema}
+          rootSchema={schema}
+          documentClassFqn="platform/Example"
+          initialDocument={{ action_name: "core.sleep" }}
+          onSubmit={onSubmit}
+        />
+      </ReferenceResolverProvider>,
+    );
+    const select = (await screen.findByLabelText("cluster_id")) as HTMLSelectElement;
+    await waitFor(() => expect(Array.from(select.options).map((o) => o.value)).toContain("abc"));
+    fireEvent.change(select, { target: { value: "abc" } });
+    expect(select.value).toBe("abc");
+  });
 });
+

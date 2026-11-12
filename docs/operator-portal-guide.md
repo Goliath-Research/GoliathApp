@@ -113,9 +113,10 @@ matching rows. Pick a row to set the value.
 ```
 
 Built-in kinds: `action`, `meta_method`, `workflow_def`, `workflow_version`, `event_type`,
-`cluster`, `worker`, `data_type`, `meta_class`, `study`. Search runs server-side through
-`portal.sp_session_search_references`, which checks the session's NavTree entitlements for
-each kind. Pickers work at every nesting depth. Nested inspectors show the full property path
+`cluster` (stores the cluster key), `cluster_id` (stores the numeric id), `worker`, `data_type`,
+`meta_class`, `study`. Search runs server-side through `portal.sp_session_search_references`,
+which checks the session's NavTree entitlements for each kind; the Meta catalog kinds
+(`meta_class`, `meta_method`, `data_type`) also require `meta.schema.read`. Pickers work at every nesting depth. Nested inspectors show the full property path
 as a breadcrumb, and Escape or **Back to …** closes only the innermost inspector.
 
 ## Views and dashboards (same entities as editors)

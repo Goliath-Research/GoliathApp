@@ -986,7 +986,12 @@ function coercePrimitive(editor: ParsedFieldEditor, raw: string): unknown {
   if (editor.mode === "integer") return Math.trunc(Number(raw));
   if (editor.mode === "number") return Number(raw);
   if (editor.mode === "date") return coerceDateInputValue(raw, editor.inputType);
-  if (editor.mode === "reference" && editor.valueType === "integer") return Math.trunc(Number(raw));
+  if (editor.mode === "reference" && editor.valueType === "integer") {
+    // Only numeric ids belong in an integer reference; never turn a non-numeric pick into null.
+    if (raw === "") return undefined;
+    const n = Number(raw);
+    return Number.isFinite(n) ? Math.trunc(n) : raw;
+  }
   return raw;
 }
 

@@ -18,6 +18,7 @@ KINDS = [
     "workflow_version",
     "event_type",
     "cluster",
+    "cluster_id",
     "worker",
     "data_type",
     "meta_class",

@@ -12,7 +12,10 @@ export type PropertyInspectorModalProps = {
   onCancel: () => void;
   okDisabled?: boolean;
   okLabel?: string;
-  /** When true, cancel returns to the parent inspector (nested modal stack). */
+  /**
+   * Opened from another inspector. Informational: the Back label is derived from the open
+   * modal stack, so a first-level inspector always offers Cancel.
+   */
   nested?: boolean;
 };
 
@@ -21,10 +24,10 @@ export type PropertyInspectorModalProps = {
  * parent; Escape and the breadcrumb only act on the innermost modal so closing a child
  * returns to its parent instead of dismissing the whole chain.
  */
-const openModalStack: string[] = [];
+const openModalStack: { id: string; label: string }[] = [];
 
 export function isTopmostInspectorModal(id: string): boolean {
-  return openModalStack[openModalStack.length - 1] === id;
+  return openModalStack[openModalStack.length - 1]?.id === id;
 }
 
 export function PropertyInspectorModal({
@@ -36,10 +39,12 @@ export function PropertyInspectorModal({
   onCancel,
   okDisabled = false,
   okLabel = "OK",
-  nested = false,
 }: PropertyInspectorModalProps) {
   const titleId = useId();
   const [mounted, setMounted] = useState(false);
+  /** Label of the inspector this one was opened from (null for a first-level inspector). */
+  const [parentLabel, setParentLabel] = useState<string | null>(null);
+  const ownLabel = breadcrumb && breadcrumb.length > 0 ? breadcrumb[breadcrumb.length - 1] : title;
 
   useEffect(() => {
     setMounted(true);
@@ -47,11 +52,14 @@ export function PropertyInspectorModal({
 
   useEffect(() => {
     if (!open) return;
-    openModalStack.push(titleId);
+    setParentLabel(openModalStack[openModalStack.length - 1]?.label ?? null);
+    openModalStack.push({ id: titleId, label: ownLabel });
     return () => {
-      const idx = openModalStack.lastIndexOf(titleId);
+      const idx = openModalStack.findIndex((m) => m.id === titleId);
       if (idx >= 0) openModalStack.splice(idx, 1);
     };
+    // ownLabel is captured when the modal opens; the stack entry does not need to follow renames.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, titleId]);
 
   useEffect(() => {
@@ -119,9 +127,7 @@ export function PropertyInspectorModal({
             data-testid="property-inspector-cancel"
             onClick={onCancel}
           >
-            {nested && breadcrumb && breadcrumb.length > 1
-              ? `Back to ${breadcrumb[breadcrumb.length - 2]}`
-              : "Cancel"}
+            {parentLabel ? `Back to ${parentLabel}` : "Cancel"}
           </button>
         </div>
       </div>
