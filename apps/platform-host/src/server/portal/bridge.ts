@@ -884,7 +884,7 @@ export async function portalSessionUpsertOperatorView(
           body.semanticRequestVersion ?? "1",
           body.metaClassName ?? null,
           JSON.stringify(body.paramsJson ?? {}),
-          body.visibility ?? "scope",
+          body.visibility ?? null,
         ],
       );
       return Number(result.rows[0]?.view_id);
@@ -1014,7 +1014,7 @@ export async function portalSessionUpsertOperatorDashboard(
           body.title,
           body.description ?? "",
           JSON.stringify(body.layoutJson ?? {}),
-          body.visibility ?? "scope",
+          body.visibility ?? null,
         ],
       );
       return Number(result.rows[0]?.dashboard_id);
