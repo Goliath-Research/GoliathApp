@@ -176,8 +176,9 @@ $$;
 /*
   Save an edited graph as a new inactive version of the base version's definition.
   Document keys (all optional; omitted keys keep the base version's value):
-    description, root_node_key, nodes, edges, input_bindings, output_bindings,
+    root_node_key, nodes, edges, input_bindings, output_bindings,
     scope_defaults, collection_bindings.
+  (description is definition-level metadata shown in the editor but not changed here.)
   Node input_template values come from the base version by node_key.
 */
 CREATE OR REPLACE FUNCTION portal.sp_session_save_workflow_version(
@@ -272,11 +273,6 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS400', 'invalid workflow graph: ' || SQLERRM);
   END;
   v_new_id := (v_result->>'workflow_version_id')::bigint;
-
-  IF v_doc ? 'description' THEN
-    UPDATE wf.workflow_def d SET description = portal.fn_doc_text(v_doc, 'description')
-    WHERE d.id = v_base.workflow_def_id;
-  END IF;
 
   PERFORM portal.fn_record_editor_audit(
     v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'workflow_version', 'save_new_version',

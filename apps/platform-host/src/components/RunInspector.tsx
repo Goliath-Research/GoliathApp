@@ -76,6 +76,7 @@ export function RunInspector() {
       setDoc(null);
       return;
     }
+    setDoc(null);
     try {
       const data = (await fetchRecordDocument("workflow_run", id)) as unknown as RunDoc;
       if (s === seq.current) setDoc(data);
