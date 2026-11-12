@@ -190,6 +190,7 @@ export function CatalogNestedSchemaDialog({
         embedded
         headerSlot={gridHeader ?? headerSlot}
         commitSnapshotRef={commitSnapshotRef}
+        breadcrumbBase={breadcrumb}
         onSubmit={usePropertyInspectorChrome ? undefined : onSave}
         submitLabel={usePropertyInspectorChrome ? undefined : "Save"}
       />
@@ -202,6 +203,7 @@ export function CatalogNestedSchemaDialog({
         open
         title={title}
         breadcrumb={breadcrumb}
+        nested={depth > 0}
         onOk={() => onSave(commitSnapshotRef.current?.() ?? initialValue)}
         onCancel={onCancel}
         okDisabled={loading || !!error || flattened == null}

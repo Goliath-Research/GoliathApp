@@ -1,4 +1,5 @@
 import { parseGoliathRef, type CatalogRef } from "./catalogRef.js";
+import { parseReferenceHint } from "./referenceHint.js";
 import {
   isSchemaRecord,
   primaryType,
@@ -23,6 +24,7 @@ export type ParsedFieldEditor =
       enumValues?: readonly string[];
     }
   | { mode: "date"; optional: boolean; inputType: "date" | "datetime-local" }
+  | { mode: "reference"; optional: boolean; refKind: string; valueType: "string" | "integer" }
   | { mode: "typedMetaClass"; className: string; optional: boolean }
   | { mode: "typedDataType"; typeName: string; optional: boolean; expectArray?: boolean }
   | {
@@ -60,6 +62,17 @@ export function parsePropertySchema(
     if (catalog?.kind === "dataType") {
       return { mode: "typedDataType", typeName: catalog.typeName, optional };
     }
+  }
+
+  const refHint = parseReferenceHint(resolved) ?? parseReferenceHint(prop);
+  if (refHint) {
+    const refType = primaryType(resolved);
+    return {
+      mode: "reference",
+      optional,
+      refKind: refHint.kind,
+      valueType: refType === "integer" || refType === "number" ? "integer" : "string",
+    };
   }
 
   if (Array.isArray(resolved.enum) && resolved.enum.every((v) => typeof v === "string" || typeof v === "number")) {

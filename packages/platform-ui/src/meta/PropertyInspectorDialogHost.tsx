@@ -127,6 +127,7 @@ function ObjectInspectorModalBody({
       open
       title={title}
       breadcrumb={request.breadcrumb}
+      nested={depth > 0}
       onOk={onOk}
       onCancel={onDismiss}
     >
@@ -142,6 +143,7 @@ function ObjectInspectorModalBody({
           depth={depth + 1}
           embedded
           commitSnapshotRef={commitSnapshotRef}
+          breadcrumbBase={request.breadcrumb}
         />
       </Suspense>
     </PropertyInspectorModal>

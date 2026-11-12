@@ -800,6 +800,30 @@ export async function portalSessionListRecentInstances(
   });
 }
 
+/** Reference picker search (`portal.sp_session_search_references`). */
+export async function portalSessionSearchReferences(
+  sessionToken: string,
+  kind: string,
+  query: string,
+  limit: number,
+): Promise<{ value: string; label: string; detail: string | null }[]> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(
+        `SELECT ref_value, label, detail FROM portal.sp_session_search_references($1, $2, $3, $4::int)`,
+        [sessionToken, kind, query, limit],
+      );
+      return result.rows.map((row: { ref_value: string; label: string; detail: string | null }) => ({
+        value: String(row.ref_value),
+        label: String(row.label ?? row.ref_value),
+        detail: row.detail ?? null,
+      }));
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
 export async function portalSessionRunSemanticRequest(
   sessionToken: string,
   requestCode: string,

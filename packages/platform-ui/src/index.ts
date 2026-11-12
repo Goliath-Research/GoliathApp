@@ -27,3 +27,12 @@ export {
 } from "./meta/metaHierarchyResolver.js";
 export type { MetaCatalogResolver, NestedMetaClassContext, NestedDataTypeContext } from "./meta/metaCatalogResolver.js";
 export { parseGoliathRef, catalogRefFromFieldTypeName, type CatalogRef } from "./meta/catalogRef.js";
+export { parseReferenceHint, REFERENCE_HINT_KEY, type ReferenceHint } from "./meta/referenceHint.js";
+export {
+  ReferenceResolverProvider,
+  useReferenceResolver,
+  type ReferenceOption,
+  type ReferenceResolver,
+} from "./meta/ReferenceResolverContext.js";
+export { ReferencePicker } from "./meta/ReferencePicker.js";
+export { PropertyInspectorModal } from "./meta/PropertyInspectorModal.js";
