@@ -228,3 +228,12 @@ def test_private_operator_view_meta_redacts_definition(
         assert doc_row is not None
         assert doc_row[0] == "{}"
         assert doc_row[1] is None
+
+        scoped = conn.execute(
+            """
+            SELECT 1 FROM portal."ScopedMetaObjects"
+            WHERE "ObjID" = %s
+            """,
+            (meta_obj_id,),
+        ).fetchone()
+        assert scoped is None

@@ -159,19 +159,26 @@ BEGIN
 
   v_kind := CASE WHEN p_semantic_request_code IS NOT NULL THEN 'semantic' ELSE 'meta' END;
   v_vis := COALESCE(NULLIF(btrim(p_visibility), ''), 'scope');
-  v_doc := jsonb_build_object(
-    'Label', btrim(p_title),
-    'Description', COALESCE(p_description, ''),
-    'SourceKind', v_kind,
-    'SemanticRequestCode', CASE WHEN v_vis = 'private' THEN NULL ELSE p_semantic_request_code END,
-    'MetaClassName', CASE WHEN v_vis = 'private' THEN NULL ELSE p_meta_class_name END,
-    'DefinitionJson', CASE
-      WHEN v_vis = 'private' THEN '{}'
-      ELSE COALESCE(p_params_json, '{}'::jsonb)::text
-    END,
-    'Visibility', v_vis,
-    'LegacyViewId', p_view_id
-  );
+  IF v_vis = 'private' THEN
+    v_doc := jsonb_build_object(
+      'Label', '',
+      'Description', '',
+      'SourceKind', '',
+      'DefinitionJson', '{}',
+      'Visibility', 'private'
+    );
+  ELSE
+    v_doc := jsonb_build_object(
+      'Label', btrim(p_title),
+      'Description', COALESCE(p_description, ''),
+      'SourceKind', v_kind,
+      'SemanticRequestCode', p_semantic_request_code,
+      'MetaClassName', p_meta_class_name,
+      'DefinitionJson', COALESCE(p_params_json, '{}'::jsonb)::text,
+      'Visibility', v_vis,
+      'LegacyViewId', p_view_id
+    );
+  END IF;
 
   SELECT m.meta_obj_id INTO v_obj
   FROM portal.operator_view_meta_map m
@@ -181,11 +188,16 @@ BEGIN
     v_obj := "Meta".sp_obj_insert(v_class, v_doc);
     INSERT INTO portal.operator_view_meta_map (legacy_view_id, meta_obj_id)
     VALUES (p_view_id, v_obj);
-    INSERT INTO portal."ScopedMetaObjects" ("ObjID", "ScopeID")
-    VALUES (v_obj, p_scope_id)
-    ON CONFLICT ("ObjID") DO NOTHING;
   ELSE
     PERFORM "Meta".sp_obj_update(v_obj, v_doc);
+  END IF;
+
+  IF v_vis = 'private' THEN
+    DELETE FROM portal."ScopedMetaObjects" sm WHERE sm."ObjID" = v_obj;
+  ELSE
+    INSERT INTO portal."ScopedMetaObjects" ("ObjID", "ScopeID")
+    VALUES (v_obj, p_scope_id)
+    ON CONFLICT ("ObjID") DO UPDATE SET "ScopeID" = EXCLUDED."ScopeID";
   END IF;
 
   RETURN v_obj;
@@ -217,16 +229,22 @@ BEGIN
   END IF;
 
   v_vis := COALESCE(NULLIF(btrim(p_visibility), ''), 'scope');
-  v_doc := jsonb_build_object(
-    'Label', btrim(p_title),
-    'Description', COALESCE(p_description, ''),
-    'LayoutJson', CASE
-      WHEN v_vis = 'private' THEN '{}'
-      ELSE COALESCE(p_layout_json, '{}'::jsonb)::text
-    END,
-    'Visibility', v_vis,
-    'LegacyDashboardId', p_dashboard_id
-  );
+  IF v_vis = 'private' THEN
+    v_doc := jsonb_build_object(
+      'Label', '',
+      'Description', '',
+      'LayoutJson', '{}',
+      'Visibility', 'private'
+    );
+  ELSE
+    v_doc := jsonb_build_object(
+      'Label', btrim(p_title),
+      'Description', COALESCE(p_description, ''),
+      'LayoutJson', COALESCE(p_layout_json, '{}'::jsonb)::text,
+      'Visibility', v_vis,
+      'LegacyDashboardId', p_dashboard_id
+    );
+  END IF;
 
   SELECT m.meta_obj_id INTO v_obj
   FROM portal.operator_dashboard_meta_map m
@@ -236,11 +254,16 @@ BEGIN
     v_obj := "Meta".sp_obj_insert(v_class, v_doc);
     INSERT INTO portal.operator_dashboard_meta_map (legacy_dashboard_id, meta_obj_id)
     VALUES (p_dashboard_id, v_obj);
-    INSERT INTO portal."ScopedMetaObjects" ("ObjID", "ScopeID")
-    VALUES (v_obj, p_scope_id)
-    ON CONFLICT ("ObjID") DO NOTHING;
   ELSE
     PERFORM "Meta".sp_obj_update(v_obj, v_doc);
+  END IF;
+
+  IF v_vis = 'private' THEN
+    DELETE FROM portal."ScopedMetaObjects" sm WHERE sm."ObjID" = v_obj;
+  ELSE
+    INSERT INTO portal."ScopedMetaObjects" ("ObjID", "ScopeID")
+    VALUES (v_obj, p_scope_id)
+    ON CONFLICT ("ObjID") DO UPDATE SET "ScopeID" = EXCLUDED."ScopeID";
   END IF;
 
   RETURN v_obj;
@@ -412,7 +435,10 @@ BEGIN
       AND v.scope_id = v_sess.active_scope_id
       AND (
         v.created_by_user_id = v_sess.user_id
-        OR portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
+        OR (
+          v.visibility <> 'private'
+          AND portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
+        )
       )
     RETURNING v.id INTO v_id;
     IF v_id IS NULL THEN
@@ -479,7 +505,10 @@ BEGIN
     AND v.scope_id = v_scope_id
     AND (
       v.created_by_user_id = v_user_id
-      OR portal.fn_semantic_session_has_permission(v_user_id, 'meta.object.write')
+      OR (
+        v.visibility <> 'private'
+        AND portal.fn_semantic_session_has_permission(v_user_id, 'meta.object.write')
+      )
     );
   GET DIAGNOSTICS v_n = ROW_COUNT;
 
@@ -615,7 +644,10 @@ BEGIN
     AND d.scope_id = v_sess.active_scope_id
     AND (
       d.created_by_user_id = v_sess.user_id
-      OR portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
+      OR (
+        d.visibility <> 'private'
+        AND portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
+      )
     );
   GET DIAGNOSTICS v_n = ROW_COUNT;
 
@@ -666,7 +698,10 @@ BEGIN
       AND d.scope_id = v_sess.active_scope_id
       AND (
         d.created_by_user_id = v_sess.user_id
-        OR portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
+        OR (
+          d.visibility <> 'private'
+          AND portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
+        )
       )
     RETURNING d.id INTO v_id;
     IF v_id IS NULL THEN
@@ -734,7 +769,10 @@ BEGIN
       AND d.scope_id = v_sess.active_scope_id
       AND (
         d.created_by_user_id = v_sess.user_id
-        OR portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
+        OR (
+          d.visibility <> 'private'
+          AND portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
+        )
       )
   ) THEN
     PERFORM portal.fn_semantic_raise('GS404', 'dashboard not found');
@@ -768,7 +806,6 @@ BEGIN
         AND (
           v.visibility <> 'private'
           OR v.created_by_user_id = v_sess.user_id
-          OR portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
         )
     ) THEN
       PERFORM portal.fn_semantic_raise('GS403', 'view not in active scope');
