@@ -356,6 +356,47 @@ $$;
 
 -- ── Run inspector ────────────────────────────────────────────────────────────
 
+-- Generic secret redaction for operator reads of run variables. Any object key
+-- whose name looks like a credential is replaced at any depth; a variable whose
+-- own name looks like a credential has its whole value replaced.
+CREATE OR REPLACE FUNCTION portal.fn_is_secret_key(p_key text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT lower(COALESCE(p_key, '')) ~ '(credential|password|passwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|connection[_-]?string|authorization)';
+$$;
+
+CREATE OR REPLACE FUNCTION portal.fn_redact_secrets_deep(p_value jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+IMMUTABLE
+AS $$
+BEGIN
+  IF p_value IS NULL THEN
+    RETURN NULL;
+  END IF;
+  CASE jsonb_typeof(p_value)
+    WHEN 'object' THEN
+      RETURN COALESCE((
+        SELECT jsonb_object_agg(
+          e.key,
+          CASE WHEN portal.fn_is_secret_key(e.key) THEN to_jsonb('[redacted]'::text)
+               ELSE portal.fn_redact_secrets_deep(e.value) END
+        )
+        FROM jsonb_each(p_value) e
+      ), '{}'::jsonb);
+    WHEN 'array' THEN
+      RETURN COALESCE((
+        SELECT jsonb_agg(portal.fn_redact_secrets_deep(e.value) ORDER BY e.ord)
+        FROM jsonb_array_elements(p_value) WITH ORDINALITY e(value, ord)
+      ), '[]'::jsonb);
+    ELSE
+      RETURN p_value;
+  END CASE;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION portal.sp_session_get_run(
   p_session_token text,
   p_workflow_instance_id bigint
@@ -401,7 +442,8 @@ BEGIN
       SELECT jsonb_agg(jsonb_build_object(
         'scope_node_execution_id', sv.scope_node_execution_id,
         'name', sv.var_name,
-        'value', sv.value_json,
+        'value', CASE WHEN portal.fn_is_secret_key(sv.var_name) THEN to_jsonb('[redacted]'::text)
+                      ELSE portal.fn_redact_secrets_deep(sv.value_json) END,
         'updated_at_utc', sv.updated_at_utc
       ) ORDER BY sv.scope_node_execution_id NULLS FIRST, sv.var_name)
       FROM wf.scope_variable sv

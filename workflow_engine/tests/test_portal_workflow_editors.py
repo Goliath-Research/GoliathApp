@@ -263,6 +263,16 @@ def test_run_inspector_and_cancel(editor_env: dict[str, str], author_token: str)
     doc = json.loads(_psql(f"SELECT portal.sp_session_get_run({_lit(author_token)}, {instance_id})", env))
     assert doc["status"] == "RUNNING"
     assert doc["nodes"] == [] and doc["variables"] == [] and doc["study"] is None
+    _psql(
+        f"""INSERT INTO wf.scope_variable (workflow_instance_id, scope_node_execution_id, var_name, value_json)
+            VALUES ({instance_id}, 0, 'source', '{{"path":"s3://bucket/x","credentials":{{"key":"k"}},"items":[{{"sasToken":"t","n":1}}]}}'::jsonb),
+                   ({instance_id}, 0, 'storage_password', '"p"'::jsonb)""",
+        env,
+    )
+    doc = json.loads(_psql(f"SELECT portal.sp_session_get_run({_lit(author_token)}, {instance_id})", env))
+    values = {v["name"]: v["value"] for v in doc["variables"]}
+    assert values["source"] == {"path": "s3://bucket/x", "credentials": "[redacted]", "items": [{"sasToken": "[redacted]", "n": 1}]}
+    assert values["storage_password"] == "[redacted]"
     status = _psql(
         f"SELECT status FROM portal.sp_session_cancel_run({_lit(author_token)}, {instance_id}, 'test')", env
     )
