@@ -132,7 +132,10 @@ export function ActionMethodsWorkspace() {
           description: null,
           param_count: Array.isArray(doc.parameters) ? doc.parameters.length : 0,
         };
-        setMode({ kind: "edit", row: savedRow, methodId: Number(key) });
+        // Editing keeps the row that was opened (an inherited row stays inherited, so the
+        // "applies to every class that inherits it" note and the list highlight stay correct).
+        const nextRow = mode.kind === "edit" ? mode.row : savedRow;
+        setMode({ kind: "edit", row: nextRow, methodId: Number(key) });
         setFullDoc(doc);
         setMethodDoc(editableDocument(CLASS_METHOD_EDIT_SCHEMA, doc));
         setSession((n) => n + 1);

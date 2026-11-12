@@ -42,10 +42,37 @@ DECLARE
 BEGIN
   SELECT * INTO v_ctx FROM portal.fn_session_operator_require(p_session_token, NULL) LIMIT 1;
   PERFORM portal.fn_session_require_any_nav(p_session_token, p_node_paths);
-  IF NOT portal.fn_semantic_session_has_permission(v_ctx.user_id, 'platform.model.author') THEN
+  -- Evaluated for the session's selected role in its active scope (not any grant of the user).
+  IF NOT portal.fn_session_has_permission(
+    v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'platform.model.author'
+  ) THEN
     PERFORM portal.fn_semantic_raise('GS403', 'platform model author permission denied');
   END IF;
   RETURN QUERY SELECT v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id;
+END;
+$$;
+
+/*
+  Methods of platform/% classes are platform catalog: same gate as Meta class and field
+  authoring (god architect), in addition to the record-editor check.
+*/
+CREATE OR REPLACE FUNCTION portal.fn_record_editor_require_method_class(
+  p_session_token text,
+  p_class_id integer
+)
+RETURNS void
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "Meta", pg_temp
+AS $$
+DECLARE
+  v_name text;
+BEGIN
+  SELECT c."Name" INTO v_name FROM "Meta"."Classes" c WHERE c."ID" = p_class_id;
+  IF v_name LIKE 'platform/%' THEN
+    PERFORM 1 FROM portal.fn_session_model_author_require_god(p_session_token, NULL);
+  END IF;
 END;
 $$;
 
@@ -309,6 +336,8 @@ BEGIN
     END IF;
   END IF;
 
+  PERFORM portal.fn_record_editor_require_method_class(p_session_token, v_class_id);
+
   IF EXISTS (
     SELECT 1
     FROM "Meta"."ClassClosure" cc
@@ -384,7 +413,7 @@ BEGIN
         v_ordinal,
         portal.fn_doc_text(v_param, 'name'),
         (v_param->>'type_id')::bigint,
-        COALESCE((v_param->>'required')::boolean, true),
+        COALESCE((v_param->>'required')::boolean, false),
         CASE
           WHEN (v_old_defaults -> portal.fn_doc_text(v_param, 'name') ->> 'type')::bigint
                = (v_param->>'type_id')::bigint
@@ -444,6 +473,7 @@ DECLARE
   v_updated int := 0;
   v_impl_kind text;
   v_impl_ref text;
+  v_class_id integer;
 BEGIN
   SELECT * INTO v_ctx
   FROM portal.fn_session_record_editor_require(
@@ -452,11 +482,12 @@ BEGIN
   IF p_defaults IS NULL OR jsonb_typeof(p_defaults) <> 'object' THEN
     PERFORM portal.fn_semantic_raise('GS400', 'defaults must be an object');
   END IF;
-  SELECT m."ImplKind", m."ImplRef" INTO v_impl_kind, v_impl_ref
+  SELECT m."ImplKind", m."ImplRef", m."ClassID" INTO v_impl_kind, v_impl_ref, v_class_id
   FROM "Meta"."Methods" m WHERE m."ID" = p_method_id;
   IF NOT FOUND THEN
     PERFORM portal.fn_semantic_raise('GS404', 'method not found');
   END IF;
+  PERFORM portal.fn_record_editor_require_method_class(p_session_token, v_class_id);
   FOR v_key IN SELECT jsonb_object_keys(p_defaults)
   LOOP
     IF NOT EXISTS (
@@ -570,12 +601,20 @@ BEGIN
     v_base := COALESCE(v_base, jsonb_build_object('name', v_name, 'body', '[]'::jsonb));
   END IF;
 
-  v_new := v_base || jsonb_strip_nulls(jsonb_build_object(
-    'name', v_name,
-    'description', portal.fn_doc_text(v_doc, 'description'),
-    'programVersion', portal.fn_doc_text(v_doc, 'program_version'),
-    'projectPath', portal.fn_doc_text(v_doc, 'project_path')
-  ));
+  -- Keys present in the document are set, or removed when empty; absent keys are kept.
+  v_new := v_base || jsonb_build_object('name', v_name);
+  IF v_doc ? 'description' THEN
+    v_new := CASE WHEN portal.fn_doc_text(v_doc, 'description') IS NULL THEN v_new - 'description'
+                  ELSE v_new || jsonb_build_object('description', portal.fn_doc_text(v_doc, 'description')) END;
+  END IF;
+  IF v_doc ? 'program_version' THEN
+    v_new := CASE WHEN portal.fn_doc_text(v_doc, 'program_version') IS NULL THEN v_new - 'programVersion'
+                  ELSE v_new || jsonb_build_object('programVersion', portal.fn_doc_text(v_doc, 'program_version')) END;
+  END IF;
+  IF v_doc ? 'project_path' THEN
+    v_new := CASE WHEN portal.fn_doc_text(v_doc, 'project_path') IS NULL THEN v_new - 'projectPath'
+                  ELSE v_new || jsonb_build_object('projectPath', portal.fn_doc_text(v_doc, 'project_path')) END;
+  END IF;
 
   PERFORM 1 FROM portal.sp_upsert_domain_program(v_name, v_version, 'draft', v_new);
   PERFORM portal.fn_record_editor_audit(
@@ -880,7 +919,7 @@ BEGIN
   IF v_id IS NULL THEN
     INSERT INTO wf.event_subscription (event_type_id, workflow_version_id, mode, filter_json, enabled)
     VALUES (v_event_type_id, v_version_id, v_mode, NULLIF(v_filter, '{}'::jsonb),
-            COALESCE((v_doc->>'enabled')::boolean, true))
+            COALESCE((v_doc->>'enabled')::boolean, false))
     RETURNING id INTO v_id;
   ELSE
     UPDATE wf.event_subscription s SET

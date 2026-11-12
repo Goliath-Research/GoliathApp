@@ -233,6 +233,7 @@ def test_method_save_syncs_action_catalog_and_inheritance(editor_env: dict[str, 
     )
     assert doc["action_name"] == action_name
     assert doc["parameters"][0]["name"] == "count"
+    assert doc["parameters"][0]["required"] is True
     assert "count" in doc["defaults_schema"]["properties"]
 
     override_id = int(
@@ -317,6 +318,16 @@ def test_domain_program_metadata_preserves_body(editor_env: dict[str, str], auth
     )
     assert stored["description"] == "second"
     assert stored["body"] == [{"kind": "x"}]
+    _psql(
+        f"""SELECT * FROM portal.sp_session_save_domain_program({_lit(author_token)}, {_lit({
+            "name": name, "version": "1", "description": "",
+        })}::jsonb)""",
+        env,
+    )
+    cleared = json.loads(
+        _psql(f"SELECT document_json FROM cfg.domain_program WHERE name = {_lit(name)} AND version = '1'", env)
+    )
+    assert "description" not in cleared
 
     _psql(f"UPDATE cfg.domain_program SET status = 'published' WHERE name = {_lit(name)}", env)
     with pytest.raises(RuntimeError, match="immutable"):
@@ -389,6 +400,7 @@ def test_event_subscription_create_and_edit(editor_env: dict[str, str], author_t
     )
     stored = json.loads(_psql(f"SELECT filter_json FROM wf.event_subscription WHERE id = {sub_id}", env))
     assert stored == {"site": "a", "n": 2}
+    assert _psql(f"SELECT enabled FROM wf.event_subscription WHERE id = {sub_id}", env) == "f"
     _psql(
         f"""SELECT portal.sp_session_save_event_subscription({_lit(author_token)}, {sub_id}, {_lit({
             "event_type": event_type, "workflow_version_id": int(version_id), "mode": "signal_wait",
@@ -407,4 +419,15 @@ def test_event_subscription_create_and_edit(editor_env: dict[str, str], author_t
                 "event_type": "does.not.exist", "workflow_version_id": int(version_id), "mode": "start_instance",
             })}::jsonb)""",
             env,
+        )
+
+
+def test_platform_class_methods_require_god_architect(editor_env: dict[str, str], author_token: str) -> None:
+    with pytest.raises(RuntimeError, match="GS403|god|architect|denied"):
+        _psql(
+            f"""SELECT portal.sp_session_save_class_method({_lit(author_token)}, NULL, {_lit({
+                "class_name": "platform/Entity", "method_name": f"blocked_{uuid.uuid4().hex[:6]}",
+                "impl_kind": "abstract",
+            })}::jsonb)""",
+            editor_env,
         )
