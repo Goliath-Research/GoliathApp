@@ -83,4 +83,9 @@ test.describe("platform host", () => {
     const res = await request.get("/api/portal/workflows/runs?range=all");
     expect([401, 503]).toContain(res.status());
   });
+
+  test("reference search API requires a session", async ({ request }) => {
+    const res = await request.get("/api/portal/references?kind=action");
+    expect([401, 503]).toContain(res.status());
+  });
 });

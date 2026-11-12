@@ -1,7 +1,9 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { OperatorNavTree } from "@goliath/platform-ui";
+import { useMemo } from "react";
+import { OperatorNavTree, ReferenceResolverProvider } from "@goliath/platform-ui";
+import { createHostReferenceResolver } from "@/lib/reference-resolver";
 import type { OperatorNavNode } from "@goliath/client";
 import type { ResolvedPortalSession } from "@/server/portal/bridge";
 
@@ -20,6 +22,7 @@ export function OperatorPortalShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const referenceResolver = useMemo(() => createHostReferenceResolver(), []);
 
   async function signOut() {
     await fetch("/api/session/logout", { method: "POST", credentials: "same-origin" });
@@ -61,7 +64,9 @@ export function OperatorPortalShell({
           <p className="g-portal__navigate-title">Navigate</p>
           <OperatorNavTree nodes={nodes} currentPath={pathname} />
         </aside>
-        <section className="g-portal__workspace">{children}</section>
+        <section className="g-portal__workspace">
+          <ReferenceResolverProvider resolver={referenceResolver}>{children}</ReferenceResolverProvider>
+        </section>
       </div>
       <footer className="g-portal__status">
         <span className="g-portal__live" aria-hidden />

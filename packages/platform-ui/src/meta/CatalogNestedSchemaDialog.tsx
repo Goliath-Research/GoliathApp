@@ -190,6 +190,7 @@ export function CatalogNestedSchemaDialog({
         embedded
         headerSlot={gridHeader ?? headerSlot}
         commitSnapshotRef={commitSnapshotRef}
+        breadcrumbBase={breadcrumb}
         onSubmit={usePropertyInspectorChrome ? undefined : onSave}
         submitLabel={usePropertyInspectorChrome ? undefined : "Save"}
       />

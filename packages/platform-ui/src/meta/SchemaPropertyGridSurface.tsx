@@ -21,6 +21,7 @@ import type { ParsedFieldEditor } from "./parseFlattenedFieldSchema.js";
 import { parsePropertySchema, propertySchemaFromFlattened } from "./parseFlattenedFieldSchema.js";
 import { compileSchemaValidator, validationMessage } from "./schemaAjvValidate.js";
 import { resolveFieldEditorDetailed } from "./resolveFieldEditor.js";
+import { ReferencePicker } from "./ReferencePicker.js";
 
 const DEFAULT_HIERARCHY_REGISTRY = {
   editorComponentsByClassFqn: {},
@@ -48,6 +49,8 @@ export type SchemaPropertyGridSurfaceProps = {
   embedded?: boolean;
   /** When set, updated each commit with a snapshot builder for modal OK handlers. */
   commitSnapshotRef?: MutableRefObject<(() => Record<string, unknown>) | undefined>;
+  /** Property path of this grid inside its parent inspector (nested breadcrumb navigation). */
+  breadcrumbBase?: readonly string[];
 };
 
 type FieldPlan = {
@@ -85,6 +88,7 @@ export function SchemaPropertyGridSurface({
   depth = 0,
   embedded = false,
   commitSnapshotRef,
+  breadcrumbBase: breadcrumbBaseProp,
 }: SchemaPropertyGridSurfaceProps) {
   const plans = useMemo((): FieldPlan[] => {
     if (fields?.length) {
@@ -167,8 +171,13 @@ export function SchemaPropertyGridSurface({
   }, [fields]);
 
   const breadcrumbBase = useMemo(
-    () => (documentClassFqn ? [documentClassFqn] : ["Document"]),
-    [documentClassFqn],
+    () =>
+      breadcrumbBaseProp?.length
+        ? [...breadcrumbBaseProp]
+        : documentClassFqn
+          ? [documentClassFqn]
+          : ["Document"],
+    [breadcrumbBaseProp, documentClassFqn],
   );
 
   const groupedPlans = useMemo(() => {
@@ -849,6 +858,31 @@ export function SchemaPropertyGridSurface({
         </tr>
       );
     }
+    if (editor.mode === "reference") {
+      return (
+        <tr key={fieldName} className="g-property-inspector__row" data-testid={`pi-row-${fieldName}`}>
+          <td className="g-property-inspector__name">{inspectorNameCell(plan, false)}</td>
+          <td className="g-property-inspector__value">
+            <ReferencePicker
+              fieldName={fieldName}
+              kind={editor.refKind}
+              value={primitiveValues[fieldName] ?? ""}
+              optional={editor.optional || !plan.required}
+              disabled={disabled || busy}
+              onChange={(next) => {
+                setPrimitiveValues((prev) => ({ ...prev, [fieldName]: next }));
+                clearRowError(fieldName);
+              }}
+            />
+            {rowErrors[fieldName] ? (
+              <span className="g-property-inspector__error" role="alert">
+                {rowErrors[fieldName]}
+              </span>
+            ) : null}
+          </td>
+        </tr>
+      );
+    }
     if (editor.mode === "date") {
       return (
         <tr key={fieldName} className="g-property-inspector__row" data-testid={`pi-row-${fieldName}`}>
@@ -952,6 +986,7 @@ function coercePrimitive(editor: ParsedFieldEditor, raw: string): unknown {
   if (editor.mode === "integer") return Math.trunc(Number(raw));
   if (editor.mode === "number") return Number(raw);
   if (editor.mode === "date") return coerceDateInputValue(raw, editor.inputType);
+  if (editor.mode === "reference" && editor.valueType === "integer") return Math.trunc(Number(raw));
   return raw;
 }
 

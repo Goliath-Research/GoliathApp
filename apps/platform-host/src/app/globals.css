@@ -189,6 +189,36 @@
   margin-bottom: 0.35rem;
 }
 
+.g-property-inspector-modal__crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.g-property-inspector-modal__crumbs li + li::before {
+  content: "›";
+  margin-right: 0.25rem;
+}
+
+.g-property-inspector-modal__crumbs li[aria-current] {
+  font-weight: 600;
+}
+
+.g-reference-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.g-reference-picker__status {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
 .g-property-inspector-modal__title {
   margin: 0 0 0.75rem;
 }

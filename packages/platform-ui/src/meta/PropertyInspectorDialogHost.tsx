@@ -142,6 +142,7 @@ function ObjectInspectorModalBody({
           depth={depth + 1}
           embedded
           commitSnapshotRef={commitSnapshotRef}
+          breadcrumbBase={request.breadcrumb}
         />
       </Suspense>
     </PropertyInspectorModal>

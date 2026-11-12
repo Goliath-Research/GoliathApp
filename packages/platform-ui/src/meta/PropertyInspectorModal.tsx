@@ -14,6 +14,17 @@ export type PropertyInspectorModalProps = {
   okLabel?: string;
 };
 
+/**
+ * Stack of open inspector modals (innermost last). Nested inspectors open on top of their
+ * parent; Escape and the breadcrumb only act on the innermost modal so closing a child
+ * returns to its parent instead of dismissing the whole chain.
+ */
+const openModalStack: string[] = [];
+
+export function isTopmostInspectorModal(id: string): boolean {
+  return openModalStack[openModalStack.length - 1] === id;
+}
+
 export function PropertyInspectorModal({
   open,
   title,
@@ -32,9 +43,18 @@ export function PropertyInspectorModal({
   }, []);
 
   useEffect(() => {
+    if (!open) return;
+    openModalStack.push(titleId);
+    return () => {
+      const idx = openModalStack.lastIndexOf(titleId);
+      if (idx >= 0) openModalStack.splice(idx, 1);
+    };
+  }, [open, titleId]);
+
+  useEffect(() => {
     if (!open || typeof window === "undefined") return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && isTopmostInspectorModal(titleId)) {
         e.preventDefault();
         onCancel();
       }
@@ -43,7 +63,7 @@ export function PropertyInspectorModal({
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onCancel]);
+  }, [open, onCancel, titleId]);
 
   if (!open || !mounted) return null;
 
@@ -64,7 +84,16 @@ export function PropertyInspectorModal({
       >
         {breadcrumb && breadcrumb.length > 1 ? (
           <nav className="g-property-inspector-modal__breadcrumb" aria-label="Property path">
-            {breadcrumb.join(" › ")}
+            <ol className="g-property-inspector-modal__crumbs" data-depth={breadcrumb.length - 1}>
+              {breadcrumb.map((segment, index) => {
+                const last = index === breadcrumb.length - 1;
+                return (
+                  <li key={`${index}:${segment}`} aria-current={last ? "location" : undefined}>
+                    {segment}
+                  </li>
+                );
+              })}
+            </ol>
           </nav>
         ) : null}
         <h3 id={titleId} className="g-property-inspector-modal__title">
@@ -87,7 +116,7 @@ export function PropertyInspectorModal({
             data-testid="property-inspector-cancel"
             onClick={onCancel}
           >
-            Cancel
+            {breadcrumb && breadcrumb.length > 2 ? `Back to ${breadcrumb[breadcrumb.length - 2]}` : "Cancel"}
           </button>
         </div>
       </div>

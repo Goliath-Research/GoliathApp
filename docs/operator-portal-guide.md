@@ -101,6 +101,23 @@ Child applications extend GoliathApp mainly by adding **semantic classes** and t
 
 Semantic entities registered in the portal layer link to Meta when `meta_class_id` is set. On **Semantic layer → Entities**, open the **Meta class** link to jump into the workbench for that backing class.
 
+## Picking existing records (reference fields)
+
+Fields that point at an existing record are never typed by hand. A JSON Schema property
+annotated with `x-goliath-ref` renders as a **reference picker**: a search box plus a list of
+matching rows. Pick a row to set the value.
+
+```json
+{ "type": "string",  "x-goliath-ref": "action" }
+{ "type": "integer", "x-goliath-ref": { "kind": "workflow_version" } }
+```
+
+Built-in kinds: `action`, `meta_method`, `workflow_def`, `workflow_version`, `event_type`,
+`cluster`, `worker`, `data_type`, `meta_class`, `study`. Search runs server-side through
+`portal.sp_session_search_references`, which checks the session's NavTree entitlements for
+each kind. Pickers work at every nesting depth. Nested inspectors show the full property path
+as a breadcrumb, and Escape or **Back to …** closes only the innermost inspector.
+
 ## Views and dashboards (same entities as editors)
 
 **Views** are saved presentation definitions on top of:
