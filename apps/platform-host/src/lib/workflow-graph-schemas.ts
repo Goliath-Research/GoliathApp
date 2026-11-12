@@ -92,7 +92,12 @@ export const WORKFLOW_DEFINITION_SCHEMA: Record<string, unknown> = {
       type: "array",
       items: {
         type: "object",
-        properties: { node_key: s(), var_name: s(), source_kind: s(), source_json_path: s() },
+        properties: {
+          node_key: s(),
+          var_name: s(),
+          source_kind: { type: "string", enum: ["output_path", "result_code"] },
+          source_json_path: s(),
+        },
         required: ["node_key", "var_name", "source_kind"],
       },
     },
@@ -111,7 +116,7 @@ export const WORKFLOW_DEFINITION_SCHEMA: Record<string, unknown> = {
         properties: {
           bind_order: { type: "integer", minimum: 0 },
           scope_var: s(),
-          kind: s(),
+          kind: { type: "string", enum: ["jsonFile", "jsonPath"] },
           path_var: s(),
           base_var: s(),
           json_path: s(),

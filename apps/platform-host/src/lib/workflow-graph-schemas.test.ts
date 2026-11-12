@@ -16,7 +16,7 @@ const spec = {
     { node_key: "a", node_type: "ACTION", action_name: "x", input_template: { deep: { v: 1 } } },
   ],
   edges: [{ parent_node_key: "root", child_node_key: "a", child_order: 0 }],
-  output_bindings: [{ node_key: "a", var_name: "v", source_kind: "output" }],
+  output_bindings: [{ node_key: "a", var_name: "v", source_kind: "output_path" }],
 };
 
 describe("workflow graph editor", () => {

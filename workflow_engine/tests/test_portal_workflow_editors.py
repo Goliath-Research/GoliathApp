@@ -153,7 +153,7 @@ def _make_workflow(env: dict[str, str]) -> tuple[int, str]:
             {"node_key": "step", "node_type": "ACTION", "action_name": action, "input_template": {"n": 1}},
         ],
         "edges": [{"parent_node_key": "root", "child_node_key": "step", "child_order": 0}],
-        "output_bindings": [{"node_key": "step", "var_name": "out", "source_kind": "output"}],
+        "output_bindings": [{"node_key": "step", "var_name": "out", "source_kind": "output_path", "source_json_path": "$.out"}],
     }
     result = json.loads(_psql(f"SELECT wf.wf_repo_create_workflow_graph({_lit(spec)}::jsonb)", env))
     return int(result["workflow_version_id"]), action
