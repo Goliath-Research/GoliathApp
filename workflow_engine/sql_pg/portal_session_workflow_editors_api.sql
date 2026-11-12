@@ -47,10 +47,7 @@ BEGIN
       )) ORDER BY n.id)
       FROM wf.workflow_node n
       LEFT JOIN wf.workflow_action a ON a.id = n.workflow_action_id
-      LEFT JOIN LATERAL (
-        SELECT it.template_json FROM wf.workflow_input_template it
-        WHERE it.workflow_node_id = n.id ORDER BY it.id DESC LIMIT 1
-      ) t ON true
+      LEFT JOIN wf.workflow_input_template t ON t.workflow_node_id = n.id
       WHERE n.workflow_version_id = v.id
     ), '[]'::jsonb),
     'edges', COALESCE((
@@ -178,7 +175,7 @@ $$;
   Document keys (all optional; omitted keys keep the base version's value):
     root_node_key, nodes, edges, input_bindings, output_bindings,
     scope_defaults, collection_bindings.
-  (description is definition-level metadata shown in the editor but not changed here.)
+  (description is definition-level metadata shared by all versions and is not changed here.)
   Node input_template values come from the base version by node_key.
 */
 CREATE OR REPLACE FUNCTION portal.sp_session_save_workflow_version(

@@ -73,7 +73,6 @@ export const WORKFLOW_STEPS_SCHEMA: Record<string, unknown> = {
 export const WORKFLOW_DEFINITION_SCHEMA: Record<string, unknown> = {
   type: "object",
   properties: {
-    description: s(),
     ...NODES_AND_EDGES,
     input_bindings: {
       type: "array",

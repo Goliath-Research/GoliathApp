@@ -187,7 +187,7 @@ entitlement plus the `platform.model.author` permission, and every save is recor
 ## Editing workflow graphs and inspecting runs
 
 **Definitions** and **Steps** list every workflow version. **Edit** opens the version graph in the property
-grid (Definitions: description, root node, nodes, edges and bindings; Steps: nodes and edges only). Saving
+grid (Definitions: root node, nodes, edges and bindings; Steps: nodes and edges only). Saving
 never changes the version you opened: it creates a **new inactive version** of the same workflow (next
 minor version). Node input templates are carried over by node key. Use **Activate** to make a version the
 one new runs use; event subscriptions keep pointing at the version they reference, so repoint them in
