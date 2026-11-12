@@ -81,19 +81,14 @@ test.describe("model authoring (CI postgres)", () => {
     await expect(page.getByRole("cell", { name: entityCode })).toBeVisible();
 
     await page.goto("/app/views/list");
-    const viewForm = page.locator("form.g-portal-view-form");
-    await viewForm.getByLabel("Title").fill(viewTitle);
-    await viewForm.getByRole("radio", { name: /Meta class/ }).check();
-    await viewForm.locator("select").selectOption(className);
-    await viewForm.getByRole("button", { name: "Save view" }).click();
-    await expect(page.getByRole("status")).toContainText("View saved");
+    await page.getByRole("button", { name: "New view" }).click();
+    await page.getByLabel("Title").fill(viewTitle);
+    await page.getByRole("radio", { name: /Meta class/ }).check();
+    await page.getByRole("button", { name: new RegExp(`Use ${className}`) }).click();
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("status")).toContainText("saved");
     const savedView = page.getByRole("button", { name: viewTitle });
     await expect(savedView).toBeVisible();
-    await expect(savedView.locator("xpath=..")).toContainText(className);
-
-    await savedView.click();
-    await page.waitForURL(`**/app/meta?class=${encodedClass}**`);
-    await expect(page.locator(".g-meta-explorer")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Meta class" })).toBeVisible();
+    await expect(page.getByLabel("Selected Meta class")).toHaveValue(className);
   });
 });

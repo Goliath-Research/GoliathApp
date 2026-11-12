@@ -4,9 +4,15 @@ import {
   portalSessionListOperatorDashboards,
   portalSessionListOperatorViews,
 } from "@/server/portal/bridge";
-import { OperatorDashboardsWorkspace } from "@/components/OperatorDashboardsWorkspace";
+import { OperatorDashboardEditor } from "@/components/OperatorDashboardEditor";
 
-export async function OperatorDashboardsWorkspaceServer({ selectedDashboardId }: { selectedDashboardId?: number }) {
+export async function OperatorDashboardsWorkspaceServer({
+  selectedDashboardId,
+  viewMode,
+}: {
+  selectedDashboardId?: number;
+  viewMode?: boolean;
+}) {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
@@ -17,11 +23,12 @@ export async function OperatorDashboardsWorkspaceServer({ selectedDashboardId }:
   ]);
 
   return (
-    <OperatorDashboardsWorkspace
+    <OperatorDashboardEditor
       initialDashboards={dashboards.map((d) => ({
         dashboardId: d.dashboardId,
         title: d.title,
         widgetCount: d.widgetCount,
+        visibility: d.visibility,
       }))}
       initialViews={views.map((v) => ({
         viewId: v.viewId,
@@ -30,6 +37,7 @@ export async function OperatorDashboardsWorkspaceServer({ selectedDashboardId }:
         metaClassName: v.metaClassName,
       }))}
       selectedDashboardId={selectedDashboardId}
+      viewMode={viewMode}
     />
   );
 }

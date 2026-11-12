@@ -5,7 +5,7 @@ import {
   portalSessionMetaListClasses,
   portalSessionPlatformQuery,
 } from "@/server/portal/bridge";
-import { OperatorViewsWorkspace } from "@/components/OperatorViewsWorkspace";
+import { OperatorViewEditor } from "@/components/OperatorViewEditor";
 
 export async function OperatorViewsWorkspaceServer({ runViewId }: { runViewId?: number }) {
   const cookieStore = await cookies();
@@ -23,22 +23,23 @@ export async function OperatorViewsWorkspaceServer({ runViewId }: { runViewId?: 
   ]);
 
   return (
-    <OperatorViewsWorkspace
+    <OperatorViewEditor
       catalog={catalogRows.map((row) => ({
         requestCode: String(row.request_code),
         displayName: String(row.display_name),
         namespace: String(row.namespace),
         entityCode: String(row.entity_code),
       }))}
-      metaClasses={classes.map((c) => c.className)}
+      metaClasses={classes}
       initialViews={views.map((v) => ({
         viewId: v.viewId,
         title: v.title,
         description: v.description,
         semanticRequestCode: v.semanticRequestCode,
         metaClassName: v.metaClassName,
+        visibility: v.visibility,
       }))}
-      runViewId={runViewId}
+      initialViewId={runViewId}
     />
   );
 }

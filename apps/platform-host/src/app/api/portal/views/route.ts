@@ -45,6 +45,7 @@ export async function POST(request: Request) {
         typeof body.paramsJson === "object" && body.paramsJson !== null
           ? (body.paramsJson as Record<string, unknown>)
           : {},
+      visibility: body.visibility == null ? undefined : String(body.visibility),
     });
     const response = NextResponse.json({ viewId }, { status: body.viewId ? 200 : 201 });
     return withSessionCookie(response, token);

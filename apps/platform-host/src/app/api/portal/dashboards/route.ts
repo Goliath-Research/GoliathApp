@@ -36,6 +36,11 @@ export async function POST(request: Request) {
       dashboardId: body.dashboardId == null ? undefined : Number(body.dashboardId),
       title: String(body.title ?? ""),
       description: body.description == null ? undefined : String(body.description),
+      layoutJson:
+        typeof body.layoutJson === "object" && body.layoutJson !== null
+          ? (body.layoutJson as Record<string, unknown>)
+          : undefined,
+      visibility: body.visibility == null ? undefined : String(body.visibility),
     });
     const response = NextResponse.json({ dashboardId }, { status: body.dashboardId ? 200 : 201 });
     return withSessionCookie(response, token);
