@@ -180,6 +180,85 @@ function mapFilterOp(op: FilterOperator): string | null {
   }
 }
 
+function filterValueActive(filter: ViewFilter): boolean {
+  if (filter.operator === "is_null") {
+    return true;
+  }
+  const value = filter.value;
+  if (value === undefined || value === null) {
+    return false;
+  }
+  if (typeof value === "string" && value.length === 0) {
+    return false;
+  }
+  return true;
+}
+
+function rowFieldValue(row: Record<string, unknown>, field: string): unknown {
+  if (Object.hasOwn(row, field)) {
+    return row[field];
+  }
+  const segments = field.split(".");
+  let current: unknown = row;
+  for (const segment of segments) {
+    if (current == null || typeof current !== "object" || Array.isArray(current)) {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return current;
+}
+
+function rowMatchesFilter(row: Record<string, unknown>, filter: ViewFilter): boolean {
+  const fieldValue = rowFieldValue(row, filter.field);
+  const expected = filter.value;
+  switch (filter.operator) {
+    case "is_null":
+      return fieldValue === null || fieldValue === undefined;
+    case "eq":
+      return String(fieldValue ?? "") === String(expected ?? "");
+    case "neq":
+      return String(fieldValue ?? "") !== String(expected ?? "");
+    case "contains":
+      return String(fieldValue ?? "")
+        .toLowerCase()
+        .includes(String(expected ?? "").toLowerCase());
+    case "starts_with":
+      return String(fieldValue ?? "")
+        .toLowerCase()
+        .startsWith(String(expected ?? "").toLowerCase());
+    case "gt":
+    case "gte":
+    case "lt":
+    case "lte": {
+      const left = Number(fieldValue);
+      const right = Number(expected);
+      if (Number.isNaN(left) || Number.isNaN(right)) {
+        return false;
+      }
+      if (filter.operator === "gt") return left > right;
+      if (filter.operator === "gte") return left >= right;
+      if (filter.operator === "lt") return left < right;
+      return left <= right;
+    }
+    default: {
+      const _exhaustive: never = filter.operator;
+      return _exhaustive;
+    }
+  }
+}
+
+export function applyViewFilters(
+  rows: Record<string, unknown>[],
+  filters: ViewFilter[],
+): Record<string, unknown>[] {
+  const active = filters.filter(filterValueActive);
+  if (active.length === 0) {
+    return rows;
+  }
+  return rows.filter((row) => active.every((filter) => rowMatchesFilter(row, filter)));
+}
+
 export function previewColumns(
   definition: ViewDefinition,
   rowSample: Record<string, unknown> | undefined,

@@ -751,22 +751,9 @@ export async function portalSessionRunSemanticRequest(
 ): Promise<Record<string, unknown>[]> {
   return withClient(async (client) => {
     try {
-      const { filter_template: filterTemplate, order_by: orderBy, ...runParams } = paramsJson;
-      let filterJson: string | null = null;
-      if (filterTemplate != null && typeof filterTemplate === "object") {
-        const filterDoc: Record<string, unknown> = {
-          ...(filterTemplate as Record<string, unknown>),
-        };
-        if (orderBy != null) {
-          filterDoc.order_by = orderBy;
-        }
-        filterJson = JSON.stringify(filterDoc);
-      } else if (orderBy != null) {
-        filterJson = JSON.stringify({ order_by: orderBy });
-      }
       const result = await client.query(
-        `SELECT * FROM portal.sp_run_semantic_request($1, $2, $3, $4::jsonb, $5::jsonb)`,
-        [sessionToken, requestCode, version, JSON.stringify(runParams), filterJson],
+        `SELECT * FROM portal.sp_run_semantic_request($1, $2, $3, $4::jsonb, NULL::jsonb)`,
+        [sessionToken, requestCode, version, JSON.stringify(paramsJson)],
       );
       return result.rows.map((row) => {
         const value = Object.values(row)[0];

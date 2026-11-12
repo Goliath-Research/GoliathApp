@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  applyViewFilters,
   buildSemanticRunParams,
   DEFAULT_VIEW_DEFINITION,
   mergeVizOverride,
@@ -158,7 +159,9 @@ export function OperatorDashboardEditor({
           const body = (await res.json()) as {
             objects: Array<{ document: Record<string, unknown> }>;
           };
-          rows = body.objects.slice(0, definition.limit).map((o) => flattenMetaDocument(o.document));
+          const mergedFilters = [...definition.filters, ...filters];
+          const flattened = body.objects.map((o) => flattenMetaDocument(o.document));
+          rows = applyViewFilters(flattened, mergedFilters).slice(0, definition.limit);
         }
       }
       next.push({ widget: w, rows, definition: { ...definition, visualization: viz }, viz });

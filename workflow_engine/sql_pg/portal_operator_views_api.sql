@@ -116,7 +116,8 @@ AS $$
     CASE
       WHEN p_visibility IN ('scope', 'private') THEN p_row_scope_id = p_active_scope_id
       WHEN p_visibility = 'organization' THEN
-        EXISTS (
+        p_row_scope_id = p_active_scope_id
+        OR EXISTS (
           SELECT 1
           FROM "RBAC"."Scopes" sa
           INNER JOIN "RBAC"."Scopes" so
@@ -714,10 +715,9 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM portal.operator_dashboard d
     WHERE d.id = p_dashboard_id
-      AND portal.fn_operator_scope_visible(v_sess.active_scope_id, d.scope_id, d.visibility)
+      AND d.scope_id = v_sess.active_scope_id
       AND (
-        d.visibility <> 'private'
-        OR d.created_by_user_id = v_sess.user_id
+        d.created_by_user_id = v_sess.user_id
         OR portal.fn_semantic_session_has_permission(v_sess.user_id, 'meta.object.write')
       )
   ) THEN
