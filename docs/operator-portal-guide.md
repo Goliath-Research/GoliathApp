@@ -158,3 +158,28 @@ If a leaf has no host screen yet, the UI states that clearly — the NavTree nod
 | Engineer adoption | [Adopter guide](adopter-guide.md) |
 | NavTree and Meta bridge | [Portal nav (Meta Tree)](nav-tree-meta.md) |
 | Semantic registration | [Semantic extensions](semantic-extensions.md) |
+
+## Editing workflow records
+
+The Workflows pages **Actions**, **Domain programs**, **Workers and clusters** and **Event subscriptions**
+open a typed property-grid inspector when you choose **Edit** on a row (or **New …**). Every field is a
+typed control: references to existing rows use the searchable reference picker, lists and nested objects
+open nested inspectors, and no field accepts typed or pasted JSON. Saving requires the page's navigation
+entitlement plus the `platform.model.author` permission, and every save is recorded in
+`portal.record_editor_audit`.
+
+- **Actions are class methods.** The Actions page lists the effective methods of each Meta class, with
+  inherited methods marked *inherited from …* and overriding methods marked *override*. Editing a method
+  edits the Meta method and its typed parameters (each parameter type is picked from the existing data
+  types); the bound `wf.workflow_action` catalog row is synchronised on save (capability, execution
+  settings, output type, and — when the method declares parameters — the published parameters type and the
+  action input schema). Choose **Override here** on an inherited method to give a subclass its own
+  implementation. Parameter defaults are edited in a second grid generated from each parameter's data type
+  (class-backed types open the class's own grid).
+- **Domain programs** edit draft metadata only; the program body is preserved, and a new version starts
+  from the body of the latest version. Published versions are immutable — save under a new version, then
+  **Publish**.
+- **Workers and clusters** edit cluster settings and worker enrollments (create, change IP, revoke).
+  Starting or stopping workers is not available here.
+- **Event subscriptions** pick the event type and workflow version from existing records and describe the
+  payload filter as a list of key/value conditions.

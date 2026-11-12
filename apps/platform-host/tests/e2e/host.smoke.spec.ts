@@ -88,4 +88,13 @@ test.describe("platform host", () => {
     const res = await request.get("/api/portal/references?kind=action");
     expect([401, 503]).toContain(res.status());
   });
+
+  test("record editor APIs require a session", async ({ request }) => {
+    for (const entity of ["class_method", "domain_program", "cluster", "worker_enrollment", "event_subscription"]) {
+      const list = await request.get(`/api/portal/records/${entity}`);
+      expect([401, 503]).toContain(list.status());
+    }
+    const save = await request.post("/api/portal/records/cluster", { data: { document: { cluster_key: "x" } } });
+    expect([401, 503]).toContain(save.status());
+  });
 });

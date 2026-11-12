@@ -1,3 +1,5 @@
+import { ActionMethodsWorkspace } from "./ActionMethodsWorkspace";
+import { RecordEditorWorkspace } from "./RecordEditorWorkspace";
 import {
   MetaClassHierarchyList,
   PlatformRecordTable,
@@ -280,6 +282,22 @@ export async function PortalWorkspacePanel({
             selectedDashboardId={dashboardId}
             viewMode={dashboardViewMode}
           />
+        </div>
+      );
+    }
+
+    if (spec.kind === "record_editor") {
+      return (
+        <div className="g-portal-stage">
+          <h2>{spec.title}</h2>
+          {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
+          {(spec.recordEntities ?? []).map((entity) =>
+            entity === "class_method" ? (
+              <ActionMethodsWorkspace key={entity} />
+            ) : (
+              <RecordEditorWorkspace key={entity} entity={entity} />
+            ),
+          )}
         </div>
       );
     }

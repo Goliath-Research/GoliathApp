@@ -824,6 +824,25 @@ export async function portalSessionSearchReferences(
   });
 }
 
+/**
+ * Parameterised call of a session-gated portal function: `$1` is always the session token.
+ * Only used with fixed SQL text from server-side registries (never client-supplied SQL).
+ */
+export async function portalSessionCall(
+  sessionToken: string,
+  sql: string,
+  params: unknown[] = [],
+): Promise<Record<string, unknown>[]> {
+  return withClient(async (client) => {
+    try {
+      const result = await client.query(sql, [sessionToken, ...params]);
+      return result.rows as Record<string, unknown>[];
+    } catch (err) {
+      mapPgPortalError(err);
+    }
+  });
+}
+
 export async function portalSessionRunSemanticRequest(
   sessionToken: string,
   requestCode: string,
