@@ -68,7 +68,8 @@ def _author_role(env: dict[str, str], user_id: int, scope_id: int) -> int:
     )
     _psql(
         f"""INSERT INTO "RBAC"."Role_Permissions" ("RoleID", "PermissionID")
-            SELECT {role_id}, p."ID" FROM "RBAC"."Permissions" p WHERE p."Name" = 'platform.model.author'""",
+            SELECT {role_id}, p."ID" FROM "RBAC"."Permissions" p
+            WHERE p."Name" IN ('platform.model.author', 'meta.schema.read', 'meta.object.read', 'meta.object.write')""",
         env,
     )
     _psql(
@@ -114,17 +115,29 @@ def author_token(editor_env: dict[str, str]) -> str:
 
 @pytest.fixture(scope="module")
 def reader_token(editor_env: dict[str, str]) -> str:
-    """Org admin with nav access but without platform.model.author."""
+    """Role with every /app nav entitlement but no permissions (no platform.model.author)."""
     from workflow_engine.tests.helpers.portal_session_test_helpers import (
-        grant_organization_admin,
+        grant_role_nav_tree,
         open_session_token,
     )
 
     env = editor_env
     psql = lambda sql: _psql(sql, env)  # noqa: E731
-    user_id, org_id, scope_id = _make_user(env, "Reader")
-    grant_organization_admin(psql, org_id, user_id)
-    return open_session_token(psql, user_id, scope_id=scope_id)
+    user_id, _org_id, scope_id = _make_user(env, "Reader")
+    role_id = int(
+        _psql(
+            f"""INSERT INTO "RBAC"."Roles" ("Name", "BypassScope")
+                VALUES ('nav_reader_{uuid.uuid4().hex[:8]}', false) RETURNING "ID" """,
+            env,
+        )
+    )
+    _psql(
+        f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc")
+            VALUES ({user_id}, {role_id}, 'DIRECT', {scope_id}, true, now() AT TIME ZONE 'utc')""",
+        env,
+    )
+    grant_role_nav_tree(psql, role_id, scope_id)
+    return open_session_token(psql, user_id, scope_id=scope_id, role_id=role_id)
 
 
 
@@ -209,6 +222,17 @@ def test_save_creates_new_inactive_version(editor_env: dict[str, str], author_to
         env,
     )
     assert audit == "save_new_version,activate"
+
+
+def test_graph_writers_require_model_author(editor_env: dict[str, str], reader_token: str) -> None:
+    base_id, _ = _make_workflow(editor_env)
+    with pytest.raises(RuntimeError, match="model author permission denied"):
+        _psql(
+            f"SELECT * FROM portal.sp_session_save_workflow_version({_lit(reader_token)}, {base_id}, '{{}}'::jsonb)",
+            editor_env,
+        )
+    with pytest.raises(RuntimeError, match="model author permission denied"):
+        _psql(f"SELECT * FROM portal.sp_session_activate_workflow_version({_lit(reader_token)}, {base_id})", editor_env)
 
 
 def test_invalid_graph_is_rejected(editor_env: dict[str, str], author_token: str) -> None:
