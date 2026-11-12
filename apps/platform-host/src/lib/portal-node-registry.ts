@@ -17,6 +17,7 @@ export type PortalWorkspaceKind =
   | "platform_query"
   | "operator_views"
   | "operator_dashboards"
+  | "record_editor"
   | "placeholder";
 
 export type PortalWorkspaceSpec = {
@@ -31,6 +32,8 @@ export type PortalWorkspaceSpec = {
   platformQuery?: string;
   /** Semantic request_code for sp_run_semantic_request. */
   semanticRequest?: string;
+  /** Record editor entities (record-editor-schemas.ts) rendered by kind "record_editor". */
+  recordEntities?: string[];
 };
 
 const META_ROOT_DEFAULT = "portal/NavNode";
@@ -164,9 +167,11 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     platformQuery: "workflow_runs",
   },
   "/app/workflows/actions": {
-    kind: "platform_query",
+    kind: "record_editor",
     title: "Workflow actions",
-    platformQuery: "workflow_actions",
+    description:
+      "Actions are Meta class methods. Edit a method and its typed parameters; the action catalog is kept in sync.",
+    recordEntities: ["class_method"],
   },
   "/app/workflows/steps": {
     kind: "platform_query",
@@ -174,19 +179,22 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     platformQuery: "workflow_steps",
   },
   "/app/workflows/domain-programs": {
-    kind: "platform_query",
+    kind: "record_editor",
     title: "Domain programs",
-    platformQuery: "domain_programs",
+    description: "Edit draft program metadata and publish drafts. Published versions are immutable.",
+    recordEntities: ["domain_program"],
   },
   "/app/workflows/workers": {
-    kind: "platform_query",
-    title: "Worker enrollments",
-    platformQuery: "worker_enrollments",
+    kind: "record_editor",
+    title: "Workers and clusters",
+    description: "Edit cluster settings and worker enrollments. Starting or stopping workers is not done here.",
+    recordEntities: ["cluster", "worker_enrollment"],
   },
   "/app/workflows/subscriptions": {
-    kind: "platform_query",
+    kind: "record_editor",
     title: "Event subscriptions",
-    platformQuery: "event_subscriptions",
+    description: "Create and edit the event subscriptions that start or signal workflow runs.",
+    recordEntities: ["event_subscription"],
   },
   "/app/config/site": { kind: "platform_query", title: "Site settings", platformQuery: "sites" },
   "/app/config/pipeline-profiles": {
