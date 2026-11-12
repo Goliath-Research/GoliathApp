@@ -81,7 +81,8 @@ BEGIN
   ELSIF v_kind IN ('data_type', 'meta_class') THEN
     PERFORM portal.fn_session_require_any_nav(
       p_session_token,
-      ARRAY['/app/meta/classes', '/app/meta/data-types', '/app/meta/methods', '/app/workflows/actions']
+      ARRAY['/app/meta/classes', '/app/meta/data-types', '/app/meta/methods', '/app/workflows/actions',
+            '/app/meta/objects', '/app/meta/fields', '/app/meta/relations', '/app/meta/trees']
     );
     PERFORM 1 FROM portal.fn_session_meta_require(p_session_token, 'meta.schema.read');
   ELSIF v_kind = 'study' THEN
