@@ -12,6 +12,8 @@ export type PropertyInspectorModalProps = {
   onCancel: () => void;
   okDisabled?: boolean;
   okLabel?: string;
+  /** When true, cancel returns to the parent inspector (nested modal stack). */
+  nested?: boolean;
 };
 
 /**
@@ -34,6 +36,7 @@ export function PropertyInspectorModal({
   onCancel,
   okDisabled = false,
   okLabel = "OK",
+  nested = false,
 }: PropertyInspectorModalProps) {
   const titleId = useId();
   const [mounted, setMounted] = useState(false);
@@ -116,7 +119,9 @@ export function PropertyInspectorModal({
             data-testid="property-inspector-cancel"
             onClick={onCancel}
           >
-            {breadcrumb && breadcrumb.length > 2 ? `Back to ${breadcrumb[breadcrumb.length - 2]}` : "Cancel"}
+            {nested && breadcrumb && breadcrumb.length > 1
+              ? `Back to ${breadcrumb[breadcrumb.length - 2]}`
+              : "Cancel"}
           </button>
         </div>
       </div>

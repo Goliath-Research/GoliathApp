@@ -203,6 +203,7 @@ export function CatalogNestedSchemaDialog({
         open
         title={title}
         breadcrumb={breadcrumb}
+        nested={depth > 0}
         onOk={() => onSave(commitSnapshotRef.current?.() ?? initialValue)}
         onCancel={onCancel}
         okDisabled={loading || !!error || flattened == null}

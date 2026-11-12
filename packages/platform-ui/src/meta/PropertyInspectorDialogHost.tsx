@@ -127,6 +127,7 @@ function ObjectInspectorModalBody({
       open
       title={title}
       breadcrumb={request.breadcrumb}
+      nested={depth > 0}
       onOk={onOk}
       onCancel={onDismiss}
     >

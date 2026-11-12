@@ -123,7 +123,7 @@ BEGIN
     LIMIT v_limit;
   ELSIF v_kind = 'cluster' THEN
     RETURN QUERY
-    SELECT c.cluster_key, c.name, concat_ws(' · ', c.cluster_key, c.provider, c.status)
+    SELECT c.id::text, c.name, concat_ws(' · ', c.cluster_key, c.provider, c.status)
     FROM wf.cluster c
     WHERE c.cluster_key ILIKE v_q OR c.name ILIKE v_q
     ORDER BY c.name
