@@ -78,6 +78,21 @@ CREATE TABLE IF NOT EXISTS portal.semantic_request (
 CREATE INDEX IF NOT EXISTS ix_semantic_request_entity
   ON portal.semantic_request (entity_id);
 
+-- Lifecycle: RETIRED requests stay registered (history, nav bindings) but do not run or list.
+ALTER TABLE portal.semantic_request
+  ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'ACTIVE';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'ck_semantic_request_status'
+  ) THEN
+    ALTER TABLE portal.semantic_request
+      ADD CONSTRAINT ck_semantic_request_status CHECK (status IN ('ACTIVE', 'RETIRED'));
+  END IF;
+END;
+$$;
+
 CREATE TABLE IF NOT EXISTS portal.semantic_action_binding (
   workflow_action_id bigint NOT NULL REFERENCES wf.workflow_action (id) ON DELETE CASCADE,
   entity_id integer NOT NULL REFERENCES portal.semantic_entity (id) ON DELETE CASCADE,
