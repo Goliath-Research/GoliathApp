@@ -132,7 +132,7 @@ test.describe("authenticated meta (CI postgres)", () => {
 
   test("SchemaPropertyGrid renders required NavNode fields", async ({ page, request }) => {
     await page.goto("/app/meta?class=portal%2FNavNode");
-    await page.getByTestId("meta-instance-list-add").click();
+    await page.getByTestId("meta-tree-add").click(); // NavNode is tree-shaped
     await expect(page.locator(".g-schema-property-grid")).toBeVisible();
     const fieldsRes = await request.get("/api/meta/classes/portal%2FNavNode/fields");
     const { fields } = (await fieldsRes.json()) as {
@@ -151,7 +151,7 @@ test.describe("authenticated meta (CI postgres)", () => {
   test("meta workbench has no JSON textarea", async ({ page }) => {
     await page.goto("/app/meta?class=portal%2FNavNode");
     await expect(page.getByTestId("meta-instance-workbench")).toBeVisible();
-    await page.getByTestId("meta-instance-list-add").click();
+    await page.getByTestId("meta-tree-add").click(); // NavNode is tree-shaped
     await expect(page.getByTestId("meta-instance-dialog")).toBeVisible();
     await expect(page.locator(".g-meta-workbench textarea")).toHaveCount(0);
     await expect(page.locator(".g-schema-property-grid textarea")).toHaveCount(0);
@@ -159,19 +159,20 @@ test.describe("authenticated meta (CI postgres)", () => {
 
   test("list select edit save round-trip", async ({ page, request }) => {
     test.setTimeout(60_000);
+    const pick = `ListPick${Date.now() % 100000}`;
     const createRes = await request.post("/api/meta/classes/portal%2FNavNode/objects", {
-      data: { document: { Caption: "ListPick", Seq: 41 } },
+      data: { document: { Caption: pick, Seq: 41 } },
     });
     expect(createRes.status()).toBe(201);
     const { objId } = (await createRes.json()) as { objId: number };
 
     await page.goto("/app/meta?class=portal%2FNavNode");
-    await expect(page.getByTestId(`meta-instance-row-${objId}`)).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId(`meta-instance-row-${objId}`).getByRole("button", { name: /^Edit / }).click();
+    await expect(page.getByTestId(`meta-tree-node-${objId}`)).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: `Edit ${pick}`, exact: true }).click();
     const caption = page.getByTestId("pi-row-Caption").locator("input");
-    await expect(caption).toHaveValue("ListPick", { timeout: 15_000 });
-    await caption.fill("ListPickEdited");
-    await expect(caption).toHaveValue("ListPickEdited");
+    await expect(caption).toHaveValue(pick, { timeout: 15_000 });
+    await caption.fill(`${pick}Edited`);
+    await expect(caption).toHaveValue(`${pick}Edited`);
     const workbench = page.getByTestId("meta-instance-dialog");
     await expect(workbench.getByRole("button", { name: "Save changes" })).toBeEnabled();
     const patchPromise = page.waitForResponse(
@@ -196,7 +197,7 @@ test.describe("authenticated meta (CI postgres)", () => {
         const row = (await getRes.json()) as { object: { document: Record<string, unknown> } };
         return row.object.document.Caption;
       })
-      .toBe("ListPickEdited");
+      .toBe(`${pick}Edited`);
     await expect(page.getByTestId("meta-workbench-status")).toContainText(`Updated object #${objId}`, {
       timeout: 15_000,
     });

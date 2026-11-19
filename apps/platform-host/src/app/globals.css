@@ -1007,3 +1007,18 @@
 .g-record-dialog__header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
 .g-record-dialog__header h3 { margin: 0 auto 0 0; }
 .g-record-dialog--wide { width: min(1280px, 98vw); }
+
+/* Generic tree editor (packages/platform-ui RecordTree). */
+.g-record-tree { margin: 1rem 0 1.5rem; }
+.g-record-tree__level { list-style: none; margin: 0; padding-left: 1.25rem; }
+.g-record-tree > .g-record-tree__level { padding-left: 0; }
+.g-record-tree__row { display: flex; align-items: center; gap: 0.4rem; padding: 0.2rem 0.35rem; border-radius: 4px; }
+.g-record-tree__row:hover { background: var(--g-hover, rgba(80, 120, 220, 0.06)); }
+.g-record-tree__row.is-selected { background: var(--g-selected, rgba(80, 120, 220, 0.12)); }
+.g-record-tree__row.is-dragging { opacity: 0.5; }
+.g-record-tree__toggle { all: unset; cursor: pointer; width: 1rem; text-align: center; }
+.g-record-tree__label { font-weight: 500; }
+.g-record-tree__detail { font-size: 0.8rem; opacity: 0.7; }
+.g-record-tree__actions { margin-left: auto; display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.g-record-tree__move { display: flex; gap: 0.5rem; align-items: center; margin: 0.25rem 0 0.5rem 1.5rem; }
+.g-record-tree__root-drop { margin-top: 0.5rem; padding: 0.75rem; border: 2px dashed var(--g-host-border); border-radius: 6px; text-align: center; }
