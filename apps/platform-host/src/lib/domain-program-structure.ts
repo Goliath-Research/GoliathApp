@@ -90,7 +90,8 @@ export function stepNode(step: unknown): ProgramTreeNode {
     };
   }
   if ("switch" in step) {
-    const on = text(step.switch) || "value";
+    const disc = step.switch;
+    const on = (isObj(disc) ? text(disc.ref) || text(disc.var) : text(disc)) || "value";
     const cases = isObj(step.cases)
       ? Object.entries(step.cases).map(([k, v]) => stepsNode("branch", `case ${k}`, v))
       : [];

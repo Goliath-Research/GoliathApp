@@ -46,4 +46,9 @@ describe("domain program structure tree", () => {
     expect(linkedVersionId("?version=abc")).toBeNull();
     expect(linkedVersionId("")).toBeNull();
   });
+
+  it("labels a switch on a variable reference", () => {
+    const node = stepNode({ switch: { ref: "mode" }, cases: { a: [{ call: "x" }] } });
+    expect(node.label).toBe("switch mode");
+  });
 });

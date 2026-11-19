@@ -38,18 +38,20 @@ export function DomainProgramStructurePanel() {
   const [error, setError] = useState<string | null>(null);
   const seq = useRef(0);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const rows = await fetchRecordRows("domain_program");
-        setPrograms(
-          rows.map((r) => ({ name: String(r.name ?? ""), version: String(r.version ?? ""), status: String(r.status ?? "") })),
-        );
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      }
-    })();
+  const loadPrograms = useCallback(async () => {
+    try {
+      const rows = await fetchRecordRows("domain_program");
+      setPrograms(
+        rows.map((r) => ({ name: String(r.name ?? ""), version: String(r.version ?? ""), status: String(r.status ?? "") })),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
   }, []);
+
+  useEffect(() => {
+    void loadPrograms();
+  }, [loadPrograms]);
 
   const open = useCallback(async (key: string) => {
     setSelected(key);
@@ -81,7 +83,10 @@ export function DomainProgramStructurePanel() {
         <h3>Program structure</h3>
         <label>
           <span className="sr-only">Program version</span>
-          <select value={selected} onChange={(e) => void open(e.target.value)} aria-label="Program version">
+          <select value={selected} onChange={(e) => void open(e.target.value)}
+            onFocus={() => void loadPrograms()}
+            aria-label="Program version"
+          >
             <option value="">Choose a program version…</option>
             {programs.map((p) => (
               <option key={`${p.name}@${p.version}`} value={`${p.name}@${p.version}`}>
@@ -90,6 +95,9 @@ export function DomainProgramStructurePanel() {
             ))}
           </select>
         </label>
+        <button type="button" onClick={() => void loadPrograms().then(() => (selected ? open(selected) : undefined))}>
+          Refresh
+        </button>
       </header>
       {error ? (
         <p role="alert" className="g-record-editor__error">
