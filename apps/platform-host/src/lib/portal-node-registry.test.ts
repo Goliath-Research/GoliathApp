@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nodePathFromUrlPathname, resolvePortalWorkspace } from "./portal-node-registry";
+import { navChildrenOf, nodePathFromUrlPathname, resolvePortalWorkspace } from "./portal-node-registry";
 
 describe("resolvePortalWorkspace", () => {
   it("maps meta nodes to hierarchy or workbench", () => {
@@ -44,6 +44,38 @@ describe("resolvePortalWorkspace", () => {
     });
     expect(spec.kind).toBe("meta_workbench");
     expect(spec.metaClass).toBe("portal/NavNode");
+  });
+});
+
+describe("parent routes, unknown paths, and Meta member routes", () => {
+  it("turns section parents into indexes", () => {
+    for (const p of ["/app/admin", "/app/workflows", "/app/config", "/app/operations", "/app/inv"]) {
+      expect(resolvePortalWorkspace(p).kind).toBe("route_index");
+    }
+  });
+
+  it("explains extension for an unknown path", () => {
+    expect(resolvePortalWorkspace("/app/childapp/unknown").kind).toBe("extension_help");
+  });
+
+  it("opens methods in the class-method editor and fields/relations in the class catalog", () => {
+    const methods = resolvePortalWorkspace("/app/meta/methods");
+    expect(methods.kind).toBe("record_editor");
+    expect(methods.recordEntities).toEqual(["class_method"]);
+    expect(resolvePortalWorkspace("/app/meta/fields").kind).toBe("meta_class_catalog");
+    expect(resolvePortalWorkspace("/app/meta/relations").kind).toBe("meta_class_catalog");
+  });
+
+  it("lists direct NavTree children in menu order", () => {
+    const rows = [
+      { nodeId: 1, parentId: null, caption: "App", seq: 0, nodePath: "/app" },
+      { nodeId: 2, parentId: 1, caption: "Workflows", seq: 1, nodePath: "/app/workflows" },
+      { nodeId: 3, parentId: 2, caption: "Runs", seq: 2, nodePath: "/app/workflows/runs" },
+      { nodeId: 4, parentId: 2, caption: "Definitions", seq: 1, nodePath: "/app/workflows/definitions" },
+      { nodeId: 5, parentId: 3, caption: "Deep", seq: 0, nodePath: "/app/workflows/runs/deep" },
+    ];
+    expect(navChildrenOf(rows, "/app/workflows/").map((r) => r.caption)).toEqual(["Definitions", "Runs"]);
+    expect(navChildrenOf(rows, "/app/missing")).toEqual([]);
   });
 });
 

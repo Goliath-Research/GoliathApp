@@ -28,7 +28,7 @@ import {
 } from "@/server/portal/bridge";
 import { cookies, headers } from "next/headers";
 import { requestOriginFromHeaderStore } from "@/server/http/request-origin";
-import type { PortalWorkspaceSpec } from "@/lib/portal-node-registry";
+import { navChildrenOf, type PortalWorkspaceSpec } from "@/lib/portal-node-registry";
 import { PLATFORM_QUERY_SQL } from "@/lib/portal-platform-queries";
 import { SESSION_COOKIE_NAME } from "@/server/session/cookies";
 import {
@@ -375,6 +375,35 @@ export async function PortalWorkspacePanel({
       );
     }
 
+    if (spec.kind === "route_index" || spec.kind === "extension_help") {
+      const nav = await portalOperatorNavTree(token);
+      const children = navChildrenOf(nav, pathname ?? "/app");
+      if (children.length > 0) {
+        return (
+          <div className="g-portal-stage">
+            <h2>{spec.title}</h2>
+            {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
+            <ul className="g-route-index" aria-label={`${spec.title} pages`}>
+              {children.map((c) => (
+                <li key={c.nodeId}>
+                  <a href={c.nodePath ?? "#"}>{c.caption}</a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      }
+      if (spec.kind === "route_index") {
+        return (
+          <div className="g-portal-stage">
+            <h2>{spec.title}</h2>
+            <p role="status">Your role has no pages under this section in the active scope.</p>
+          </div>
+        );
+      }
+      return <ExtensionHelpPanel title={spec.title} path={pathname ?? "/app"} />;
+    }
+
     return <PlaceholderPanel title={spec.title} description={spec.description} />;
   } catch (err) {
     if (err instanceof PortalForbiddenError) {
@@ -395,6 +424,28 @@ export async function PortalWorkspacePanel({
     }
     throw err;
   }
+}
+
+function ExtensionHelpPanel({ title, path }: { title: string; path: string }) {
+  return (
+    <div className="g-portal-stage">
+      <h2>{title}</h2>
+      <p role="status">
+        No screen is attached to <code>{path}</code>. A child app attaches one with data, not host code:
+      </p>
+      <ul>
+        <li>
+          Register a Meta class and a navigation node whose info name is{" "}
+          <code>platform.nav.meta_object:&lt;namespace&gt;/&lt;Class&gt;</code> with presentation kind{" "}
+          <code>meta_object</code>; the node opens the Meta workbench for that class.
+        </li>
+        <li>
+          Or save a view (<a href="/app/views/list">Views</a>) and point the navigation node at it.
+        </li>
+      </ul>
+      <p>Custom React screens need a separate platform host build and are not required for a seeded product.</p>
+    </div>
+  );
 }
 
 function PlaceholderPanel({ title, description }: { title: string; description?: string }) {
