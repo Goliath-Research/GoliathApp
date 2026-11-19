@@ -46,11 +46,11 @@ test.describe("model authoring (CI postgres)", () => {
     await expect(classGrid.getByRole("cell", { name: className, exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: className })).toBeVisible();
 
-    const typesRes = await request.get("/api/portal/references?kind=data_type&q=string&limit=20");
+    const typesRes = await request.get("/api/portal/references?kind=data_type&q=Text&limit=20");
     expect(typesRes.ok()).toBeTruthy();
     const types = ((await typesRes.json()) as { rows: Array<{ value: string; label: string }> }).rows;
     expect(types.length).toBeGreaterThan(0);
-    const stringType = types.find((t) => /string|text/i.test(t.label)) ?? types[0];
+    const stringType = types.find((t) => /Text@/.test(t.label)) ?? types[0];
     const fieldRes = await request.post("/api/portal/records/meta_field", {
       data: { document: { class_name: className, field_name: "Nickname", type_id: Number(stringType.value) } },
     });
