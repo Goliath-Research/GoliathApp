@@ -371,12 +371,12 @@ BEGIN
   ELSE
     SELECT string_agg(
              CASE
-               WHEN c.identity_always THEN format('%1$I = t.%1$I', c.name)
                WHEN v_doc ? c.name OR c.nullable THEN format('%1$I = s.%1$I', c.name)
                ELSE format('%1$I = t.%1$I', c.name)
              END,
              ', ' ORDER BY c.ordinal)
-    INTO v_sets FROM "Meta".fn_catalog_columns(v_kind.relation) c;
+    INTO v_sets FROM "Meta".fn_catalog_columns(v_kind.relation) c
+    WHERE NOT c.identity_always;
     SELECT string_agg(format('t.%1$I = (SELECT k.%1$I FROM jsonb_populate_record(NULL::%2$s, $2) k)', c, v_kind.relation), ' AND ')
     INTO v_where FROM unnest(v_kind.key_columns) c;
     EXECUTE format(
