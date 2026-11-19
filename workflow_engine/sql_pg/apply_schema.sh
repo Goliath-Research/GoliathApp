@@ -139,6 +139,7 @@ SCRIPTS=(
   semantic_entity_class_access.sql
   meta_catalog_projection.sql
   semantic_catalog_meta.sql
+  wf_cfg_catalog_meta.sql
   portal_contract_api.sql
   portal_study_ops_api.sql
   portal_guardrails_editor.sql
