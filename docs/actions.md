@@ -69,3 +69,51 @@ leaves the catalog input schemas as the action catalog published them.
 A child app overrides a platform method by seeding the same method name on its subclass (the Actions
 page marks it *override*). It adds new actions the same way, as methods on its own classes. No UI
 code is involved.
+
+## Deriving child action methods
+
+Every action must be a method on exactly one owning entity class. A child app seeds a method row for each
+of its actions (`"Meta"."Methods"`, `ImplKind = 'action'`, `ImplRef = <action name>`) on the class its
+semantic entity maps to. It then calls the generic derivation from its seed, after the catalog has
+published the input schemas:
+
+```sql
+SELECT * FROM "Meta".sp_derive_action_methods('<namespace>');        -- apply
+SELECT * FROM "Meta".sp_derive_action_methods('<namespace>', false); -- report only
+```
+
+For each owning method that has no parameters yet, it reads the action's input schema and adds one
+parameter per input property:
+
+- **Required flag** from the schema's `required`; **default** from a non-null `default`.
+- **Data type:**
+  1. When the property matches an attribute of the owning class's semantic entity (by code or column, camelCase or snake_case), the attribute's type.
+  2. Otherwise, a plain scalar maps to the `platform/action/*` type: Text, Integer, Decimal, Boolean, Document, DocumentList, or a TextList, IntegerList, DecimalList or BooleanList.
+  3. Anything else (an enum, a constrained string, a nested object) gets a named data type in the owning class's namespace. A `$defs` object is named after its definition (`<ns>/<Def>`); other properties are named `<ns>/<InputTitle>.<property>`.
+
+  Nullable `anyOf [X, null]` unwraps to `X`.
+- **Semantic binding:** the action is bound to the entity mapped to the owning class (or its nearest mapped ancestor), in `portal.semantic_action_binding` and `wf.workflow_action.semantic_entity_id`.
+
+Each row returns a status:
+
+| Status | Meaning |
+| --- | --- |
+| `derived` | Parameters added. |
+| `typed` | The method already had parameters (left unchanged). |
+| `no_owner` | The action has no owning method. It is invalid. |
+| `multiple_owners` | The action has more than one owning method. It is invalid. |
+| `no_input_schema` | The action has no input schema. Nothing to derive from. |
+| `ambiguous` | Nothing was written for the action. `detail` says what is missing, for example an existing data type of the same name with a different schema. |
+
+The derivation is idempotent and never deletes anything.
+
+`"Meta".fn_check_action_owners()` lists every catalog action with one of these statuses:
+
+| Status | Meaning |
+| --- | --- |
+| `ok` | One owning method. |
+| `no_owner` | No owning method. Invalid. |
+| `multiple_owners` | More than one owning method. Invalid. |
+| `known_duplicate` | One method on a `platform/*` class plus duplicates elsewhere. Tolerated: the platform class is the owner, and removing the duplicates is an owner decision. |
+
+Global or class-less actions (`no_owner`) are invalid. `workflow_engine/scripts/verify_action_owners.sh` lists them after a schema apply and exits non-zero when any exist.
