@@ -113,6 +113,8 @@ RETURNS TABLE (
   reclaimed_at_utc timestamptz
 )
 LANGUAGE sql
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
 AS $$
   SELECT *
   FROM wf.sp_reclaim_expired_leases(p_workflow_instance_id, p_grace_seconds, false);
