@@ -18,12 +18,12 @@ from typing import Any, Dict, List, Mapping, Optional, Set, cast
 from pydantic import BaseModel, ConfigDict, Field
 
 from .pipeline_profiles import (
-    PIPELINE_FLAG_DEFAULTS,
     _deep_merge,
     apply_pipeline_procedure,
     apply_pipeline_profile,
     load_procedure,
     load_profile,
+    pipeline_flag_defaults,
     profile_action_config,
     seed_pipeline_scope_flags,
     validate_procedure_analyte,
@@ -44,7 +44,6 @@ class InstanceContext(BaseModel):
     comparisons: Optional[List[Dict[str, Any]]] = None
     chromosomes: Optional[List[str]] = None
     contexts: Optional[List[str]] = None
-    centroid1Dir: Optional[str] = None
 
 
 class ResolvedScope(BaseModel):
@@ -104,53 +103,30 @@ def enrich_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
     """
     Expand minimal ``{ projectPath }`` into engine-ready context_json.
 
-    Adds comparisons (with path fields), chromosomes, contexts, and shared
-    ``centroid1Dir`` when absent. Safe to call on already-enriched payloads.
+    The application that owns the project format enriches it through its
+    ``goliath.application_profiles`` module: ``enrich_instance_context`` replaces this function,
+    or ``enrich_project_context(context, project_path)`` adds project-derived keys. The platform
+    then applies the site manifest, procedure and profile. Safe on already-enriched payloads.
     """
-    out = dict(context)
-    project_path = _resolve_project_path(out)
-
-    import importlib
-
     from .application_extension import get_application_profiles_module
 
     mod = get_application_profiles_module()
+    full = getattr(mod, "enrich_instance_context", None)
+    if callable(full) and getattr(full, "__module__", None) != __name__:
+        return cast(Dict[str, Any], full(dict(context)))
+
+    out = dict(context)
+    project_path = _resolve_project_path(out)
+    project_hook = getattr(mod, "enrich_project_context", None)
+    if callable(project_hook):
+        out = dict(project_hook(out, project_path))
+
     load_site_manifest = getattr(mod, "load_site_manifest", None)
-    load_project = importlib.import_module("meth" + "yl_utils").load_project
-
-    project = load_project(str(project_path))
-
-    if not out.get("comparisons"):
-        out["comparisons"] = enrich_comparisons_from_project(project_path)
-
-    if not out.get("chromosomes"):
-        out["chromosomes"] = list(project.chromosomes or [])
-
-    if not out.get("contexts"):
-        out["contexts"] = list(getattr(project, "contexts", None) or ["CG"])
-
-    if not out.get("centroid1Dir") and out.get("comparisons"):
-        first = out["comparisons"][0]
-        control = first.get("control_group") or first.get("group1Label")
-        if control:
-            out["centroid1Dir"] = project.get_centroid_dir("control", str(control))
-
-    if not out.get("groups"):
-        resolved = project.get_resolved_groups()
-        out["groups"] = [{"label": label} for label, _ in resolved]
-
     if not out.get("siteConfig") and callable(load_site_manifest):
         site_path = out.get("siteConfigPath")
         out["siteConfig"] = (
             load_site_manifest(site_path) if site_path else load_site_manifest()
         )
-
-    if not out.get("regulatory"):
-        out["regulatory"] = project.get_regulatory_config()
-
-    # Study/project analyte is source of truth. DomainProgram fixture defaults
-    # (historically primaryAnalyte=cfdna) and portal leftovers must not win.
-    apply_study_analyte(out, project)
 
     # Assay procedure pack (optional). Precedence (highest wins first):
     # instance → procedure → profile/mode → analyte → site.
@@ -175,7 +151,7 @@ def enrich_instance_context(context: Dict[str, Any]) -> Dict[str, Any]:
         out = apply_pipeline_profile(out, profile)
     elif out.get("actionConfig"):
         out = seed_pipeline_scope_flags(out, action_config=out.get("actionConfig"))
-    elif any(k in out for k in PIPELINE_FLAG_DEFAULTS):
+    elif any(k in out for k in pipeline_flag_defaults()):
         out = seed_pipeline_scope_flags(out, action_config=profile_action_config(out))
 
     if instance_action_config:

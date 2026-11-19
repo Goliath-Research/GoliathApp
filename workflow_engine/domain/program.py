@@ -250,6 +250,8 @@ class DomainProgram(BaseModel):
     phases: List[ProgramPhase] = Field(default_factory=list)
     body: List[Any] = Field(default_factory=list)
     on: List[EventTriggerSpec] = Field(default_factory=list)
+    # Context variables bound into the root scope by name (``${var.<name>}``), beyond projectPath.
+    scopeDefaults: List[str] = Field(default_factory=list)
 
     def split_variables(self) -> tuple[Dict[str, Any], Dict[str, VariableDecl]]:
         """Split ``variables`` into context seeds vs typed declarations."""

@@ -320,21 +320,18 @@ def _action_template(entry, step: ActionStep) -> Dict[str, Any]:
     return template
 
 
-def _emit_root_scope_defaults(ctx: _CompileCtx, root_key: str) -> None:
-    ctx.scope_defaults.extend(
-        [
-            WorkflowScopeDefaultSpec(
-                node_key=root_key,
-                var_name="projectPath",
-                default_expr="${var.projectPath}",
-            ),
-            WorkflowScopeDefaultSpec(
-                node_key=root_key,
-                var_name="centroid1Dir",
-                default_expr="${var.centroid1Dir}",
-            ),
-        ]
-    )
+def _emit_root_scope_defaults(ctx: _CompileCtx, root_key: str, names: List[str]) -> None:
+    """projectPath plus the program's declared ``scopeDefaults`` (no application names here)."""
+    seen: Set[str] = set()
+    for name in ["projectPath", *names]:
+        if not name or name in seen:
+            continue
+        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", name):
+            raise ValueError(f"invalid scopeDefaults name: {name!r}")
+        seen.add(name)
+        ctx.scope_defaults.append(
+            WorkflowScopeDefaultSpec(node_key=root_key, var_name=name, default_expr=f"${{var.{name}}}")
+        )
 
 
 def _link(parent: str, child: str, order: int, branch: str, ctx: _CompileCtx) -> None:
@@ -755,7 +752,7 @@ def compile_domain_program(
         except (FileNotFoundError, ValueError):
             pass
 
-    _emit_root_scope_defaults(ctx, root_key)
+    _emit_root_scope_defaults(ctx, root_key, list(program.scopeDefaults))
 
     event_triggers = [
         CompiledEventTriggerSpec(
