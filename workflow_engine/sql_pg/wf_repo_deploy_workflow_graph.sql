@@ -68,7 +68,7 @@ BEGIN
   IF p_activate AND NOT v_created THEN
     UPDATE wf.workflow_version AS wv
     SET is_active = (wv.id = v_version_id)
-  WHERE wv.workflow_def_id = (v_payload->>'workflow_def_id')::bigint;
+    WHERE wv.workflow_def_id = (v_payload->>'workflow_def_id')::bigint;
   END IF;
 
   RETURN v_payload || jsonb_build_object(
@@ -77,3 +77,13 @@ BEGIN
   );
 END;
 $$;
+
+
+-- SECURITY DEFINER: callable only by the worker gateway role (and the owner), not PUBLIC.
+REVOKE EXECUTE ON FUNCTION wf.wf_repo_deploy_workflow_graph(jsonb, boolean) FROM PUBLIC;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'goliath_gateway') THEN
+    GRANT EXECUTE ON FUNCTION wf.wf_repo_deploy_workflow_graph(jsonb, boolean) TO goliath_gateway;
+  END IF;
+END $$;
