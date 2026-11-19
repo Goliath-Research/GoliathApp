@@ -74,7 +74,7 @@ AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION "Meta".fn_catalog_columns(p_relation regclass)
-RETURNS TABLE (name text, type_name text, required boolean, has_default boolean, nullable boolean, ordinal int)
+RETURNS TABLE (name text, type_name text, required boolean, has_default boolean, nullable boolean, ordinal int, identity_always boolean)
 LANGUAGE sql
 STABLE
 SET search_path = pg_catalog, pg_temp
@@ -84,7 +84,8 @@ AS $$
          a.attnotnull AND NOT a.atthasdef AND a.attidentity = '' AND a.attgenerated = '',
          a.atthasdef OR a.attidentity <> '' OR a.attgenerated <> '',
          NOT a.attnotnull,
-         a.attnum::int
+         a.attnum::int,
+         a.attidentity = 'a'
   FROM pg_attribute a
   WHERE a.attrelid = p_relation AND a.attnum > 0 AND NOT a.attisdropped
   ORDER BY a.attnum;
@@ -359,7 +360,8 @@ BEGIN
   PERFORM set_config('goliath.catalog_sync', 'project', true);
   IF v_key IS NULL THEN
     SELECT string_agg(format('%I', c.name), ', ' ORDER BY c.ordinal) INTO v_cols
-    FROM "Meta".fn_catalog_columns(v_kind.relation) c WHERE v_doc ? c.name;
+    FROM "Meta".fn_catalog_columns(v_kind.relation) c
+    WHERE v_doc ? c.name AND NOT c.identity_always;
     EXECUTE format(
       'INSERT INTO %1$s AS t (%2$s) SELECT %2$s FROM jsonb_populate_record(NULL::%1$s, $1) RETURNING to_jsonb(t.*)',
       v_kind.relation, v_cols
@@ -368,7 +370,11 @@ BEGIN
     INSERT INTO "Meta".catalog_row (kind, row_key, obj_id) VALUES (p_kind, v_key, p_obj_id);
   ELSE
     SELECT string_agg(
-             CASE WHEN v_doc ? c.name OR c.nullable THEN format('%1$I = s.%1$I', c.name) ELSE format('%1$I = t.%1$I', c.name) END,
+             CASE
+               WHEN c.identity_always THEN format('%1$I = t.%1$I', c.name)
+               WHEN v_doc ? c.name OR c.nullable THEN format('%1$I = s.%1$I', c.name)
+               ELSE format('%1$I = t.%1$I', c.name)
+             END,
              ', ' ORDER BY c.ordinal)
     INTO v_sets FROM "Meta".fn_catalog_columns(v_kind.relation) c;
     SELECT string_agg(format('t.%1$I = (SELECT k.%1$I FROM jsonb_populate_record(NULL::%2$s, $2) k)', c, v_kind.relation), ' AND ')
