@@ -834,6 +834,88 @@ class PostgresGatewayDb(GatewayDbBase):
             "name": payload.get("name"),
         }
 
+    def deploy_workflow_graph(
+        self, spec: dict[str, Any], *, activate: bool = True
+    ) -> dict[str, Any]:
+        """Deploy a compiled graph without deleting anything.
+
+        A new name creates the definition (``wf_repo_create_workflow_graph``). An existing
+        name gets a new version (next minor in the same major) through
+        ``wf_repo_create_workflow_graph_version``; ``activate`` makes it the active version.
+        Earlier versions, and the runs that reference them, are kept.
+        """
+        name = str(spec.get("name") or "").strip()
+        if not name:
+            raise ValueError("workflow spec missing name")
+        doc = dict(spec)
+        try:
+            with self._connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        f"SELECT id FROM {self._qual('workflow_def')} WHERE name = %s "
+                        "ORDER BY id LIMIT 1 FOR UPDATE",
+                        (name,),
+                    )
+                    existing = cur.fetchone()
+                    if existing is None:
+                        doc["is_active"] = bool(activate)
+                        cur.execute(
+                            f"SELECT {self._qual('wf_repo_create_workflow_graph')}(%s) AS payload",
+                            (json.dumps(doc),),
+                        )
+                        created = True
+                    else:
+                        def_id = int(existing["id"])
+                        major = int(doc.get("version_major") or 1)
+                        cur.execute(
+                            f"SELECT COALESCE(max(version_minor), -1) + 1 AS next_minor "
+                            f"FROM {self._qual('workflow_version')} "
+                            "WHERE workflow_def_id = %s AND version_major = %s",
+                            (def_id, major),
+                        )
+                        next_row = cur.fetchone()
+                        doc["version_major"] = major
+                        doc["version_minor"] = int(next_row["next_minor"]) if next_row else 0
+                        doc["is_active"] = False
+                        cur.execute(
+                            f"SELECT {self._qual('wf_repo_create_workflow_graph_version')}(%s, %s) "
+                            "AS payload",
+                            (def_id, json.dumps(doc)),
+                        )
+                        created = False
+                    row = cur.fetchone()
+                    payload = parse_json_value(row["payload"]) if row else None
+                    if not isinstance(payload, dict):
+                        raise RuntimeError("workflow graph deploy returned no payload")
+                    version_id = int(payload["workflow_version_id"])
+                    if activate and not created:
+                        cur.execute(
+                            f"UPDATE {self._qual('workflow_version')} SET is_active = (id = %s) "
+                            "WHERE workflow_def_id = %s",
+                            (version_id, int(payload["workflow_def_id"])),
+                        )
+                conn.commit()
+        except psycopg.Error as exc:
+            if self._is_auth_error(exc):
+                raise WorkerAuthError(str(exc)) from exc
+            raise
+        return {
+            "workflow_def_id": int(payload["workflow_def_id"]),
+            "workflow_version_id": version_id,
+            "root_node_id": int(payload["root_node_id"]),
+            "name": payload.get("name") or name,
+            "created_definition": created,
+            "active": bool(activate),
+        }
+
+    def reclaim_expired_leases(
+        self, *, workflow_instance_id: Optional[int] = None, grace_seconds: int = 60
+    ) -> list[dict[str, Any]]:
+        return self._fetch_all(
+            f"SELECT * FROM {self._qual('sp_reclaim_expired_leases')}(%s, %s, false)",
+            (workflow_instance_id, int(grace_seconds)),
+        )
+
     def list_workflow_definitions(
         self, *, source_filter: Optional[str] = None
     ) -> list[dict[str, Any]]:

@@ -283,6 +283,14 @@ class GatewayDb(Protocol):
 
     def create_workflow_definition(self, spec: dict[str, Any]) -> dict[str, Any]: ...
 
+    def deploy_workflow_graph(
+        self, spec: dict[str, Any], *, activate: bool = True
+    ) -> dict[str, Any]: ...
+
+    def reclaim_expired_leases(
+        self, *, workflow_instance_id: Optional[int] = None, grace_seconds: int = 60
+    ) -> list[dict[str, Any]]: ...
+
     def list_workflow_definitions(
         self, *, source_filter: Optional[str] = None
     ) -> list[dict[str, Any]]: ...
