@@ -1398,6 +1398,13 @@ BEGIN
     );
   END IF;
 
+  IF v_req.status = 'RETIRED' THEN
+    PERFORM portal.fn_semantic_raise(
+      'GS404',
+      format('semantic request %s is retired', p_request_code)
+    );
+  END IF;
+
   IF NOT portal.fn_session_has_permission(
     v_sess.session_id, v_sess.user_id, v_sess.active_scope_id, v_req.required_permission
   ) THEN
@@ -1575,10 +1582,12 @@ BEGIN
     r.required_permission
   FROM portal.semantic_request r
   INNER JOIN portal.semantic_entity e ON e.id = r.entity_id
-  WHERE r.required_permission IS NULL
+  WHERE r.status = 'ACTIVE'
+    AND (r.required_permission IS NULL
      OR portal.fn_session_has_permission(
        v_sess.session_id, v_sess.user_id, v_sess.active_scope_id, r.required_permission
      )
+    )
   ORDER BY r.namespace, r.request_code, r.version;
 END;
 $$;

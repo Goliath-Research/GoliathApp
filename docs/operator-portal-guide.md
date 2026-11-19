@@ -101,6 +101,29 @@ Child applications extend GoliathApp mainly by adding **semantic classes** and t
 
 Semantic entities registered in the portal layer link to Meta when `meta_class_id` is set. On **Semantic layer → Entities**, open the **Meta class** link to jump into the workbench for that backing class.
 
+### Editing the semantic layer
+
+**Semantic layer → Namespaces, Entities, Attributes, Requests** are property-grid record editors. Every field
+is typed; nothing is entered as JSON.
+
+- **Namespaces**: create, rename, set the owner app; **Delete** only when the namespace has no entities or
+  requests. The platform namespaces (`platform`, `portal`, `core`) are edited by the God Architect only.
+- **Entities**: create (optionally mapped to a Meta class), edit name, description and storage relation;
+  **Delete** removes an unmapped entity with no requests (its attributes go with it). The Meta class mapping
+  is changed in the Meta model.
+- **Attributes**: column, type, role (list, detail, filter, key) and the filter operators allowed on it
+  (eq, gte, lte, starts_with, is_null). An attribute used by a request filter cannot be deleted, and an
+  operator a filter uses cannot be removed.
+- **Requests**: target (a function `schema.name(integer, jsonb, integer)` or a runner template, both picked
+  from a list), row type (a portal composite type), permission, row cap, **parameters** as a typed list
+  (name, type, required, nullable, limits) and **filters** as a list of attribute/operator/parameter
+  conditions (template targets). The stored parameter schema and filter template are generated from these
+  lists, and the result schema from the row type. A request whose stored schema uses features the list
+  cannot express keeps it as is and its parameters are read-only here. **Retire** keeps a request but stops
+  it running and listing; **Activate** restores it; **Delete** removes a retired request.
+
+Every change requires `platform.model.author` and is recorded in `portal.record_editor_audit`.
+
 ## Picking existing records (reference fields)
 
 Fields that point at an existing record are never typed by hand. A JSON Schema property

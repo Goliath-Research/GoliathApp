@@ -12,6 +12,13 @@ export const PLATFORM_REFERENCE_KINDS = [
   "data_type",
   "meta_class",
   "study",
+  "semantic_namespace",
+  "semantic_entity",
+  "semantic_attribute",
+  "semantic_row_type",
+  "semantic_target_function",
+  "semantic_template_target",
+  "permission",
 ] as const;
 
 export function referenceSearchUrl(kind: string, query: string, limit = 50): string {

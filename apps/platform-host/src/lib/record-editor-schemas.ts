@@ -152,6 +152,65 @@ const EVENT_SUBSCRIPTION_BODY = {
   },
 };
 
+const JSON_TYPES = ["string", "integer", "number", "boolean"];
+const FILTER_OPS = ["eq", "gte", "lte", "starts_with", "is_null"];
+
+export const SEMANTIC_PARAM_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  properties: {
+    name: str("Parameter name"),
+    title: str("Label"),
+    json_type: { type: "string", enum: JSON_TYPES },
+    required: { type: "boolean" },
+    nullable: { type: "boolean", description: "Accepts null (optional value)" },
+    minimum: { type: "number" },
+    maximum: { type: "number" },
+    exclusive_minimum: { type: "number" },
+  },
+  required: ["name", "json_type"],
+};
+
+export const SEMANTIC_FILTER_SCHEMA: Record<string, unknown> = {
+  type: "object",
+  properties: {
+    attribute: { type: "string", "x-goliath-ref": "semantic_attribute", description: "Entity attribute" },
+    op: { type: "string", enum: FILTER_OPS },
+    param: str("Request parameter compared with the attribute (not needed for is_null)"),
+  },
+  required: ["attribute", "op"],
+};
+
+const SEMANTIC_REQUEST_BODY = {
+  entity_id: { type: "integer", "x-goliath-ref": "semantic_entity" },
+  target_kind: { type: "string", enum: ["function", "template"] },
+  target_name: {
+    type: "string",
+    "x-goliath-ref": "semantic_target_function",
+    description: "Function schema.name(integer, jsonb, integer), or a runner template",
+  },
+  row_type: { type: "string", "x-goliath-ref": "semantic_row_type", description: "Portal row type" },
+  required_permission: { type: "string", "x-goliath-ref": "permission" },
+  max_rows: { type: "integer", minimum: 1 },
+  params: { type: "array", items: SEMANTIC_PARAM_SCHEMA },
+  filters: { type: "array", items: SEMANTIC_FILTER_SCHEMA, description: "All must match (template targets only)" },
+};
+
+const SEMANTIC_ENTITY_EDIT = {
+  display_name: str(),
+  description: str(),
+  storage_relation: str("schema.relation that stores the rows (template targets)"),
+};
+
+const SEMANTIC_ATTRIBUTE_EDIT = {
+  column_name: str("Column in the row type / storage relation"),
+  json_type: { type: "string", enum: JSON_TYPES },
+  role: { type: "string", enum: ["list", "detail", "filter", "key"] },
+  filterable_ops: { type: "array", items: { type: "string", enum: FILTER_OPS } },
+};
+
+/** Platform namespaces are edited by the God Architect only (enforced in SQL). */
+export const SEMANTIC_PLATFORM_NAMESPACES = ["platform", "portal", "core"];
+
 export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
   domain_program: {
     entity: "domain_program",
@@ -316,6 +375,155 @@ export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
         label: "Delete",
         visible: () => true,
         confirm: "Delete this subscription? Recorded events are kept.",
+      },
+    ],
+  },
+  semantic_namespace: {
+    entity: "semantic_namespace",
+    title: "Semantic namespaces",
+    noun: "namespace",
+    columns: [
+      { key: "code", label: "Code" },
+      { key: "display_name", label: "Name" },
+      { key: "owner_app", label: "Owner app" },
+      { key: "entity_count", label: "Entities" },
+      { key: "request_count", label: "Requests" },
+    ],
+    createSchema: {
+      type: "object",
+      properties: { code: str("Lower case code"), display_name: str(), owner_app: str("Owning application") },
+      required: ["code", "display_name"],
+    },
+    editSchema: {
+      type: "object",
+      properties: { display_name: str(), owner_app: str("Owning application") },
+      required: ["display_name"],
+    },
+    rowKey: (row) => String(row.code),
+    rowLabel: (row) => String(row.code),
+    canCreate: true,
+    rowActions: [
+      {
+        action: "delete",
+        label: "Delete",
+        visible: (row) => Number(row.entity_count) === 0 && Number(row.request_count) === 0,
+        confirm: "Delete this empty namespace?",
+      },
+    ],
+  },
+  semantic_entity: {
+    entity: "semantic_entity",
+    title: "Semantic entities",
+    noun: "entity",
+    columns: [
+      { key: "namespace", label: "Namespace" },
+      { key: "code", label: "Code" },
+      { key: "display_name", label: "Name" },
+      { key: "meta_class_name", label: "Meta class" },
+      { key: "attribute_count", label: "Attributes" },
+      { key: "request_count", label: "Requests" },
+    ],
+    createSchema: {
+      type: "object",
+      properties: {
+        namespace: { type: "string", "x-goliath-ref": "semantic_namespace" },
+        code: str("Lower case code"),
+        meta_class_name: { type: "string", "x-goliath-ref": "meta_class", description: "Optional Meta class mapping" },
+        ...SEMANTIC_ENTITY_EDIT,
+      },
+      required: ["namespace", "code", "display_name"],
+    },
+    editSchema: { type: "object", properties: SEMANTIC_ENTITY_EDIT, required: ["display_name"] },
+    rowKey: (row) => String(row.id),
+    rowLabel: (row) => `${row.namespace}.${row.code}`,
+    canCreate: true,
+    rowActions: [
+      {
+        action: "delete",
+        label: "Delete",
+        visible: (row) => !row.meta_class_name && Number(row.request_count) === 0,
+        confirm: "Delete this entity and its attributes?",
+      },
+    ],
+  },
+  semantic_attribute: {
+    entity: "semantic_attribute",
+    title: "Semantic attributes",
+    noun: "attribute",
+    columns: [
+      { key: "entity", label: "Entity" },
+      { key: "code", label: "Code" },
+      { key: "column_name", label: "Column" },
+      { key: "json_type", label: "Type" },
+      { key: "role", label: "Role" },
+      { key: "filterable_ops", label: "Operators" },
+    ],
+    createSchema: {
+      type: "object",
+      properties: {
+        entity_id: { type: "integer", "x-goliath-ref": "semantic_entity" },
+        code: str("Lower case code"),
+        ...SEMANTIC_ATTRIBUTE_EDIT,
+      },
+      required: ["entity_id", "code", "column_name", "json_type", "role"],
+    },
+    editSchema: {
+      type: "object",
+      properties: SEMANTIC_ATTRIBUTE_EDIT,
+      required: ["column_name", "json_type", "role"],
+    },
+    rowKey: (row) => String(row.id),
+    rowLabel: (row) => `${row.entity}.${row.code}`,
+    canCreate: true,
+    rowActions: [
+      { action: "delete", label: "Delete", visible: () => true, confirm: "Delete this attribute?" },
+    ],
+  },
+  semantic_request: {
+    entity: "semantic_request",
+    title: "Semantic requests",
+    noun: "request",
+    columns: [
+      { key: "request_code", label: "Request" },
+      { key: "version", label: "Version" },
+      { key: "entity", label: "Entity" },
+      { key: "target_kind", label: "Target kind" },
+      { key: "target_name", label: "Target" },
+      { key: "row_type", label: "Row type" },
+      { key: "required_permission", label: "Permission" },
+      { key: "status", label: "Status" },
+    ],
+    createSchema: {
+      type: "object",
+      properties: {
+        request_code: str("namespace.name"),
+        version: str("Version (default 1)"),
+        namespace: { type: "string", "x-goliath-ref": "semantic_namespace" },
+        ...SEMANTIC_REQUEST_BODY,
+      },
+      required: ["request_code", "namespace", "entity_id", "target_kind", "target_name", "row_type"],
+    },
+    editSchema: {
+      type: "object",
+      properties: SEMANTIC_REQUEST_BODY,
+      required: ["entity_id", "target_kind", "target_name", "row_type"],
+    },
+    rowKey: (row) => `${row.request_code}@${row.version}`,
+    rowLabel: (row) => `${row.request_code} v${row.version}`,
+    canCreate: true,
+    rowActions: [
+      {
+        action: "retire",
+        label: "Retire",
+        visible: (row) => row.status === "ACTIVE",
+        confirm: "Retire this request? It stays registered but no longer runs or lists.",
+      },
+      { action: "activate", label: "Activate", visible: (row) => row.status === "RETIRED" },
+      {
+        action: "delete",
+        label: "Delete",
+        visible: (row) => row.status === "RETIRED",
+        confirm: "Delete this retired request?",
       },
     ],
   },

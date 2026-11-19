@@ -16,6 +16,10 @@ export const RECORD_EDITOR_ENTITIES = [
   "event_subscription",
   "workflow_version",
   "workflow_run",
+  "semantic_namespace",
+  "semantic_entity",
+  "semantic_attribute",
+  "semantic_request",
 ] as const;
 
 export type RecordEditorEntity = (typeof RECORD_EDITOR_ENTITIES)[number];
@@ -72,6 +76,14 @@ export async function listRecords(token: string, entity: RecordEditorEntity): Pr
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_graph_versions($1)");
     case "workflow_run":
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_recent_instances($1, NULL, 200)");
+    case "semantic_namespace":
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_semantic_list_namespaces_editor($1)");
+    case "semantic_entity":
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_semantic_list_entities_editor($1)");
+    case "semantic_attribute":
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_semantic_list_attributes_editor($1)");
+    case "semantic_request":
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_semantic_list_requests_editor($1)");
   }
 }
 
@@ -103,6 +115,20 @@ export async function getRecord(
       return jsonbScalar(token, "SELECT portal.sp_session_get_run($1, $2::bigint) AS doc", [
         intKey(key, "workflow run id"),
       ]);
+    case "semantic_namespace":
+      return jsonbScalar(token, "SELECT portal.sp_session_semantic_get_namespace($1, $2) AS doc", [key]);
+    case "semantic_entity":
+      return jsonbScalar(token, "SELECT portal.sp_session_semantic_get_entity($1, $2::int) AS doc", [
+        intKey(key, "entity id"),
+      ]);
+    case "semantic_attribute":
+      return jsonbScalar(token, "SELECT portal.sp_session_semantic_get_attribute($1, $2::int) AS doc", [
+        intKey(key, "attribute id"),
+      ]);
+    case "semantic_request": {
+      const { name, version } = splitNameVersion(key);
+      return jsonbScalar(token, "SELECT portal.sp_session_semantic_get_request($1, $2, $3) AS doc", [name, version]);
+    }
     case "worker_enrollment": {
       const rows = await listRecords(token, "worker_enrollment");
       const row = rows.find((r) => `${r.cluster_key}/${r.external_worker_key}` === key);
@@ -170,6 +196,39 @@ export async function saveRecord(
     }
     case "workflow_run":
       throw new RecordEditorInputError("workflow runs are not edited; use cancel, retry or link_study");
+    case "semantic_namespace": {
+      const rows = await portalSessionCall(
+        token,
+        "SELECT portal.sp_session_semantic_save_namespace($1, $2, $3::jsonb) AS k",
+        [key || null, json],
+      );
+      return { key: String(rows[0]?.k ?? "") };
+    }
+    case "semantic_entity": {
+      const rows = await portalSessionCall(
+        token,
+        "SELECT portal.sp_session_semantic_save_entity($1, $2::int, $3::jsonb) AS id",
+        [key ? intKey(key, "entity id") : null, json],
+      );
+      return { key: String(rows[0]?.id ?? "") };
+    }
+    case "semantic_attribute": {
+      const rows = await portalSessionCall(
+        token,
+        "SELECT portal.sp_session_semantic_save_attribute($1, $2::int, $3::jsonb) AS id",
+        [key ? intKey(key, "attribute id") : null, json],
+      );
+      return { key: String(rows[0]?.id ?? "") };
+    }
+    case "semantic_request": {
+      const ident = key ? splitNameVersion(key) : null;
+      const rows = await portalSessionCall(
+        token,
+        "SELECT * FROM portal.sp_session_semantic_save_request($1, $2, $3, $4::jsonb)",
+        [ident?.name ?? null, ident?.version ?? null, json],
+      );
+      return { key: `${rows[0]?.request_code}@${rows[0]?.version}` };
+    }
   }
 }
 
@@ -254,6 +313,35 @@ export async function runRecordAction(
     const rows = await portalSessionCall(token, `SELECT portal.${fn}($1, $2::bigint) AS result`, [
       intKey(key, "subscription id"),
     ]);
+    return rows[0] ?? {};
+  }
+  if (entity === "semantic_namespace" && action === "delete") {
+    const rows = await portalSessionCall(token, "SELECT portal.sp_session_semantic_delete_namespace($1, $2) AS result", [
+      key,
+    ]);
+    return rows[0] ?? {};
+  }
+  if ((entity === "semantic_entity" || entity === "semantic_attribute") && action === "delete") {
+    const fn = entity === "semantic_entity" ? "sp_session_semantic_delete_entity" : "sp_session_semantic_delete_attribute";
+    const rows = await portalSessionCall(token, `SELECT portal.${fn}($1, $2::int) AS result`, [intKey(key, "id")]);
+    return rows[0] ?? {};
+  }
+  if (entity === "semantic_request" && (action === "retire" || action === "activate")) {
+    const { name, version } = splitNameVersion(key);
+    const rows = await portalSessionCall(
+      token,
+      "SELECT portal.sp_session_semantic_set_request_status($1, $2, $3, $4) AS status",
+      [name, version, action === "retire" ? "RETIRED" : "ACTIVE"],
+    );
+    return rows[0] ?? {};
+  }
+  if (entity === "semantic_request" && action === "delete") {
+    const { name, version } = splitNameVersion(key);
+    const rows = await portalSessionCall(
+      token,
+      "SELECT portal.sp_session_semantic_delete_request($1, $2, $3) AS result",
+      [name, version],
+    );
     return rows[0] ?? {};
   }
   if (entity === "class_method" && action === "defaults") {

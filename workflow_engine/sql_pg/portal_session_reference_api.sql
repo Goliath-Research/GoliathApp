@@ -83,11 +83,19 @@ BEGIN
     PERFORM portal.fn_session_require_any_nav(
       p_session_token,
       ARRAY['/app/meta/classes', '/app/meta/data-types', '/app/meta/methods', '/app/workflows/actions',
-            '/app/meta/objects', '/app/meta/fields', '/app/meta/relations', '/app/meta/trees']
+            '/app/meta/objects', '/app/meta/fields', '/app/meta/relations', '/app/meta/trees',
+            '/app/semantic/entities']
     );
     PERFORM 1 FROM portal.fn_session_meta_require(p_session_token, 'meta.schema.read');
   ELSIF v_kind = 'study' THEN
     PERFORM portal.fn_session_require_any_nav(p_session_token, ARRAY['/app/workflows/runs']);
+  ELSIF v_kind IN ('semantic_namespace', 'semantic_entity', 'semantic_attribute', 'semantic_row_type',
+                   'semantic_target_function', 'semantic_template_target', 'permission') THEN
+    PERFORM portal.fn_session_require_any_nav(
+      p_session_token,
+      ARRAY['/app/semantic/namespaces', '/app/semantic/entities',
+            '/app/semantic/attributes', '/app/semantic/requests']
+    );
   ELSE
     PERFORM portal.fn_semantic_raise('GS400', format('unknown reference kind %s', coalesce(p_kind, '')));
   END IF;
@@ -181,6 +189,69 @@ BEGIN
     FROM cfg.study s
     WHERE s.name ILIKE v_q OR coalesce(s.study_id, '') ILIKE v_q
     ORDER BY s.name, s.version DESC
+    LIMIT v_limit;
+  ELSIF v_kind = 'semantic_namespace' THEN
+    RETURN QUERY
+    SELECT n.code, n.display_name, n.owner_app
+    FROM portal.semantic_namespace n
+    WHERE n.code ILIKE v_q OR n.display_name ILIKE v_q
+    ORDER BY n.code
+    LIMIT v_limit;
+  ELSIF v_kind = 'semantic_entity' THEN
+    RETURN QUERY
+    SELECT e.id::text, e.namespace || '.' || e.code, e.display_name
+    FROM portal.semantic_entity e
+    WHERE e.code ILIKE v_q OR e.namespace ILIKE v_q OR e.display_name ILIKE v_q
+    ORDER BY e.namespace, e.code
+    LIMIT v_limit;
+  ELSIF v_kind = 'semantic_attribute' THEN
+    RETURN QUERY
+    SELECT DISTINCT ON (a.code) a.code, a.code,
+           string_agg(e.namespace || '.' || e.code, ', ') OVER (PARTITION BY a.code)
+    FROM portal.semantic_attribute a
+    JOIN portal.semantic_entity e ON e.id = a.entity_id
+    WHERE a.code ILIKE v_q
+    ORDER BY a.code
+    LIMIT v_limit;
+  ELSIF v_kind = 'semantic_row_type' THEN
+    RETURN QUERY
+    SELECT t.typname::text, t.typname::text,
+           (SELECT string_agg(a.attname::text, ', ' ORDER BY a.attnum)
+            FROM pg_attribute a WHERE a.attrelid = t.typrelid AND a.attnum > 0 AND NOT a.attisdropped)
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    JOIN pg_class c ON c.oid = t.typrelid
+    WHERE n.nspname = 'portal' AND c.relkind = 'c' AND t.typname ILIKE v_q
+    ORDER BY t.typname
+    LIMIT v_limit;
+  ELSIF v_kind = 'semantic_target_function' THEN
+    RETURN QUERY
+    SELECT n.nspname || '.' || p.proname, n.nspname || '.' || p.proname,
+           pg_catalog.format_type(p.prorettype, NULL)
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE p.proargtypes = '23 3802 23'::oidvector
+      AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+      AND (n.nspname || '.' || p.proname) ILIKE v_q
+    UNION ALL
+    SELECT t, t, 'template'::text
+    FROM unnest(portal.fn_semantic_template_targets()) t
+    WHERE t ILIKE v_q
+    ORDER BY 1
+    LIMIT v_limit;
+  ELSIF v_kind = 'semantic_template_target' THEN
+    RETURN QUERY
+    SELECT t, t, 'template'::text
+    FROM unnest(portal.fn_semantic_template_targets()) t
+    WHERE t ILIKE v_q
+    ORDER BY 1
+    LIMIT v_limit;
+  ELSIF v_kind = 'permission' THEN
+    RETURN QUERY
+    SELECT DISTINCT c.permission_name, c.permission_name, NULL::text
+    FROM portal.security_role_permission_cache c
+    WHERE c.permission_name ILIKE v_q
+    ORDER BY 1
     LIMIT v_limit;
   END IF;
 END;
