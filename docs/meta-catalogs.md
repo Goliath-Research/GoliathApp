@@ -2,7 +2,7 @@
 
 GoliathApp's catalogs (semantic, workflow and cfg) move into the Meta class hierarchy. Each catalog table becomes a **catalog kind**: one Meta class whose fields are the table's columns, with one Meta object per row. Meta is authoritative. The table stays as the indexed read surface that the gateway, workers and SQL APIs already use, so running code keeps working unchanged.
 
-Generic: `workflow_engine/sql_pg/meta_catalog_projection.sql`. Kinds: `semantic_catalog_meta.sql` (this PR), with the workflow and cfg catalogs in follow-up PRs.
+Generic: `workflow_engine/sql_pg/meta_catalog_projection.sql`. Kinds: `semantic_catalog_meta.sql` and `wf_cfg_catalog_meta.sql`.
 
 ## How it works
 
@@ -38,8 +38,45 @@ The classes are `platform/*`, so only God Architect edits them in the generic ed
 2. Run `workflow_engine/sql_pg/apply_schema.sh`. It registers the kinds and migrates every row.
 3. Run `workflow_engine/scripts/verify_meta_catalogs.sh`. It exits non-zero on any drift.
 
-## Next
+## Workflow and cfg catalogs
 
-- Workflow catalog (`wf.workflow_action`, `wf.workflow_action_schema`, `wf.action_compile_profile`, workflow definitions and versions) and cfg catalogs (`cfg.*` documents) as further kinds, each in its own PR with a backup before apply.
-- Runtime tables (instances, node executions, leases, events) stay tables. They are state, not catalog.
-- `wf.data_type` stays the Meta type registry itself.
+Registered under `platform/Entity` as `platform/wf/*` and `platform/cfg/*`. Not migrated: runtime tables (instances, node executions, leases, events, workers, start requests), `cfg.credential` (secrets), `wf.data_type` (the Meta type registry itself) and `wf.cluster`.
+
+`cfg.portal_auth_defaults` holds only integer session and worker timeout keys (`portal_session_idle_seconds`, `portal_session_absolute_seconds`, `worker_heartbeat_seconds`, `worker_session_miss_factor`, `worker_session_max_failed_attempts`). It has no secrets.
+
+| Kind | Table | Class | Key |
+| --- | --- | --- | --- |
+| `wf.action` | `wf.workflow_action` | `platform/wf/Action` | `id` |
+| `wf.action_schema` | `wf.workflow_action_schema` | `platform/wf/ActionSchema` | `workflow_action_id`, `direction` |
+| `wf.action_compile_profile` | `wf.action_compile_profile` | `platform/wf/ActionCompileProfile` | `action_name` |
+| `wf.event_type` | `wf.event_type` | `platform/wf/EventType` | `id` |
+| `wf.pipeline_stage` | `wf.pipeline_stage_map` | `platform/wf/PipelineStage` | `action_name_prefix` |
+| `wf.workflow_def` | `wf.workflow_def` | `platform/wf/WorkflowDef` | `id` |
+| `wf.workflow_version` | `wf.workflow_version` | `platform/wf/WorkflowVersion` | `id` |
+| `wf.node` | `wf.workflow_node` | `platform/wf/Node` | `id` |
+| `wf.edge` | `wf.workflow_edge` | `platform/wf/Edge` | `id` |
+| `wf.input_template` | `wf.workflow_input_template` | `platform/wf/InputTemplate` | `workflow_node_id` |
+| `wf.input_binding` | `wf.workflow_input_binding` | `platform/wf/InputBinding` | `id` |
+| `wf.output_binding` | `wf.variable_output_binding` | `platform/wf/OutputBinding` | `id` |
+| `wf.scope_default` | `wf.node_scope_default` | `platform/wf/ScopeDefault` | `id` |
+| `wf.collection_binding` | `wf.workflow_collection_binding` | `platform/wf/CollectionBinding` | `id` |
+| `cfg.kind_document_type` | `cfg.kind_document_type` | `platform/cfg/KindDocumentType` | `kind` |
+| `cfg.analyte` | `cfg.analyte` | `platform/cfg/Analyte` | `id` |
+| `cfg.storage_endpoint` | `cfg.storage_endpoint` | `platform/cfg/StorageEndpoint` | `id` |
+| `cfg.storage_profile` | `cfg.storage_profile` | `platform/cfg/StorageProfile` | `id` |
+| `cfg.reference_asset` | `cfg.reference_asset` | `platform/cfg/ReferenceAsset` | `id` |
+| `cfg.site` | `cfg.site` | `platform/cfg/Site` | `id` |
+| `cfg.site_reference_asset` | `cfg.site_reference_asset` | `platform/cfg/SiteReferenceAsset` | `id` |
+| `cfg.pipeline_profile` | `cfg.pipeline_profile` | `platform/cfg/PipelineProfile` | `id` |
+| `cfg.enrichment_library_preset` | `cfg.enrichment_library_preset` | `platform/cfg/EnrichmentLibraryPreset` | `id` |
+| `cfg.action_definition` | `cfg.action_definition` | `platform/cfg/ActionDefinition` | `id` |
+| `cfg.domain_program` | `cfg.domain_program` | `platform/cfg/DomainProgram` | `id` |
+| `cfg.program_publish` | `cfg.program_publish` | `platform/cfg/ProgramPublish` | `id` |
+| `cfg.assay_procedure` | `cfg.assay_procedure` | `platform/cfg/AssayProcedure` | `id` |
+| `cfg.node_config` | `cfg.node_config` | `platform/cfg/NodeConfig` | `id` |
+| `cfg.portal_auth_default` | `cfg.portal_auth_defaults` | `platform/cfg/PortalAuthDefault` | `key` |
+| `cfg.study` | `cfg.study` | `platform/cfg/Study` | `id` |
+| `cfg.study_group` | `cfg.study_group` | `platform/cfg/StudyGroup` | `id` |
+| `cfg.study_group_member` | `cfg.study_group_member` | `platform/cfg/StudyGroupMember` | `id` |
+
+Runtime tables stay tables. They are state, not catalog.

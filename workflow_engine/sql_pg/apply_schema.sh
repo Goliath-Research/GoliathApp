@@ -146,6 +146,7 @@ SCRIPTS=(
   wf_event_plane.sql
   wf_event_ingest_authorization.sql
   wf_worker_wake_hints.sql
+  wf_cfg_catalog_meta.sql
   database_gateway_roles.sql
 )
 
