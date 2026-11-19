@@ -55,7 +55,7 @@ test.describe("platform host", () => {
 
   test("home and fixture routes render icons with accessible labels", async ({ page }, testInfo) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Platform UI foundation (P0)" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Operator portal" })).toBeVisible();
     await expect(page.getByRole("img").first()).toBeVisible();
 
     await page.goto("/fixture");
