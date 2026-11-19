@@ -179,10 +179,19 @@ entitlement plus the `platform.model.author` permission, and every save is recor
 - **Domain programs** edit draft metadata only; the program body is preserved, and a new version starts
   from the body of the latest version. Published versions are immutable — save under a new version, then
   **Publish**.
-- **Workers and clusters** edit cluster settings and worker enrollments (create, change IP, revoke).
-  Starting or stopping workers is not available here.
+- **Workers and clusters** edit cluster settings and worker enrollments (create, change IP, revoke). An
+  enrolled worker's row shows its desired state; **Drain** (finish the current task, claim nothing new),
+  **Stop** (cancel stoppable work at the next safe point) and **Activate** set it, and workers read it on
+  their next claim or heartbeat. Machines are never started or provisioned from here. The **Worker fleet**
+  page links to this screen. **Retire** marks a cluster DISABLED (kept for history); **Delete** removes a
+  cluster only when it has no workers or enrollments, and removes an enrollment only once it is pending or
+  revoked.
 - **Event subscriptions** pick the event type and workflow version from existing records and describe the
-  payload filter as a list of key/value conditions.
+  payload filter as a list of key/value conditions. **Retire** disables a subscription (kept); **Delete**
+  removes it and keeps the recorded events.
+
+Every fleet, retire and delete action asks for confirmation, requires `platform.model.author`, and is
+recorded in `portal.record_editor_audit`.
 
 ## Editing workflow graphs and inspecting runs
 

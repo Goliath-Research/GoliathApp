@@ -1,0 +1,283 @@
+"""Worker IP / Arc attestation and session header checks for the REST gateway.
+
+Workers authenticate with ``Authorization: Bearer <session>``, header
+``X-Goliath-Worker-Token`` (enrollment identity token), and proxy-derived client IP.
+"""
+
+from __future__ import annotations
+
+import ipaddress
+import os
+import re
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Mapping, Optional, Sequence
+
+from .db.base import GatewayDb, WorkerCallAuth
+
+WORKER_IDENTITY_HEADER = "x-goliath-worker-token"
+EVENT_INGEST_API_KEY_HEADER = "x-goliath-event-ingest-key"
+_WORKER_SESSION_PATH = "/v1/workers/session"
+
+
+class RouteTier(Enum):
+    PUBLIC = "public"
+    WORKER = "worker"
+
+
+class AuthError(Exception):
+    """Authentication failure (401)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
+class AuthForbidden(AuthError):
+    """Authorization failure (403)."""
+
+
+@dataclass(frozen=True)
+class GatewayAuthConfig:
+    require_entra: bool = False
+    tenant_id: str = ""
+    audience: str = ""
+    worker_ip_bind: bool = False
+    require_arc_attest: bool = False
+    trusted_proxy_cidrs: tuple[str, ...] = ("127.0.0.1/32", "::1/128")
+
+    @classmethod
+    def from_env(cls) -> GatewayAuthConfig:
+        def _truthy(name: str) -> bool:
+            return os.environ.get(name, "").strip().lower() in ("1", "true", "yes")
+
+        proxy_raw = os.environ.get("GATEWAY_TRUSTED_PROXY_CIDRS", "127.0.0.1/32,::1/128")
+        proxies = tuple(c.strip() for c in proxy_raw.split(",") if c.strip())
+        return cls(
+            require_entra=_truthy("GATEWAY_REQUIRE_ENTRA"),
+            tenant_id=os.environ.get("AZURE_TENANT_ID", "").strip(),
+            audience=os.environ.get("GATEWAY_ENTRA_AUDIENCE", "").strip(),
+            worker_ip_bind=_truthy("GATEWAY_WORKER_IP_BIND"),
+            require_arc_attest=_truthy("GATEWAY_REQUIRE_ARC_ATTEST"),
+            trusted_proxy_cidrs=proxies,
+        )
+
+
+_PUBLIC_GET = frozenset({"/", "/v1", "/v1/health"})
+
+
+def parse_bearer_token(headers: Sequence[tuple[bytes, bytes]]) -> Optional[str]:
+    auth_header = _header_value(headers, "authorization")
+    if not auth_header:
+        return None
+    parts = auth_header.split(None, 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    token = parts[1].strip()
+    return token or None
+
+
+def build_worker_call_auth(
+    headers: Sequence[tuple[bytes, bytes]],
+    body: Mapping[str, Any],
+    client_ip: str,
+) -> WorkerCallAuth:
+    worker_raw = body.get("worker_id")
+    session_token = parse_bearer_token(headers)
+    identity_token = _header_value(headers, WORKER_IDENTITY_HEADER)
+    if worker_raw is None:
+        raise AuthError("worker_id is required in the JSON body")
+    if not session_token:
+        raise AuthError("Authorization Bearer session token is required")
+    if not identity_token:
+        raise AuthError("X-Goliath-Worker-Token identity token is required")
+    if not client_ip.strip():
+        raise AuthError("client IP unavailable for worker auth")
+    return WorkerCallAuth(
+        worker_id=int(worker_raw),
+        session_token=session_token,
+        identity_token=identity_token,
+        client_ip=client_ip.strip(),
+    )
+
+
+def worker_route_requires_session_headers(method: str, path: str) -> bool:
+    if classify_route(method, path) != RouteTier.WORKER:
+        return False
+    normalized = path.rstrip("/")
+    if normalized in ("/v1/workers/enroll", _WORKER_SESSION_PATH):
+        return False
+    return True
+
+
+def event_ingest_uses_api_key(headers: Sequence[tuple[bytes, bytes]]) -> bool:
+    raw = _header_value(headers, EVENT_INGEST_API_KEY_HEADER)
+    return bool((raw or "").strip())
+
+
+def classify_route(method: str, path: str) -> RouteTier:
+    normalized = path.rstrip("/")
+    if path.startswith("/v1/workers/"):
+        return RouteTier.WORKER
+    if method == "GET" and path in _PUBLIC_GET:
+        return RouteTier.PUBLIC
+    return RouteTier.PUBLIC
+
+
+def _header_value(headers: Sequence[tuple[bytes, bytes]], name: str) -> Optional[str]:
+    target = name.lower()
+    for key, value in headers:
+        if key.decode("latin-1").lower() == target:
+            return value.decode("latin-1")
+    return None
+
+
+def _is_trusted_proxy(direct_ip: str, trusted_proxy_cidrs: Sequence[str]) -> bool:
+    try:
+        direct_addr = ipaddress.ip_address(direct_ip)
+    except ValueError:
+        return False
+    for cidr in trusted_proxy_cidrs:
+        try:
+            if direct_addr in ipaddress.ip_network(cidr, strict=False):
+                return True
+        except ValueError:
+            continue
+    return False
+
+
+def extract_client_ip(
+    scope: Mapping[str, Any],
+    headers: Sequence[tuple[bytes, bytes]],
+    trusted_proxy_cidrs: Sequence[str],
+) -> str:
+    remote = scope.get("client")
+    direct_ip = remote[0] if remote else "0.0.0.0"
+    if not _is_trusted_proxy(direct_ip, trusted_proxy_cidrs):
+        return direct_ip
+
+    real_ip = _header_value(headers, "x-real-ip")
+    if real_ip:
+        candidate = real_ip.strip()
+        try:
+            ipaddress.ip_address(candidate)
+            return candidate
+        except ValueError:
+            pass
+
+    forwarded = _header_value(headers, "x-forwarded-for")
+    if forwarded:
+        parts = [p.strip() for p in forwarded.split(",") if p.strip()]
+        if parts:
+            candidate = parts[-1]
+            try:
+                ipaddress.ip_address(candidate)
+                return candidate
+            except ValueError:
+                pass
+
+    return direct_ip
+
+
+def check_worker_ip_bind(
+    db: GatewayDb,
+    worker_id: int,
+    client_ip: str,
+) -> None:
+    security = db.get_worker_cluster_security(worker_id)
+    if not security:
+        return
+    raw = security.get("allowed_source_cidrs")
+    if not raw:
+        return
+    if isinstance(raw, str):
+        import json
+
+        try:
+            cidrs = json.loads(raw)
+        except json.JSONDecodeError:
+            cidrs = []
+    else:
+        cidrs = raw
+    if not isinstance(cidrs, list) or not cidrs:
+        return
+    try:
+        addr = ipaddress.ip_address(client_ip)
+    except ValueError:
+        raise AuthForbidden(f"worker source IP {client_ip} not in cluster allowed CIDRs")
+    for cidr in cidrs:
+        try:
+            if addr in ipaddress.ip_network(cidr, strict=False):
+                return
+        except ValueError:
+            continue
+    raise AuthForbidden(f"worker source IP {client_ip} not in cluster allowed CIDRs")
+
+
+def check_worker_arc_attest(
+    db: GatewayDb,
+    worker_id: int,
+    headers: Sequence[tuple[bytes, bytes]],
+) -> None:
+    security = db.get_worker_cluster_security(worker_id)
+    if not security:
+        return
+    expected = security.get("arc_resource_id")
+    if not expected:
+        return
+    header_val = _header_value(headers, "x-arc-resource-id")
+    if not header_val or header_val.strip() != str(expected).strip():
+        raise AuthForbidden("worker Arc resource id does not match cluster registration")
+
+
+def authorize_request(
+    db: GatewayDb,
+    config: GatewayAuthConfig,
+    method: str,
+    path: str,
+    headers: Sequence[tuple[bytes, bytes]],
+    body: Mapping[str, Any],
+    scope: Mapping[str, Any],
+) -> Optional[dict[str, Any]]:
+    """Apply worker IP/Arc checks; return None (no JWT claims on worker-only gateway)."""
+    if method == "POST" and path.rstrip("/") == "/v1/events" and event_ingest_uses_api_key(headers):
+        return None
+
+    tier = classify_route(method, path)
+
+    event_worker_session_path = (
+        method == "POST"
+        and path.rstrip("/") == "/v1/events"
+        and not event_ingest_uses_api_key(headers)
+    )
+
+    if tier == RouteTier.PUBLIC and not event_worker_session_path:
+        return None
+
+    client_ip = extract_client_ip(scope, headers, config.trusted_proxy_cidrs)
+
+    if event_worker_session_path:
+        build_worker_call_auth(headers, body, client_ip)
+        if body.get("worker_id") is not None:
+            wid = int(body["worker_id"])
+            if config.worker_ip_bind:
+                check_worker_ip_bind(db, wid, client_ip)
+            if config.require_arc_attest:
+                check_worker_arc_attest(db, wid, headers)
+        return None
+
+    if tier == RouteTier.WORKER:
+        normalized = path.rstrip("/")
+        if normalized in ("/v1/workers/enroll", _WORKER_SESSION_PATH):
+            return None
+        if worker_route_requires_session_headers(method, path):
+            build_worker_call_auth(headers, body, client_ip)
+        if body.get("worker_id") is not None:
+            wid = int(body["worker_id"])
+            if config.worker_ip_bind:
+                check_worker_ip_bind(db, wid, client_ip)
+            if config.require_arc_attest:
+                check_worker_arc_attest(db, wid, headers)
+        return None
+
+    return None

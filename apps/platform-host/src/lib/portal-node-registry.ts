@@ -39,6 +39,8 @@ export type PortalWorkspaceSpec = {
   recordEntities?: string[];
   /** Graph editor mode for kind "workflow_graph". */
   graphMode?: "definitions" | "steps";
+  /** Related pages shown under the heading. */
+  links?: { href: string; label: string }[];
 };
 
 const META_ROOT_DEFAULT = "portal/NavNode";
@@ -195,8 +197,10 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
   "/app/workflows/workers": {
     kind: "record_editor",
     title: "Workers and clusters",
-    description: "Edit cluster settings and worker enrollments. Starting or stopping workers is not done here.",
+    description:
+      "Edit clusters and worker enrollments, and set each enrolled worker's desired state (drain, stop, activate). Machines are not started or provisioned here.",
     recordEntities: ["cluster", "worker_enrollment"],
+    links: [{ href: "/app/operations/worker-fleet", label: "Worker fleet health" }],
   },
   "/app/workflows/subscriptions": {
     kind: "record_editor",
@@ -216,6 +220,9 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     kind: "platform_query",
     title: "Worker fleet",
     platformQuery: "worker_health",
+    links: [
+      { href: "/app/workflows/workers", label: "Drain, stop or activate workers, and manage enrollments" },
+    ],
   },
   "/app/inv/items": { kind: "platform_query", title: "Items", semanticRequest: "inv.item.list" },
   "/app/inv/purchase-orders": {

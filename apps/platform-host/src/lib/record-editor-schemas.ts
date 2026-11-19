@@ -26,8 +26,16 @@ export type RecordEditorDefinition = {
     action: string;
     label: string;
     visible: (row: Record<string, unknown>) => boolean;
+    /** Ask before running (destructive or fleet-affecting actions). */
+    confirm?: string;
   }[];
 };
+
+/** Enrollment rows carry the enrolled worker (sp_session_list_worker_enrollment_states). */
+function hasWorker(row: Record<string, unknown>): boolean {
+  const id = Number(row.enrolled_worker_id);
+  return Number.isFinite(id) && id > 0;
+}
 
 const str = (description?: string, extra: Record<string, unknown> = {}) => ({
   type: "string",
@@ -194,6 +202,20 @@ export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
     rowKey: (row) => String(row.cluster_key),
     rowLabel: (row) => String(row.name ?? row.cluster_key),
     canCreate: true,
+    rowActions: [
+      {
+        action: "retire",
+        label: "Retire",
+        visible: (row) => row.status !== "DISABLED",
+        confirm: "Retire this cluster? It is kept, marked DISABLED, and accepts no new enrollments.",
+      },
+      {
+        action: "delete",
+        label: "Delete",
+        visible: (row) => Number(row.worker_count ?? 0) === 0,
+        confirm: "Delete this cluster? Only a cluster with no workers or enrollments can be deleted.",
+      },
+    ],
   },
   worker_enrollment: {
     entity: "worker_enrollment",
@@ -204,6 +226,9 @@ export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
       { key: "external_worker_key", label: "Worker key" },
       { key: "public_ip", label: "Public IP" },
       { key: "status", label: "Status" },
+      { key: "enrolled_worker_id", label: "Worker" },
+      { key: "desired_state", label: "Desired state" },
+      { key: "last_seen_at_utc", label: "Last seen" },
     ],
     createSchema: {
       type: "object",
@@ -225,9 +250,33 @@ export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
     canEdit: (row) => row.status !== "REVOKED",
     rowActions: [
       {
+        action: "drain_worker",
+        label: "Drain",
+        visible: (row) => hasWorker(row) && row.desired_state !== "DRAINING",
+        confirm: "Drain this worker? It finishes its current task and claims no new work.",
+      },
+      {
+        action: "stop_worker",
+        label: "Stop",
+        visible: (row) => hasWorker(row) && row.desired_state !== "STOPPING",
+        confirm: "Stop this worker? Stoppable tasks are cancelled; the worker then stops claiming work.",
+      },
+      {
+        action: "activate_worker",
+        label: "Activate",
+        visible: (row) => hasWorker(row) && row.desired_state != null && row.desired_state !== "ACTIVE",
+      },
+      {
         action: "revoke",
         label: "Revoke",
         visible: (row) => row.status !== "REVOKED",
+        confirm: "Revoke this enrollment? The worker can no longer open sessions with it.",
+      },
+      {
+        action: "delete",
+        label: "Delete",
+        visible: (row) => row.status !== "ENROLLED",
+        confirm: "Delete this enrollment record?",
       },
     ],
   },
@@ -255,6 +304,20 @@ export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
     rowKey: (row) => String(row.subscription_id),
     rowLabel: (row) => `#${row.subscription_id} ${row.event_type_name}`,
     canCreate: true,
+    rowActions: [
+      {
+        action: "retire",
+        label: "Retire",
+        visible: (row) => row.enabled === true,
+        confirm: "Retire this subscription? It is kept but events no longer start or signal runs.",
+      },
+      {
+        action: "delete",
+        label: "Delete",
+        visible: () => true,
+        confirm: "Delete this subscription? Recorded events are kept.",
+      },
+    ],
   },
 };
 

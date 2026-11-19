@@ -169,7 +169,10 @@ def test_functions_executable_by_portal(editor_env: dict[str, str]) -> None:
             'sp_session_save_domain_program', 'sp_session_publish_domain_program', 'sp_session_list_clusters',
             'sp_session_get_cluster', 'sp_session_save_cluster', 'sp_session_save_worker_enrollment',
             'sp_session_revoke_worker_enrollment', 'sp_session_get_event_subscription',
-            'sp_session_save_event_subscription')
+            'sp_session_save_event_subscription', 'sp_session_list_worker_enrollment_states',
+            'sp_session_set_worker_desired_state', 'sp_session_retire_cluster', 'sp_session_delete_cluster',
+            'sp_session_delete_worker_enrollment', 'sp_session_retire_event_subscription',
+            'sp_session_delete_event_subscription')
           AND NOT has_function_privilege('goliath_portal', p.oid, 'EXECUTE')
         """,
         editor_env,
@@ -462,3 +465,102 @@ def test_parameterless_method_keeps_catalog_input_schema(editor_env: dict[str, s
     after = _psql(f"SELECT input_type_id IS NULL FROM wf.workflow_action WHERE action_name = {_lit(action)}", env)
     assert before == after
 
+
+
+def test_worker_desired_state_and_enrollment_lifecycle(
+    editor_env: dict[str, str], author_token: str, reader_token: str
+) -> None:
+    env = editor_env
+    key = f"fleet-cluster-{uuid.uuid4().hex[:6]}"
+    _psql(
+        f"SELECT portal.sp_session_save_cluster({_lit(author_token)}, {_lit({'cluster_key': key, 'name': 'Fleet'})}::jsonb)",
+        env,
+    )
+    worker_id = int(
+        _psql(
+            f"""INSERT INTO wf.worker (cluster_id, external_worker_key)
+                SELECT c.id, {_lit(key + '-w1')} FROM wf.cluster c WHERE c.cluster_key = {_lit(key)}
+                RETURNING id""",
+            env,
+        )
+    )
+    _psql(
+        f"""INSERT INTO wf.worker_enrollment (cluster_id, public_ip, external_worker_key, status, enrolled_worker_id)
+            SELECT c.id, '192.0.2.20', 'w1', 'ENROLLED', {worker_id} FROM wf.cluster c
+            WHERE c.cluster_key = {_lit(key)}""",
+        env,
+    )
+    _psql(
+        f"""SELECT portal.sp_session_save_worker_enrollment({_lit(author_token)}, {_lit({
+            "cluster_key": key, "public_ip": "192.0.2.21", "external_worker_key": "w2",
+        })}::jsonb)""",
+        env,
+    )
+    rows = _psql(
+        f"""SELECT external_worker_key || ':' || COALESCE(desired_state, '-')
+            FROM portal.sp_session_list_worker_enrollment_states({_lit(author_token)})
+            WHERE cluster_key = {_lit(key)} ORDER BY external_worker_key""",
+        env,
+    ).splitlines()
+    assert rows == ["w1:ACTIVE", "w2:-"]
+
+    state = _psql(
+        f"SELECT portal.sp_session_set_worker_desired_state({_lit(author_token)}, {worker_id}, 'draining')", env
+    )
+    assert state == "DRAINING"
+    assert _psql(f"SELECT desired_state FROM wf.worker WHERE id = {worker_id}", env) == "DRAINING"
+    with pytest.raises(RuntimeError, match="desired_state"):
+        _psql(f"SELECT portal.sp_session_set_worker_desired_state({_lit(author_token)}, {worker_id}, 'RUNNING')", env)
+    with pytest.raises(RuntimeError, match="permission"):
+        _psql(f"SELECT portal.sp_session_set_worker_desired_state({_lit(reader_token)}, {worker_id}, 'ACTIVE')", env)
+    assert _psql(
+        f"SELECT count(*) FROM portal.record_editor_audit WHERE entity = 'worker' AND record_key = '{worker_id}'", env
+    ) == "1"
+
+    # Enrolled enrollments must be revoked first; pending ones can be deleted.
+    with pytest.raises(RuntimeError, match="revoke"):
+        _psql(f"SELECT portal.sp_session_delete_worker_enrollment({_lit(author_token)}, {_lit(key)}, 'w1')", env)
+    assert _psql(
+        f"SELECT portal.sp_session_delete_worker_enrollment({_lit(author_token)}, {_lit(key)}, 'w2')", env
+    ) == "PENDING"
+
+    # A cluster with workers is retired, not deleted.
+    with pytest.raises(RuntimeError, match="retire"):
+        _psql(f"SELECT portal.sp_session_delete_cluster({_lit(author_token)}, {_lit(key)})", env)
+    assert _psql(f"SELECT portal.sp_session_retire_cluster({_lit(author_token)}, {_lit(key)})", env) == "DISABLED"
+    assert _psql(f"SELECT status FROM wf.cluster WHERE cluster_key = {_lit(key)}", env) == "DISABLED"
+
+    empty = f"empty-cluster-{uuid.uuid4().hex[:6]}"
+    _psql(
+        f"SELECT portal.sp_session_save_cluster({_lit(author_token)}, {_lit({'cluster_key': empty, 'name': 'Empty'})}::jsonb)",
+        env,
+    )
+    assert _psql(f"SELECT portal.sp_session_delete_cluster({_lit(author_token)}, {_lit(empty)})", env) == empty
+    assert _psql(f"SELECT count(*) FROM wf.cluster WHERE cluster_key = {_lit(empty)}", env) == "0"
+
+
+def test_event_subscription_retire_and_delete(editor_env: dict[str, str], author_token: str) -> None:
+    env = editor_env
+    version_id = _psql("SELECT id FROM wf.workflow_version ORDER BY id LIMIT 1", env)
+    if not version_id:
+        pytest.skip("no workflow versions available")
+    event_type = f"editor.retire.{uuid.uuid4().hex[:6]}"
+    _psql(f"INSERT INTO wf.event_type (name) VALUES ({_lit(event_type)})", env)
+    sub_id = int(
+        _psql(
+            f"""SELECT portal.sp_session_save_event_subscription({_lit(author_token)}, NULL, {_lit({
+                "event_type": event_type, "workflow_version_id": int(version_id), "mode": "start_instance",
+                "enabled": True,
+            })}::jsonb)""",
+            env,
+        )
+    )
+    assert _psql(f"SELECT enabled FROM wf.event_subscription WHERE id = {sub_id}", env) == "t"
+    _psql(f"SELECT portal.sp_session_retire_event_subscription({_lit(author_token)}, {sub_id})", env)
+    assert _psql(f"SELECT enabled FROM wf.event_subscription WHERE id = {sub_id}", env) == "f"
+    assert _psql(
+        f"SELECT portal.sp_session_delete_event_subscription({_lit(author_token)}, {sub_id})", env
+    ) == str(sub_id)
+    assert _psql(f"SELECT count(*) FROM wf.event_subscription WHERE id = {sub_id}", env) == "0"
+    with pytest.raises(RuntimeError, match="not found"):
+        _psql(f"SELECT portal.sp_session_delete_event_subscription({_lit(author_token)}, {sub_id})", env)

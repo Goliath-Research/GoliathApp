@@ -65,7 +65,7 @@ export async function listRecords(token: string, entity: RecordEditorEntity): Pr
     case "cluster":
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_clusters($1)");
     case "worker_enrollment":
-      return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_worker_enrollments($1, NULL)");
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_worker_enrollment_states($1)");
     case "event_subscription":
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_event_subscriptions($1)");
     case "workflow_version":
@@ -175,6 +175,21 @@ export async function saveRecord(
 
 export type RecordEditorAction = "publish" | "revoke" | "defaults";
 
+/** Enrollment row actions that set the enrolled worker's desired_state. */
+const WORKER_DESIRED_STATE_ACTIONS: Record<string, "ACTIVE" | "DRAINING" | "STOPPING"> = {
+  activate_worker: "ACTIVE",
+  drain_worker: "DRAINING",
+  stop_worker: "STOPPING",
+};
+
+function splitEnrollmentKey(key: string): { clusterKey: string; workerKey: string } {
+  const slash = key.indexOf("/");
+  if (slash <= 0 || slash === key.length - 1) {
+    throw new RecordEditorInputError("key must be cluster_key/external_worker_key");
+  }
+  return { clusterKey: key.slice(0, slash), workerKey: key.slice(slash + 1) };
+}
+
 export async function runRecordAction(
   token: string,
   entity: RecordEditorEntity,
@@ -192,13 +207,50 @@ export async function runRecordAction(
     return rows[0] ?? {};
   }
   if (entity === "worker_enrollment" && action === "revoke") {
-    const slash = key.indexOf("/");
-    if (slash <= 0) throw new RecordEditorInputError("key must be cluster_key/external_worker_key");
+    const { clusterKey, workerKey } = splitEnrollmentKey(key);
     const rows = await portalSessionCall(
       token,
       "SELECT portal.sp_session_revoke_worker_enrollment($1, $2, $3) AS status",
-      [key.slice(0, slash), key.slice(slash + 1)],
+      [clusterKey, workerKey],
     );
+    return rows[0] ?? {};
+  }
+  if (entity === "worker_enrollment" && action === "delete") {
+    const { clusterKey, workerKey } = splitEnrollmentKey(key);
+    const rows = await portalSessionCall(
+      token,
+      "SELECT portal.sp_session_delete_worker_enrollment($1, $2, $3) AS status",
+      [clusterKey, workerKey],
+    );
+    return rows[0] ?? {};
+  }
+  if (entity === "worker_enrollment" && action in WORKER_DESIRED_STATE_ACTIONS) {
+    splitEnrollmentKey(key);
+    const rows = await listRecords(token, "worker_enrollment");
+    const row = rows.find((r) => `${r.cluster_key}/${r.external_worker_key}` === key);
+    if (!row) throw new RecordEditorInputError("enrollment not found");
+    const workerId = Number(row.enrolled_worker_id);
+    if (!Number.isFinite(workerId) || workerId <= 0) {
+      throw new RecordEditorInputError("this enrollment has no enrolled worker yet");
+    }
+    const result = await portalSessionCall(
+      token,
+      "SELECT portal.sp_session_set_worker_desired_state($1, $2::bigint, $3) AS desired_state",
+      [workerId, WORKER_DESIRED_STATE_ACTIONS[action]],
+    );
+    return result[0] ?? {};
+  }
+  if (entity === "cluster" && (action === "retire" || action === "delete")) {
+    const fn = action === "retire" ? "sp_session_retire_cluster" : "sp_session_delete_cluster";
+    const rows = await portalSessionCall(token, `SELECT portal.${fn}($1, $2) AS result`, [key]);
+    return rows[0] ?? {};
+  }
+  if (entity === "event_subscription" && (action === "retire" || action === "delete")) {
+    const fn =
+      action === "retire" ? "sp_session_retire_event_subscription" : "sp_session_delete_event_subscription";
+    const rows = await portalSessionCall(token, `SELECT portal.${fn}($1, $2::bigint) AS result`, [
+      intKey(key, "subscription id"),
+    ]);
     return rows[0] ?? {};
   }
   if (entity === "class_method" && action === "defaults") {
