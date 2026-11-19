@@ -31,6 +31,8 @@ RETURNS TABLE (
   reclaimed_at_utc timestamptz
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = wf, pg_temp
 AS $$
 #variable_conflict use_column
 DECLARE

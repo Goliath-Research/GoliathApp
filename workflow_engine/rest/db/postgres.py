@@ -847,70 +847,27 @@ class PostgresGatewayDb(GatewayDbBase):
         name = str(spec.get("name") or "").strip()
         if not name:
             raise ValueError("workflow spec missing name")
-        doc = dict(spec)
         try:
-            with self._connection() as conn:
-                with conn.cursor() as cur:
-                    _cursor_execute(
-                        cur,
-                        f"SELECT id FROM {self._qual('workflow_def')} WHERE name = %s "
-                        "ORDER BY id LIMIT 1 FOR UPDATE",
-                        (name,),
-                    )
-                    existing = cur.fetchone()
-                    if existing is None:
-                        doc["is_active"] = bool(activate)
-                        _cursor_execute(
-                            cur,
-                            f"SELECT {self._qual('wf_repo_create_workflow_graph')}(%s) AS payload",
-                            (json.dumps(doc),),
-                        )
-                        created = True
-                    else:
-                        def_id = int(existing["id"])
-                        major = int(doc.get("version_major") or 1)
-                        _cursor_execute(
-                            cur,
-                            f"SELECT COALESCE(max(version_minor), -1) + 1 AS next_minor "
-                            f"FROM {self._qual('workflow_version')} "
-                            "WHERE workflow_def_id = %s AND version_major = %s",
-                            (def_id, major),
-                        )
-                        next_row = cur.fetchone()
-                        doc["version_major"] = major
-                        doc["version_minor"] = int(next_row["next_minor"]) if next_row else 0
-                        doc["is_active"] = False
-                        _cursor_execute(
-                            cur,
-                            f"SELECT {self._qual('wf_repo_create_workflow_graph_version')}(%s, %s) "
-                            "AS payload",
-                            (def_id, json.dumps(doc)),
-                        )
-                        created = False
-                    row = cur.fetchone()
-                    payload = parse_json_value(row["payload"]) if row else None
-                    if not isinstance(payload, dict):
-                        raise RuntimeError("workflow graph deploy returned no payload")
-                    version_id = int(payload["workflow_version_id"])
-                    if activate and not created:
-                        _cursor_execute(
-                            cur,
-                            f"UPDATE {self._qual('workflow_version')} SET is_active = (id = %s) "
-                            "WHERE workflow_def_id = %s",
-                            (version_id, int(payload["workflow_def_id"])),
-                        )
-                conn.commit()
+            row = self._fetch_one(
+                f"SELECT {self._qual('wf_repo_deploy_workflow_graph')}(%s, %s) AS payload",
+                (json.dumps(spec), activate),
+            )
         except psycopg.Error as exc:
             if self._is_auth_error(exc):
                 raise WorkerAuthError(str(exc)) from exc
             raise
+        if not row or row.get("payload") is None:
+            raise RuntimeError("wf_repo_deploy_workflow_graph returned no result")
+        payload = parse_json_value(row["payload"])
+        if not isinstance(payload, dict):
+            raise RuntimeError("wf_repo_deploy_workflow_graph returned invalid payload")
         return {
             "workflow_def_id": int(payload["workflow_def_id"]),
-            "workflow_version_id": version_id,
+            "workflow_version_id": int(payload["workflow_version_id"]),
             "root_node_id": int(payload["root_node_id"]),
             "name": payload.get("name") or name,
-            "created_definition": created,
-            "active": bool(activate),
+            "created_definition": bool(payload.get("created_definition")),
+            "active": bool(payload.get("active")),
         }
 
     def reclaim_expired_leases(
@@ -1000,8 +957,3 @@ class PostgresGatewayDb(GatewayDbBase):
         if isinstance(parsed, list):
             return [str(x) for x in parsed]
         return []
-
-
-def _cursor_execute(cur: Any, sql: str, params: tuple[Any, ...]) -> None:
-    """Run a query built from ``_qual`` names (same typing exemption as ``_fetch_all``)."""
-    cur.execute(sql, params)  # pyrefly: ignore[bad-argument-type]
