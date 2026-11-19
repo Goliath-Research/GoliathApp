@@ -83,6 +83,11 @@ def seed(conn) -> int:
                     ),
                 )
             count += 1
+        # Bind platform actions to their Meta class methods (platform_action_methods_seed.sql).
+        cur.execute("SELECT to_regprocedure('\"Meta\".sp_seed_platform_action_methods()') IS NOT NULL")
+        row = cur.fetchone()
+        if row and row[0]:
+            cur.execute('SELECT "Meta".sp_seed_platform_action_methods()')
     conn.commit()
     return count
 

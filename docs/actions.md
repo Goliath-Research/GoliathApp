@@ -48,3 +48,24 @@ Those paths are the product worker layout. This repository does not contain `wor
 ## What a worker does with the row
 
 The claim response carries `action_name`, `capability`, and `input_json`. Handler selection (`execution_mode`, CLI argv, in-process function) is product code. `goliath_worker` submits the result and does not dispatch a handler.
+
+## Platform actions are class methods
+
+Every platform action (engine, core and inventory namespaces) is bound to a Meta class method by the
+data seed `workflow_engine/sql_pg/platform_action_methods_seed.sql`:
+
+| Class | Methods |
+| --- | --- |
+| `platform/Workflow` (abstract) | `const_bool`, `const_int`, `const_string`, `const_path`, `json_path_bool`, `json_path_int`, `json_path_string`, `fs_stat`, `device_adapter_command`, `device_adapter_observe` |
+| `platform/Activity` | `plan_iterations` (`validation.plan_iterations`) |
+| `platform/Lot` | `receive_stock`, `adjust_stock`, `issue_stock` (`inv.stock.*`) |
+
+Each method's parameters are typed by the `platform/action/*` catalog data types (Boolean, Integer,
+Decimal, Text, Path, Document, DocumentList). Their names match the action's input fields, and their
+defaults match the action's input defaults. The seed runs from `apply_schema.sh` and again at the end of
+`seed_action_catalog.py --use-db`, so it works whichever order the two run in. It is idempotent and
+leaves the catalog input schemas as the action catalog published them.
+
+A child app overrides a platform method by seeding the same method name on its subclass (the Actions
+page marks it *override*). It adds new actions the same way, as methods on its own classes. No UI
+code is involved.
