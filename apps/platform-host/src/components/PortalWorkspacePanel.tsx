@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ActionMethodsWorkspace } from "./ActionMethodsWorkspace";
 import { QueryRecordGrid } from "./QueryRecordGrid";
 import { RecordEditorWorkspace } from "./RecordEditorWorkspace";
@@ -14,7 +15,6 @@ import { AdminUsersWorkspace } from "@/components/AdminUsersWorkspace";
 import { MetaTreePanel } from "@/components/MetaTreePanel";
 import { MetaWorkbenchPanel } from "@/components/MetaWorkbenchPanel";
 import { listMetaTreeClasses } from "@/server/portal/meta-tree";
-import { ModelAuthoringPanel } from "@/components/ModelAuthoringPanel";
 import { OperatorDashboardsWorkspaceServer } from "@/components/OperatorDashboardsWorkspaceServer";
 import { OperatorViewsWorkspaceServer } from "@/components/OperatorViewsWorkspaceServer";
 import { SemanticPackageExport } from "@/components/SemanticPackageExport";
@@ -124,14 +124,18 @@ export async function PortalWorkspacePanel({
   try {
     if (spec.kind === "meta_home" || spec.kind === "meta_class_catalog") {
       const classes: MetaClassListRow[] = await portalSessionMetaListClasses(token);
-      const platformParents = classes
-        .map((c) => c.className)
-        .filter((name) => name.startsWith("platform/"));
       return (
         <div className="g-portal-stage">
           <h2>{spec.title}</h2>
           {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
-          <ModelAuthoringPanel parentClasses={platformParents.length ? platformParents : ["platform/Entity"]} />
+          {spec.recordEntities?.length ? (
+            spec.recordEntities.map((entity) => <RecordEditorWorkspace key={entity} entity={entity} />)
+          ) : (
+            <p className="g-host-home__lead">
+              Add or edit classes, fields and relations in the <Link href="/app/meta/classes">Classes</Link>,{" "}
+              <Link href="/app/meta/fields">Fields</Link> and <Link href="/app/meta/relations">Relations</Link> grids.
+            </p>
+          )}
           <MetaClassHierarchyList
             classes={classes}
             selectedClassName={metaClassOverride}

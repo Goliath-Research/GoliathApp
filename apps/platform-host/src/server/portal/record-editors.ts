@@ -20,6 +20,9 @@ export const RECORD_EDITOR_ENTITIES = [
   "semantic_entity",
   "semantic_attribute",
   "semantic_request",
+  "meta_class",
+  "meta_field",
+  "meta_link",
 ] as const;
 
 export type RecordEditorEntity = (typeof RECORD_EDITOR_ENTITIES)[number];
@@ -84,6 +87,12 @@ export async function listRecords(token: string, entity: RecordEditorEntity): Pr
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_semantic_list_attributes_editor($1)");
     case "semantic_request":
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_semantic_list_requests_editor($1)");
+    case "meta_class":
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_meta_editor_list_classes($1)");
+    case "meta_field":
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_meta_editor_list_fields($1)");
+    case "meta_link":
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_meta_editor_list_links($1)");
   }
 }
 
@@ -129,6 +138,16 @@ export async function getRecord(
       const { name, version } = splitNameVersion(key);
       return jsonbScalar(token, "SELECT portal.sp_session_semantic_get_request($1, $2, $3) AS doc", [name, version]);
     }
+    case "meta_class":
+      return jsonbScalar(token, "SELECT portal.sp_session_meta_editor_get_class($1, $2) AS doc", [key]);
+    case "meta_field":
+      return jsonbScalar(token, "SELECT portal.sp_session_meta_editor_get_field($1, $2::int) AS doc", [
+        intKey(key, "field id"),
+      ]);
+    case "meta_link":
+      return jsonbScalar(token, "SELECT portal.sp_session_meta_editor_get_link($1, $2::int) AS doc", [
+        intKey(key, "relation id"),
+      ]);
     case "worker_enrollment": {
       const rows = await listRecords(token, "worker_enrollment");
       const row = rows.find((r) => `${r.cluster_key}/${r.external_worker_key}` === key);
@@ -229,6 +248,23 @@ export async function saveRecord(
       );
       return { key: `${rows[0]?.request_code}@${rows[0]?.version}` };
     }
+    case "meta_class": {
+      const rows = await portalSessionCall(
+        token,
+        "SELECT portal.sp_session_meta_editor_save_class($1, $2, $3::jsonb) AS k",
+        [key || null, json],
+      );
+      return { key: String(rows[0]?.k ?? "") };
+    }
+    case "meta_field":
+    case "meta_link": {
+      const fn = entity === "meta_field" ? "sp_session_meta_editor_save_field" : "sp_session_meta_editor_save_link";
+      const rows = await portalSessionCall(token, `SELECT portal.${fn}($1, $2::int, $3::jsonb) AS id`, [
+        key ? intKey(key, "id") : null,
+        json,
+      ]);
+      return { key: String(rows[0]?.id ?? "") };
+    }
   }
 }
 
@@ -313,6 +349,17 @@ export async function runRecordAction(
     const rows = await portalSessionCall(token, `SELECT portal.${fn}($1, $2::bigint) AS result`, [
       intKey(key, "subscription id"),
     ]);
+    return rows[0] ?? {};
+  }
+  if (entity === "meta_class" && action === "delete") {
+    const rows = await portalSessionCall(token, "SELECT portal.sp_session_meta_editor_delete_class($1, $2) AS result", [
+      key,
+    ]);
+    return rows[0] ?? {};
+  }
+  if ((entity === "meta_field" || entity === "meta_link") && action === "delete") {
+    const fn = entity === "meta_field" ? "sp_session_meta_editor_delete_field" : "sp_session_meta_editor_delete_link";
+    const rows = await portalSessionCall(token, `SELECT portal.${fn}($1, $2::int) AS result`, [intKey(key, "id")]);
     return rows[0] ?? {};
   }
   if (entity === "semantic_namespace" && action === "delete") {

@@ -78,7 +78,9 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
   "/app/meta/classes": {
     kind: "meta_class_catalog",
     title: "Classes",
-    description: "Full Meta.Classes hierarchy with workbench drill-in.",
+    description:
+      "Full Meta.Classes hierarchy with workbench drill-in. platform/* classes are edited by the God Architect only.",
+    recordEntities: ["meta_class"],
   },
   "/app/meta/objects": {
     kind: "meta_workbench",
@@ -87,14 +89,17 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     description: "Instance documents for the selected class (SchemaPropertyGrid).",
   },
   "/app/meta/fields": {
-    kind: "meta_class_catalog",
+    kind: "record_editor",
     title: "Fields",
-    description: "Pick a class to see and edit its fields (inherited fields come from ancestors).",
+    description:
+      "Create, edit and delete class fields typed by catalog data types. Fields of platform/* classes are edited by the God Architect only.",
+    recordEntities: ["meta_field"],
   },
   "/app/meta/relations": {
-    kind: "meta_class_catalog",
+    kind: "record_editor",
     title: "Relations",
-    description: "Pick a class to see its relations to other classes.",
+    description: "Create, edit and delete relations between classes (cardinality, hierarchical).",
+    recordEntities: ["meta_link"],
   },
   "/app/meta/methods": {
     kind: "record_editor",

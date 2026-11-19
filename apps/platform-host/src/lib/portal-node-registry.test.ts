@@ -58,12 +58,15 @@ describe("parent routes, unknown paths, and Meta member routes", () => {
     expect(resolvePortalWorkspace("/app/childapp/unknown").kind).toBe("extension_help");
   });
 
-  it("opens methods in the class-method editor and fields/relations in the class catalog", () => {
+  it("opens methods, fields and relations in generic record editors", () => {
     const methods = resolvePortalWorkspace("/app/meta/methods");
     expect(methods.kind).toBe("record_editor");
     expect(methods.recordEntities).toEqual(["class_method"]);
-    expect(resolvePortalWorkspace("/app/meta/fields").kind).toBe("meta_class_catalog");
-    expect(resolvePortalWorkspace("/app/meta/relations").kind).toBe("meta_class_catalog");
+    expect(resolvePortalWorkspace("/app/meta/fields").recordEntities).toEqual(["meta_field"]);
+    expect(resolvePortalWorkspace("/app/meta/relations").recordEntities).toEqual(["meta_link"]);
+    const classes = resolvePortalWorkspace("/app/meta/classes");
+    expect(classes.kind).toBe("meta_class_catalog");
+    expect(classes.recordEntities).toEqual(["meta_class"]);
   });
 
   it("lists direct NavTree children in menu order", () => {
