@@ -155,9 +155,10 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     description: "Create users, invitations, and scoped role assignments.",
   },
   "/app/admin/organizations": {
-    kind: "platform_query",
+    kind: "record_editor",
     title: "Organizations",
-    semanticRequest: "core.list_organizations",
+    description: "Create, rename and deactivate organizations (God Architect). Organizations are never deleted.",
+    recordEntities: ["organization"],
   },
   "/app/admin/roles": {
     kind: "admin_roles",
@@ -222,11 +223,19 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     description: "Create and edit the event subscriptions that start or signal workflow runs.",
     recordEntities: ["event_subscription"],
   },
-  "/app/config/site": { kind: "platform_query", title: "Site settings", platformQuery: "sites" },
+  "/app/config/site": {
+    kind: "record_editor",
+    title: "Site settings",
+    description:
+      "Versioned site documents. Documents are typed by the data type the owning app registers; publishing makes a draft current.",
+    recordEntities: ["cfg_site"],
+  },
   "/app/config/pipeline-profiles": {
-    kind: "platform_query",
+    kind: "record_editor",
     title: "Pipeline profiles",
-    platformQuery: "pipeline_profiles",
+    description:
+      "Versioned pipeline profiles. Editing a published version creates a new draft; documents are typed by the data type the owning app registers.",
+    recordEntities: ["cfg_pipeline_profile"],
   },
   "/app/operations/events": { kind: "platform_query", title: "Events", platformQuery: "recent_events" },
   "/app/operations/schedules": { kind: "platform_query", title: "Schedules", platformQuery: "schedule_nodes" },

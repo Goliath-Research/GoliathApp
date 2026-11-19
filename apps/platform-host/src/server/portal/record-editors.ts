@@ -23,7 +23,12 @@ export const RECORD_EDITOR_ENTITIES = [
   "meta_class",
   "meta_field",
   "meta_link",
+  "cfg_site",
+  "cfg_pipeline_profile",
+  "organization",
 ] as const;
+
+const CFG_KIND: Record<string, string> = { cfg_site: "site", cfg_pipeline_profile: "pipeline_profile" };
 
 export type RecordEditorEntity = (typeof RECORD_EDITOR_ENTITIES)[number];
 
@@ -93,6 +98,11 @@ export async function listRecords(token: string, entity: RecordEditorEntity): Pr
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_meta_editor_list_fields($1)");
     case "meta_link":
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_meta_editor_list_links($1)");
+    case "cfg_site":
+    case "cfg_pipeline_profile":
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_cfg_document_list($1, $2)", [CFG_KIND[entity]]);
+    case "organization":
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_org_list($1)");
   }
 }
 
@@ -148,6 +158,21 @@ export async function getRecord(
       return jsonbScalar(token, "SELECT portal.sp_session_meta_editor_get_link($1, $2::int) AS doc", [
         intKey(key, "relation id"),
       ]);
+    case "cfg_site":
+    case "cfg_pipeline_profile":
+      if (key === "new") {
+        return jsonbScalar(token, "SELECT portal.sp_session_cfg_document_type($1, $2) AS doc", [CFG_KIND[entity]]);
+      }
+      return jsonbScalar(token, "SELECT portal.sp_session_cfg_document_get($1, $2, $3::bigint) AS doc", [
+        CFG_KIND[entity],
+        intKey(key, "document id"),
+      ]);
+    case "organization": {
+      const rows = await listRecords(token, "organization");
+      const row = rows.find((r) => String(r.organization_id) === key);
+      if (!row) throw new RecordEditorInputError("organization not found");
+      return { organization_id: row.organization_id, name: row.name, active: row.active };
+    }
     case "worker_enrollment": {
       const rows = await listRecords(token, "worker_enrollment");
       const row = rows.find((r) => `${r.cluster_key}/${r.external_worker_key}` === key);
@@ -224,6 +249,24 @@ export async function saveRecord(
     }
     case "workflow_run":
       throw new RecordEditorInputError("workflow runs are not edited; use cancel, retry or link_study");
+    case "cfg_site":
+    case "cfg_pipeline_profile": {
+      const id = key ? intKey(key, "document id") : null;
+      const rows = await portalSessionCall(
+        token,
+        "SELECT portal.sp_session_cfg_document_save($1, $2, $3::bigint, $4::jsonb) AS id",
+        [CFG_KIND[entity], id, json],
+      );
+      return { key: String(rows[0]?.id ?? "") };
+    }
+    case "organization": {
+      const id = key ? intKey(key, "organization id") : null;
+      const rows = await portalSessionCall(token, "SELECT portal.sp_session_org_save($1, $2::int, $3::jsonb) AS id", [
+        id,
+        json,
+      ]);
+      return { key: String(rows[0]?.id ?? "") };
+    }
     case "semantic_namespace": {
       const rows = await portalSessionCall(
         token,
@@ -440,6 +483,14 @@ export async function runRecordAction(
       token,
       "SELECT portal.sp_session_link_run_study($1, $2::bigint, $3::bigint) AS id",
       [intKey(key, "workflow run id"), intKey(String(doc.study_row_id ?? ""), "study_row_id")],
+    );
+    return rows[0] ?? {};
+  }
+  if ((entity === "cfg_site" || entity === "cfg_pipeline_profile") && (action === "publish" || action === "retire")) {
+    const rows = await portalSessionCall(
+      token,
+      "SELECT portal.sp_session_cfg_document_action($1, $2, $3::bigint, $4) AS status",
+      [CFG_KIND[entity], intKey(key, "document id"), action],
     );
     return rows[0] ?? {};
   }

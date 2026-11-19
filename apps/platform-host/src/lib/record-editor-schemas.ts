@@ -19,6 +19,12 @@ export type RecordEditorDefinition = {
   rowKey: (row: Record<string, unknown>) => string;
   rowLabel: (row: Record<string, unknown>) => string;
   canCreate: boolean;
+  /**
+   * When set, the record's `document` field is typed by the JSON Schema the server returns in
+   * this key of the record document (registered by the app that owns the record kind). Without
+   * a schema the document is view-only.
+   */
+  documentSchemaKey?: string;
   /** When set, only matching rows offer the Edit inspector action. */
   canEdit?: (row: Record<string, unknown>) => boolean;
   /** Extra per-row actions (POST /api/portal/records/:entity/action). */
@@ -222,6 +228,37 @@ const META_LINK_EDIT = {
   max_card: { type: "integer", minimum: 0, description: "Empty for unbounded" },
   is_hierarchical: { type: "boolean" },
 };
+
+
+function cfgDocumentEditor(entity: string, title: string, noun: string): RecordEditorDefinition {
+  return {
+    entity,
+    title,
+    noun,
+    columns: [
+      { key: "name", label: "Name" },
+      { key: "version", label: "Version" },
+      { key: "status", label: "Status" },
+      { key: "updated_at_utc", label: "Updated" },
+    ],
+    createSchema: { type: "object", properties: { name: str("Name (letters, digits, _ . : -)") }, required: ["name"] },
+    editSchema: { type: "object", properties: {} },
+    rowKey: (row) => String(row.id),
+    rowLabel: (row) => `${row.name} v${row.version}`,
+    canCreate: true,
+    documentSchemaKey: "document_schema",
+    canEdit: (row) => row.editable === true || row.editable === "t",
+    rowActions: [
+      { action: "publish", label: "Publish", visible: (row) => row.status === "draft" },
+      {
+        action: "retire",
+        label: "Retire",
+        visible: (row) => row.status === "draft" || row.status === "published",
+        confirm: "Retire this version? It is kept but no longer offered.",
+      },
+    ],
+  };
+}
 
 /** Classes named platform/* are edited by the God Architect only (enforced in SQL). */
 export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
@@ -648,6 +685,32 @@ export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
       },
     ],
   },
+  cfg_site: cfgDocumentEditor("cfg_site", "Sites", "site"),
+  cfg_pipeline_profile: cfgDocumentEditor("cfg_pipeline_profile", "Pipeline profiles", "pipeline profile"),
+  organization: {
+    entity: "organization",
+    title: "Organizations",
+    noun: "organization",
+    columns: [
+      { key: "name", label: "Name" },
+      { key: "active", label: "Active" },
+      { key: "member_count", label: "Members" },
+      { key: "created_at_utc", label: "Created" },
+    ],
+    createSchema: {
+      type: "object",
+      properties: { name: str("Organization name"), active: { type: "boolean", default: true } },
+      required: ["name"],
+    },
+    editSchema: {
+      type: "object",
+      properties: { name: str("Organization name"), active: { type: "boolean" } },
+      required: ["name"],
+    },
+    rowKey: (row) => String(row.organization_id),
+    rowLabel: (row) => String(row.name),
+    canCreate: true,
+  },
 };
 
 /** Fields the server needs from the identity of an existing record when saving. */
@@ -688,6 +751,27 @@ export function editableDocument(
 }
 
 /** Read-only schema for View: every create and edit property (identity fields included). */
+/** Add the server-provided document schema as the typed `document` field of an editor schema. */
+export function withDocumentSchema(
+  base: Record<string, unknown>,
+  documentSchema: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  if (!documentSchema || typeof documentSchema !== "object") return base;
+  const props = (documentSchema.properties ?? {}) as Record<string, unknown>;
+  return {
+    ...base,
+    properties: {
+      ...((base.properties ?? {}) as Record<string, unknown>),
+      document: {
+        type: "object",
+        description: "Document (typed by the registered document type)",
+        properties: props,
+        ...(Array.isArray(documentSchema.required) ? { required: documentSchema.required } : {}),
+      },
+    },
+  };
+}
+
 export function viewSchemaFor(def: RecordEditorDefinition): Record<string, unknown> {
   const createProps = (def.createSchema.properties ?? {}) as Record<string, unknown>;
   const editProps = (def.editSchema.properties ?? {}) as Record<string, unknown>;

@@ -196,6 +196,13 @@ Under **Administration**, **Workflows**, **Configuration**, **Operations**, and 
 
 If a leaf has no host screen yet, the UI states that clearly — the NavTree node remains part of the inherited menu for child apps to extend.
 
+### Organizations and config documents
+
+- **Organizations** (`/app/admin/organizations`) is a record grid. Organization admins see the list; only the God Architect creates, renames or deactivates organizations. Organizations are never deleted here.
+- **Site settings** and **Pipeline profiles** (`/app/config/site`, `/app/config/pipeline-profiles`) are versioned record grids with **Publish** and **Retire** row actions. Saving a draft updates it; saving a published version creates the next version as a draft; retired versions are read-only.
+- GoliathApp knows no document keys. The app that owns a config kind registers the catalog data type of its documents with `cfg.sp_register_kind_document_type(kind, type_name)` (database owner, in that app's seed). The document is then edited field by field in the typed inspector and checked against that type on save. Kinds with no registered type are view-only: documents are shown read-only and cannot be created or edited (no free-form JSON).
+- Roles and grants use the record grids above; the permission catalog is read-only (apps seed their permissions).
+
 ## What this guide does not cover
 
 - **Worker enrollment and claims** — gateway HTTP only; see [Workers](workers.md).
