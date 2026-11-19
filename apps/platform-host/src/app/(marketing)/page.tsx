@@ -6,13 +6,13 @@ import { SessionOperatorPanel } from "@/components/SessionOperatorPanel";
 export default function HomePage() {
   return (
     <div className="g-host-home">
-      <p className="kicker">[Fixture host]</p>
-      <h2>Platform UI foundation (P0)</h2>
+      <p className="kicker">GoliathApp platform host</p>
+      <h2>Operator portal</h2>
       <p className="g-host-home__lead">
         This process is owned by <strong>GoliathApp</strong>. It serves shared packages (
         <code>@goliath/ui</code>, <code>@goliath/platform-ui</code>) and a labeled fixture route. It does not connect
-        to PostgreSQL when the portal bridge is configured. P2 adds a session-gated Meta browser at{" "}
-        <Link href="/app/meta">/app/meta</Link>.
+        to PostgreSQL directly from the browser; signed-in screens under <Link href="/app">/app</Link> are how every
+        child app visualizes, creates, edits, and manages what the platform uses.
       </p>
       <section className="g-host-home__grid" aria-label="Host capabilities">
         <article className="g-host-card">
@@ -20,12 +20,19 @@ export default function HomePage() {
           <p>Deterministic default icons, class override resolution, and ObjectBadge primitives.</p>
         </article>
         <article className="g-host-card">
-          <ObjectBadge kind="workflow_definition" label="Workflows (roadmap)" fixture />
-          <p>First-class in packages and docs; designer/monitor is P3 — not in this host yet.</p>
+          <ObjectBadge kind="workflow_definition" label="Workflow designer" />
+          <p>
+            Signed-in operators create, edit, version, and activate workflows, actions (class methods), domain
+            programs, and runs under <Link href="/app/workflows/definitions">/app/workflows</Link>. Child apps inherit
+            these screens and only add data.
+          </p>
         </article>
         <article className="g-host-card">
-          <ObjectBadge kind="semantic_entity" label="Semantic layer (roadmap)" fixture />
-          <p>Registry-driven screens are P4; this host only demonstrates static fixture rows.</p>
+          <ObjectBadge kind="semantic_entity" label="Semantic layer" />
+          <p>
+            Namespaces, entities, attributes, and requests are managed under{" "}
+            <Link href="/app/semantic">/app/semantic</Link>; a child app&apos;s seeded namespaces appear there.
+          </p>
         </article>
         <article className="g-host-card g-host-card--wide">
           <SessionOperatorPanel />

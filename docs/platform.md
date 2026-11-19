@@ -36,7 +36,7 @@ There is no separate `obj` schema. Object identity is `"Meta"."Objs"`.
 | Contract check | `workflow_engine/contract/validate_contract.py` | Requires the objects in `db_objects.yaml` to appear in `sql_pg/`. |
 | Delphi gateway | `workflow_engine/delphi/` | Frozen Windows reference. The Python gateway is the middle tier that ships here. |
 
-`publish-program --deploy-db` imports `ops.workflow_deploy`, which is not in this tree. `sync-actions` runs `workflow_engine/sql_pg/seed_action_catalog.py`, which is not in this tree. `sync-library-presets` imports an application enricher preset registry, which is not in this tree.
+`sync-actions` runs `workflow_engine/sql_pg/seed_action_catalog.py`. `sync-library-presets` imports an application enricher preset registry, which is not in this tree.
 
 ## Gateway and database defaults
 

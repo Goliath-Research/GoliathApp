@@ -32,8 +32,8 @@ This page tracks the **signed-in operator portal** for `apps/platform-host` and 
 | P0 | Packages, fixture, icons | Done — [visualization.md](../visualization.md) |
 | P1 | BFF, session, OIDC | Done |
 | P2 | Meta hierarchy browser + editors | In portal PR |
-| P3 | Workflow designer / monitor depth | Partial lists; designer TBD |
-| P4 | Semantic + admin screens | Lists via session platform API |
+| P3 | Workflow designer / monitor depth | Current product: versioned graph editor, class-method actions, domain programs, run inspector; canvas and pickers in progress |
+| P4 | Semantic + admin screens | Current product: registration and admin editors; full property-grid create/edit/retire in progress |
 | P5 | Views/dashboards | **Define + arrange** in portal PR; widget layout refinements follow |
 | P6 | Multi-child adoption | In progress — [multi-product platform host](multi-product-platform-host.md) |
 
