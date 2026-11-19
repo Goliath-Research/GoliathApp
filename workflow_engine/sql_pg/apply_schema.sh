@@ -137,6 +137,8 @@ SCRIPTS=(
   portal_session_domain_program_compile_api.sql
   meta_action_method_derivation.sql
   semantic_entity_class_access.sql
+  meta_catalog_projection.sql
+  semantic_catalog_meta.sql
   portal_contract_api.sql
   portal_study_ops_api.sql
   portal_guardrails_editor.sql
