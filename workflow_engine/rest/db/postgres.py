@@ -834,6 +834,50 @@ class PostgresGatewayDb(GatewayDbBase):
             "name": payload.get("name"),
         }
 
+    def deploy_workflow_graph(
+        self, spec: dict[str, Any], *, activate: bool = True
+    ) -> dict[str, Any]:
+        """Deploy a compiled graph without deleting anything.
+
+        A new name creates the definition (``wf_repo_create_workflow_graph``). An existing
+        name gets a new version (next minor in the same major) through
+        ``wf_repo_create_workflow_graph_version``; ``activate`` makes it the active version.
+        Earlier versions, and the runs that reference them, are kept.
+        """
+        name = str(spec.get("name") or "").strip()
+        if not name:
+            raise ValueError("workflow spec missing name")
+        try:
+            row = self._fetch_one(
+                f"SELECT {self._qual('wf_repo_deploy_workflow_graph')}(%s, %s) AS payload",
+                (json.dumps(spec), activate),
+            )
+        except psycopg.Error as exc:
+            if self._is_auth_error(exc):
+                raise WorkerAuthError(str(exc)) from exc
+            raise
+        if not row or row.get("payload") is None:
+            raise RuntimeError("wf_repo_deploy_workflow_graph returned no result")
+        payload = parse_json_value(row["payload"])
+        if not isinstance(payload, dict):
+            raise RuntimeError("wf_repo_deploy_workflow_graph returned invalid payload")
+        return {
+            "workflow_def_id": int(payload["workflow_def_id"]),
+            "workflow_version_id": int(payload["workflow_version_id"]),
+            "root_node_id": int(payload["root_node_id"]),
+            "name": payload.get("name") or name,
+            "created_definition": bool(payload.get("created_definition")),
+            "active": bool(payload.get("active")),
+        }
+
+    def reclaim_expired_leases(
+        self, *, workflow_instance_id: Optional[int] = None, grace_seconds: int = 60
+    ) -> list[dict[str, Any]]:
+        return self._fetch_all(
+            f"SELECT * FROM {self._qual('sp_reclaim_expired_leases')}(%s, %s, false)",
+            (workflow_instance_id, int(grace_seconds)),
+        )
+
     def list_workflow_definitions(
         self, *, source_filter: Optional[str] = None
     ) -> list[dict[str, Any]]:

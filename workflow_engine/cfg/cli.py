@@ -149,18 +149,22 @@ def _cmd_publish_program(args: argparse.Namespace) -> int:
     store = _open_store(args.store_dir)
     db = None
     if args.deploy_db:
-        from rest import db_client
+        from rest.db import open_gateway_db
 
-        db = db_client.connect()  # pyrefly: ignore[missing-attribute]
-    result = publish_program(
-        store,
-        args.name,
-        version=args.version,
-        repo_root=args.repo_root or _repo_root(),
-        work_root=args.work_root,
-        deploy_db=args.deploy_db,
-        db=db,
-    )
+        db = open_gateway_db()
+    try:
+        result = publish_program(
+            store,
+            args.name,
+            version=args.version,
+            repo_root=args.repo_root or _repo_root(),
+            work_root=args.work_root,
+            deploy_db=args.deploy_db,
+            db=db,
+        )
+    finally:
+        if db is not None:
+            db.close()
     print(json.dumps(result, indent=2, default=str))
     return 0
 

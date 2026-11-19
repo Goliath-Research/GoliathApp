@@ -61,6 +61,7 @@ SCRIPTS=(
   wf_execution_scope.sql
   04_admin.sql
   wf_repo_create_workflow_graph.sql
+  wf_repo_deploy_workflow_graph.sql
   wf_sql_collection_bindings.sql
   portal_workflow_api.sql
   wf_drop_platform_sample_storage.sql

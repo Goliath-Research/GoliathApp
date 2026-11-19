@@ -22,6 +22,7 @@ rbac_identity_providers = "goliath_app.auth.providers:default_rbac_identity_prov
 
 [project.scripts]
 goliath-gateway = "rest.gateway:main"
+goliath-reclaim-leases = "rest.reclaim_leases:main"
 goliath-workflow-run = "local.runner:main"
 goliath-cfg = "cfg.cli:main"
 goliath-export-action-schemas = "goliath_app.actions.schema_export:main"

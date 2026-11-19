@@ -61,24 +61,13 @@ def publish_program(
     if deploy_db:
         if db is None:
             raise ValueError("deploy_db=True requires a db client")
-        from ops.workflow_deploy import deploy_workflow_definition
-        from rest import db_client
+        from contract.workflow_definition_spec import WorkflowDefinitionSpec
 
-        deployed = cast(
-            Dict[str, Any],
-            deploy_workflow_definition(
-                db,
-                {"spec": spec, "replace": replace},
-                create_workflow_definition=db_client.create_workflow_definition,
-                delete_workflow_definition=db_client.delete_workflow_definition,
-            ),
-        )
+        db_spec = WorkflowDefinitionSpec.model_validate(spec).to_db_spec()
+        # Never deletes: an existing definition gets a new version; ``replace`` activates it.
+        deployed = cast(Dict[str, Any], db.deploy_workflow_graph(db_spec, activate=replace))
         deploy_result = deployed
-        wf_version_id = (
-            deployed.get("workflow_version_id")
-            or deployed.get("workflowVersionId")
-            or deployed.get("id")
-        )
+        wf_version_id = deployed.get("workflow_version_id")
         if wf_version_id is not None:
             store.set_extra(
                 "domain_program",

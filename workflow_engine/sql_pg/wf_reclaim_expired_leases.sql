@@ -31,6 +31,8 @@ RETURNS TABLE (
   reclaimed_at_utc timestamptz
 )
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = wf, pg_temp
 AS $$
 #variable_conflict use_column
 DECLARE
@@ -90,6 +92,15 @@ BEGIN
 END;
 $$;
 
+-- SECURITY DEFINER: callable only by the worker gateway role (and the owner), not PUBLIC.
+REVOKE EXECUTE ON FUNCTION wf.sp_reclaim_expired_leases(bigint, int, boolean, bigint) FROM PUBLIC;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'goliath_gateway') THEN
+    GRANT EXECUTE ON FUNCTION wf.sp_reclaim_expired_leases(bigint, int, boolean, bigint) TO goliath_gateway;
+  END IF;
+END $$;
+
 CREATE OR REPLACE FUNCTION portal.sp_reclaim_expired_leases(
   p_workflow_instance_id bigint DEFAULT NULL,
   p_grace_seconds int DEFAULT 60
@@ -102,6 +113,8 @@ RETURNS TABLE (
   reclaimed_at_utc timestamptz
 )
 LANGUAGE sql
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
 AS $$
   SELECT *
   FROM wf.sp_reclaim_expired_leases(p_workflow_instance_id, p_grace_seconds, false);

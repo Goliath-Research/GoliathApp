@@ -72,6 +72,7 @@ jobs:
         run: |
           python -m pytest \
             workflow_engine/tests/test_connection.py \
+            workflow_engine/tests/test_gateway_reclaim_and_deploy.py \
             workflow_engine/tests/test_asgi.py \
             workflow_engine/tests/test_gateway_auth.py \
             workflow_engine/tests/test_cfg_bundle_layout.py \
