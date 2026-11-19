@@ -206,8 +206,9 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
   "/app/workflows/domain-programs": {
     kind: "record_editor",
     title: "Domain programs",
-    description: "Edit draft program metadata and publish drafts. Published versions are immutable.",
-    recordEntities: ["domain_program"],
+    description:
+      "Edit draft program metadata and the typed parameters of its steps, then compile and publish on the server. Published versions are immutable; save under a new version to change one.",
+    recordEntities: ["domain_program", "domain_program_step"],
   },
   "/app/workflows/workers": {
     kind: "record_editor",

@@ -286,11 +286,37 @@ export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
     canCreate: true,
     rowActions: [
       {
+        action: "compile_publish",
+        label: "Compile and publish",
+        visible: (row) => row.status === "draft",
+        confirm:
+          "Compile this draft on the server and publish it? A new inactive workflow version is created; activate it on Workflow definitions.",
+      },
+      {
         action: "publish",
-        label: "Publish",
+        label: "Publish without compiling",
         visible: (row) => row.status === "draft",
       },
     ],
+  },
+  domain_program_step: {
+    entity: "domain_program_step",
+    title: "Draft program steps",
+    noun: "step",
+    columns: [
+      { key: "program", label: "Program" },
+      { key: "version", label: "Version" },
+      { key: "step_path", label: "Step" },
+      { key: "action_name", label: "Action" },
+      { key: "param_count", label: "Parameters" },
+    ],
+    createSchema: { type: "object", properties: {} },
+    editSchema: { type: "object", properties: {} },
+    rowKey: (row) => String(row.step_key),
+    rowLabel: (row) => `${row.program} v${row.version} ${row.step_path} (${row.action_name})`,
+    canCreate: false,
+    documentSchemaKey: "document_schema",
+    canEdit: (row) => row.editable === true || row.editable === "t",
   },
   cluster: {
     entity: "cluster",

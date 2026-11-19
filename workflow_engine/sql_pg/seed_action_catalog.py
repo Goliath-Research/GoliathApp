@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -29,9 +30,26 @@ def _connect():
     )
 
 
+def compile_profile_args(spec) -> tuple:
+    """How the DomainProgram compiler lowers this action (wf.action_compile_profile)."""
+    effects = asdict(spec.domain_effects) if spec.domain_effects is not None else None
+    return (
+        spec.action_name,
+        spec.tool or spec.action_name,
+        spec.action_config_key,
+        list(spec.context_vars),
+        json.dumps(effects) if effects is not None else None,
+    )
+
+
 def seed(conn) -> int:
     count = 0
     with conn.cursor() as cur:
+        cur.execute(
+            "SELECT to_regprocedure('wf.wf_repo_upsert_action_compile_profile(text,text,text,text[],jsonb)') IS NOT NULL"
+        )
+        prof = cur.fetchone()
+        has_profiles = bool(prof and prof[0])
         for spec in load_action_catalog():
             cur.execute(
                 """
@@ -81,6 +99,11 @@ def seed(conn) -> int:
                         spec.input_catalog_type_name,
                         spec.output_catalog_type_name,
                     ),
+                )
+            if has_profiles:
+                cur.execute(
+                    "SELECT wf.wf_repo_upsert_action_compile_profile(%s, %s, %s, %s, %s::jsonb)",
+                    compile_profile_args(spec),
                 )
             count += 1
         # Bind platform actions to their Meta class methods (platform_action_methods_seed.sql).

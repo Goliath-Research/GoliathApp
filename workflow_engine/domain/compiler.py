@@ -11,7 +11,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Mapping, Optional, Set, Union
 
 from contract.workflow_definition_spec import (
     CollectionBindingSpec,
@@ -62,12 +62,18 @@ class _StructuralAction:
     domain_effects: Any = None
 
 
-def _catalog_entry_for(action_name: str) -> Any:
+def _catalog_entry_for(action_name: str, catalog: Optional[Mapping[str, Any]] = None) -> Any:
     """Catalog row, or a structural stand-in when the product catalog is absent.
 
     A catalog that is installed and does not list the action is an authoring error.
-    A platform-only install can still compile and stub the program.
+    A platform-only install can still compile and stub the program. An explicit ``catalog``
+    (the compile service passes the database's action compile profiles) replaces discovery.
     """
+    if catalog is not None:
+        entry = catalog.get(action_name)
+        if entry is None:
+            raise ValueError(f"unknown action in program: {action_name!r}")
+        return entry
     if catalog_available():
         entry = find_action(action_name)
         if entry is None:
@@ -101,6 +107,7 @@ class _CompileCtx:
     variable_schema_refs: Dict[str, str] = field(default_factory=dict)
     assign_targets_in_parallel: Set[str] = field(default_factory=set)
     foreach_bound_names: Set[str] = field(default_factory=set)
+    catalog: Optional[Mapping[str, Any]] = None
     _counter: int = 0
 
     def fresh_key(self, prefix: str) -> str:
@@ -351,7 +358,7 @@ def _compile_action(
     in_parallel: bool = False,
 ) -> str:
     action_name = step.action_name()
-    entry = _catalog_entry_for(action_name)
+    entry = _catalog_entry_for(action_name, ctx.catalog)
     node_key = step.node_key or ctx.fresh_key(action_name.replace(".", "_"))
     ctx.nodes.append(
         WorkflowNodeSpec(
@@ -695,8 +702,13 @@ def _compile_steps(
     return seq_key
 
 
-def compile_domain_program(program: DomainProgram, *, enrich_context: bool = False) -> CompileResult:
-    ctx = _CompileCtx()
+def compile_domain_program(
+    program: DomainProgram,
+    *,
+    enrich_context: bool = False,
+    catalog: Optional[Mapping[str, Any]] = None,
+) -> CompileResult:
+    ctx = _CompileCtx(catalog=catalog)
     context_seeds, decls = program.split_variables()
     ctx.declared_vars = set(decls.keys())
     variable_schemas: Dict[str, Any] = {}

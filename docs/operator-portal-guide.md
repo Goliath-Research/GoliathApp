@@ -271,6 +271,15 @@ entitlement plus the `platform.model.author` permission, and every save is recor
 Every fleet, retire and delete action asks for confirmation, requires `platform.model.author`, and is
 recorded in `portal.record_editor_audit`.
 
+## Editing and compiling domain programs
+
+- **Domain programs** (`/app/workflows/domain-programs`) shows two record grids: program versions and **Draft program steps**.
+- To change a published program, save it under a new version (the draft copies the latest body), then edit its steps.
+- Each action step of a draft is a record. **Edit** opens the typed inspector for the step's parameters, typed by the action's Meta method parameters. Values written as expressions (`${...}`) stay text. Steps whose action has no typed parameters are view-only, as are parameters the action does not declare (they are kept).
+- **Compile and publish** compiles the draft on the server with the platform's DomainProgram compiler, creates a new **inactive** workflow version, and publishes the program linked to it. Activate the version on **Workflow definitions**. Nothing is deleted.
+- The compiler learns how to lower each action from the action's compile profile (`wf.action_compile_profile`), which the app that owns the action seeds (`seed_action_catalog.py`). A program that uses an action with no profile is refused with a message naming the action.
+- No application code runs in the compiler: everything application-specific comes from the database.
+
 ## Editing workflow graphs and inspecting runs
 
 **Definitions** and **Steps** list every workflow version. **Edit** opens the version graph as a read-only

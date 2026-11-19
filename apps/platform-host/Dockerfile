@@ -21,6 +21,13 @@ ENV PLATFORM_HOST_REVISION=${PLATFORM_HOST_REVISION}
 COPY --from=build /repo/apps/platform-host/.next/standalone ./
 COPY --from=build /repo/apps/platform-host/.next/static ./apps/platform-host/.next/static
 COPY --from=build /repo/apps/platform-host/public ./apps/platform-host/public
+# Generic DomainProgram compiler, run on the server for "Compile and publish"
+# (src/server/portal/domain-program-compiler.ts). Pure Python + pydantic; no application code.
+RUN apk add --no-cache python3 py3-pydantic
+COPY workflow_engine/domain /app/py/workflow_engine/domain
+COPY workflow_engine/contract /app/py/workflow_engine/contract
+COPY goliath_app /app/py/goliath_app
+ENV GOLIATH_COMPILER_ROOT=/app/py
 EXPOSE 3400
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO- "http://127.0.0.1:3400/api/health" | grep -q '"status":"ok"' || exit 1

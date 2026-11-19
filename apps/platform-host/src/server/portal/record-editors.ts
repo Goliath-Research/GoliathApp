@@ -1,6 +1,7 @@
 import "server-only";
 
 import { portalSessionCall } from "./bridge";
+import { compileDomainProgram, DomainProgramCompileError } from "./domain-program-compiler";
 
 /**
  * Server-side registry of Workflows record editors. Each entity maps fixed SQL to the
@@ -11,6 +12,7 @@ import { portalSessionCall } from "./bridge";
 export const RECORD_EDITOR_ENTITIES = [
   "class_method",
   "domain_program",
+  "domain_program_step",
   "cluster",
   "worker_enrollment",
   "event_subscription",
@@ -74,6 +76,8 @@ export async function listRecords(token: string, entity: RecordEditorEntity): Pr
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_class_methods($1)");
     case "domain_program":
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_domain_programs($1, false)");
+    case "domain_program_step":
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_domain_program_step_list($1)");
     case "cluster":
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_clusters_with_usage($1)");
     case "worker_enrollment":
@@ -120,6 +124,8 @@ export async function getRecord(
       const { name, version } = splitNameVersion(key);
       return jsonbScalar(token, "SELECT portal.sp_session_get_domain_program($1, $2, $3) AS doc", [name, version]);
     }
+    case "domain_program_step":
+      return jsonbScalar(token, "SELECT portal.sp_session_domain_program_step_get($1, $2) AS doc", [key]);
     case "cluster":
       return jsonbScalar(token, "SELECT portal.sp_session_get_cluster($1, $2) AS doc", [key]);
     case "event_subscription":
@@ -211,6 +217,15 @@ export async function saveRecord(
         [json],
       );
       return { key: `${rows[0]?.name}@${rows[0]?.version}` };
+    }
+    case "domain_program_step": {
+      if (!key) throw new RecordEditorInputError("program steps are added in the program, not here");
+      const rows = await portalSessionCall(
+        token,
+        "SELECT portal.sp_session_domain_program_step_save($1, $2, $3::jsonb) AS k",
+        [key, json],
+      );
+      return { key: String(rows[0]?.k ?? key) };
     }
     case "cluster": {
       const rows = await portalSessionCall(token, "SELECT portal.sp_session_save_cluster($1, $2::jsonb) AS k", [json]);
@@ -352,6 +367,26 @@ export async function runRecordAction(
       [name, version],
     );
     return rows[0] ?? {};
+  }
+  if (entity === "domain_program" && action === "compile_publish") {
+    const { name, version } = splitNameVersion(key);
+    const input = await jsonbScalar(
+      token,
+      "SELECT portal.sp_session_domain_program_compile_input($1, $2, $3) AS doc",
+      [name, version],
+    );
+    let spec: Record<string, unknown>;
+    try {
+      spec = await compileDomainProgram(input);
+    } catch (e) {
+      if (e instanceof DomainProgramCompileError) throw new RecordEditorInputError(e.message);
+      throw e;
+    }
+    return jsonbScalar(
+      token,
+      "SELECT portal.sp_session_domain_program_publish_compiled($1, $2, $3, $4::jsonb) AS doc",
+      [name, version, JSON.stringify(spec)],
+    );
   }
   if (entity === "worker_enrollment" && action === "revoke") {
     const { clusterKey, workerKey } = splitEnrollmentKey(key);
