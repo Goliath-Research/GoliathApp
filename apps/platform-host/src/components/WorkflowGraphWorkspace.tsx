@@ -12,6 +12,7 @@ import {
 } from "@/lib/record-editor-client";
 import { linkedVersionId } from "@/lib/domain-program-structure";
 import { editableGraphDocument, graphSchemaFor, type GraphEditorMode } from "@/lib/workflow-graph-schemas";
+import { WorkflowGraphCanvas } from "@/components/WorkflowGraphCanvas";
 
 const ENTITY = "workflow_version";
 
@@ -239,6 +240,7 @@ export function WorkflowGraphWorkspace({ mode }: { mode: GraphEditorMode }) {
               Saving creates a new inactive version of this workflow; the version shown here is not changed. Node
               input templates are carried over by node key. Event subscriptions keep pointing at their version.
             </p>
+            <WorkflowGraphCanvas spec={doc} />
             <SchemaPropertyGrid
               key={`graph:${selected.workflow_version_id}:${session}`}
               fields={[]}
