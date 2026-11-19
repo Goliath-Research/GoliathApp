@@ -88,8 +88,8 @@ test.describe("model authoring (CI postgres)", () => {
     await page.goto("/app/semantic/entities");
     const entityGrid = page.getByTestId("record-grid-semantic_entity");
     await entityGrid.getByPlaceholder("Filter…").fill(entityCode);
-    await expect(entityGrid.getByRole("cell", { name: className })).toBeVisible();
-    await expect(entityGrid.getByRole("cell", { name: entityCode })).toBeVisible();
+    await expect(entityGrid.getByRole("cell", { name: className, exact: true })).toBeVisible();
+    await expect(entityGrid.getByRole("cell", { name: entityCode, exact: true })).toBeVisible();
     await entityGrid.getByRole("button", { name: new RegExp(`^View .*${entityCode}`) }).click();
     await expect(page.getByTestId("record-dialog-semantic_entity")).toBeVisible();
 
