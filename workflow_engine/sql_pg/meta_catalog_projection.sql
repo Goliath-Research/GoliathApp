@@ -73,6 +73,7 @@ AS $$
   END;
 $$;
 
+DROP FUNCTION IF EXISTS "Meta".fn_catalog_columns(regclass);
 CREATE OR REPLACE FUNCTION "Meta".fn_catalog_columns(p_relation regclass)
 RETURNS TABLE (name text, type_name text, required boolean, has_default boolean, nullable boolean, ordinal int, identity_always boolean)
 LANGUAGE sql
