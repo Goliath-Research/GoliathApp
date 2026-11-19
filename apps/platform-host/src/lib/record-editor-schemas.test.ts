@@ -46,4 +46,35 @@ describe("record editor schemas", () => {
   it("encodes urls", () => {
     expect(recordsUrl("domain_program", "/item", "a b@1")).toBe("/api/portal/records/domain_program/item?key=a%20b%401");
   });
+
+  it("offers fleet control only for enrolled workers and confirms destructive actions", () => {
+    const actions = RECORD_EDITORS.worker_enrollment.rowActions ?? [];
+    const visible = (row: Record<string, unknown>) => actions.filter((a) => a.visible(row)).map((a) => a.action);
+    expect(visible({ status: "PENDING", enrolled_worker_id: null })).toEqual(["revoke", "delete"]);
+    expect(visible({ status: "ENROLLED", enrolled_worker_id: 4, desired_state: "ACTIVE" })).toEqual([
+      "drain_worker",
+      "stop_worker",
+      "revoke",
+    ]);
+    expect(visible({ status: "ENROLLED", enrolled_worker_id: 4, desired_state: "DRAINING" })).toContain(
+      "activate_worker",
+    );
+    expect(visible({ status: "REVOKED", enrolled_worker_id: 4, desired_state: "ACTIVE" })).toEqual(["delete"]);
+    for (const def of Object.values(RECORD_EDITORS)) {
+      for (const a of def.rowActions ?? []) {
+        if (["delete", "retire", "revoke", "drain_worker", "stop_worker"].includes(a.action)) {
+          expect(a.confirm, `${def.entity}.${a.action} must confirm`).toBeTruthy();
+        }
+      }
+    }
+  });
+
+  it("deletes clusters only when empty and retires active subscriptions", () => {
+    const cluster = RECORD_EDITORS.cluster.rowActions ?? [];
+    expect(cluster.find((a) => a.action === "delete")?.visible({ worker_count: 2 })).toBe(false);
+    expect(cluster.find((a) => a.action === "delete")?.visible({ worker_count: 0, enrollment_count: 1 })).toBe(false);
+    expect(cluster.find((a) => a.action === "delete")?.visible({ worker_count: 0, enrollment_count: 0 })).toBe(true);
+    const sub = RECORD_EDITORS.event_subscription.rowActions ?? [];
+    expect(sub.find((a) => a.action === "retire")?.visible({ enabled: false })).toBe(false);
+  });
 });

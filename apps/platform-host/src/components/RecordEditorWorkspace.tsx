@@ -141,8 +141,9 @@ export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
   );
 
   const runAction = useCallback(
-    async (action: string, row: Record<string, unknown>, label: string) => {
+    async (action: string, row: Record<string, unknown>, label: string, confirmText?: string) => {
       if (!def) return;
+      if (confirmText && !window.confirm(confirmText)) return;
       setError(null);
       try {
         await runRecordEditorAction(def.entity, action, def.rowKey(row));
@@ -239,7 +240,7 @@ export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
                             key={a.action}
                             type="button"
                             onClick={() =>
-                              void runAction(a.action, row, a.label)
+                              void runAction(a.action, row, a.label, a.confirm)
                             }
                             aria-label={`${a.label} ${def.rowLabel(row)}`}
                           >

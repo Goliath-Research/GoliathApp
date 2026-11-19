@@ -303,6 +303,7 @@ export async function PortalWorkspacePanel({
         <div className="g-portal-stage">
           <h2>{spec.title}</h2>
           {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
+          <RelatedLinks links={spec.links} />
           {(spec.recordEntities ?? []).map((entity) =>
             entity === "class_method" ? (
               <ActionMethodsWorkspace key={entity} />
@@ -370,6 +371,7 @@ export async function PortalWorkspacePanel({
         <div className="g-portal-stage">
           <h2>{spec.title}</h2>
           {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
+          <RelatedLinks links={spec.links} />
           <PlatformRecordTable caption={spec.title} columns={def.columns} rows={rows} />
         </div>
       );
@@ -457,5 +459,18 @@ function PlaceholderPanel({ title, description }: { title: string; description?:
           "This official NavTree destination does not have a host implementation yet. The navigation entry is registered for descendant extensions."}
       </p>
     </div>
+  );
+}
+
+function RelatedLinks({ links }: { links?: { href: string; label: string }[] }) {
+  if (!links || links.length === 0) return null;
+  return (
+    <ul className="g-route-index" aria-label="Related pages">
+      {links.map((l) => (
+        <li key={l.href}>
+          <a href={l.href}>{l.label}</a>
+        </li>
+      ))}
+    </ul>
   );
 }

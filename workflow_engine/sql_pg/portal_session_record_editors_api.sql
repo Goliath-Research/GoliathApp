@@ -791,6 +791,12 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS400', 'cluster_key, public_ip and external_worker_key are required');
   END IF;
   IF EXISTS (
+    SELECT 1 FROM wf.cluster c
+    WHERE c.cluster_key = portal.fn_doc_text(v_doc, 'cluster_key') AND c.status = 'DISABLED'
+  ) THEN
+    PERFORM portal.fn_semantic_raise('GS409', 'cluster is retired; it accepts no new or changed enrollments');
+  END IF;
+  IF EXISTS (
     SELECT 1
     FROM wf.worker_enrollment e
     JOIN wf.cluster c ON c.id = e.cluster_id
@@ -973,5 +979,261 @@ BEGIN
     CASE WHEN p_subscription_id IS NULL THEN 'create' ELSE 'update' END, v_id::text, v_doc
   );
   RETURN v_id;
+END;
+$$;
+
+-- ── Worker fleet control, retire and delete ────────────────────────────────
+
+/* Enrollments with the enrolled worker's state (desired_state is operator fleet control). */
+CREATE OR REPLACE FUNCTION portal.sp_session_list_worker_enrollment_states(p_session_token text)
+RETURNS TABLE (
+  id bigint,
+  cluster_key text,
+  public_ip text,
+  external_worker_key text,
+  status text,
+  enrolled_worker_id bigint,
+  worker_status text,
+  desired_state text,
+  last_seen_at_utc timestamptz,
+  created_at_utc timestamptz
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
+AS $$
+#variable_conflict use_column
+BEGIN
+  PERFORM portal.fn_session_operator_require(p_session_token, '/app/workflows/workers');
+  RETURN QUERY
+  SELECT e.id, c.cluster_key, e.public_ip, e.external_worker_key, e.status::text,
+         e.enrolled_worker_id, w.status::text, w.desired_state::text, w.last_seen_at_utc,
+         e.created_at_utc
+  FROM wf.worker_enrollment e
+  JOIN wf.cluster c ON c.id = e.cluster_id
+  LEFT JOIN wf.worker w ON w.id = e.enrolled_worker_id
+  ORDER BY c.cluster_key, e.external_worker_key;
+END;
+$$;
+
+/* Clusters with their worker and enrollment counts (Delete is offered only for unused clusters). */
+CREATE OR REPLACE FUNCTION portal.sp_session_list_clusters_with_usage(p_session_token text)
+RETURNS TABLE (
+  cluster_id bigint,
+  cluster_key text,
+  name text,
+  provider text,
+  status text,
+  shared_storage_uri text,
+  worker_mount_path text,
+  worker_count integer,
+  enrollment_count integer
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
+AS $$
+BEGIN
+  PERFORM portal.fn_session_require_any_nav(
+    p_session_token, ARRAY['/app/workflows/workers', '/app/operations/worker-fleet']
+  );
+  RETURN QUERY
+  SELECT c.id, c.cluster_key, c.name, c.provider, c.status::text, c.shared_storage_uri,
+         c.worker_mount_path,
+         (SELECT count(*)::int FROM wf.worker w WHERE w.cluster_id = c.id),
+         (SELECT count(*)::int FROM wf.worker_enrollment e WHERE e.cluster_id = c.id)
+  FROM wf.cluster c
+  ORDER BY c.name;
+END;
+$$;
+
+/*
+  Operator fleet control: ACTIVE, DRAINING (finish current task, claim nothing new) or
+  STOPPING (stop at the next safe point). Workers read it on claim and heartbeat. Never
+  starts, stops or provisions machines.
+*/
+CREATE OR REPLACE FUNCTION portal.sp_session_set_worker_desired_state(
+  p_session_token text,
+  p_worker_id bigint,
+  p_desired_state text
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
+AS $$
+DECLARE
+  v_ctx record;
+  v_state text := upper(btrim(COALESCE(p_desired_state, '')));
+BEGIN
+  SELECT * INTO v_ctx
+  FROM portal.fn_session_record_editor_require(
+    p_session_token, ARRAY['/app/workflows/workers', '/app/operations/worker-fleet']
+  ) LIMIT 1;
+  IF p_worker_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'worker_id is required');
+  END IF;
+  IF v_state NOT IN ('ACTIVE', 'DRAINING', 'STOPPING') THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'desired_state must be ACTIVE, DRAINING or STOPPING');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM wf.worker w WHERE w.id = p_worker_id) THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'worker not found');
+  END IF;
+  PERFORM 1 FROM portal.sp_set_worker_desired_state(p_worker_id, v_state, NULL);
+  PERFORM portal.fn_record_editor_audit(
+    v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'worker', 'desired_state',
+    p_worker_id::text, jsonb_build_object('desired_state', v_state)
+  );
+  RETURN v_state;
+END;
+$$;
+
+/* Retire = DISABLED: kept for history, no new enrollments. */
+CREATE OR REPLACE FUNCTION portal.sp_session_retire_cluster(p_session_token text, p_cluster_key text)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
+AS $$
+DECLARE
+  v_ctx record;
+BEGIN
+  SELECT * INTO v_ctx
+  FROM portal.fn_session_record_editor_require(p_session_token, ARRAY['/app/workflows/workers']) LIMIT 1;
+  UPDATE wf.cluster c
+  SET status = 'DISABLED', updated_at_utc = (now() AT TIME ZONE 'utc')
+  WHERE c.cluster_key = p_cluster_key;
+  IF NOT FOUND THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'cluster not found');
+  END IF;
+  PERFORM portal.fn_record_editor_audit(
+    v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'cluster', 'retire', p_cluster_key, '{}'::jsonb
+  );
+  RETURN 'DISABLED';
+END;
+$$;
+
+/* Delete only an unused cluster; one with workers or enrollments must be retired instead. */
+CREATE OR REPLACE FUNCTION portal.sp_session_delete_cluster(p_session_token text, p_cluster_key text)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
+AS $$
+DECLARE
+  v_ctx record;
+  v_id bigint;
+BEGIN
+  SELECT * INTO v_ctx
+  FROM portal.fn_session_record_editor_require(p_session_token, ARRAY['/app/workflows/workers']) LIMIT 1;
+  SELECT c.id INTO v_id FROM wf.cluster c WHERE c.cluster_key = p_cluster_key FOR UPDATE;
+  IF v_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'cluster not found');
+  END IF;
+  IF EXISTS (SELECT 1 FROM wf.worker w WHERE w.cluster_id = v_id)
+     OR EXISTS (SELECT 1 FROM wf.worker_enrollment e WHERE e.cluster_id = v_id) THEN
+    PERFORM portal.fn_semantic_raise(
+      'GS409', 'cluster has workers or enrollments; retire it (status DISABLED) instead of deleting'
+    );
+  END IF;
+  DELETE FROM wf.cluster c WHERE c.id = v_id;
+  PERFORM portal.fn_record_editor_audit(
+    v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'cluster', 'delete', p_cluster_key, '{}'::jsonb
+  );
+  RETURN p_cluster_key;
+END;
+$$;
+
+/* Delete a PENDING or REVOKED enrollment (an ENROLLED one must be revoked first). */
+CREATE OR REPLACE FUNCTION portal.sp_session_delete_worker_enrollment(
+  p_session_token text,
+  p_cluster_key text,
+  p_external_worker_key text
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
+AS $$
+DECLARE
+  v_ctx record;
+  v_id bigint;
+  v_status text;
+BEGIN
+  SELECT * INTO v_ctx
+  FROM portal.fn_session_record_editor_require(p_session_token, ARRAY['/app/workflows/workers']) LIMIT 1;
+  SELECT e.id, e.status INTO v_id, v_status
+  FROM wf.worker_enrollment e
+  JOIN wf.cluster c ON c.id = e.cluster_id
+  WHERE c.cluster_key = p_cluster_key AND e.external_worker_key = p_external_worker_key
+  FOR UPDATE OF e;
+  IF v_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'enrollment not found');
+  END IF;
+  IF v_status = 'ENROLLED' THEN
+    PERFORM portal.fn_semantic_raise('GS409', 'revoke the enrollment before deleting it');
+  END IF;
+  DELETE FROM wf.worker_enrollment e WHERE e.id = v_id;
+  PERFORM portal.fn_record_editor_audit(
+    v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'worker_enrollment', 'delete',
+    p_cluster_key || '/' || p_external_worker_key, jsonb_build_object('status', v_status)
+  );
+  RETURN v_status;
+END;
+$$;
+
+/* Retire = disabled: events no longer start or signal runs; the subscription is kept. */
+CREATE OR REPLACE FUNCTION portal.sp_session_retire_event_subscription(
+  p_session_token text,
+  p_subscription_id bigint
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
+AS $$
+DECLARE
+  v_ctx record;
+BEGIN
+  SELECT * INTO v_ctx
+  FROM portal.fn_session_record_editor_require(p_session_token, ARRAY['/app/workflows/subscriptions']) LIMIT 1;
+  UPDATE wf.event_subscription s SET enabled = false WHERE s.id = p_subscription_id;
+  IF NOT FOUND THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'event subscription not found');
+  END IF;
+  PERFORM portal.fn_record_editor_audit(
+    v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'event_subscription', 'retire',
+    p_subscription_id::text, '{}'::jsonb
+  );
+  RETURN false;
+END;
+$$;
+
+/* Delete a subscription; recorded events keep their rows (subscription_id is set to NULL). */
+CREATE OR REPLACE FUNCTION portal.sp_session_delete_event_subscription(
+  p_session_token text,
+  p_subscription_id bigint
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
+AS $$
+DECLARE
+  v_ctx record;
+BEGIN
+  SELECT * INTO v_ctx
+  FROM portal.fn_session_record_editor_require(p_session_token, ARRAY['/app/workflows/subscriptions']) LIMIT 1;
+  DELETE FROM wf.event_subscription s WHERE s.id = p_subscription_id;
+  IF NOT FOUND THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'event subscription not found');
+  END IF;
+  PERFORM portal.fn_record_editor_audit(
+    v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'event_subscription', 'delete',
+    p_subscription_id::text, '{}'::jsonb
+  );
+  RETURN p_subscription_id;
 END;
 $$;
