@@ -131,7 +131,11 @@ export async function PortalWorkspacePanel({
         <div className="g-portal-stage">
           <h2>{spec.title}</h2>
           {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
-          <ModelAuthoringPanel parentClasses={platformParents.length ? platformParents : ["platform/Entity"]} />
+          {spec.recordEntities?.length ? (
+            spec.recordEntities.map((entity) => <RecordEditorWorkspace key={entity} entity={entity} />)
+          ) : (
+            <ModelAuthoringPanel parentClasses={platformParents.length ? platformParents : ["platform/Entity"]} />
+          )}
           <MetaClassHierarchyList
             classes={classes}
             selectedClassName={metaClassOverride}

@@ -99,6 +99,15 @@ Child applications extend GoliathApp mainly by adding **semantic classes** and t
 3. Click a class to open the **workbench** — same editors as API-backed Meta routes (`/app/meta?class=…`).
 4. Use **Objects**, **Fields**, **Relations**, and related NavTree leaves when you need a focused entry; they open the same workbench with sensible defaults.
 
+### Editing classes, fields and relations
+
+**Meta model → Classes**, **Fields** and **Relations** are generic record editors over `Meta.Classes`, `Meta.Fields` and `Meta.MetaLinks`. They work the same for every application: a child app gets its model editable just by seeding classes, never by shipping UI code.
+
+- **Classes:** create a class as `namespace/ClassName` under an existing parent and mark it abstract. Re-parenting is not offered. A class can be deleted only while it has no subclasses, objects, fields, methods, relations or semantic mapping.
+- **Fields:** each field is typed by a catalog data type (picked, never typed). A name already used along the class's inheritance line is refused. Changing a type while objects hold values is published as a breaking schema version. A field is deleted only when no object holds a value for it.
+- **Relations:** choose the target class, cardinality (empty max = unbounded) and whether it is hierarchical. A new maximum lower than what existing links already use is refused; the hierarchical flag is fixed once instances exist. A relation is deleted only when no instance uses it.
+- Classes, fields and relations of `platform/…` classes can be changed only in the **God Architect** role. Every change is audited.
+
 Semantic entities registered in the portal layer link to Meta when `meta_class_id` is set. On **Semantic layer → Entities**, open the **Meta class** link to jump into the workbench for that backing class.
 
 ### Editing the semantic layer

@@ -18,10 +18,11 @@ test.describe("model authoring (CI postgres)", () => {
     await expect(page.getByRole("button", { name: "Export as package SQL" })).toBeVisible();
   });
 
-  test("meta home shows model authoring panel", async ({ page }) => {
+  test("classes page is a record grid with Add class", async ({ page }) => {
     await page.goto("/app/meta/classes");
-    await expect(page.getByRole("heading", { name: "Model authoring" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Create class" })).toBeVisible();
+    await expect(page.getByTestId("record-grid-meta_class")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add class" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Model authoring" })).toHaveCount(0);
   });
 
   test("subclass, field, object, semantic entity, and saved meta view", async ({ page, request }) => {
@@ -34,23 +35,30 @@ test.describe("model authoring (CI postgres)", () => {
     const namespace = "e2e";
     const encodedClass = encodeURIComponent(className);
 
-    await page.goto("/app/meta/classes");
-    const createForm = page.locator("form").filter({
-      has: page.getByRole("heading", { name: "Create subclass" }),
+    // Class and field through the generic record API (the same calls the grid drawer makes).
+    const classRes = await request.post("/api/portal/records/meta_class", {
+      data: { document: { class_name: className, parent_class_name: "platform/Person" } },
     });
-    await createForm.getByLabel("Parent class").selectOption("platform/Person");
-    await createForm.getByLabel("New class FQN").fill(className);
-    await createForm.getByRole("button", { name: "Create class" }).click();
-    await page.waitForLoadState("load");
+    expect(classRes.status(), await classRes.text()).toBe(200);
+    await page.goto("/app/meta/classes");
+    const classGrid = page.getByTestId("record-grid-meta_class");
+    await classGrid.getByPlaceholder("Filter…").fill(className);
+    await expect(classGrid.getByRole("cell", { name: className, exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: className })).toBeVisible();
 
-    const fieldForm = page.locator("form").filter({
-      has: page.getByRole("heading", { name: "Add or update field" }),
+    const typesRes = await request.get("/api/portal/references?kind=data_type&q=string&limit=20");
+    expect(typesRes.ok()).toBeTruthy();
+    const types = ((await typesRes.json()) as { rows: Array<{ value: string; label: string }> }).rows;
+    expect(types.length).toBeGreaterThan(0);
+    const stringType = types.find((t) => /string|text/i.test(t.label)) ?? types[0];
+    const fieldRes = await request.post("/api/portal/records/meta_field", {
+      data: { document: { class_name: className, field_name: "Nickname", type_id: Number(stringType.value) } },
     });
-    await fieldForm.getByLabel("Class").fill(className);
-    await fieldForm.getByLabel("Field name").fill("Nickname");
-    await fieldForm.getByRole("button", { name: "Save field" }).click();
-    await expect(page.getByRole("status")).toContainText("Nickname saved");
+    expect(fieldRes.status(), await fieldRes.text()).toBe(200);
+    await page.goto("/app/meta/fields");
+    const fieldGrid = page.getByTestId("record-grid-meta_field");
+    await fieldGrid.getByPlaceholder("Filter…").fill(className);
+    await expect(fieldGrid.getByRole("cell", { name: "Nickname", exact: true })).toBeVisible();
 
     const createRes = await request.post(`/api/meta/classes/${encodedClass}/objects`, {
       data: { document: { Label: objectLabel, Nickname: nickValue } },

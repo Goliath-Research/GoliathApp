@@ -211,6 +211,19 @@ const SEMANTIC_ATTRIBUTE_EDIT = {
 /** Platform namespaces are edited by the God Architect only (enforced in SQL). */
 export const SEMANTIC_PLATFORM_NAMESPACES = ["platform", "portal", "core"];
 
+const META_FIELD_EDIT = {
+  type_id: { type: "integer", "x-goliath-ref": "data_type", description: "Catalog data type" },
+  required: { type: "boolean" },
+  description: str(),
+};
+
+const META_LINK_EDIT = {
+  min_card: { type: "integer", minimum: 0 },
+  max_card: { type: "integer", minimum: 0, description: "Empty for unbounded" },
+  is_hierarchical: { type: "boolean" },
+};
+
+/** Classes named platform/* are edited by the God Architect only (enforced in SQL). */
 export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
   domain_program: {
     entity: "domain_program",
@@ -524,6 +537,114 @@ export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
         label: "Delete",
         visible: (row) => row.status === "RETIRED",
         confirm: "Delete this retired request?",
+      },
+    ],
+  },
+  meta_class: {
+    entity: "meta_class",
+    title: "Classes",
+    noun: "class",
+    columns: [
+      { key: "class_name", label: "Class" },
+      { key: "parent_class_name", label: "Parent" },
+      { key: "is_abstract", label: "Abstract" },
+      { key: "field_count", label: "Fields" },
+      { key: "method_count", label: "Methods" },
+      { key: "link_count", label: "Relations" },
+      { key: "subclass_count", label: "Subclasses" },
+      { key: "object_count", label: "Objects" },
+    ],
+    createSchema: {
+      type: "object",
+      properties: {
+        class_name: str("namespace/ClassName"),
+        parent_class_name: { type: "string", "x-goliath-ref": "meta_class", description: "Parent class" },
+        is_abstract: { type: "boolean" },
+      },
+      required: ["class_name", "parent_class_name"],
+    },
+    editSchema: { type: "object", properties: { is_abstract: { type: "boolean" } } },
+    rowKey: (row) => String(row.class_name),
+    rowLabel: (row) => String(row.class_name),
+    canCreate: true,
+    rowActions: [
+      {
+        action: "delete",
+        label: "Delete",
+        visible: (row) =>
+          ["field_count", "method_count", "link_count", "subclass_count", "object_count"].every(
+            (k) => Number(row[k]) === 0,
+          ),
+        confirm: "Delete this empty class?",
+      },
+    ],
+  },
+  meta_field: {
+    entity: "meta_field",
+    title: "Fields",
+    noun: "field",
+    columns: [
+      { key: "class_name", label: "Class" },
+      { key: "field_name", label: "Field" },
+      { key: "type_name", label: "Type" },
+      { key: "required", label: "Required" },
+      { key: "value_count", label: "Objects with a value" },
+    ],
+    createSchema: {
+      type: "object",
+      properties: {
+        class_name: { type: "string", "x-goliath-ref": "meta_class" },
+        field_name: str("Field name"),
+        ...META_FIELD_EDIT,
+      },
+      required: ["class_name", "field_name", "type_id"],
+    },
+    editSchema: { type: "object", properties: META_FIELD_EDIT, required: ["type_id"] },
+    rowKey: (row) => String(row.field_id),
+    rowLabel: (row) => `${row.class_name}.${row.field_name}`,
+    canCreate: true,
+    rowActions: [
+      {
+        action: "delete",
+        label: "Delete",
+        visible: (row) => Number(row.value_count) === 0,
+        confirm: "Delete this field? No object holds a value for it.",
+      },
+    ],
+  },
+  meta_link: {
+    entity: "meta_link",
+    title: "Relations",
+    noun: "relation",
+    columns: [
+      { key: "class_name", label: "Class" },
+      { key: "link_name", label: "Relation" },
+      { key: "target_class_name", label: "Target" },
+      { key: "min_card", label: "Min" },
+      { key: "max_card", label: "Max" },
+      { key: "is_hierarchical", label: "Hierarchical" },
+      { key: "instance_count", label: "Instances" },
+    ],
+    createSchema: {
+      type: "object",
+      properties: {
+        class_name: { type: "string", "x-goliath-ref": "meta_class" },
+        link_name: str("Relation name"),
+        target_class_name: { type: "string", "x-goliath-ref": "meta_class" },
+        ...META_LINK_EDIT,
+      },
+      required: ["class_name", "link_name", "target_class_name"],
+    },
+    editSchema: { type: "object", properties: META_LINK_EDIT },
+    rowKey: (row) => String(row.link_id),
+    rowLabel: (row) => `${row.class_name}.${row.link_name}`,
+    canCreate: true,
+    rowActions: [
+      {
+        action: "delete",
+        label: "Delete",
+        visible: (row) => Number(row.instance_count) === 0,
+        confirm: "Delete this relation? No instance uses it.",
       },
     ],
   },
