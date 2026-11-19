@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RecordDialog, RecordGrid } from "@goliath/platform-ui";
 import {
   applyViewFilters,
   buildSemanticRunParams,
@@ -18,6 +19,12 @@ type DashboardSummary = {
   widgetCount: number;
   visibility: string;
 };
+
+const DASHBOARD_COLUMNS = [
+  { key: "title", label: "Title" },
+  { key: "widgetCount", label: "Widgets" },
+  { key: "visibility", label: "Visibility" },
+];
 
 type ViewOption = {
   viewId: number;
@@ -76,6 +83,8 @@ export function OperatorDashboardEditor({
   const [widgets, setWidgets] = useState<GridWidget[]>([]);
   const [previews, setPreviews] = useState<WidgetPreview[]>([]);
   const [viewMode, setViewMode] = useState(Boolean(initialViewMode));
+  /** Drawer over the dashboards grid (opened directly when the URL names a dashboard). */
+  const [drawerOpen, setDrawerOpen] = useState(selectedDashboardId != null);
   const [status, setStatus] = useState<string | null>(null);
   const [dragViewId, setDragViewId] = useState<number | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -310,10 +319,10 @@ export function OperatorDashboardEditor({
     await loadDashboard(dashId);
   }
 
-  async function deleteDashboard() {
-    if (activeDashboardId == null) return;
+  async function deleteDashboard(dashboardId: number | null = activeDashboardId) {
+    if (dashboardId == null) return;
     if (!window.confirm("Delete this dashboard?")) return;
-    const res = await fetch(`/api/portal/dashboards/${activeDashboardId}`, {
+    const res = await fetch(`/api/portal/dashboards/${dashboardId}`, {
       method: "DELETE",
       credentials: "same-origin",
     });
@@ -321,8 +330,11 @@ export function OperatorDashboardEditor({
       setStatus("Delete failed");
       return;
     }
-    setActiveDashboardId(null);
-    setWidgets([]);
+    if (dashboardId === activeDashboardId) {
+      setActiveDashboardId(null);
+      setWidgets([]);
+      setDrawerOpen(false);
+    }
     await refreshDashboards();
     setStatus("Dashboard deleted");
   }
@@ -333,268 +345,279 @@ export function OperatorDashboardEditor({
 
   return (
     <div className={`g-portal-dashboards g-portal-dashboard-editor${viewMode ? " g-portal-dashboard-editor--view" : ""}`}>
-      {!viewMode ? (
-        <section aria-labelledby="dash-picker-heading">
-          <h3 id="dash-picker-heading">Dashboards</h3>
-          <div className="g-portal-view-editor__toolbar">
-            <button
-              type="button"
-              className="g-host-button"
-              onClick={() => {
-                setActiveDashboardId(null);
-                setTitle("");
-                setDescription("");
-                setWidgets([]);
+      <RecordGrid
+        title="Dashboards"
+        noun="dashboard"
+        columns={DASHBOARD_COLUMNS}
+        rows={dashboards}
+        rowKey={(d) => String(d.dashboardId)}
+        rowLabel={(d) => d.title}
+        onRefresh={() => void refreshDashboards()}
+        onAdd={() => {
+          setActiveDashboardId(null);
+          setTitle("");
+          setDescription("");
+          setWidgets([]);
+          setViewMode(false);
+          setDrawerOpen(true);
+        }}
+        onView={(d) => {
+          setActiveDashboardId(d.dashboardId);
+          setViewMode(true);
+          setDrawerOpen(true);
+        }}
+        onEdit={(d) => {
+          setActiveDashboardId(d.dashboardId);
+          setViewMode(false);
+          setDrawerOpen(true);
+        }}
+        rowActions={[{ id: "delete", label: "Delete", onRun: (d) => void deleteDashboard(d.dashboardId) }]}
+        selectedKey={drawerOpen && activeDashboardId != null ? String(activeDashboardId) : null}
+        testId="record-grid-operator_dashboard"
+      />
+      {status && !drawerOpen ? <p role="status">{status}</p> : null}
+      <RecordDialog
+        open={drawerOpen}
+        size="wide"
+        title={activeDashboardId == null ? "New dashboard" : title || "Dashboard"}
+        onClose={() => setDrawerOpen(false)}
+        testId="record-dialog-operator_dashboard"
+      >
+        {!viewMode ? (
+          <section aria-labelledby="dash-picker-heading">
+            <h3 id="dash-picker-heading">Dashboard settings</h3>
+            <form
+              className="g-portal-view-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void saveDashboardMeta();
               }}
             >
-              New dashboard
-            </button>
-            <ul className="g-operator-nav">
-              {dashboards.map((d) => (
-                <li key={d.dashboardId}>
-                  <button
-                    type="button"
-                    className="g-host-button"
-                    aria-pressed={activeDashboardId === d.dashboardId}
-                    onClick={() => setActiveDashboardId(d.dashboardId)}
-                  >
-                    {d.title} ({d.widgetCount})
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <form
-            className="g-portal-view-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void saveDashboardMeta();
-            }}
-          >
-            <label>
-              Title
-              <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
-            </label>
-            <label>
-              Description
-              <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} />
-            </label>
-            <label>
-              Visibility
-              <select
-                value={visibility}
-                onChange={(e) => setVisibility(e.target.value as typeof visibility)}
-              >
-                <option value="scope">Everyone in this organization scope</option>
-                <option value="organization">All scopes in organization</option>
-                <option value="private">Only me</option>
-              </select>
-            </label>
-            <fieldset>
-              <legend>Dashboard-level filters</legend>
-              {dashboardFilters.map((f, idx) => (
-                <div key={idx} className="g-portal-view-editor__filter-row">
-                  <input
-                    type="text"
-                    aria-label="Filter field"
-                    value={f.field}
-                    onChange={(e) => {
-                      const next = [...dashboardFilters];
-                      next[idx] = { ...f, field: e.target.value };
-                      setDashboardFilters(next);
-                    }}
-                  />
-                  <input
-                    type="text"
-                    aria-label="Filter value"
-                    value={f.value == null ? "" : String(f.value)}
-                    onChange={(e) => {
-                      const next = [...dashboardFilters];
-                      next[idx] = { ...f, value: e.target.value };
-                      setDashboardFilters(next);
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="g-host-button"
-                    onClick={() => setDashboardFilters(dashboardFilters.filter((_, i) => i !== idx))}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-              <button type="button" className="g-host-button" onClick={addDashboardFilter}>
-                Add dashboard filter
+              <label>
+                Title
+                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
+              </label>
+              <label>
+                Description
+                <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} />
+              </label>
+              <label>
+                Visibility
+                <select
+                  value={visibility}
+                  onChange={(e) => setVisibility(e.target.value as typeof visibility)}
+                >
+                  <option value="scope">Everyone in this organization scope</option>
+                  <option value="organization">All scopes in organization</option>
+                  <option value="private">Only me</option>
+                </select>
+              </label>
+              <fieldset>
+                <legend>Dashboard-level filters</legend>
+                {dashboardFilters.map((f, idx) => (
+                  <div key={idx} className="g-portal-view-editor__filter-row">
+                    <input
+                      type="text"
+                      aria-label="Filter field"
+                      value={f.field}
+                      onChange={(e) => {
+                        const next = [...dashboardFilters];
+                        next[idx] = { ...f, field: e.target.value };
+                        setDashboardFilters(next);
+                      }}
+                    />
+                    <input
+                      type="text"
+                      aria-label="Filter value"
+                      value={f.value == null ? "" : String(f.value)}
+                      onChange={(e) => {
+                        const next = [...dashboardFilters];
+                        next[idx] = { ...f, value: e.target.value };
+                        setDashboardFilters(next);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="g-host-button"
+                      onClick={() => setDashboardFilters(dashboardFilters.filter((_, i) => i !== idx))}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button type="button" className="g-host-button" onClick={addDashboardFilter}>
+                  Add dashboard filter
+                </button>
+              </fieldset>
+              <button type="submit" className="g-host-button">
+                Save dashboard
               </button>
-            </fieldset>
-            <button type="submit" className="g-host-button">
-              Save dashboard
-            </button>
-            <button
-              type="button"
-              className="g-host-button"
-              disabled={activeDashboardId == null}
-              onClick={() => void deleteDashboard()}
-            >
-              Delete dashboard
-            </button>
-          </form>
-        </section>
-      ) : null}
-
-      <section aria-labelledby="dash-layout-heading">
-        <div className="g-portal-dashboard-editor__mode-bar">
-          <h3 id="dash-layout-heading">{viewMode ? "Dashboard view" : "Layout canvas"}</h3>
-          <button type="button" className="g-host-button" onClick={() => setViewMode((v) => !v)}>
-            {viewMode ? "Edit layout" : "View mode"}
-          </button>
-        </div>
-
-        {!viewMode ? (
-          <aside aria-labelledby="widget-palette-heading" className="g-portal-dashboard-editor__palette">
-            <h4 id="widget-palette-heading">Saved views (drag onto grid)</h4>
-            <ul className="g-operator-nav">
-              {views.map((v) => (
-                <li key={v.viewId}>
-                  <button
-                    type="button"
-                    className="g-host-button g-portal-dashboard-editor__drag-source"
-                    draggable
-                    onDragStart={() => setDragViewId(v.viewId)}
-                    onDragEnd={() => setDragViewId(null)}
-                  >
-                    {v.title}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </aside>
+              <button
+                type="button"
+                className="g-host-button"
+                disabled={activeDashboardId == null}
+                onClick={() => void deleteDashboard()}
+              >
+                Delete dashboard
+              </button>
+            </form>
+          </section>
         ) : null}
 
-        <div
-          ref={gridRef}
-          className="g-portal-dashboard-editor__grid"
-          style={{
-            gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
-            gridTemplateRows: `repeat(${maxRow}, minmax(72px, auto))`,
-          }}
-        >
-          {Array.from({ length: maxRow }, (_, y) =>
-            Array.from({ length: GRID_COLS }, (_, x) => {
-              const w = widgetAt(x, y);
-              const isOrigin = w && w.gridX === x && w.gridY === y;
-              if (w && !isOrigin) return null;
-              if (isOrigin && w) {
-                const preview = previews.find((p) => p.widget.viewId === w.viewId);
+        <section aria-labelledby="dash-layout-heading">
+          <div className="g-portal-dashboard-editor__mode-bar">
+            <h3 id="dash-layout-heading">{viewMode ? "Dashboard view" : "Layout canvas"}</h3>
+            <button type="button" className="g-host-button" onClick={() => setViewMode((v) => !v)}>
+              {viewMode ? "Edit layout" : "View mode"}
+            </button>
+          </div>
+
+          {!viewMode ? (
+            <aside aria-labelledby="widget-palette-heading" className="g-portal-dashboard-editor__palette">
+              <h4 id="widget-palette-heading">Saved views (drag onto grid)</h4>
+              <ul className="g-operator-nav">
+                {views.map((v) => (
+                  <li key={v.viewId}>
+                    <button
+                      type="button"
+                      className="g-host-button g-portal-dashboard-editor__drag-source"
+                      draggable
+                      onDragStart={() => setDragViewId(v.viewId)}
+                      onDragEnd={() => setDragViewId(null)}
+                    >
+                      {v.title}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          ) : null}
+
+          <div
+            ref={gridRef}
+            className="g-portal-dashboard-editor__grid"
+            style={{
+              gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+              gridTemplateRows: `repeat(${maxRow}, minmax(72px, auto))`,
+            }}
+          >
+            {Array.from({ length: maxRow }, (_, y) =>
+              Array.from({ length: GRID_COLS }, (_, x) => {
+                const w = widgetAt(x, y);
+                const isOrigin = w && w.gridX === x && w.gridY === y;
+                if (w && !isOrigin) return null;
+                if (isOrigin && w) {
+                  const preview = previews.find((p) => p.widget.viewId === w.viewId);
+                  return (
+                    <div
+                      key={cellKey(x, y)}
+                      className="g-portal-view-widget g-portal-dashboard-editor__widget"
+                      style={{
+                        gridColumn: `${x + 1} / span ${w.gridW}`,
+                        gridRow: `${y + 1} / span ${w.gridH}`,
+                      }}
+                    >
+                      <header className="g-portal-dashboard-editor__widget-head">
+                        <input
+                          type="text"
+                          aria-label="Widget title"
+                          value={w.widgetTitle}
+                          readOnly={viewMode}
+                          onChange={(e) =>
+                            setWidgets(
+                              widgets.map((wi) =>
+                                wi.viewId === w.viewId ? { ...wi, widgetTitle: e.target.value } : wi,
+                              ),
+                            )
+                          }
+                        />
+                        {!viewMode ? (
+                          <div className="g-portal-dashboard-editor__widget-controls">
+                            <button type="button" className="g-host-button" onClick={() => moveWidget(w.viewId, -1, 0)}>
+                              ←
+                            </button>
+                            <button type="button" className="g-host-button" onClick={() => moveWidget(w.viewId, 1, 0)}>
+                              →
+                            </button>
+                            <button type="button" className="g-host-button" onClick={() => moveWidget(w.viewId, 0, -1)}>
+                              ↑
+                            </button>
+                            <button type="button" className="g-host-button" onClick={() => moveWidget(w.viewId, 0, 1)}>
+                              ↓
+                            </button>
+                            <button type="button" className="g-host-button" onClick={() => resizeWidget(w.viewId, 1, 0)}>
+                              Wider
+                            </button>
+                            <button type="button" className="g-host-button" onClick={() => resizeWidget(w.viewId, -1, 0)}>
+                              Narrower
+                            </button>
+                            <button type="button" className="g-host-button" onClick={() => resizeWidget(w.viewId, 0, 1)}>
+                              Taller
+                            </button>
+                            <button type="button" className="g-host-button" onClick={() => resizeWidget(w.viewId, 0, -1)}>
+                              Shorter
+                            </button>
+                            <button type="button" className="g-host-button" onClick={() => removeWidget(w.viewId)}>
+                              Remove
+                            </button>
+                            <label>
+                              Viz override
+                              <select
+                                value={(w.vizOverrideJson.type as string) ?? ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setWidgets(
+                                    widgets.map((wi) =>
+                                      wi.viewId === w.viewId
+                                        ? {
+                                            ...wi,
+                                            vizOverrideJson: val
+                                              ? { type: val }
+                                              : {},
+                                          }
+                                        : wi,
+                                    ),
+                                  );
+                                }}
+                              >
+                                <option value="">Use view default</option>
+                                <option value="table">table</option>
+                                <option value="bar">bar</option>
+                                <option value="line">line</option>
+                                <option value="pie">pie</option>
+                                <option value="kpi">kpi</option>
+                              </select>
+                            </label>
+                          </div>
+                        ) : null}
+                      </header>
+                      {preview ? (
+                        <ViewVisualizationPreview
+                          definition={preview.definition}
+                          rows={preview.rows}
+                          caption={w.widgetTitle}
+                        />
+                      ) : (
+                        <p>No preview data</p>
+                      )}
+                    </div>
+                  );
+                }
+                if (viewMode) return null;
                 return (
-                  <div
+                  <GridDropCell
                     key={cellKey(x, y)}
-                    className="g-portal-view-widget g-portal-dashboard-editor__widget"
-                    style={{
-                      gridColumn: `${x + 1} / span ${w.gridW}`,
-                      gridRow: `${y + 1} / span ${w.gridH}`,
-                    }}
-                  >
-                    <header className="g-portal-dashboard-editor__widget-head">
-                      <input
-                        type="text"
-                        aria-label="Widget title"
-                        value={w.widgetTitle}
-                        readOnly={viewMode}
-                        onChange={(e) =>
-                          setWidgets(
-                            widgets.map((wi) =>
-                              wi.viewId === w.viewId ? { ...wi, widgetTitle: e.target.value } : wi,
-                            ),
-                          )
-                        }
-                      />
-                      {!viewMode ? (
-                        <div className="g-portal-dashboard-editor__widget-controls">
-                          <button type="button" className="g-host-button" onClick={() => moveWidget(w.viewId, -1, 0)}>
-                            ←
-                          </button>
-                          <button type="button" className="g-host-button" onClick={() => moveWidget(w.viewId, 1, 0)}>
-                            →
-                          </button>
-                          <button type="button" className="g-host-button" onClick={() => moveWidget(w.viewId, 0, -1)}>
-                            ↑
-                          </button>
-                          <button type="button" className="g-host-button" onClick={() => moveWidget(w.viewId, 0, 1)}>
-                            ↓
-                          </button>
-                          <button type="button" className="g-host-button" onClick={() => resizeWidget(w.viewId, 1, 0)}>
-                            Wider
-                          </button>
-                          <button type="button" className="g-host-button" onClick={() => resizeWidget(w.viewId, -1, 0)}>
-                            Narrower
-                          </button>
-                          <button type="button" className="g-host-button" onClick={() => resizeWidget(w.viewId, 0, 1)}>
-                            Taller
-                          </button>
-                          <button type="button" className="g-host-button" onClick={() => resizeWidget(w.viewId, 0, -1)}>
-                            Shorter
-                          </button>
-                          <button type="button" className="g-host-button" onClick={() => removeWidget(w.viewId)}>
-                            Remove
-                          </button>
-                          <label>
-                            Viz override
-                            <select
-                              value={(w.vizOverrideJson.type as string) ?? ""}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setWidgets(
-                                  widgets.map((wi) =>
-                                    wi.viewId === w.viewId
-                                      ? {
-                                          ...wi,
-                                          vizOverrideJson: val
-                                            ? { type: val }
-                                            : {},
-                                        }
-                                      : wi,
-                                  ),
-                                );
-                              }}
-                            >
-                              <option value="">Use view default</option>
-                              <option value="table">table</option>
-                              <option value="bar">bar</option>
-                              <option value="line">line</option>
-                              <option value="pie">pie</option>
-                              <option value="kpi">kpi</option>
-                            </select>
-                          </label>
-                        </div>
-                      ) : null}
-                    </header>
-                    {preview ? (
-                      <ViewVisualizationPreview
-                        definition={preview.definition}
-                        rows={preview.rows}
-                        caption={w.widgetTitle}
-                      />
-                    ) : (
-                      <p>No preview data</p>
-                    )}
-                  </div>
+                    x={x}
+                    y={y}
+                    onDrop={() => onGridDrop(x, y)}
+                  />
                 );
-              }
-              if (viewMode) return null;
-              return (
-                <GridDropCell
-                  key={cellKey(x, y)}
-                  x={x}
-                  y={y}
-                  onDrop={() => onGridDrop(x, y)}
-                />
-              );
-            }),
-          )}
-        </div>
-      </section>
-      {status ? <p role="status">{status}</p> : null}
+              }),
+            )}
+          </div>
+        </section>
+        {status ? <p role="status">{status}</p> : null}
+      </RecordDialog>
     </div>
   );
 }

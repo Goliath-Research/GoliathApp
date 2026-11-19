@@ -1,6 +1,6 @@
 "use client";
 
-import { PlatformRecordTable } from "@goliath/platform-ui";
+import { RecordDialog, RecordGrid } from "@goliath/platform-ui";
 import { formatRoleGrantLabel } from "@/lib/admin-user-roles";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -56,6 +56,7 @@ export function AdminUsersWorkspace({ users: initialUsers, roles, signInUrl }: P
   const [inviteProviderId, setInviteProviderId] = useState<number | "">("");
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<"user" | "roles" | "invite" | null>(null);
 
   const validRoles = useMemo(() => roles.filter((r) => Number.isFinite(r.role_id) && r.role_id > 0), [roles]);
 
@@ -159,11 +160,78 @@ export function AdminUsersWorkspace({ users: initialUsers, roles, signInUrl }: P
     };
   });
 
+  const dialogMessages = (
+    <>
+      {error ? (
+        <p role="alert" className="g-admin-error">
+          {error}
+        </p>
+      ) : null}
+      {status ? <p role="status">{status}</p> : null}
+    </>
+  );
+
   return (
     <div className="g-admin-users">
-      <PlatformRecordTable caption="Users" columns={userColumns} rows={userRows} />
+      {error && !dialog ? (
+        <p role="alert" className="g-admin-error">
+          {error}
+        </p>
+      ) : null}
+      {status && !dialog ? <p role="status">{status}</p> : null}
+      <RecordGrid
+        title="User directory"
+        noun="user"
+        columns={userColumns}
+        rows={userRows}
+        rowKey={(u) => String(u.user_id)}
+        rowLabel={(u) => u.full_name || (u.email ?? "")}
+        onRefresh={() => void refreshUsers()}
+        onAdd={() => {
+          setEmail("");
+          setFullName("");
+          setError(null);
+          setDialog("user");
+        }}
+        onEdit={(u) => {
+          setEmail(u.email ?? "");
+          setFullName(u.full_name);
+          setError(null);
+          setDialog("user");
+        }}
+        rowActions={[
+          {
+            id: "roles",
+            label: "Roles",
+            onRun: (u) => {
+              setTargetUserId(u.user_id);
+              setError(null);
+              setDialog("roles");
+            },
+          },
+        ]}
+        toolbarSlot={
+          <button
+            type="button"
+            className="g-host-button"
+            onClick={() => {
+              setError(null);
+              setDialog("invite");
+            }}
+          >
+            Invite user
+          </button>
+        }
+        testId="record-grid-user"
+      />
+      <RecordDialog
+        open={dialog === "roles"}
+        title={`Roles for ${users.find((u) => u.user_id === targetUserId)?.full_name ?? "user"}`}
+        onClose={() => setDialog(null)}
+        testId="record-dialog-user_roles"
+      >
       <section className="g-portal-form" aria-labelledby="user-grants-heading">
-        <h3 id="user-grants-heading">Active role grants (active scope)</h3>
+        <h4 id="user-grants-heading">Active role grants (active scope)</h4>
         <label>
           User
           <select
@@ -213,32 +281,6 @@ export function AdminUsersWorkspace({ users: initialUsers, roles, signInUrl }: P
         onSubmit={(e) => {
           e.preventDefault();
           setError(null);
-          void post({ action: "upsert_user", email, fullName, active: 1 })
-            .then(() => {
-              setStatus(
-                "User saved. They can sign in with the organization identity provider once a role is granted (no password; no email is sent from this host).",
-              );
-              void refreshUsers();
-            })
-            .catch((err) => setError(err instanceof Error ? err.message : "Failed"));
-        }}
-      >
-        <h3>Create / update user</h3>
-        <label>
-          Email
-          <input value={email} onChange={(ev) => setEmail(ev.target.value)} required type="email" />
-        </label>
-        <label>
-          Full name
-          <input value={fullName} onChange={(ev) => setFullName(ev.target.value)} required />
-        </label>
-        <button type="submit">Save user</button>
-      </form>
-      <form
-        className="g-portal-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setError(null);
           if (roleId === "" || !Number.isFinite(Number(roleId))) {
             setError("Choose a role.");
             return;
@@ -252,7 +294,7 @@ export function AdminUsersWorkspace({ users: initialUsers, roles, signInUrl }: P
             .catch((err) => setError(err instanceof Error ? err.message : "Failed"));
         }}
       >
-        <h3>Assign role (scoped)</h3>
+        <h4>Assign role (scoped)</h4>
         <label>
           User
           <select value={targetUserId} onChange={(ev) => setTargetUserId(Number(ev.target.value))}>
@@ -275,7 +317,48 @@ export function AdminUsersWorkspace({ users: initialUsers, roles, signInUrl }: P
           </select>
         </label>
         <button type="submit">Grant role</button>
+        {dialogMessages}
       </form>
+      </RecordDialog>
+      <RecordDialog
+        open={dialog === "user"}
+        title="Create / update user"
+        onClose={() => setDialog(null)}
+        testId="record-dialog-user"
+      >
+      <form
+        className="g-portal-form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setError(null);
+          void post({ action: "upsert_user", email, fullName, active: 1 })
+            .then(() => {
+              setStatus(
+                "User saved. They can sign in with the organization identity provider once a role is granted (no password; no email is sent from this host).",
+              );
+              void refreshUsers();
+            })
+            .catch((err) => setError(err instanceof Error ? err.message : "Failed"));
+        }}
+      >
+        <label>
+          Email
+          <input value={email} onChange={(ev) => setEmail(ev.target.value)} required type="email" />
+        </label>
+        <label>
+          Full name
+          <input value={fullName} onChange={(ev) => setFullName(ev.target.value)} required />
+        </label>
+        <button type="submit">Save user</button>
+        {dialogMessages}
+      </form>
+      </RecordDialog>
+      <RecordDialog
+        open={dialog === "invite"}
+        title="Invite user"
+        onClose={() => setDialog(null)}
+        testId="record-dialog-invite_user"
+      >
       <form
         className="g-portal-form"
         onSubmit={(e) => {
@@ -305,7 +388,6 @@ export function AdminUsersWorkspace({ users: initialUsers, roles, signInUrl }: P
             .catch((err) => setError(err instanceof Error ? err.message : "Failed"));
         }}
       >
-        <h3>Invite user</h3>
         <p className="g-host-home__lead">
           Invitations are fulfilled on first successful sign-in (verified email + provider). No invitation email is sent from this host.
         </p>
@@ -351,13 +433,9 @@ export function AdminUsersWorkspace({ users: initialUsers, roles, signInUrl }: P
             Copy sign-in link
           </button>
         </div>
+        {dialogMessages}
       </form>
-      {error ? (
-        <p role="alert" className="g-admin-error">
-          {error}
-        </p>
-      ) : null}
-      {status ? <p role="status">{status}</p> : null}
+      </RecordDialog>
     </div>
   );
 }

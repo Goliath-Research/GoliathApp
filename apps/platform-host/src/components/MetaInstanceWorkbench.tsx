@@ -2,7 +2,7 @@
 
 import type { MetaClassField, MetaClassLineageNode, MetaObjectListRow } from "@goliath/client";
 import { createPlatformBffClient } from "@goliath/client";
-import { SchemaPropertyGrid } from "@goliath/platform-ui";
+import { RecordDialog, RecordGrid, SchemaPropertyGrid } from "@goliath/platform-ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { EXAMPLE_CHILD_EXTENSION } from "@/lib/child-extension";
 import { hierarchyRegistryFromManifest } from "@/lib/hierarchy-registry";
@@ -10,8 +10,14 @@ import {
   createHostMetaCatalogResolver,
   type MetaCatalogClassFixture,
 } from "@/lib/meta-catalog-resolver";
-import { MetaInstanceObjectList } from "./MetaInstanceObjectList";
 import { MetaObjectSecurityPanel } from "./MetaObjectSecurityPanel";
+
+const INSTANCE_COLUMNS = [
+  { key: "objId", label: "ID" },
+  { key: "displayLabel", label: "Label" },
+  { key: "className", label: "Class" },
+  { key: "updatedAtUtc", label: "Updated" },
+];
 
 export type MetaInstanceWorkbenchProps = {
   className: string;
@@ -45,26 +51,21 @@ export function MetaInstanceWorkbench({
   const [listRows, setListRows] = useState<MetaObjectListRow[]>([]);
   const [includeSubclasses, setIncludeSubclasses] = useState(false);
   const [listLoading, setListLoading] = useState(false);
+  /** Open drawer: view / edit an object, or create a new one. */
+  const [mode, setMode] = useState<"view" | "edit" | "create" | null>(null);
   const [selectedObjId, setSelectedObjId] = useState<number | null>(null);
-  const [editorDocument, setEditorDocument] = useState<Record<string, unknown>>({});
+  const [editorDocument, setEditorDocument] = useState<Record<string, unknown> | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [newSession, setNewSession] = useState(0);
-  const editorDocumentRef = useRef(editorDocument);
-  editorDocumentRef.current = editorDocument;
-  const gridKey =
-    selectedObjId == null ? `new:${className}:${newSession}` : `obj:${selectedObjId}`;
-  const selectRequestRef = useRef(0);
-  const saveRequestRef = useRef(0);
-  const selectedObjIdRef = useRef<number | null>(selectedObjId);
-  selectedObjIdRef.current = selectedObjId;
+  const [dialogError, setDialogError] = useState<string | null>(null);
+  const [session, setSession] = useState(0);
+  const openSeq = useRef(0);
 
   const refreshList = useCallback(async () => {
     setListLoading(true);
     setError(null);
     try {
-      const rows = await client.listMetaObjects(className, { includeSubclasses, limit: 100 });
-      setListRows(rows);
+      setListRows(await client.listMetaObjects(className, { includeSubclasses, limit: 100 }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "failed to load instances");
     } finally {
@@ -76,90 +77,76 @@ export function MetaInstanceWorkbench({
     void refreshList();
   }, [refreshList]);
 
-  async function handleSelect(objId: number) {
-    if (selectedObjIdRef.current === objId) {
-      ++saveRequestRef.current;
-      ++selectRequestRef.current;
-      return;
-    }
+  const close = useCallback(() => {
+    openSeq.current++;
+    setMode(null);
+    setEditorDocument(null);
+    setDialogError(null);
+  }, []);
+
+  async function openObject(objId: number, next: "view" | "edit") {
+    const seq = ++openSeq.current;
+    setMode(next);
+    setSelectedObjId(objId);
+    setEditorDocument(null);
+    setDialogError(null);
     setStatus(null);
-    setError(null);
-    ++saveRequestRef.current;
-    const requestId = ++selectRequestRef.current;
     try {
       const row = await client.getMetaObject(objId);
-      if (requestId !== selectRequestRef.current) return;
+      if (seq !== openSeq.current) return;
       setEditorDocument(row.document ?? {});
-      setSelectedObjId(objId);
+      setSession((n) => n + 1);
     } catch (e) {
-      if (requestId !== selectRequestRef.current) return;
-      setError(e instanceof Error ? e.message : "failed to load object");
+      if (seq === openSeq.current) setDialogError(e instanceof Error ? e.message : "failed to load object");
     }
   }
 
   function handleNew() {
-    ++saveRequestRef.current;
-    ++selectRequestRef.current;
-    setNewSession((n) => n + 1);
+    openSeq.current++;
     setSelectedObjId(null);
+    setMode("create");
     setEditorDocument({});
-    setStatus("Create mode — fill properties and save.");
-    setError(null);
+    setDialogError(null);
+    setStatus(null);
+    setSession((n) => n + 1);
   }
 
   async function save(document: Record<string, unknown>) {
-    const saveId = ++saveRequestRef.current;
-    const selectId = ++selectRequestRef.current;
-    const targetObjId = selectedObjIdRef.current;
-    const baseEditorDocument = editorDocumentRef.current;
-    setStatus(null);
-    setError(null);
+    const seq = ++openSeq.current;
+    const targetObjId = mode === "edit" ? selectedObjId : null;
+    const base = editorDocument ?? {};
+    setDialogError(null);
     try {
       if (targetObjId != null) {
-        const payload = { ...baseEditorDocument, ...document };
-        await client.updateMetaObject(targetObjId, payload);
-        await refreshList();
-        if (saveId !== saveRequestRef.current) return;
-        if (selectId !== selectRequestRef.current) return;
-        if (selectedObjIdRef.current !== targetObjId) return;
+        await client.updateMetaObject(targetObjId, { ...base, ...document });
         setStatus(`Updated object #${targetObjId}.`);
-        const row = await client.getMetaObject(targetObjId);
-        if (saveId !== saveRequestRef.current) return;
-        if (selectId !== selectRequestRef.current) return;
-        if (selectedObjIdRef.current !== targetObjId) return;
-        setEditorDocument(row.document ?? {});
-        setSelectedObjId(targetObjId);
-        return;
+      } else {
+        const { objId } = await client.createMetaObject(className, document);
+        setSelectedObjId(objId);
+        setStatus(`Created object #${objId}.`);
       }
-      const { objId } = await client.createMetaObject(className, document);
+      if (seq === openSeq.current) close();
       await refreshList();
-      if (saveId !== saveRequestRef.current) return;
-      if (selectId !== selectRequestRef.current) return;
-      if (selectedObjIdRef.current != null) return;
-      setStatus(`Created object #${objId}.`);
-      const row = await client.getMetaObject(objId);
-      if (saveId !== saveRequestRef.current) return;
-      if (selectId !== selectRequestRef.current) return;
-      if (selectedObjIdRef.current != null) return;
-      setEditorDocument(row.document ?? {});
-      setSelectedObjId(objId);
     } catch (e) {
-      if (saveId !== saveRequestRef.current) return;
-      setError(e instanceof Error ? e.message : "save failed");
+      if (seq === openSeq.current) setDialogError(e instanceof Error ? e.message : "save failed");
     }
   }
 
+  const gridRows = useMemo(
+    () =>
+      listRows.map((r) => ({
+        objId: r.objId,
+        displayLabel: r.displayLabel,
+        className: r.className,
+        updatedAtUtc: r.updatedAtUtc,
+      })),
+    [listRows],
+  );
+  const selectedRow = gridRows.find((r) => r.objId === selectedObjId);
+  const recordLabel = selectedRow?.displayLabel || (selectedObjId != null ? `#${selectedObjId}` : "");
+
   return (
     <div className="g-meta-workbench" data-testid="meta-instance-workbench">
-      <MetaInstanceObjectList
-        rows={listRows}
-        selectedObjId={selectedObjId}
-        includeSubclasses={includeSubclasses}
-        loading={listLoading}
-        onToggleSubclasses={setIncludeSubclasses}
-        onSelect={handleSelect}
-        onNew={handleNew}
-      />
       {error ? (
         <p role="alert" className="g-meta-workbench__error">
           {error}
@@ -170,22 +157,69 @@ export function MetaInstanceWorkbench({
           {status}
         </p>
       ) : null}
-      <SchemaPropertyGrid
-        key={gridKey}
-        fields={fields}
-        flattenedSchema={flattenedSchema}
-        bundledSchema={bundledSchema}
-        lineage={lineage}
-        registry={registry}
-        catalogResolver={catalogResolver}
-        documentClassFqn={className}
-        initialDocument={editorDocument}
-        onSubmit={save}
-        submitLabel={selectedObjId != null ? "Save changes" : "Create instance"}
+      <RecordGrid
+        title="Instances"
+        noun="instance"
+        columns={INSTANCE_COLUMNS}
+        rows={gridRows}
+        rowKey={(r) => String(r.objId)}
+        rowLabel={(r) => (r.displayLabel ? `${r.displayLabel} (#${r.objId})` : `#${r.objId}`)}
+        rowTestId={(r) => `meta-instance-row-${r.objId}`}
+        loading={listLoading}
+        onRefresh={() => void refreshList()}
+        onAdd={handleNew}
+        onView={(r) => void openObject(r.objId, "view")}
+        onEdit={(r) => void openObject(r.objId, "edit")}
+        selectedKey={mode && selectedObjId != null ? String(selectedObjId) : null}
+        testId="meta-instance-list"
+        emptyText="No instances in this scope yet."
+        toolbarSlot={
+          <label className="g-meta-instance-list__toggle">
+            <input
+              type="checkbox"
+              checked={includeSubclasses}
+              onChange={(e) => setIncludeSubclasses(e.target.checked)}
+            />
+            Include subclasses
+          </label>
+        }
       />
-      {selectedObjId != null && roles.length > 0 ? (
-        <MetaObjectSecurityPanel objId={selectedObjId} roles={roles} />
-      ) : null}
+      <RecordDialog
+        open={mode != null}
+        title={mode === "create" ? `New ${className}` : mode === "edit" ? `Edit ${recordLabel}` : recordLabel}
+        onClose={close}
+        testId="meta-instance-dialog"
+      >
+        {dialogError ? <p role="alert">{dialogError}</p> : null}
+        {editorDocument ? (
+          <>
+            <SchemaPropertyGrid
+              key={`${className}:${selectedObjId ?? "new"}:${mode}:${session}`}
+              fields={fields}
+              flattenedSchema={flattenedSchema}
+              bundledSchema={bundledSchema}
+              lineage={lineage}
+              registry={registry}
+              catalogResolver={catalogResolver}
+              documentClassFqn={className}
+              initialDocument={editorDocument}
+              disabled={mode === "view"}
+              onSubmit={mode === "view" ? undefined : save}
+              submitLabel={mode === "edit" ? "Save changes" : "Create instance"}
+            />
+            {mode === "view" && selectedObjId != null ? (
+              <button type="button" className="g-host-button" onClick={() => void openObject(selectedObjId, "edit")}>
+                Edit
+              </button>
+            ) : null}
+            {mode !== "create" && selectedObjId != null && roles.length > 0 ? (
+              <MetaObjectSecurityPanel objId={selectedObjId} roles={roles} />
+            ) : null}
+          </>
+        ) : dialogError ? null : (
+          <p role="status">Loading…</p>
+        )}
+      </RecordDialog>
     </div>
   );
 }

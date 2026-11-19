@@ -1,7 +1,7 @@
 "use client";
 
 import { createPlatformBffClient } from "@goliath/client";
-import { SchemaPropertyGrid } from "@goliath/platform-ui";
+import { RecordDialog, RecordGrid, SchemaPropertyGrid } from "@goliath/platform-ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createHostMetaCatalogResolver } from "@/lib/meta-catalog-resolver";
 import {
@@ -25,6 +25,14 @@ type VersionRow = {
   run_count: number;
 };
 
+const GRAPH_COLUMNS = [
+  { key: "workflow_def_name", label: "Workflow" },
+  { key: "version", label: "Version" },
+  { key: "active_label", label: "Active" },
+  { key: "node_count", label: "Nodes" },
+  { key: "run_count", label: "Runs" },
+];
+
 function asVersionRow(r: Record<string, unknown>): VersionRow {
   return {
     workflow_version_id: Number(r.workflow_version_id),
@@ -44,7 +52,7 @@ export function WorkflowGraphWorkspace({ mode }: { mode: GraphEditorMode }) {
   const client = useMemo(() => createPlatformBffClient(), []);
   const catalogResolver = useMemo(() => createHostMetaCatalogResolver(client), [client]);
   const [rows, setRows] = useState<VersionRow[]>([]);
-  const [filter, setFilter] = useState("");
+  const [readOnly, setReadOnly] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<VersionRow | null>(null);
   const [doc, setDoc] = useState<Record<string, unknown> | null>(null);
@@ -72,8 +80,9 @@ export function WorkflowGraphWorkspace({ mode }: { mode: GraphEditorMode }) {
   }, [reload]);
 
   const open = useCallback(
-    async (row: VersionRow) => {
+    async (row: VersionRow, view = false) => {
       const s = ++seq.current;
+      setReadOnly(view);
       setSelected(row);
       setDoc(null);
       setError(null);
@@ -151,109 +160,90 @@ export function WorkflowGraphWorkspace({ mode }: { mode: GraphEditorMode }) {
     [reload],
   );
 
-  const needle = filter.trim().toLowerCase();
-  const visible = needle ? rows.filter((r) => r.workflow_def_name.toLowerCase().includes(needle)) : rows;
+  const close = useCallback(() => {
+    seq.current++;
+    setSelected(null);
+    setDoc(null);
+  }, []);
+
+  const gridRows = useMemo(
+    () => rows.map((r) => ({ ...r, active_label: r.is_active ? "active" : "" })),
+    [rows],
+  );
 
   return (
-    <section className="g-record-editor" data-testid={`workflow-graph-${mode}`}>
-      <header className="g-record-editor__toolbar">
-        <h3>{mode === "steps" ? "Steps (node graph)" : "Definitions (version graph)"}</h3>
-        <label>
-          <span className="sr-only">Filter workflows</span>
-          <input
-            type="search"
-            placeholder="Filter by workflow"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-        </label>
-        <button type="button" onClick={() => void reload()} disabled={loading}>
-          {loading ? "Loading…" : "Refresh"}
-        </button>
-      </header>
-      {error ? (
+    <div className="g-record-editor" data-testid={`workflow-graph-${mode}`}>
+      {error && !selected ? (
         <p role="alert" className="g-record-editor__error">
           {error}
         </p>
       ) : null}
-      {status ? <p role="status">{status}</p> : null}
-      <div className="g-record-editor__body">
-        <table className="g-record-editor__table">
-          <thead>
-            <tr>
-              <th scope="col">Workflow</th>
-              <th scope="col">Version</th>
-              <th scope="col">Active</th>
-              <th scope="col">Nodes</th>
-              <th scope="col">Runs</th>
-              <th scope="col">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.length === 0 ? (
-              <tr>
-                <td colSpan={6}>{loading ? "Loading…" : "No workflow versions"}</td>
-              </tr>
-            ) : (
-              visible.map((r) => (
-                <tr
-                  key={r.workflow_version_id}
-                  aria-selected={selected?.workflow_version_id === r.workflow_version_id}
-                  className={selected?.workflow_version_id === r.workflow_version_id ? "is-selected" : undefined}
-                >
-                  <td>{r.workflow_def_name}</td>
-                  <td>{r.version}</td>
-                  <td>{r.is_active ? "active" : "—"}</td>
-                  <td>{r.node_count}</td>
-                  <td>{r.run_count}</td>
-                  <td className="g-record-editor__row-actions">
-                    <button
-                      type="button"
-                      onClick={() => void open(r)}
-                      aria-label={`Edit ${r.workflow_def_name} v${r.version}`}
-                    >
-                      Edit
-                    </button>
-                    {!r.is_active ? (
-                      <button
-                        type="button"
-                        onClick={() => void activate(r)}
-                        aria-label={`Activate ${r.workflow_def_name} v${r.version}`}
-                      >
-                        Activate
-                      </button>
-                    ) : null}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      {status && !selected ? <p role="status">{status}</p> : null}
+      <RecordGrid
+        title={mode === "steps" ? "Steps (node graph)" : "Definitions (version graph)"}
+        noun="version"
+        columns={GRAPH_COLUMNS}
+        rows={gridRows}
+        rowKey={(r) => String(r.workflow_version_id)}
+        rowLabel={(r) => `${r.workflow_def_name} v${r.version}`}
+        loading={loading}
+        onRefresh={() => void reload()}
+        onView={(r) => void open(r, true)}
+        onEdit={(r) => void open(r)}
+        selectedKey={selected ? String(selected.workflow_version_id) : null}
+        emptyText="No workflow versions"
+        testId={`record-grid-workflow_${mode}`}
+        rowActions={[
+          { id: "activate", label: "Activate", visible: (r) => !r.is_active, onRun: (r) => void activate(r) },
+        ]}
+      />
+      <RecordDialog
+        open={selected != null}
+        size="wide"
+        title={
+          selected
+            ? `${selected.workflow_def_name} v${selected.version} ${selected.is_active ? "(active)" : "(inactive)"}`
+            : ""
+        }
+        onClose={close}
+        testId={`record-dialog-workflow_${mode}`}
+      >
+        {error ? (
+          <p role="alert" className="g-record-editor__error">
+            {error}
+          </p>
+        ) : null}
+        {status ? <p role="status">{status}</p> : null}
         {doc && selected ? (
-          <div className="g-record-editor__inspector" aria-label="workflow version inspector">
-            <h4>
-              {selected.workflow_def_name} v{selected.version} {selected.is_active ? "(active)" : "(inactive)"}
-            </h4>
-            <p className="g-record-editor__note">
-              Saving creates a new inactive version of this workflow; the version shown here is not changed. Node
-              input templates are carried over by node key. Event subscriptions keep pointing at their version.
-            </p>
+          <div aria-label="workflow version inspector">
+            {!readOnly ? (
+              <p className="g-record-editor__note">
+                Saving creates a new inactive version of this workflow; the version shown here is not changed. Node
+                input templates are carried over by node key. Event subscriptions keep pointing at their version.
+              </p>
+            ) : null}
             <WorkflowGraphCanvas spec={doc} />
             <SchemaPropertyGrid
-              key={`graph:${selected.workflow_version_id}:${session}`}
+              key={`graph:${selected.workflow_version_id}:${readOnly}:${session}`}
               fields={[]}
               flattenedSchema={graphSchemaFor(mode)}
               catalogResolver={catalogResolver}
               documentClassFqn="WorkflowVersion"
               initialDocument={doc}
-              onSubmit={save}
+              disabled={readOnly}
+              onSubmit={readOnly ? undefined : save}
               submitLabel="Save as new version"
             />
+            {readOnly ? (
+              <button type="button" className="g-host-button" onClick={() => void open(selected)}>
+                Edit
+              </button>
+            ) : null}
           </div>
-        ) : null}
-      </div>
-    </section>
+        ) : error ? null : (
+          <p role="status">Loading…</p>
+        )}
+      </RecordDialog>
+    </div>
   );
 }

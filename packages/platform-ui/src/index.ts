@@ -36,3 +36,13 @@ export {
 } from "./meta/ReferenceResolverContext.js";
 export { ReferencePicker } from "./meta/ReferencePicker.js";
 export { PropertyInspectorModal } from "./meta/PropertyInspectorModal.js";
+export {
+  RecordGrid,
+  RecordDialog,
+  formatRecordCell,
+  filterRecordRows,
+  sortRecordRows,
+  type RecordGridColumn,
+  type RecordGridProps,
+  type RecordGridRowAction,
+} from "./shell/RecordGrid.js";

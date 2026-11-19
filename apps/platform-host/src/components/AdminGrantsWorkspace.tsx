@@ -1,5 +1,6 @@
 "use client";
 
+import { RecordDialog, RecordGrid } from "@goliath/platform-ui";
 import { useState } from "react";
 
 type Props = {
@@ -65,77 +66,118 @@ export function AdminGrantsWorkspace({ roles, users, navNodes }: Props) {
     }
   }
 
+  const [dialog, setDialog] = useState<"node" | "nav-grant" | "user-grant" | null>(null);
+  const roleSelect = (
+    <label>
+      Role
+      <select value={roleId} onChange={(e) => setRoleId(Number(e.target.value))}>
+        {roles.map((r) => (
+          <option key={r.role_id} value={r.role_id}>
+            {r.role_name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+  const node = navNodes.find((n) => n.node_id === nodeId);
+  const user = users.find((u) => u.user_id === userId);
+
   return (
     <div className="g-admin-grants">
       {status ? <p role="status">{status}</p> : null}
-      <form className="g-portal-form" onSubmit={registerNode}>
-        <h3>NavTree</h3>
-        <label>
-          Parent nav ID (optional)
-          <input
-            type="number"
-            value={parentId ?? ""}
-            onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : null)}
-          />
-        </label>
-        <label>
-          Caption
-          <input value={caption} onChange={(e) => setCaption(e.target.value)} />
-        </label>
-        <label>
-          Node path
-          <input value={nodePath} onChange={(e) => setNodePath(e.target.value)} />
-        </label>
-        <button type="submit">Register node</button>
-      </form>
-      <form className="g-portal-form" onSubmit={grantNav}>
-        <h3>Grant role → nav node (active scope)</h3>
-        <label>
-          Role
-          <select value={roleId} onChange={(e) => setRoleId(Number(e.target.value))}>
-            {roles.map((r) => (
-              <option key={r.role_id} value={r.role_id}>
-                {r.role_name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Nav node
-          <select value={nodeId} onChange={(e) => setNodeId(Number(e.target.value))}>
-            {navNodes.map((n) => (
-              <option key={n.node_id} value={n.node_id}>
-                {n.caption} {n.node_path ?? ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="submit">Grant nav</button>
-      </form>
-      <form className="g-portal-form" onSubmit={grantUserRole}>
-        <h3>Grant role → user (active scope)</h3>
-        <label>
-          User
-          <select value={userId} onChange={(e) => setUserId(Number(e.target.value))}>
-            {users.map((u) => (
-              <option key={u.user_id} value={u.user_id}>
-                {u.full_name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Role
-          <select value={roleId} onChange={(e) => setRoleId(Number(e.target.value))}>
-            {roles.map((r) => (
-              <option key={r.role_id} value={r.role_id}>
-                {r.role_name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="submit">Grant role</button>
-      </form>
+      <RecordGrid
+        title="NavTree"
+        noun="node"
+        columns={[
+          { key: "node_id", label: "ID" },
+          { key: "caption", label: "Caption" },
+          { key: "node_path", label: "Path" },
+        ]}
+        rows={navNodes}
+        rowKey={(n) => String(n.node_id)}
+        rowLabel={(n) => n.caption}
+        onAdd={() => setDialog("node")}
+        rowActions={[
+          {
+            id: "grant",
+            label: "Grant to role",
+            onRun: (n) => {
+              setNodeId(n.node_id);
+              setDialog("nav-grant");
+            },
+          },
+        ]}
+        testId="record-grid-nav_node"
+      />
+      <RecordGrid
+        title="Users"
+        noun="user"
+        columns={[
+          { key: "user_id", label: "ID" },
+          { key: "full_name", label: "Name" },
+        ]}
+        rows={users}
+        rowKey={(u) => String(u.user_id)}
+        rowLabel={(u) => u.full_name}
+        rowActions={[
+          {
+            id: "grant",
+            label: "Grant role",
+            onRun: (u) => {
+              setUserId(u.user_id);
+              setDialog("user-grant");
+            },
+          },
+        ]}
+        testId="record-grid-grant_user"
+      />
+      <RecordDialog open={dialog === "node"} title="New navigation node" onClose={() => setDialog(null)}>
+        <form className="g-portal-form" onSubmit={registerNode}>
+          <label>
+            Parent node
+            <select
+              value={parentId ?? ""}
+              onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">(top level)</option>
+              {navNodes.map((n) => (
+                <option key={n.node_id} value={n.node_id}>
+                  {n.caption} {n.node_path ?? ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Caption
+            <input value={caption} onChange={(e) => setCaption(e.target.value)} />
+          </label>
+          <label>
+            Node path
+            <input value={nodePath} onChange={(e) => setNodePath(e.target.value)} />
+          </label>
+          <button type="submit">Register node</button>
+        </form>
+      </RecordDialog>
+      <RecordDialog
+        open={dialog === "nav-grant"}
+        title={`Grant ${node?.caption ?? "node"} to a role (active scope)`}
+        onClose={() => setDialog(null)}
+      >
+        <form className="g-portal-form" onSubmit={(e) => void grantNav(e).then(() => setDialog(null))}>
+          {roleSelect}
+          <button type="submit">Grant nav</button>
+        </form>
+      </RecordDialog>
+      <RecordDialog
+        open={dialog === "user-grant"}
+        title={`Grant a role to ${user?.full_name ?? "user"} (active scope)`}
+        onClose={() => setDialog(null)}
+      >
+        <form className="g-portal-form" onSubmit={(e) => void grantUserRole(e).then(() => setDialog(null))}>
+          {roleSelect}
+          <button type="submit">Grant role</button>
+        </form>
+      </RecordDialog>
     </div>
   );
 }

@@ -1,11 +1,11 @@
 import { ActionMethodsWorkspace } from "./ActionMethodsWorkspace";
+import { QueryRecordGrid } from "./QueryRecordGrid";
 import { RecordEditorWorkspace } from "./RecordEditorWorkspace";
 import { DomainProgramStructurePanel } from "./DomainProgramStructurePanel";
 import { RunInspector } from "./RunInspector";
 import { WorkflowGraphWorkspace } from "./WorkflowGraphWorkspace";
 import {
   MetaClassHierarchyList,
-  PlatformRecordTable,
   type MetaClassListRow,
 } from "@goliath/platform-ui";
 import { AdminGrantsWorkspace } from "@/components/AdminGrantsWorkspace";
@@ -15,7 +15,9 @@ import { MetaWorkbenchPanel } from "@/components/MetaWorkbenchPanel";
 import { ModelAuthoringPanel } from "@/components/ModelAuthoringPanel";
 import { OperatorDashboardsWorkspaceServer } from "@/components/OperatorDashboardsWorkspaceServer";
 import { OperatorViewsWorkspaceServer } from "@/components/OperatorViewsWorkspaceServer";
-import { SemanticLayerWorkspace } from "@/components/SemanticLayerWorkspace";
+import { SemanticPackageExport } from "@/components/SemanticPackageExport";
+
+const SEMANTIC_RECORD_ENTITIES = ["semantic_namespace", "semantic_entity", "semantic_attribute", "semantic_request"];
 import {
   PortalForbiddenError,
   PortalMetaNotFoundError,
@@ -25,7 +27,6 @@ import {
   portalSessionPlatformQuery,
   portalSessionRunSemanticRequest,
   portalSessionSecurity,
-  portalSessionSemanticEntities,
 } from "@/server/portal/bridge";
 import { cookies, headers } from "next/headers";
 import { requestOriginFromHeaderStore } from "@/server/http/request-origin";
@@ -160,25 +161,26 @@ export async function PortalWorkspacePanel({
       spec.kind === "semantic_meta_bridge" ||
       spec.kind === "semantic_authoring"
     ) {
-      const entities = await portalSessionSemanticEntities(token);
       const classRows = await portalSessionMetaListClasses(token);
-      const namespaces = await portalSessionPlatformQuery(
-        token,
-        PLATFORM_QUERY_SQL.semantic_namespaces.sql,
-      );
-      const attributes = await portalSessionPlatformQuery(
-        token,
-        PLATFORM_QUERY_SQL.semantic_attributes.sql,
-      );
+      const prefixes = [
+        ...new Set(
+          classRows
+            .map((c) => c.className)
+            .filter((n) => n.includes("/") && !n.startsWith("platform/"))
+            .map((n) => `${n.slice(0, n.indexOf("/"))}/`),
+        ),
+      ].sort();
       return (
         <div className="g-portal-stage">
           <h2>{spec.title}</h2>
-          <SemanticLayerWorkspace
-            entities={entities}
-            namespaces={namespaces}
-            attributes={attributes}
-            metaClasses={classRows.map((c) => c.className)}
-          />
+          <p className="g-host-home__lead">
+            Semantic namespaces, entities, attributes and requests bound to Meta classes. Changes persist in your
+            deployment database and can be exported as SQL for a child application repository.
+          </p>
+          <SemanticPackageExport prefixes={prefixes.length ? prefixes : ["your_app/"]} />
+          {SEMANTIC_RECORD_ENTITIES.map((entity) => (
+            <RecordEditorWorkspace key={entity} entity={entity} />
+          ))}
         </div>
       );
     }
@@ -328,7 +330,7 @@ export async function PortalWorkspacePanel({
         return (
           <div className="g-portal-stage">
             <h2>{spec.title}</h2>
-            <PlatformRecordTable caption={spec.title} columns={columns} rows={data} />
+            <QueryRecordGrid title={spec.title} columns={columns} rows={data} />
           </div>
         );
       }
@@ -366,7 +368,7 @@ export async function PortalWorkspacePanel({
                 ? `Showing the ${DEFAULT_WORKFLOW_RUNS_LIMIT} most recent runs (${range.label.toLowerCase()}).`
                 : `${rows.length} run${rows.length === 1 ? "" : "s"} (${range.label.toLowerCase()}).`}
             </p>
-            <PlatformRecordTable caption={spec.title} columns={WORKFLOW_RUNS_COLUMNS} rows={rows} />
+            <QueryRecordGrid title={spec.title} columns={WORKFLOW_RUNS_COLUMNS} rows={rows} />
             <RunInspector />
           </div>
         );
@@ -378,7 +380,7 @@ export async function PortalWorkspacePanel({
           <h2>{spec.title}</h2>
           {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
           <RelatedLinks links={spec.links} />
-          <PlatformRecordTable caption={spec.title} columns={def.columns} rows={rows} />
+          <QueryRecordGrid title={spec.title} columns={def.columns} rows={rows} />
         </div>
       );
     }

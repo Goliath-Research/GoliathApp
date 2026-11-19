@@ -11,7 +11,10 @@ test.describe("model authoring (CI postgres)", () => {
   test("semantic layer workspace loads authoring chrome", async ({ page }) => {
     await page.goto("/app/semantic");
     await expect(page.getByRole("heading", { name: "Semantic layer" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Register entity" })).toBeVisible();
+    for (const entity of ["semantic_namespace", "semantic_entity", "semantic_attribute", "semantic_request"]) {
+      await expect(page.getByTestId(`record-grid-${entity}`)).toBeVisible();
+    }
+    await expect(page.getByRole("button", { name: "Add entity" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Export as package SQL" })).toBeVisible();
   });
 
@@ -63,32 +66,41 @@ test.describe("model authoring (CI postgres)", () => {
 
     await page.goto(`/app/meta?class=${encodedClass}`);
     await expect(page.locator(".g-meta-explorer")).toBeVisible();
+    await page.getByTestId("meta-instance-list-add").click();
     await expect(page.getByTestId("pi-row-Label")).toBeVisible();
     await expect(page.getByTestId("pi-row-Nickname")).toBeVisible();
 
-    await page.goto("/app/semantic");
-    const entitySection = page.locator("section").filter({
-      has: page.getByRole("heading", { name: "Register entity" }),
+    // Semantic entity through the generic record API, then visible in the semantic grid.
+    await request.post("/api/portal/records/semantic_namespace", {
+      data: { document: { code: namespace, display_name: "E2E namespace" } },
     });
-    const entityForm = entitySection.locator("form.g-portal-form");
-    await entityForm.getByLabel("Namespace").fill(namespace);
-    await entityForm.getByLabel("Entity code").fill(entityCode);
-    await entityForm.getByLabel("Display name").fill(`E2E entity ${suffix}`);
-    await entityForm.getByLabel("Meta class").selectOption(className);
-    await entityForm.getByRole("button", { name: "Save entity" }).click();
-    await page.waitForLoadState("load");
-    await expect(page.getByRole("cell", { name: className })).toBeVisible();
-    await expect(page.getByRole("cell", { name: entityCode })).toBeVisible();
+    const entityRes = await request.post("/api/portal/records/semantic_entity", {
+      data: {
+        document: {
+          namespace,
+          code: entityCode,
+          display_name: `E2E entity ${suffix}`,
+          meta_class_name: className,
+        },
+      },
+    });
+    expect(entityRes.status(), await entityRes.text()).toBe(200);
+    await page.goto("/app/semantic/entities");
+    const entityGrid = page.getByTestId("record-grid-semantic_entity");
+    await entityGrid.getByPlaceholder("Filter…").fill(entityCode);
+    await expect(entityGrid.getByRole("cell", { name: className })).toBeVisible();
+    await expect(entityGrid.getByRole("cell", { name: entityCode })).toBeVisible();
+    await entityGrid.getByRole("button", { name: new RegExp(`^View .*${entityCode}`) }).click();
+    await expect(page.getByTestId("record-dialog-semantic_entity")).toBeVisible();
 
     await page.goto("/app/views/list");
-    await page.getByRole("button", { name: "New view" }).click();
+    await page.getByRole("button", { name: "Add view" }).click();
     await page.getByLabel("Title").fill(viewTitle);
     await page.getByRole("radio", { name: /Meta class/ }).check();
     await page.getByRole("button", { name: new RegExp(`Use ${className}`) }).click();
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("View saved")).toBeVisible();
-    const savedView = page.getByRole("button", { name: viewTitle });
-    await expect(savedView).toBeVisible();
+    await expect(page.getByRole("button", { name: `Edit ${viewTitle}` })).toBeAttached();
     await expect(page.getByLabel("Selected Meta class")).toHaveValue(className);
   });
 });

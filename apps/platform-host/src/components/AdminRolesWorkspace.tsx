@@ -1,6 +1,7 @@
 "use client";
 
-import { PlatformRecordTable } from "@goliath/platform-ui";
+import { RecordDialog, RecordGrid } from "@goliath/platform-ui";
+import { QueryRecordGrid } from "@/components/QueryRecordGrid";
 import { useState } from "react";
 
 type RoleRow = { role_id: number; role_name?: string; name?: string };
@@ -35,77 +36,101 @@ export function AdminRolesWorkspace({ roles, permissions }: Props) {
     name: r.role_name ?? r.name ?? "",
   }));
 
+  const [dialog, setDialog] = useState<"create" | "permission" | null>(null);
+
   return (
     <div className="g-admin-roles">
-      <PlatformRecordTable
-        caption="Roles"
+      {status ? <p role="status">{status}</p> : null}
+      <RecordGrid
+        title="Roles"
+        noun="role"
         columns={[
           { key: "role_id", label: "ID" },
           { key: "name", label: "Name" },
         ]}
         rows={roleRows}
+        rowKey={(r) => String(r.role_id)}
+        rowLabel={(r) => r.name}
+        onAdd={() => {
+          setRoleName("");
+          setDialog("create");
+        }}
+        rowActions={[
+          {
+            id: "permissions",
+            label: "Set permission",
+            onRun: (r) => {
+              setRoleId(r.role_id);
+              setDialog("permission");
+            },
+          },
+        ]}
+        testId="record-grid-role"
       />
-      <form
-        className="g-portal-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void post({ action: "create_role", name: roleName })
-            .then(() => setStatus(`Role ${roleName} created. Reload to refresh.`))
-            .catch((err) => setStatus(err instanceof Error ? err.message : "Failed"));
-        }}
+      <RecordDialog open={dialog === "create"} title="New role" onClose={() => setDialog(null)}>
+        <form
+          className="g-portal-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void post({ action: "create_role", name: roleName })
+              .then(() => {
+                setStatus(`Role ${roleName} created. Reload to refresh.`);
+                setDialog(null);
+              })
+              .catch((err) => setStatus(err instanceof Error ? err.message : "Failed"));
+          }}
+        >
+          <label>
+            Name
+            <input value={roleName} onChange={(ev) => setRoleName(ev.target.value)} required />
+          </label>
+          <button type="submit">Create</button>
+        </form>
+      </RecordDialog>
+      <RecordDialog
+        open={dialog === "permission"}
+        title={`Permission for ${roleRows.find((r) => r.role_id === roleId)?.name ?? "role"}`}
+        onClose={() => setDialog(null)}
       >
-        <h3>Create role</h3>
-        <label>
-          Name
-          <input value={roleName} onChange={(ev) => setRoleName(ev.target.value)} required />
-        </label>
-        <button type="submit">Create</button>
-      </form>
-      <form
-        className="g-portal-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void post({ action: "set_role_permission", roleId, permissionName: permName, granted })
-            .then(() => setStatus("Role permission updated."))
-            .catch((err) => setStatus(err instanceof Error ? err.message : "Failed"));
-        }}
-      >
-        <h3>Role → permission</h3>
-        <label>
-          Role
-          <select value={roleId} onChange={(ev) => setRoleId(Number(ev.target.value))}>
-            {roleRows.map((r) => (
-              <option key={r.role_id} value={r.role_id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Permission
-          <select value={permName} onChange={(ev) => setPermName(ev.target.value)}>
-            {permissions.map((p) => (
-              <option key={p.permission_id} value={p.name}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <input type="checkbox" checked={granted} onChange={(ev) => setGranted(ev.target.checked)} />
-          Granted
-        </label>
-        <button type="submit">Save</button>
-      </form>
-      <PlatformRecordTable
-        caption="Permission catalog"
+        <form
+          className="g-portal-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void post({ action: "set_role_permission", roleId, permissionName: permName, granted })
+              .then(() => {
+                setStatus("Role permission updated.");
+                setDialog(null);
+              })
+              .catch((err) => setStatus(err instanceof Error ? err.message : "Failed"));
+          }}
+        >
+          <label>
+            Permission
+            <select value={permName} onChange={(ev) => setPermName(ev.target.value)}>
+              {permissions.map((p) => (
+                <option key={p.permission_id} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <input type="checkbox" checked={granted} onChange={(ev) => setGranted(ev.target.checked)} />
+            Granted
+          </label>
+          <button type="submit">Save</button>
+        </form>
+      </RecordDialog>
+      <QueryRecordGrid
+        title="Permission catalog"
+        noun="permission"
+        keyColumn="permission_id"
         columns={[
           { key: "permission_id", label: "ID" },
           { key: "name", label: "Name" },
         ]}
         rows={permissions}
       />
-      {status ? <p role="status">{status}</p> : null}
     </div>
   );
 }

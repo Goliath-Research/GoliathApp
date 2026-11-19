@@ -58,14 +58,16 @@ test.describe("workflows record editors", () => {
     const editor = page.getByTestId("record-editor-class_method");
     await expect(editor).toBeVisible();
     await expect(editor.getByRole("heading", { name: "Actions (class methods)" })).toBeVisible();
-    await expect(editor.getByRole("button", { name: "New method" })).toBeVisible();
+    await expect(editor.getByRole("button", { name: "Add method" })).toBeVisible();
   });
 
   test("workers page edits clusters in the property grid", async ({ page }) => {
     await page.goto("/app/workflows/workers");
     const editor = page.getByTestId("record-editor-cluster");
     await expect(editor).toBeVisible();
-    await editor.getByTestId("record-editor-new-cluster").click();
-    await expect(editor.getByRole("button", { name: "Create cluster" })).toBeVisible();
+    await editor.getByTestId("record-grid-cluster-add").click();
+    const dialog = page.getByTestId("record-dialog-cluster");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Create cluster" })).toBeVisible();
   });
 });

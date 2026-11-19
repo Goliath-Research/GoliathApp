@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { MetaClassListRow } from "@goliath/platform-ui";
-import { MetaClassHierarchyList } from "@goliath/platform-ui";
+import { MetaClassHierarchyList, RecordDialog, RecordGrid } from "@goliath/platform-ui";
 import {
   DEFAULT_VIEW_DEFINITION,
   buildSemanticRunParams,
@@ -57,6 +57,13 @@ const FILTER_OPS: FilterOperator[] = [
 
 const VIZ_TYPES: VisualizationType[] = ["table", "bar", "line", "pie", "kpi"];
 
+const VIEW_COLUMNS = [
+  { key: "title", label: "Title" },
+  { key: "source", label: "Source" },
+  { key: "visibility", label: "Visibility" },
+  { key: "description", label: "Description" },
+];
+
 const FORMATS: ColumnFormat[] = ["text", "number", "date", "currency"];
 
 export function OperatorViewEditor({ catalog, metaClasses, initialViews, initialViewId }: Props) {
@@ -73,6 +80,8 @@ export function OperatorViewEditor({ catalog, metaClasses, initialViews, initial
   const [previewRows, setPreviewRows] = useState<Record<string, unknown>[]>([]);
   const [status, setStatus] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  /** Drawer over the views grid: "view" shows the live preview, "edit" the editor + preview. */
+  const [drawer, setDrawer] = useState<"view" | "edit" | null>(initialViewId != null ? "view" : null);
 
   const hierarchyClasses = useMemo(() => metaClasses, [metaClasses]);
 
@@ -250,10 +259,10 @@ export function OperatorViewEditor({ catalog, metaClasses, initialViews, initial
     await refreshViews();
   }
 
-  async function removeView() {
-    if (selectedId === "new") return;
+  async function removeView(viewId: number | "new" = selectedId) {
+    if (viewId === "new") return;
     if (!window.confirm("Delete this view?")) return;
-    const res = await fetch(`/api/portal/views/${selectedId}`, {
+    const res = await fetch(`/api/portal/views/${viewId}`, {
       method: "DELETE",
       credentials: "same-origin",
     });
@@ -261,493 +270,510 @@ export function OperatorViewEditor({ catalog, metaClasses, initialViews, initial
       setStatus("Delete failed");
       return;
     }
-    setSelectedId("new");
+    if (viewId === selectedId) {
+      setSelectedId("new");
+      setDrawer(null);
+    }
     await refreshViews();
     setStatus("View deleted");
   }
 
   return (
     <div className="g-portal-views g-portal-view-editor">
-      <section aria-labelledby="view-picker-heading">
-        <h3 id="view-picker-heading">Views in this scope</h3>
-        <div className="g-portal-view-editor__toolbar">
-          <button
-            type="button"
-            className="g-host-button"
-            aria-pressed={selectedId === "new"}
-            onClick={() => setSelectedId("new")}
-          >
-            New view
-          </button>
-          <ul className="g-operator-nav g-portal-view-editor__view-list">
-            {views.map((v) => (
-              <li key={v.viewId}>
-                <button
-                  type="button"
-                  className="g-host-button"
-                  aria-pressed={selectedId === v.viewId}
-                  onClick={() => setSelectedId(v.viewId)}
-                >
-                  {v.title}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
+      <RecordGrid
+        title="Views in this scope"
+        noun="view"
+        columns={VIEW_COLUMNS}
+        rows={views.map((v) => ({
+          ...v,
+          source: v.semanticRequestCode ?? (v.metaClassName ? `Meta ${v.metaClassName}` : ""),
+        }))}
+        rowKey={(v) => String(v.viewId)}
+        rowLabel={(v) => v.title}
+        onRefresh={() => void refreshViews()}
+        onAdd={() => {
+          setSelectedId("new");
+          setDrawer("edit");
+        }}
+        onView={(v) => {
+          setSelectedId(v.viewId);
+          setDrawer("view");
+        }}
+        onEdit={(v) => {
+          setSelectedId(v.viewId);
+          setDrawer("edit");
+        }}
+        rowActions={[{ id: "delete", label: "Delete", onRun: (v) => void removeView(v.viewId) }]}
+        selectedKey={drawer && selectedId !== "new" ? String(selectedId) : null}
+        testId="record-grid-operator_view"
+      />
+      {status && !drawer ? <p role="status">{status}</p> : null}
+      <RecordDialog
+        open={drawer != null}
+        title={selectedId === "new" ? "New view" : title || "View"}
+        onClose={() => setDrawer(null)}
+        size="wide"
+        testId="record-dialog-operator_view"
+      >
+        {drawer === "edit" ? (
+          <section aria-labelledby="view-editor-heading" className="g-portal-view-editor__main">
+            <h3 id="view-editor-heading">View editor</h3>
+            <p className="g-host-home__lead">
+              Configure columns, filters, sort, and visualization with typed controls. Changes preview live below.
+            </p>
 
-      <section aria-labelledby="view-editor-heading" className="g-portal-view-editor__main">
-        <h3 id="view-editor-heading">View editor</h3>
-        <p className="g-host-home__lead">
-          Configure columns, filters, sort, and visualization with typed controls. Changes preview live below.
-        </p>
-
-        <div className="g-portal-view-form g-portal-view-editor__form">
-          <label>
-            Title
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                markDirty();
-              }}
-              required
-            />
-          </label>
-          <label>
-            Description
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => {
-                setDescription(e.target.value);
-                markDirty();
-              }}
-            />
-          </label>
-          <label>
-            Visibility
-            <select
-              value={visibility}
-              onChange={(e) => {
-                setVisibility(e.target.value as ViewVisibility);
-                markDirty();
-              }}
-            >
-              <option value="scope">Everyone in this organization scope</option>
-              <option value="organization">All scopes in organization</option>
-              <option value="private">Only me</option>
-            </select>
-          </label>
-
-          <fieldset>
-            <legend>Data source</legend>
-            <label>
-              <input
-                type="radio"
-                name="source"
-                checked={sourceKind === "semantic"}
-                onChange={() => {
-                  setSourceKind("semantic");
-                  markDirty();
-                }}
-              />
-              Semantic request
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="source"
-                checked={sourceKind === "meta"}
-                onChange={() => {
-                  setSourceKind("meta");
-                  markDirty();
-                }}
-              />
-              Meta class
-            </label>
-          </fieldset>
-
-          {sourceKind === "semantic" ? (
-            <label>
-              Semantic request
-              <select
-                value={requestCode}
-                onChange={(e) => {
-                  setRequestCode(e.target.value);
-                  markDirty();
-                }}
-              >
-                {catalog.map((c) => (
-                  <option key={c.requestCode} value={c.requestCode}>
-                    {c.displayName} ({c.requestCode})
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : (
-            <div className="g-portal-view-editor__meta-picker">
+            <div className="g-portal-view-form g-portal-view-editor__form">
               <label>
-                Selected Meta class
-                <input type="text" readOnly value={metaClass} aria-readonly />
+                Title
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    markDirty();
+                  }}
+                  required
+                />
               </label>
-              <MetaClassHierarchyList
-                classes={hierarchyClasses}
-                selectedClassName={metaClass}
-              />
-              <ul className="g-operator-nav">
-                {metaClasses.map((row) => (
-                  <li key={row.classId}>
+              <label>
+                Description
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    markDirty();
+                  }}
+                />
+              </label>
+              <label>
+                Visibility
+                <select
+                  value={visibility}
+                  onChange={(e) => {
+                    setVisibility(e.target.value as ViewVisibility);
+                    markDirty();
+                  }}
+                >
+                  <option value="scope">Everyone in this organization scope</option>
+                  <option value="organization">All scopes in organization</option>
+                  <option value="private">Only me</option>
+                </select>
+              </label>
+
+              <fieldset>
+                <legend>Data source</legend>
+                <label>
+                  <input
+                    type="radio"
+                    name="source"
+                    checked={sourceKind === "semantic"}
+                    onChange={() => {
+                      setSourceKind("semantic");
+                      markDirty();
+                    }}
+                  />
+                  Semantic request
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="source"
+                    checked={sourceKind === "meta"}
+                    onChange={() => {
+                      setSourceKind("meta");
+                      markDirty();
+                    }}
+                  />
+                  Meta class
+                </label>
+              </fieldset>
+
+              {sourceKind === "semantic" ? (
+                <label>
+                  Semantic request
+                  <select
+                    value={requestCode}
+                    onChange={(e) => {
+                      setRequestCode(e.target.value);
+                      markDirty();
+                    }}
+                  >
+                    {catalog.map((c) => (
+                      <option key={c.requestCode} value={c.requestCode}>
+                        {c.displayName} ({c.requestCode})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+            ) : (
+              <div className="g-portal-view-editor__meta-picker">
+                <label>
+                  Selected Meta class
+                  <input type="text" readOnly value={metaClass} aria-readonly />
+                </label>
+                <MetaClassHierarchyList
+                  classes={hierarchyClasses}
+                  selectedClassName={metaClass}
+                />
+                <ul className="g-operator-nav">
+                  {metaClasses.map((row) => (
+                    <li key={row.classId}>
+                      <button
+                        type="button"
+                        className="g-host-button"
+                        aria-pressed={metaClass === row.className}
+                        onClick={() => {
+                          setMetaClass(row.className);
+                          markDirty();
+                        }}
+                      >
+                        Use {row.className}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <fieldset>
+              <legend>Columns</legend>
+              <ul className="g-portal-view-editor__column-list">
+                {definition.columns.map((col, idx) => (
+                  <li key={col.field}>
+                    <span>{col.field}</span>
+                    <input
+                      type="text"
+                      aria-label={`Label for ${col.field}`}
+                      value={col.label}
+                      onChange={(e) => {
+                        const next = [...definition.columns];
+                        next[idx] = { ...col, label: e.target.value };
+                        updateDefinition({ columns: next });
+                      }}
+                    />
+                    <select
+                      aria-label={`Format for ${col.field}`}
+                      value={col.format ?? "text"}
+                      onChange={(e) => {
+                        const next = [...definition.columns];
+                        next[idx] = { ...col, format: e.target.value as ColumnFormat };
+                        updateDefinition({ columns: next });
+                      }}
+                    >
+                      {FORMATS.map((f) => (
+                        <option key={f} value={f}>
+                          {f}
+                        </option>
+                      ))}
+                    </select>
                     <button
                       type="button"
                       className="g-host-button"
-                      aria-pressed={metaClass === row.className}
+                      onClick={() =>
+                        updateDefinition({
+                          columns: definition.columns.filter((c) => c.field !== col.field),
+                        })
+                      }
+                    >
+                      Remove
+                    </button>
+                    <button
+                      type="button"
+                      className="g-host-button"
+                      disabled={idx === 0}
                       onClick={() => {
-                        setMetaClass(row.className);
-                        markDirty();
+                        const next = [...definition.columns];
+                        const tmp = next[idx - 1]!;
+                        next[idx - 1] = next[idx]!;
+                        next[idx] = tmp;
+                        updateDefinition({ columns: next });
                       }}
                     >
-                      Use {row.className}
+                      Up
+                    </button>
+                    <button
+                      type="button"
+                      className="g-host-button"
+                      disabled={idx === definition.columns.length - 1}
+                      onClick={() => {
+                        const next = [...definition.columns];
+                        const tmp = next[idx + 1]!;
+                        next[idx + 1] = next[idx]!;
+                        next[idx] = tmp;
+                        updateDefinition({ columns: next });
+                      }}
+                    >
+                      Down
                     </button>
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
+              <label>
+                Add field
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    if (e.target.value) addColumn(e.target.value);
+                    e.target.value = "";
+                  }}
+                >
+                  <option value="">Choose field…</option>
+                  {sourceFields.map((f) => (
+                    <option key={f.field} value={f.field}>
+                      {f.label} ({f.jsonType})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </fieldset>
 
-          <fieldset>
-            <legend>Columns</legend>
-            <ul className="g-portal-view-editor__column-list">
-              {definition.columns.map((col, idx) => (
-                <li key={col.field}>
-                  <span>{col.field}</span>
-                  <input
-                    type="text"
-                    aria-label={`Label for ${col.field}`}
-                    value={col.label}
-                    onChange={(e) => {
-                      const next = [...definition.columns];
-                      next[idx] = { ...col, label: e.target.value };
-                      updateDefinition({ columns: next });
-                    }}
-                  />
+            <fieldset>
+              <legend>Filters</legend>
+              {definition.filters.map((filt, idx) => (
+                <div key={idx} className="g-portal-view-editor__filter-row">
                   <select
-                    aria-label={`Format for ${col.field}`}
-                    value={col.format ?? "text"}
+                    value={filt.field}
                     onChange={(e) => {
-                      const next = [...definition.columns];
-                      next[idx] = { ...col, format: e.target.value as ColumnFormat };
-                      updateDefinition({ columns: next });
+                      const next = [...definition.filters];
+                      next[idx] = { ...filt, field: e.target.value };
+                      updateDefinition({ filters: next });
                     }}
                   >
-                    {FORMATS.map((f) => (
-                      <option key={f} value={f}>
-                        {f}
+                    {sourceFields.map((f) => (
+                      <option key={f.field} value={f.field}>
+                        {f.field}
                       </option>
                     ))}
                   </select>
+                  <select
+                    value={filt.operator}
+                    onChange={(e) => {
+                      const next = [...definition.filters];
+                      next[idx] = { ...filt, operator: e.target.value as FilterOperator };
+                      updateDefinition({ filters: next });
+                    }}
+                  >
+                    {FILTER_OPS.map((op) => (
+                      <option key={op} value={op}>
+                        {op}
+                      </option>
+                    ))}
+                  </select>
+                  {filt.operator !== "is_null" ? (
+                    <input
+                      type="text"
+                      aria-label="Filter value"
+                      value={filt.value == null ? "" : String(filt.value)}
+                      onChange={(e) => {
+                        const next = [...definition.filters];
+                        next[idx] = { ...filt, value: e.target.value };
+                        updateDefinition({ filters: next });
+                      }}
+                    />
+                  ) : null}
                   <button
                     type="button"
                     className="g-host-button"
                     onClick={() =>
-                      updateDefinition({
-                        columns: definition.columns.filter((c) => c.field !== col.field),
-                      })
+                      updateDefinition({ filters: definition.filters.filter((_, i) => i !== idx) })
                     }
                   >
                     Remove
                   </button>
-                  <button
-                    type="button"
-                    className="g-host-button"
-                    disabled={idx === 0}
-                    onClick={() => {
-                      const next = [...definition.columns];
-                      const tmp = next[idx - 1]!;
-                      next[idx - 1] = next[idx]!;
-                      next[idx] = tmp;
-                      updateDefinition({ columns: next });
-                    }}
-                  >
-                    Up
-                  </button>
-                  <button
-                    type="button"
-                    className="g-host-button"
-                    disabled={idx === definition.columns.length - 1}
-                    onClick={() => {
-                      const next = [...definition.columns];
-                      const tmp = next[idx + 1]!;
-                      next[idx + 1] = next[idx]!;
-                      next[idx] = tmp;
-                      updateDefinition({ columns: next });
-                    }}
-                  >
-                    Down
-                  </button>
-                </li>
+                </div>
               ))}
-            </ul>
+              <button type="button" className="g-host-button" onClick={addFilter}>
+                Add filter
+              </button>
+            </fieldset>
+
+            <fieldset>
+              <legend>Sort</legend>
+              {definition.sort.map((s, idx) => (
+                <div key={idx} className="g-portal-view-editor__filter-row">
+                  <select
+                    value={s.field}
+                    onChange={(e) => {
+                      const next = [...definition.sort];
+                      next[idx] = { ...s, field: e.target.value };
+                      updateDefinition({ sort: next });
+                    }}
+                  >
+                    {sourceFields.map((f) => (
+                      <option key={f.field} value={f.field}>
+                        {f.field}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={s.direction}
+                    onChange={(e) => {
+                      const next = [...definition.sort];
+                      next[idx] = { ...s, direction: e.target.value as "asc" | "desc" };
+                      updateDefinition({ sort: next });
+                    }}
+                  >
+                    <option value="asc">Ascending</option>
+                    <option value="desc">Descending</option>
+                  </select>
+                  <button
+                    type="button"
+                    className="g-host-button"
+                    onClick={() => updateDefinition({ sort: definition.sort.filter((_, i) => i !== idx) })}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button type="button" className="g-host-button" onClick={addSort}>
+                Add sort
+              </button>
+            </fieldset>
+
             <label>
-              Add field
+              Row limit
+              <input
+                type="number"
+                min={1}
+                max={500}
+                value={definition.limit}
+                onChange={(e) => updateDefinition({ limit: Number(e.target.value) || 50 })}
+              />
+            </label>
+
+            <fieldset>
+              <legend>Group by</legend>
               <select
-                defaultValue=""
+                multiple
+                size={Math.min(6, Math.max(3, sourceFields.length))}
+                value={definition.groupBy}
                 onChange={(e) => {
-                  if (e.target.value) addColumn(e.target.value);
-                  e.target.value = "";
+                  const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
+                  updateDefinition({ groupBy: selected });
                 }}
               >
-                <option value="">Choose field…</option>
                 {sourceFields.map((f) => (
                   <option key={f.field} value={f.field}>
-                    {f.label} ({f.jsonType})
+                    {f.field}
                   </option>
                 ))}
               </select>
-            </label>
-          </fieldset>
+            </fieldset>
 
-          <fieldset>
-            <legend>Filters</legend>
-            {definition.filters.map((filt, idx) => (
-              <div key={idx} className="g-portal-view-editor__filter-row">
+            <fieldset>
+              <legend>Visualization</legend>
+              <label>
+                Chart type
                 <select
-                  value={filt.field}
-                  onChange={(e) => {
-                    const next = [...definition.filters];
-                    next[idx] = { ...filt, field: e.target.value };
-                    updateDefinition({ filters: next });
-                  }}
-                >
-                  {sourceFields.map((f) => (
-                    <option key={f.field} value={f.field}>
-                      {f.field}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={filt.operator}
-                  onChange={(e) => {
-                    const next = [...definition.filters];
-                    next[idx] = { ...filt, operator: e.target.value as FilterOperator };
-                    updateDefinition({ filters: next });
-                  }}
-                >
-                  {FILTER_OPS.map((op) => (
-                    <option key={op} value={op}>
-                      {op}
-                    </option>
-                  ))}
-                </select>
-                {filt.operator !== "is_null" ? (
-                  <input
-                    type="text"
-                    aria-label="Filter value"
-                    value={filt.value == null ? "" : String(filt.value)}
-                    onChange={(e) => {
-                      const next = [...definition.filters];
-                      next[idx] = { ...filt, value: e.target.value };
-                      updateDefinition({ filters: next });
-                    }}
-                  />
-                ) : null}
-                <button
-                  type="button"
-                  className="g-host-button"
-                  onClick={() =>
-                    updateDefinition({ filters: definition.filters.filter((_, i) => i !== idx) })
+                  value={definition.visualization.type}
+                  onChange={(e) =>
+                    updateDefinition({
+                      visualization: {
+                        ...definition.visualization,
+                        type: e.target.value as VisualizationType,
+                      },
+                    })
                   }
                 >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <button type="button" className="g-host-button" onClick={addFilter}>
-              Add filter
-            </button>
-          </fieldset>
-
-          <fieldset>
-            <legend>Sort</legend>
-            {definition.sort.map((s, idx) => (
-              <div key={idx} className="g-portal-view-editor__filter-row">
-                <select
-                  value={s.field}
-                  onChange={(e) => {
-                    const next = [...definition.sort];
-                    next[idx] = { ...s, field: e.target.value };
-                    updateDefinition({ sort: next });
-                  }}
-                >
-                  {sourceFields.map((f) => (
-                    <option key={f.field} value={f.field}>
-                      {f.field}
+                  {VIZ_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
                     </option>
                   ))}
                 </select>
-                <select
-                  value={s.direction}
-                  onChange={(e) => {
-                    const next = [...definition.sort];
-                    next[idx] = { ...s, direction: e.target.value as "asc" | "desc" };
-                    updateDefinition({ sort: next });
-                  }}
-                >
-                  <option value="asc">Ascending</option>
-                  <option value="desc">Descending</option>
-                </select>
-                <button
-                  type="button"
-                  className="g-host-button"
-                  onClick={() => updateDefinition({ sort: definition.sort.filter((_, i) => i !== idx) })}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <button type="button" className="g-host-button" onClick={addSort}>
-              Add sort
-            </button>
-          </fieldset>
+              </label>
+              {definition.visualization.type !== "table" ? (
+                <>
+                  <label>
+                    Category / X axis field
+                    <select
+                      value={definition.visualization.categoryField ?? ""}
+                      onChange={(e) =>
+                        updateDefinition({
+                          visualization: {
+                            ...definition.visualization,
+                            categoryField: e.target.value || undefined,
+                          },
+                        })
+                      }
+                    >
+                      <option value="">Auto</option>
+                      {sourceFields.map((f) => (
+                        <option key={f.field} value={f.field}>
+                          {f.field}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Value / Y axis field
+                    <select
+                      value={definition.visualization.valueField ?? ""}
+                      onChange={(e) =>
+                        updateDefinition({
+                          visualization: {
+                            ...definition.visualization,
+                            valueField: e.target.value || undefined,
+                          },
+                        })
+                      }
+                    >
+                      <option value="">Auto</option>
+                      {sourceFields.map((f) => (
+                        <option key={f.field} value={f.field}>
+                          {f.field}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : null}
+            </fieldset>
 
-          <label>
-            Row limit
-            <input
-              type="number"
-              min={1}
-              max={500}
-              value={definition.limit}
-              onChange={(e) => updateDefinition({ limit: Number(e.target.value) || 50 })}
-            />
-          </label>
-
-          <fieldset>
-            <legend>Group by</legend>
-            <select
-              multiple
-              size={Math.min(6, Math.max(3, sourceFields.length))}
-              value={definition.groupBy}
-              onChange={(e) => {
-                const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-                updateDefinition({ groupBy: selected });
-              }}
-            >
-              {sourceFields.map((f) => (
-                <option key={f.field} value={f.field}>
-                  {f.field}
-                </option>
-              ))}
-            </select>
-          </fieldset>
-
-          <fieldset>
-            <legend>Visualization</legend>
-            <label>
-              Chart type
-              <select
-                value={definition.visualization.type}
-                onChange={(e) =>
-                  updateDefinition({
-                    visualization: {
-                      ...definition.visualization,
-                      type: e.target.value as VisualizationType,
-                    },
-                  })
-                }
+            <div className="g-portal-view-editor__actions">
+              <button
+                type="button"
+                className="g-host-button"
+                disabled={!title.trim() || (!dirty && selectedId !== "new")}
+                onClick={() => void persist(false)}
               >
-                {VIZ_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {definition.visualization.type !== "table" ? (
-              <>
-                <label>
-                  Category / X axis field
-                  <select
-                    value={definition.visualization.categoryField ?? ""}
-                    onChange={(e) =>
-                      updateDefinition({
-                        visualization: {
-                          ...definition.visualization,
-                          categoryField: e.target.value || undefined,
-                        },
-                      })
-                    }
-                  >
-                    <option value="">Auto</option>
-                    {sourceFields.map((f) => (
-                      <option key={f.field} value={f.field}>
-                        {f.field}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Value / Y axis field
-                  <select
-                    value={definition.visualization.valueField ?? ""}
-                    onChange={(e) =>
-                      updateDefinition({
-                        visualization: {
-                          ...definition.visualization,
-                          valueField: e.target.value || undefined,
-                        },
-                      })
-                    }
-                  >
-                    <option value="">Auto</option>
-                    {sourceFields.map((f) => (
-                      <option key={f.field} value={f.field}>
-                        {f.field}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </>
-            ) : null}
-          </fieldset>
-
-          <div className="g-portal-view-editor__actions">
-            <button
-              type="button"
-              className="g-host-button"
-              disabled={!title.trim() || (!dirty && selectedId !== "new")}
-              onClick={() => void persist(false)}
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              className="g-host-button"
-              disabled={!title.trim()}
-              onClick={() => void persist(true)}
-            >
-              Save as new
-            </button>
-            <button
-              type="button"
-              className="g-host-button"
-              disabled={selectedId === "new"}
-              onClick={() => void removeView()}
-            >
-              Delete
-            </button>
-            <button type="button" className="g-host-button" onClick={() => void runPreview()}>
-              Refresh preview
-            </button>
+                Save
+              </button>
+              <button
+                type="button"
+                className="g-host-button"
+                disabled={!title.trim()}
+                onClick={() => void persist(true)}
+              >
+                Save as new
+              </button>
+              <button
+                type="button"
+                className="g-host-button"
+                disabled={selectedId === "new"}
+                onClick={() => void removeView()}
+              >
+                Delete
+              </button>
+              <button type="button" className="g-host-button" onClick={() => void runPreview()}>
+                Refresh preview
+              </button>
+            </div>
+            {status ? <p role="status">{status}</p> : null}
           </div>
-          {status ? <p role="status">{status}</p> : null}
-        </div>
-      </section>
+        </section>
 
-      <section aria-labelledby="view-live-preview-heading">
-        <h3 id="view-live-preview-heading">Live preview</h3>
-        <ViewVisualizationPreview definition={definition} rows={previewRows} caption={title || "Preview"} />
-      </section>
+        ) : (
+          <button type="button" className="g-host-button" onClick={() => setDrawer("edit")}>
+            Edit
+          </button>
+        )}
+        <section aria-labelledby="view-live-preview-heading">
+          <h3 id="view-live-preview-heading">Live preview</h3>
+          <ViewVisualizationPreview definition={definition} rows={previewRows} caption={title || "Preview"} />
+        </section>
+      </RecordDialog>
     </div>
   );
 }
