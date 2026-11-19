@@ -161,6 +161,7 @@ def export_catalog_document() -> Dict[str, Any]:
                 "schema_version": schema_version,
                 "meta_class_id": entity.meta_class_id,
                 "meta_class_name": entity.meta_class_name,
+                **({"owner_class_name": entity.owner_class_name} if entity.owner_class_name else {}),
                 "row_schema": row_schema,
                 "attributes": [a.__dict__ for a in entity.attributes],
             }
@@ -176,6 +177,7 @@ def export_catalog_document() -> Dict[str, Any]:
             "storage_relation": storage,
             "meta_class_id": entity.meta_class_id,
             "meta_class_name": entity.meta_class_name,
+            "owner_class_name": entity.owner_class_name,
             "catalog_type_name": (
                 meta_class_catalog_type_name(entity.meta_class_name)
                 if entity.meta_class_name

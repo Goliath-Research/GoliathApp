@@ -77,6 +77,7 @@ STOCK_LOT_ENTITY = SemanticEntitySpec(
     schema_version="1",
     row_model=StockLotRow,
     storage_relation="inv.v_stock_lot",
+    owner_class_name="platform/Lot",
     attributes=(
         SemanticAttributeSpec("stock_lot_id", "stock_lot_id", "integer", "key", ()),
         SemanticAttributeSpec(
