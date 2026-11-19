@@ -352,6 +352,47 @@ def test_domain_program_metadata_preserves_body(editor_env: dict[str, str], auth
     assert v2["body"] == [{"kind": "x"}]
 
 
+def test_domain_program_structure_is_read_only_view(
+    editor_env: dict[str, str], author_token: str, reader_token: str
+) -> None:
+    env = editor_env
+    name = f"structure-program-{uuid.uuid4().hex[:6]}"
+    _psql(
+        f"""SELECT * FROM portal.sp_session_save_domain_program({_lit(author_token)}, {_lit({
+            "name": name, "version": "1", "description": "structured",
+        })}::jsonb)""",
+        env,
+    )
+    body = [{"do": "item.check", "with": {"site": "a"}}, {"for": {"collection": "items"}, "do": [{"do": "x"}]}]
+    _psql(
+        f"""UPDATE cfg.domain_program
+            SET document_json = document_json || {_lit({"body": body, "variables": {"items": [1]}})}::jsonb
+            WHERE name = {_lit(name)} AND version = '1'""",
+        env,
+    )
+    before = _psql(f"SELECT document_json::text FROM cfg.domain_program WHERE name = {_lit(name)}", env)
+    doc = json.loads(
+        _psql(f"SELECT portal.sp_session_get_domain_program_structure({_lit(author_token)}, {_lit(name)}, '1')", env)
+    )
+    assert doc["body"] == body
+    assert doc["variables"] == {"items": [1]}
+    assert doc["phases"] == [] and doc["on"] == []
+    assert doc["compiled_workflow_version_id"] is None
+    # Readers with the page entitlement can view; nothing is written.
+    reader_doc = json.loads(
+        _psql(f"SELECT portal.sp_session_get_domain_program_structure({_lit(reader_token)}, {_lit(name)}, '1')", env)
+    )
+    assert reader_doc["name"] == name
+    assert _psql(f"SELECT document_json::text FROM cfg.domain_program WHERE name = {_lit(name)}", env) == before
+    with pytest.raises(RuntimeError, match="not found"):
+        _psql(f"SELECT portal.sp_session_get_domain_program_structure({_lit(author_token)}, {_lit(name)}, '9')", env)
+    assert _psql(
+        """SELECT has_function_privilege('goliath_portal',
+             'portal.sp_session_get_domain_program_structure(text, text, text)', 'EXECUTE')""",
+        env,
+    ) == "t"
+
+
 def test_cluster_and_enrollment_round_trip(editor_env: dict[str, str], author_token: str) -> None:
     env = editor_env
     key = f"editor-cluster-{uuid.uuid4().hex[:6]}"

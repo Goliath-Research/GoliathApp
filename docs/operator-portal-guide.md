@@ -178,7 +178,10 @@ entitlement plus the `platform.model.author` permission, and every save is recor
   (class-backed types open the class's own grid).
 - **Domain programs** edit draft metadata only; the program body is preserved, and a new version starts
   from the body of the latest version. Published versions are immutable — save under a new version, then
-  **Publish**.
+  **Publish**. **Program structure** below the list shows a version read-only: its variables, event
+  triggers, phases and body as a tree (actions with their inputs, branches, loops, waits). When the version
+  has a compiled workflow, **Open graph** opens that workflow version in **Definitions**. Structural
+  changes stay in the program's seed.
 - **Workers and clusters** edit cluster settings and worker enrollments (create, change IP, revoke). An
   enrolled worker's row shows its desired state; **Drain** (finish the current task, claim nothing new),
   **Stop** (cancel stoppable work at the next safe point) and **Activate** set it, and workers read it on

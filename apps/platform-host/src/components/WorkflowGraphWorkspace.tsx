@@ -10,6 +10,7 @@ import {
   runRecordEditorAction,
   saveRecordDocument,
 } from "@/lib/record-editor-client";
+import { linkedVersionId } from "@/lib/domain-program-structure";
 import { editableGraphDocument, graphSchemaFor, type GraphEditorMode } from "@/lib/workflow-graph-schemas";
 
 const ENTITY = "workflow_version";
@@ -87,6 +88,18 @@ export function WorkflowGraphWorkspace({ mode }: { mode: GraphEditorMode }) {
     },
     [mode],
   );
+
+  // Deep link (?version=<workflow_version_id>), e.g. "Open graph" from a domain program.
+  const deepLinked = useRef(false);
+  useEffect(() => {
+    if (deepLinked.current || rows.length === 0 || typeof window === "undefined") return;
+    deepLinked.current = true;
+    const wanted = linkedVersionId(window.location.search);
+    if (wanted == null) return;
+    const row = rows.find((r) => r.workflow_version_id === wanted);
+    if (row) void open(row);
+    else setError(`Workflow version ${wanted} is not in this list.`);
+  }, [open, rows]);
 
   const save = useCallback(
     async (edited: Record<string, unknown>) => {

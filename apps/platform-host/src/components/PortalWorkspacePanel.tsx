@@ -1,5 +1,6 @@
 import { ActionMethodsWorkspace } from "./ActionMethodsWorkspace";
 import { RecordEditorWorkspace } from "./RecordEditorWorkspace";
+import { DomainProgramStructurePanel } from "./DomainProgramStructurePanel";
 import { RunInspector } from "./RunInspector";
 import { WorkflowGraphWorkspace } from "./WorkflowGraphWorkspace";
 import {
@@ -307,6 +308,11 @@ export async function PortalWorkspacePanel({
           {(spec.recordEntities ?? []).map((entity) =>
             entity === "class_method" ? (
               <ActionMethodsWorkspace key={entity} />
+            ) : entity === "domain_program" ? (
+              <div key={entity}>
+                <RecordEditorWorkspace entity={entity} />
+                <DomainProgramStructurePanel />
+              </div>
             ) : (
               <RecordEditorWorkspace key={entity} entity={entity} />
             ),
