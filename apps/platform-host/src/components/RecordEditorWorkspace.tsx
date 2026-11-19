@@ -10,7 +10,9 @@ import {
   RECORD_EDITORS,
   type RecordEditorDefinition,
   viewSchemaFor,
+  withDocumentSchema,
 } from "@/lib/record-editor-schemas";
+import { inferObjectSchema } from "@/lib/infer-object-schema";
 import {
   fetchRecordDocument,
   fetchRecordRows,
@@ -43,6 +45,7 @@ export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
   const [error, setError] = useState<string | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
   const [session, setSession] = useState(0);
+  const [documentSchema, setDocumentSchema] = useState<Record<string, unknown> | null>(null);
   const openSeq = useRef(0);
 
   const reload = useCallback(async () => {
@@ -82,8 +85,15 @@ export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
         const doc = await fetchRecordDocument(def.entity, key);
         if (seq !== openSeq.current) return;
         const merged = { ...row, ...doc };
+        const docSchema = def.documentSchemaKey
+          ? ((doc[def.documentSchemaKey] as Record<string, unknown> | null | undefined) ?? null)
+          : null;
+        // View shows any document read-only; edit needs the registered document type.
+        const shown = next === "view" && def.documentSchemaKey ? (docSchema ?? inferObjectSchema(merged.document)) : docSchema;
+        setDocumentSchema(shown);
         setOriginal(merged);
-        setDocument(editableDocument(next === "view" ? viewSchemaFor(def) : def.editSchema, merged));
+        const base = next === "view" ? viewSchemaFor(def) : def.editSchema;
+        setDocument(editableDocument(withDocumentSchema(base, shown), merged));
         setSession((n) => n + 1);
       } catch (e) {
         if (seq === openSeq.current) setDialogError(e instanceof Error ? e.message : String(e));
@@ -98,10 +108,23 @@ export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
     setOriginal(null);
     setMode("create");
     setDocument({});
+    setDocumentSchema(null);
     setDialogError(null);
     setStatus(null);
     setSession((n) => n + 1);
-  }, []);
+    if (def?.documentSchemaKey) {
+      const seq = openSeq.current;
+      void fetchRecordDocument(def.entity, "new")
+        .then((doc) => {
+          if (seq !== openSeq.current) return;
+          setDocumentSchema((doc[def.documentSchemaKey as string] as Record<string, unknown> | null) ?? null);
+          setSession((n) => n + 1);
+        })
+        .catch((e: unknown) => {
+          if (seq === openSeq.current) setDialogError(e instanceof Error ? e.message : String(e));
+        });
+    }
+  }, [def]);
 
   const save = useCallback(
     async (edited: Record<string, unknown>) => {
@@ -146,7 +169,8 @@ export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
   const recordLabel = selectedRow ? def.rowLabel(selectedRow) : (selectedKey ?? "");
   const dialogTitle =
     mode === "create" ? `New ${def.noun}` : mode === "edit" ? `Edit ${recordLabel}` : `${recordLabel}`;
-  const schema = mode === "create" ? def.createSchema : mode === "edit" ? def.editSchema : viewSchemaFor(def);
+  const baseSchema = mode === "create" ? def.createSchema : mode === "edit" ? def.editSchema : viewSchemaFor(def);
+  const schema = def.documentSchemaKey ? withDocumentSchema(baseSchema, documentSchema) : baseSchema;
 
   return (
     <div className="g-record-editor" data-testid={`record-editor-${def.entity}`}>
@@ -180,6 +204,12 @@ export function RecordEditorWorkspace({ entity }: RecordEditorWorkspaceProps) {
       />
       <RecordDialog open={mode != null} title={dialogTitle} onClose={close} testId={`record-dialog-${def.entity}`}>
         {dialogError ? <p role="alert">{dialogError}</p> : null}
+        {def.documentSchemaKey && mode !== "view" && !documentSchema ? (
+          <p className="g-record-editor__note">
+            No document type is registered for these records, so their documents are view-only. The app that owns
+            them registers one (cfg.sp_register_kind_document_type).
+          </p>
+        ) : null}
         {document ? (
           <div aria-label={`${def.noun} inspector`}>
             <SchemaPropertyGrid
