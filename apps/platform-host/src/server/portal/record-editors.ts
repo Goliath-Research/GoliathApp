@@ -205,6 +205,15 @@ export async function saveRecord(
       return { key: String(rows[0]?.id ?? "") };
     }
     case "workflow_version": {
+      if (!key) {
+        // New workflow: definition + inactive version 1.0 with a single root node.
+        const created = await portalSessionCall(
+          token,
+          "SELECT * FROM portal.sp_session_create_workflow($1, $2::jsonb)",
+          [json],
+        );
+        return { key: String(created[0]?.workflow_version_id ?? "") };
+      }
       // Never edits in place: the key is the base version; the result is a new inactive version.
       const rows = await portalSessionCall(
         token,

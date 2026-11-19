@@ -171,12 +171,165 @@ END;
 $$;
 
 /*
+  Typed parameters of a catalog action, as a flat object schema for the property grid.
+  Source: the Meta class method bound to the action (ImplKind 'action'); each parameter's schema is
+  its catalog data type's schema plus the parameter default. The most general declaring class
+  wins (overrides keep the same parameters). Falls back to the action's published input schema
+  when no method declares parameters.
+*/
+CREATE OR REPLACE FUNCTION portal.fn_workflow_action_parameter_schema(p_action_name text)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "Meta", wf, pg_temp
+AS $$
+DECLARE
+  v_method_id integer;
+  v_props jsonb := '{}'::jsonb;
+  v_required jsonb := '[]'::jsonb;
+  r record;
+  v_input jsonb;
+BEGIN
+  SELECT m."ID" INTO v_method_id
+  FROM "Meta"."Methods" m
+  JOIN "Meta"."Classes" c ON c."ID" = m."ClassID"
+  WHERE m."ImplKind" = 'action' AND m."ImplRef" = p_action_name
+    AND EXISTS (SELECT 1 FROM "Meta"."MethodParams" p WHERE p."MethodID" = m."ID")
+  ORDER BY c."Depth" NULLS LAST, m."ID"
+  LIMIT 1;
+
+  IF v_method_id IS NOT NULL THEN
+    FOR r IN
+      SELECT p."Name", p."Required", p."DefaultValue", t.schema_json, t.name AS type_name
+      FROM "Meta"."MethodParams" p
+      JOIN wf.data_type t ON t.id = p."TypeID"
+      WHERE p."MethodID" = v_method_id
+      ORDER BY p."Ordinal"
+    LOOP
+      v_props := v_props || jsonb_build_object(
+        r."Name",
+        COALESCE(r.schema_json, '{}'::jsonb) - '$id' - '$schema'
+          || jsonb_build_object('x-goliath-type', r.type_name)
+          || CASE WHEN r."DefaultValue" IS NOT NULL THEN jsonb_build_object('default', r."DefaultValue") ELSE '{}'::jsonb END
+      );
+      IF r."Required" THEN
+        v_required := v_required || to_jsonb(r."Name");
+      END IF;
+    END LOOP;
+    RETURN jsonb_build_object('type', 'object', 'properties', v_props, 'required', v_required);
+  END IF;
+
+  SELECT s.schema_json INTO v_input
+  FROM wf.workflow_action a
+  JOIN wf.workflow_action_schema s ON s.workflow_action_id = a.id AND s.direction = 'input'
+  WHERE a.action_name = p_action_name
+  LIMIT 1;
+  RETURN jsonb_build_object(
+    'type', 'object',
+    'properties', COALESCE(v_input->'properties', '{}'::jsonb),
+    'required', COALESCE(v_input->'required', '[]'::jsonb)
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION portal.fn_workflow_action_parameter_schema(text) FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION portal.sp_session_workflow_action_parameters(
+  p_session_token text,
+  p_action_name text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
+AS $$
+BEGIN
+  PERFORM portal.fn_session_require_any_nav(
+    p_session_token, ARRAY['/app/workflows/definitions', '/app/workflows/steps']
+  );
+  IF NOT EXISTS (SELECT 1 FROM wf.workflow_action a WHERE a.action_name = p_action_name) THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'action not found');
+  END IF;
+  RETURN portal.fn_workflow_action_parameter_schema(p_action_name);
+END;
+$$;
+
+/*
+  Create a new workflow definition with an inactive version 1.0 holding one root node
+  (document: name, description, root_node_type; default SEQUENCE). Build the graph by saving
+  new versions from the designer, then Activate.
+*/
+CREATE OR REPLACE FUNCTION portal.sp_session_create_workflow(
+  p_session_token text,
+  p_document jsonb
+)
+RETURNS TABLE (workflow_version_id bigint, version_major int, version_minor int, is_active boolean)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
+AS $$
+#variable_conflict use_column
+DECLARE
+  v_ctx record;
+  v_doc jsonb := COALESCE(p_document, '{}'::jsonb);
+  v_name text := portal.fn_doc_text(p_document, 'name');
+  v_root_type text := upper(COALESCE(portal.fn_doc_text(p_document, 'root_node_type'), 'SEQUENCE'));
+  v_result jsonb;
+  v_new_id bigint;
+BEGIN
+  SELECT * INTO v_ctx
+  FROM portal.fn_session_record_editor_require(
+    p_session_token, ARRAY['/app/workflows/definitions', '/app/workflows/steps']
+  ) LIMIT 1;
+
+  IF v_name IS NULL OR v_name !~ '^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,127}$' THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'name is required (letters, digits, _ . : / -; max 128)');
+  END IF;
+  IF EXISTS (SELECT 1 FROM wf.workflow_def d WHERE d.name = v_name) THEN
+    PERFORM portal.fn_semantic_raise('GS409', format('workflow %s already exists', v_name));
+  END IF;
+  IF v_root_type NOT IN ('SEQUENCE', 'PARALLEL') THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'root_node_type must be SEQUENCE or PARALLEL');
+  END IF;
+
+  BEGIN
+    v_result := wf.wf_repo_create_workflow_graph(jsonb_build_object(
+      'name', v_name,
+      'description', portal.fn_doc_text(v_doc, 'description'),
+      'root_node_key', 'root',
+      'version_major', 1,
+      'version_minor', 0,
+      'is_active', false,
+      'nodes', jsonb_build_array(jsonb_build_object('node_key', 'root', 'node_type', v_root_type)),
+      'edges', '[]'::jsonb
+    ));
+  EXCEPTION WHEN raise_exception OR invalid_text_representation OR not_null_violation
+                 OR unique_violation OR check_violation OR foreign_key_violation THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'invalid workflow: ' || SQLERRM);
+  END;
+  v_new_id := (v_result->>'workflow_version_id')::bigint;
+
+  PERFORM portal.fn_record_editor_audit(
+    v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'workflow_version', 'create_workflow',
+    v_new_id::text, jsonb_build_object('name', v_name, 'root_node_type', v_root_type)
+  );
+
+  RETURN QUERY
+  SELECT v.id, v.version_major, v.version_minor, v.is_active
+  FROM wf.workflow_version v WHERE v.id = v_new_id;
+END;
+$$;
+
+/*
   Save an edited graph as a new inactive version of the base version's definition.
   Document keys (all optional; omitted keys keep the base version's value):
     root_node_key, nodes, edges, input_bindings, output_bindings,
     scope_defaults, collection_bindings.
   (description is definition-level metadata shared by all versions and is not changed here.)
-  Node input_template values come from the base version by node_key.
+  Node input_template values come from the base version by node_key unless the node carries an
+  edited input_template (an object keyed by the action's declared parameters).
 */
 CREATE OR REPLACE FUNCTION portal.sp_session_save_workflow_version(
   p_session_token text,
@@ -207,6 +360,8 @@ DECLARE
   v_result jsonb;
   v_new_id bigint;
   v_key text;
+  v_params jsonb;
+  v_unknown text;
 BEGIN
   SELECT * INTO v_ctx
   FROM portal.fn_session_record_editor_require(
@@ -238,6 +393,48 @@ BEGIN
   LOOP
     IF jsonb_typeof(v_node) <> 'object' OR portal.fn_doc_text(v_node, 'node_key') IS NULL THEN
       PERFORM portal.fn_semantic_raise('GS400', 'every node needs a node_key');
+    END IF;
+    -- Action key: ACTION nodes name an existing catalog action; other node types name none.
+    IF upper(COALESCE(portal.fn_doc_text(v_node, 'node_type'), '')) = 'ACTION' THEN
+      IF portal.fn_doc_text(v_node, 'action_name') IS NULL THEN
+        PERFORM portal.fn_semantic_raise('GS400', format('ACTION node %s needs an action', v_node->>'node_key'));
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM wf.workflow_action a WHERE a.action_name = portal.fn_doc_text(v_node, 'action_name')
+      ) THEN
+        PERFORM portal.fn_semantic_raise(
+          'GS400', format('unknown action %s on node %s', v_node->>'action_name', v_node->>'node_key')
+        );
+      END IF;
+    ELSIF portal.fn_doc_text(v_node, 'action_name') IS NOT NULL THEN
+      PERFORM portal.fn_semantic_raise(
+        'GS400', format('only ACTION nodes name an action (node %s is %s)', v_node->>'node_key', v_node->>'node_type')
+      );
+    ELSE
+      v_node := v_node - 'action_name';
+    END IF;
+
+    -- Input template: an edited template (typed by the action's parameters) replaces the base one.
+    IF v_node ? 'input_template' AND jsonb_typeof(v_node->'input_template') <> 'null' THEN
+      IF upper(COALESCE(portal.fn_doc_text(v_node, 'node_type'), '')) <> 'ACTION' THEN
+        PERFORM portal.fn_semantic_raise('GS400', format('node %s is not an ACTION node', v_node->>'node_key'));
+      END IF;
+      IF jsonb_typeof(v_node->'input_template') <> 'object' THEN
+        PERFORM portal.fn_semantic_raise('GS400', format('input_template of %s must be an object', v_node->>'node_key'));
+      END IF;
+      v_params := portal.fn_workflow_action_parameter_schema(portal.fn_doc_text(v_node, 'action_name'));
+      IF v_params->'properties' <> '{}'::jsonb THEN
+        SELECT string_agg(k, ', ') INTO v_unknown
+        FROM jsonb_object_keys(v_node->'input_template') k
+        WHERE NOT (v_params->'properties') ? k;
+        IF v_unknown IS NOT NULL THEN
+          PERFORM portal.fn_semantic_raise(
+            'GS400', format('%s has no parameter(s) %s', v_node->>'action_name', v_unknown)
+          );
+        END IF;
+      END IF;
+      v_nodes := v_nodes || jsonb_build_array(v_node);
+      CONTINUE;
     END IF;
     v_node := v_node - 'input_template';
     IF v_base_nodes ? (v_node->>'node_key') THEN
