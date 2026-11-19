@@ -168,6 +168,7 @@ def test_functions_executable_by_portal(editor_env: dict[str, str]) -> None:
           AND p.proname IN (
             'sp_session_list_graph_versions', 'sp_session_get_workflow_version_spec',
             'sp_session_save_workflow_version', 'sp_session_activate_workflow_version',
+            'sp_session_create_workflow', 'sp_session_workflow_action_parameters',
             'sp_session_get_run', 'sp_session_cancel_run', 'sp_session_retry_run_node',
             'sp_session_link_run_study')
           AND NOT has_function_privilege('goliath_portal', p.oid, 'EXECUTE')
@@ -248,6 +249,94 @@ def test_invalid_graph_is_rejected(editor_env: dict[str, str], author_token: str
             f"SELECT * FROM portal.sp_session_save_workflow_version('', {base_id}, '{{}}'::jsonb)",
             editor_env,
         )
+
+
+def _save(env: dict[str, str], token: str, base_id: int, doc: dict) -> str:
+    return _psql(
+        f"""SELECT workflow_version_id FROM portal.sp_session_save_workflow_version({_lit(token)}, {base_id},
+            {_lit(doc)}::jsonb)""",
+        env,
+    )
+
+
+def test_action_key_check(editor_env: dict[str, str], author_token: str) -> None:
+    env = editor_env
+    base_id, action = _make_workflow(env)
+    root = {"node_key": "root", "node_type": "SEQUENCE"}
+    with pytest.raises(RuntimeError, match="ACTION node step needs an action"):
+        _save(env, author_token, base_id, {"nodes": [root, {"node_key": "step", "node_type": "ACTION"}]})
+    with pytest.raises(RuntimeError, match="unknown action no.such.action on node step"):
+        _save(
+            env,
+            author_token,
+            base_id,
+            {"nodes": [root, {"node_key": "step", "node_type": "ACTION", "action_name": "no.such.action"}]},
+        )
+    with pytest.raises(RuntimeError, match="only ACTION nodes name an action"):
+        _save(
+            env,
+            author_token,
+            base_id,
+            {"nodes": [{**root, "action_name": action}, {"node_key": "step", "node_type": "ACTION", "action_name": action}]},
+        )
+
+
+def test_edited_input_template_is_typed_and_saved(editor_env: dict[str, str], author_token: str) -> None:
+    env = editor_env
+    base_id, action = _make_workflow(env)
+    type_id = _psql("SELECT id FROM wf.data_type WHERE kind = 'int' ORDER BY id LIMIT 1", env)
+    cls = f"your_app/WfParams{uuid.uuid4().hex[:6]}"
+    _psql(f"""INSERT INTO "Meta"."Classes" ("Name", "ParentID")
+              SELECT {_lit(cls)}, "ID" FROM "Meta"."Classes" WHERE "Name" = 'platform/Entity'""", env)
+    method_id = _psql(f"""SELECT "Meta".sp_meta_upsert_action_method({_lit(cls)}, 'run', {_lit(action)})""", env)
+    _psql(
+        f"""INSERT INTO "Meta"."MethodParams" ("MethodID", "Ordinal", "Name", "TypeID", "Required", "DefaultValue")
+            VALUES ({method_id}, 1, 'n', {type_id}, true, '3'::jsonb)""",
+        env,
+    )
+    schema = json.loads(
+        _psql(f"SELECT portal.sp_session_workflow_action_parameters({_lit(author_token)}, {_lit(action)})", env)
+    )
+    assert schema["required"] == ["n"]
+    assert schema["properties"]["n"]["default"] == 3
+
+    root = {"node_key": "root", "node_type": "SEQUENCE"}
+    step = {"node_key": "step", "node_type": "ACTION", "action_name": action}
+    with pytest.raises(RuntimeError, match="has no parameter"):
+        _save(env, author_token, base_id, {"nodes": [root, {**step, "input_template": {"bogus": 1}}]})
+    new_id = _save(env, author_token, base_id, {"nodes": [root, {**step, "input_template": {"n": 7}}]})
+    spec = json.loads(_psql(f"SELECT wf.wf_workflow_version_export_spec({new_id})", env))
+    assert {n["node_key"]: n for n in spec["nodes"]}["step"]["input_template"] == {"n": 7}
+    # Without an edited template the base template is carried over.
+    newer = _save(env, author_token, int(new_id), {"nodes": [root, step]})
+    spec = json.loads(_psql(f"SELECT wf.wf_workflow_version_export_spec({newer})", env))
+    assert {n["node_key"]: n for n in spec["nodes"]}["step"]["input_template"] == {"n": 7}
+
+
+def test_create_workflow(editor_env: dict[str, str], author_token: str, reader_token: str) -> None:
+    env = editor_env
+    name = f"designer-new-{uuid.uuid4().hex[:6]}"
+    row = _psql(
+        f"""SELECT workflow_version_id || '|' || version_major || '.' || version_minor || '|' || is_active
+            FROM portal.sp_session_create_workflow({_lit(author_token)}, {_lit({"name": name, "description": "d"})}::jsonb)""",
+        env,
+    )
+    vid, version, active = row.split("|")
+    assert (version, active) == ("1.0", "false")
+    spec = json.loads(_psql(f"SELECT wf.wf_workflow_version_export_spec({vid})", env))
+    assert spec["root_node_key"] == "root"
+    assert [n["node_type"] for n in spec["nodes"]] == ["SEQUENCE"]
+    with pytest.raises(RuntimeError, match="already exists"):
+        _psql(f"SELECT * FROM portal.sp_session_create_workflow({_lit(author_token)}, {_lit({'name': name})}::jsonb)", env)
+    with pytest.raises(RuntimeError, match="name is required"):
+        _psql(f"SELECT * FROM portal.sp_session_create_workflow({_lit(author_token)}, {_lit({'name': ' bad name'})}::jsonb)", env)
+    with pytest.raises(RuntimeError, match="model author permission denied"):
+        _psql(f"SELECT * FROM portal.sp_session_create_workflow({_lit(reader_token)}, {_lit({'name': name + 'x'})}::jsonb)", env)
+    audit = _psql(
+        f"SELECT action_code FROM portal.record_editor_audit WHERE entity = 'workflow_version' AND record_key = '{vid}'",
+        env,
+    )
+    assert audit == "create_workflow"
 
 
 def test_run_inspector_and_cancel(editor_env: dict[str, str], author_token: str) -> None:

@@ -229,6 +229,21 @@ entitlement plus the `platform.model.author` permission, and every save is recor
   action input schema). Choose **Override here** on an inherited method to give a subclass its own
   implementation. Parameter defaults are edited in a second grid generated from each parameter's data type
   (class-backed types open the class's own grid).
+- **Workflow designer** (Definitions and Steps). **Add workflow** creates the definition with an
+  inactive version 1.0 that holds one root node. **Edit** opens the designer:
+  - The toolbar adds a node of any type. ACTION nodes pick their action from the catalog, and a new
+    node goes under the selected node.
+  - **Connect** links the selected node to another node; you can also drag between nodes on the
+    canvas. **Remove**, or the Delete key, removes a node with its edges and bindings.
+  - Selecting an ACTION node shows **Parameters**: literal values typed by the action's class-method
+    parameters, plus bindings of parameters to workflow variables or earlier step outputs. Binding
+    targets are picked from the parameter names.
+  - **Save as new version** stores everything as a new inactive version; **Activate** makes it
+    current.
+  - Saving checks the action key: an ACTION node must name a catalog action, and other node types
+    must not name one.
+  - Edited parameter values must be declared parameters of the action. Nodes whose parameters you did
+    not edit keep their previous input templates.
 - **Domain programs** edit draft metadata only; the program body is preserved, and a new version starts
   from the body of the latest version. Published versions are immutable — save under a new version, then
   **Publish**. **Program structure** below the list shows a version read-only: its variables, event

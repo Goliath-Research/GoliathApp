@@ -1022,3 +1022,17 @@
 .g-record-tree__actions { margin-left: auto; display: flex; gap: 0.25rem; flex-wrap: wrap; }
 .g-record-tree__move { display: flex; gap: 0.5rem; align-items: center; margin: 0.25rem 0 0.5rem 1.5rem; }
 .g-record-tree__root-drop { margin-top: 0.5rem; padding: 0.75rem; border: 2px dashed var(--g-host-border); border-radius: 6px; text-align: center; }
+
+.g-graph-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  margin: 0.5rem 0;
+}
+
+.g-graph-params {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--g-border, #d0d7de);
+}
