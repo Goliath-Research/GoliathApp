@@ -2,6 +2,10 @@
 -- Maintains Meta.TreeNodes.Path (ltree) for instance links whose MetaLink.IsHierarchical = true.
 -- Child object = Links.ObjID1; parent object = Links.ObjID2.
 
+-- Sibling order for any tree (generic tree editor, portal_session_meta_tree_api.sql).
+ALTER TABLE "Meta"."TreeNodes" ADD COLUMN IF NOT EXISTS "Seq" integer;
+CREATE INDEX IF NOT EXISTS "IX_TreeNodes_Link_Seq" ON "Meta"."TreeNodes" ("MetaLinkID", "Seq");
+
 CREATE OR REPLACE FUNCTION "Meta".fn_tree_obj_label(p_obj_id int)
 RETURNS text
 LANGUAGE sql

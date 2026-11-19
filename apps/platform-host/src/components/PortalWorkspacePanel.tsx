@@ -11,7 +11,9 @@ import {
 import { AdminGrantsWorkspace } from "@/components/AdminGrantsWorkspace";
 import { AdminRolesWorkspace } from "@/components/AdminRolesWorkspace";
 import { AdminUsersWorkspace } from "@/components/AdminUsersWorkspace";
+import { MetaTreePanel } from "@/components/MetaTreePanel";
 import { MetaWorkbenchPanel } from "@/components/MetaWorkbenchPanel";
+import { listMetaTreeClasses } from "@/server/portal/meta-tree";
 import { ModelAuthoringPanel } from "@/components/ModelAuthoringPanel";
 import { OperatorDashboardsWorkspaceServer } from "@/components/OperatorDashboardsWorkspaceServer";
 import { OperatorViewsWorkspaceServer } from "@/components/OperatorViewsWorkspaceServer";
@@ -241,6 +243,28 @@ export async function PortalWorkspacePanel({
       );
     }
 
+    if (spec.kind === "meta_trees") {
+      const classes = await listMetaTreeClasses(token);
+      return (
+        <div className="g-portal-stage">
+          <h2>{spec.title}</h2>
+          {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
+          {classes.length === 0 ? (
+            <p role="status">No class has a hierarchical self relation yet.</p>
+          ) : (
+            <ul className="g-route-index" aria-label="Tree classes">
+              {classes.map((c) => (
+                <li key={c.className}>
+                  <a href={`/app/meta?class=${encodeURIComponent(c.className)}`}>{c.className}</a>{" "}
+                  <span className="g-badge">{c.linkName}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      );
+    }
+
     if (spec.kind === "admin_grants") {
       const roles = await portalSessionPlatformQuery(token, PLATFORM_QUERY_SQL.roles.sql);
       const users = await portalSessionPlatformQuery(token, PLATFORM_QUERY_SQL.users.sql);
@@ -249,6 +273,7 @@ export async function PortalWorkspacePanel({
         <div className="g-portal-stage">
           <h2>{spec.title}</h2>
           {spec.description ? <p className="g-host-home__lead">{spec.description}</p> : null}
+          {spec.treeClass ? <MetaTreePanel className={spec.treeClass} /> : null}
           <AdminGrantsWorkspace
             roles={roles.map((r) => ({
               role_id: Number(r.role_id),

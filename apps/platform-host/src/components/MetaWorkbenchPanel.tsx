@@ -13,6 +13,7 @@ import {
   portalSessionMetaClassLineage,
   portalSessionPlatformQuery,
 } from "@/server/portal/bridge";
+import { isMetaTreeClass } from "@/server/portal/meta-tree";
 import { SESSION_COOKIE_NAME } from "@/server/session/cookies";
 import { cookies } from "next/headers";
 
@@ -26,12 +27,14 @@ export async function MetaWorkbenchPanel({ className }: { className: string }) {
   let lineage;
   let fields;
   let roleRows: Array<Record<string, unknown>> = [];
+  let tree = false;
   try {
-    [summary, lineage, fields, roleRows] = await Promise.all([
+    [summary, lineage, fields, roleRows, tree] = await Promise.all([
       portalSessionMetaClassGet(token, className),
       portalSessionMetaClassLineage(token, className),
       portalSessionMetaClassFields(token, className),
       portalSessionPlatformQuery(token, PLATFORM_QUERY_SQL.roles.sql).catch(() => []),
+      isMetaTreeClass(token, className),
     ]);
   } catch (err) {
     if (err instanceof PortalForbiddenError) {
@@ -113,6 +116,7 @@ export async function MetaWorkbenchPanel({ className }: { className: string }) {
             resolution: editorResolved.resolution,
           })}
           <MetaInstanceWorkbench
+            tree={tree}
             className={className}
             fields={fields}
             flattenedSchema={summary.schemaFlattenedJson}

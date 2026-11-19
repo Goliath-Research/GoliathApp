@@ -6,6 +6,7 @@
 export type PortalWorkspaceKind =
   | "meta_home"
   | "meta_workbench"
+  | "meta_trees"
   | "meta_class_catalog"
   | "semantic_entities"
   | "semantic_meta_bridge"
@@ -37,6 +38,8 @@ export type PortalWorkspaceSpec = {
   semanticRequest?: string;
   /** Record editor entities (record-editor-schemas.ts) rendered by kind "record_editor". */
   recordEntities?: string[];
+  /** Tree-shaped Meta class edited with the generic tree editor on this page. */
+  treeClass?: string;
   /** Graph editor mode for kind "workflow_graph". */
   graphMode?: "definitions" | "steps";
   /** Related pages shown under the heading. */
@@ -107,10 +110,10 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     description: "wf.data_type catalog; open named types in Meta when class-backed.",
   },
   "/app/meta/trees": {
-    kind: "meta_workbench",
+    kind: "meta_trees",
     title: "Trees",
-    metaClass: "meta/Tree",
-    description: "Hierarchical Meta tree classes and TreeNodes.",
+    description:
+      "Classes with a hierarchical self relation. Open one to edit it as a tree (add, move, reorder, view and edit nodes).",
   },
   "/app/semantic": {
     kind: "semantic_authoring",
@@ -166,7 +169,9 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
   "/app/admin/navigation": {
     kind: "admin_grants",
     title: "Navigation & grants",
-    description: "Register NavTree nodes and grant roles to users and menu entries in the active scope.",
+    description:
+      "Edit the navigation tree (God Architect), and grant roles to users and menu entries in the active scope.",
+    treeClass: "portal/NavNode",
   },
   "/app/workflows/definitions": {
     kind: "workflow_graph",

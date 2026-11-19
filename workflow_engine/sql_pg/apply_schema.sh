@@ -130,6 +130,7 @@ SCRIPTS=(
   platform_god_architect.sql
   meta_model_semantic.sql
   portal_session_semantic_editors_api.sql
+  portal_session_meta_tree_api.sql
   portal_contract_api.sql
   portal_study_ops_api.sql
   portal_guardrails_editor.sql

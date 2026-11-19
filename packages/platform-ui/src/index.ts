@@ -46,3 +46,10 @@ export {
   type RecordGridProps,
   type RecordGridRowAction,
 } from "./shell/RecordGrid.js";
+export {
+  RecordTree,
+  buildTreeIndex,
+  subtreeKeys,
+  type RecordTreeNode,
+  type RecordTreeProps,
+} from "./shell/RecordTree.js";

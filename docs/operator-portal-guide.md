@@ -132,6 +132,19 @@ Every list in the portal is the same **record grid**: a sortable, filterable tab
 - **View** and **Edit** open the record in a side drawer with the typed property grid; nested values open in the nested inspector on top. **View** is read-only and offers **Edit**. Press Escape or **Close** to return to the grid.
 - The grid is driven by metadata (record-editor definitions, Meta class fields and data types, or query columns), so a child application's seeded classes and records get the same grid and drawer with no UI code.
 
+## Tree editor (tree-shaped classes)
+
+A class is tree-shaped when it, or an ancestor, has a **hierarchical** relation to itself (for example `portal/NavNode.Parent`). For those classes the workbench shows a **tree** instead of a flat grid. **Meta model → Trees** lists every tree-shaped class, and **Admin → Navigation & grants** opens the navigation tree.
+
+- Expand or collapse nodes, or use **Expand all** / **Collapse all**. **Filter…** keeps matching nodes and their ancestors.
+- **Add** (toolbar) creates a top-level node. **Add child** and **Add sibling** create a node in place; the drawer opens with the class's typed property grid.
+- **↑ / ↓** reorder siblings. **Move…** picks a new parent (a node's own subtree is never offered). You can also drag a node onto another node to make it a child, or onto the drop zone to make it top level. Moves that would create a cycle are refused.
+- **View** / **Edit** open the node in the drawer. **Delete** is offered only for leaf nodes and is refused while something still references the node (for navigation: role grants on the menu entry).
+- Trees of `platform/…` and `portal/…` classes (the navigation tree included) are changed only in the **God Architect** role. Every move and delete is audited.
+- The menu (`portal.NavTree`) follows the navigation tree automatically: parent, order, caption and path.
+
+Child apps get the same editor by seeding a class with a hierarchical self relation; no UI code is needed.
+
 ## Picking existing records (reference fields)
 
 Fields that point at an existing record are never typed by hand. A JSON Schema property
