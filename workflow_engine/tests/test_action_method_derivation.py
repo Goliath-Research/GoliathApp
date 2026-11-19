@@ -21,7 +21,7 @@ INPUT = {
         "tags": {"type": "array", "items": {"type": "string"}, "default": []},
         "mode": {"type": "string", "enum": ["fast", "full"], "default": "fast"},
         "override": {"anyOf": [{"$ref": "#/$defs/StepOverride"}, {"type": "null"}], "default": None},
-        "extra": {"anyOf": [{"type": "object"}, {"type": "null"}], "default": None},
+        "extra": {"anyOf": [{"type": "object", "additionalProperties": True}, {"type": "null"}], "default": None},
     },
     "$defs": {
         "StepOverride": {

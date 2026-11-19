@@ -58,7 +58,7 @@ AS $$
   ORDER BY a.action_name;
 $$;
 
-/* JSON Schema of one property without nullability, titles, defaults or descriptions. */
+/* JSON Schema of one property without nullability, titles, defaults, descriptions or an open additionalProperties. */
 CREATE OR REPLACE FUNCTION "Meta".fn_derive_property_schema(p_prop jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -80,7 +80,10 @@ BEGIN
       v := jsonb_set(v, '{type}', v_alts->0);
     END IF;
   END IF;
-  RETURN v - 'title' - 'default' - 'description' - 'examples';
+  IF v->'additionalProperties' = 'true'::jsonb THEN
+    v := v - 'additionalProperties';
+  END IF;
+  RETURN v - 'title' - 'default' - 'description' - 'examples' - 'example';
 END;
 $$;
 
