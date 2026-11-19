@@ -97,7 +97,17 @@ When instances should be **schema-validated** document payloads:
 
 ## 5. Pipeline profiles and `cfg` documents
 
-`cfg.pipeline_profile` and related **`goliath-cfg`** kinds hold JSON documents; **`seed_pipeline_scope_flags`** in `workflow_engine/domain/pipeline_profiles.py` maps profile + modality into **scope flags** for `IF` nodes. A descendant application either ships JSON files reachable from a **`goliath.application_profiles`** module or keeps profiles entirely in the database via **`goliath-cfg`** ([pipeline-profiles.md](pipeline-profiles.md)).
+`cfg.pipeline_profile` and related **`goliath-cfg`** kinds hold JSON documents. The platform's `workflow_engine/domain/pipeline_profiles.py` is neutral: a profile or procedure contributes its `actionConfig` and the scalar keys the instance does not already set, and **no scope flags** are seeded. Your **`goliath.application_profiles`** module owns everything application-specific; when it defines any of these, the platform delegates to it:
+
+| Hook | Purpose |
+|------|---------|
+| `seed_pipeline_scope_flags(context, *, action_config)` | Scope flags for `IF` nodes (modality, modes, presets) |
+| `apply_pipeline_profile(context, profile, *, action_config)` / `apply_pipeline_procedure(context, procedure)` | Profile / procedure merge rules |
+| `validate_procedure_analyte(context)`, `context_modality(context)` | Application checks |
+| `PIPELINE_FLAG_DEFAULTS` | Flag names and defaults |
+| `enrich_instance_context(context)` or `enrich_project_context(context, project_path)` | Project-derived context keys |
+
+Programs that need extra context variables in the root scope declare them with `scopeDefaults` (the compiler only adds `projectPath` itself). A descendant application either ships JSON files reachable from a **`goliath.application_profiles`** module or keeps profiles entirely in the database via **`goliath-cfg`** ([pipeline-profiles.md](pipeline-profiles.md)).
 
 ## 6. Worker enrollment and handlers
 

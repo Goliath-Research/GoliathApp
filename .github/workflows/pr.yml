@@ -80,6 +80,7 @@ jobs:
             workflow_engine/tests/test_action_catalog_platform.py \
             workflow_engine/tests/test_local_workflow.py \
             workflow_engine/tests/test_pipeline_scope_flags.py \
+            workflow_engine/tests/test_platform_decoupling.py \
             workflow_engine/tests/test_reference_selection.py \
             $(python3 -c "import pathlib; print(next(pathlib.Path('workflow_engine/tests').glob('test_goliathapp_sql_no_*domain.py')))") \
             workflow_engine/tests/test_goliathapp_no_child_app_tokens.py \
