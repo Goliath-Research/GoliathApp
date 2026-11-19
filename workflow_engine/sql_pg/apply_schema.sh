@@ -107,6 +107,7 @@ SCRIPTS=(
   portal_session_platform_api.sql
   portal_session_reference_api.sql
   portal_session_record_editors_api.sql
+  portal_session_domain_program_view_api.sql
   portal_session_workflow_editors_api.sql
   portal_operator_views_api.sql
   portal_session_model_authoring_api.sql
