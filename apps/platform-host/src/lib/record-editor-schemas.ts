@@ -565,3 +565,10 @@ export function editableDocument(
   }
   return out;
 }
+
+/** Read-only schema for View: every create and edit property (identity fields included). */
+export function viewSchemaFor(def: RecordEditorDefinition): Record<string, unknown> {
+  const createProps = (def.createSchema.properties ?? {}) as Record<string, unknown>;
+  const editProps = (def.editSchema.properties ?? {}) as Record<string, unknown>;
+  return { type: "object", properties: { ...createProps, ...editProps } };
+}

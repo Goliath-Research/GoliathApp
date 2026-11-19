@@ -59,6 +59,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
   test("nested-e2e page renders carrier workbench", async ({ page }, testInfo) => {
     await page.goto("/app/nested-e2e");
     await expect(page.getByRole("heading", { name: "e2e/NestedCarrier" })).toBeVisible({ timeout: 30_000 });
+    await page.getByTestId("meta-instance-list-add").click();
     await expect(page.locator('[data-has-catalog-resolver="true"]')).toBeVisible();
     await expect(page.getByTestId("pi-open-Payload")).toBeVisible();
     const dir = process.env.PLAYWRIGHT_SCREENSHOT_DIR;
@@ -71,6 +72,7 @@ test.describe("hierarchy-driven nested SchemaPropertyGrid (CI postgres)", () => 
   test("property inspector opens two nested modals and saves via BFF", async ({ page, request }) => {
     test.setTimeout(120_000);
     await page.goto("/app/nested-e2e");
+    await page.getByTestId("meta-instance-list-add").click({ timeout: 30_000 });
     await expect(page.getByTestId("pi-open-Payload")).toBeVisible({ timeout: 30_000 });
     await page.getByTestId("pi-row-Caption").locator("input").fill("ModalE2E");
     await page.getByTestId("pi-row-Seq").locator("input").fill("9");

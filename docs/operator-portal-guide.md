@@ -124,6 +124,14 @@ is typed; nothing is entered as JSON.
 
 Every change requires `platform.model.author` and is recorded in `portal.record_editor_audit`.
 
+## Record grids (every list screen)
+
+Every list in the portal is the same **record grid**: a sortable, filterable table of records with **Add** in the toolbar and **View** / **Edit** (plus Delete, Retire, Activate or similar where the backend supports it) on each row.
+
+- Click a column header to sort (again to reverse, a third time to clear). Type in **Filter…** to keep only rows containing every word.
+- **View** and **Edit** open the record in a side drawer with the typed property grid; nested values open in the nested inspector on top. **View** is read-only and offers **Edit**. Press Escape or **Close** to return to the grid.
+- The grid is driven by metadata (record-editor definitions, Meta class fields and data types, or query columns), so a child application's seeded classes and records get the same grid and drawer with no UI code.
+
 ## Picking existing records (reference fields)
 
 Fields that point at an existing record are never typed by hand. A JSON Schema property

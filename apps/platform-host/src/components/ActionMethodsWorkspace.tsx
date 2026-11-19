@@ -1,10 +1,9 @@
 "use client";
 
 import { createPlatformBffClient } from "@goliath/client";
-import { SchemaPropertyGrid } from "@goliath/platform-ui";
+import { RecordDialog, RecordGrid, SchemaPropertyGrid } from "@goliath/platform-ui";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  groupMethodsByClass,
   isClassMethodRow,
   methodOrigin,
   overrideDraft,
@@ -16,9 +15,20 @@ import { CLASS_METHOD_CREATE_SCHEMA, CLASS_METHOD_EDIT_SCHEMA, editableDocument 
 
 const ENTITY = "class_method";
 
+const METHOD_COLUMNS = [
+  { key: "class_name", label: "Class" },
+  { key: "method_name", label: "Method" },
+  { key: "origin", label: "Origin" },
+  { key: "flags", label: "Flags" },
+  { key: "impl_ref", label: "Action" },
+  { key: "param_count", label: "Parameters" },
+];
+
+type GridRow = ClassMethodRow & { origin: string; flags: string };
+
 type Mode =
   | { kind: "none" }
-  | { kind: "edit"; row: ClassMethodRow; methodId: number }
+  | { kind: "edit"; row: ClassMethodRow; methodId: number; readOnly?: boolean }
   | { kind: "create"; title: string };
 
 /**
@@ -30,7 +40,6 @@ export function ActionMethodsWorkspace() {
   const client = useMemo(() => createPlatformBffClient(), []);
   const catalogResolver = useMemo(() => createHostMetaCatalogResolver(client), [client]);
   const [rows, setRows] = useState<ClassMethodRow[]>([]);
-  const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<Mode>({ kind: "none" });
   const [methodDoc, setMethodDoc] = useState<Record<string, unknown> | null>(null);
@@ -56,7 +65,21 @@ export function ActionMethodsWorkspace() {
     void reload();
   }, [reload]);
 
-  const groups = useMemo(() => groupMethodsByClass(rows, filter), [rows, filter]);
+  const gridRows = useMemo(
+    (): GridRow[] =>
+      rows.map((m) => ({
+        ...m,
+        origin: methodOrigin(m),
+        flags: [m.is_abstract ? "abstract" : "", m.is_final ? "final" : ""].filter(Boolean).join(", "),
+      })),
+    [rows],
+  );
+  const close = useCallback(() => {
+    seq.current++;
+    setMode({ kind: "none" });
+    setMethodDoc(null);
+    setFullDoc(null);
+  }, []);
 
   const load = useCallback(async (row: ClassMethodRow) => {
     const s = ++seq.current;
@@ -76,10 +99,11 @@ export function ActionMethodsWorkspace() {
   }, []);
 
   const edit = useCallback(
-    async (row: ClassMethodRow) => {
+    async (row: ClassMethodRow, readOnly = false) => {
+      setMode({ kind: "edit", row, methodId: row.method_id, readOnly });
       const doc = await load(row);
       if (!doc) return;
-      setMode({ kind: "edit", row, methodId: row.method_id });
+      setMode({ kind: "edit", row, methodId: row.method_id, readOnly });
       setMethodDoc(editableDocument(CLASS_METHOD_EDIT_SCHEMA, doc));
       setSession((n) => n + 1);
     },
@@ -88,6 +112,7 @@ export function ActionMethodsWorkspace() {
 
   const override = useCallback(
     async (row: ClassMethodRow) => {
+      setMode({ kind: "create", title: `Override ${row.method_name} in ${row.class_name}` });
       const doc = await load(row);
       if (!doc) return;
       setMode({ kind: "create", title: `Override ${row.method_name} in ${row.class_name}` });
@@ -171,115 +196,97 @@ export function ActionMethodsWorkspace() {
   const hasParams = Array.isArray(fullDoc?.parameters) && (fullDoc?.parameters as unknown[]).length > 0;
   const editingInherited = mode.kind === "edit" && mode.row.inherited;
 
+  const readOnly = mode.kind === "edit" && Boolean(mode.readOnly);
+  const dialogTitle =
+    mode.kind === "edit"
+      ? `${readOnly ? "" : "Edit "}${String(fullDoc?.class_name ?? mode.row.declared_on_class)}.${mode.row.method_name}`
+      : mode.kind === "create"
+        ? mode.title
+        : "";
+
   return (
-    <section className="g-record-editor g-action-methods" data-testid="record-editor-class_method">
-      <header className="g-record-editor__toolbar">
-        <h3>Actions (class methods)</h3>
-        <label>
-          <span className="sr-only">Filter methods</span>
-          <input
-            type="search"
-            placeholder="Filter by class, method or action"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-        </label>
-        <button type="button" onClick={() => void reload()} disabled={loading}>
-          {loading ? "Loading…" : "Refresh"}
-        </button>
-        <button type="button" onClick={createNew} data-testid="record-editor-new-class_method">
-          New method
-        </button>
-      </header>
+    <div className="g-record-editor g-action-methods" data-testid="record-editor-class_method">
       {error ? (
         <p role="alert" className="g-record-editor__error">
           {error}
         </p>
       ) : null}
       {status ? <p role="status">{status}</p> : null}
-      <div className="g-record-editor__body">
-        <div className="g-action-methods__list">
-          {groups.length === 0 ? <p>{loading ? "Loading…" : "No methods"}</p> : null}
-          {groups.map((g) => (
-            <details key={g.className} open={groups.length <= 8 || Boolean(filter)}>
-              <summary>
-                {g.className} <span className="g-badge">{g.methods.length}</span>
-              </summary>
-              <ul>
-                {g.methods.map((m) => {
-                  const key = `${m.class_name}:${m.method_id}`;
-                  return (
-                    <li key={key} className={key === selectedKey ? "is-selected" : undefined}>
-                      <button
-                        type="button"
-                        onClick={() => void edit(m)}
-                        aria-label={`Edit ${m.class_name}.${m.method_name}`}
-                      >
-                        {m.method_name}
-                      </button>
-                      <span className="g-badge">{methodOrigin(m)}</span>
-                      {m.is_abstract ? <span className="g-badge">abstract</span> : null}
-                      {m.is_final ? <span className="g-badge">final</span> : null}
-                      {m.impl_ref ? <code>{m.impl_ref}</code> : null}
-                      {m.inherited && !m.is_final ? (
-                        <button
-                          type="button"
-                          onClick={() => void override(m)}
-                          aria-label={`Override ${m.method_name} in ${m.class_name}`}
-                        >
-                          Override here
-                        </button>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            </details>
-          ))}
-        </div>
+      <RecordGrid
+        title="Actions (class methods)"
+        noun="method"
+        columns={METHOD_COLUMNS}
+        rows={gridRows}
+        rowKey={(m) => `${m.class_name}:${m.method_id}`}
+        rowLabel={(m) => `${m.class_name}.${m.method_name}`}
+        loading={loading}
+        onRefresh={() => void reload()}
+        onAdd={createNew}
+        onView={(m) => void edit(m, true)}
+        onEdit={(m) => void edit(m)}
+        selectedKey={selectedKey}
+        testId="record-grid-class_method"
+        emptyText="No methods"
+        rowActions={[
+          {
+            id: "override",
+            label: "Override here",
+            visible: (m) => m.inherited && !m.is_final,
+            onRun: (m) => void override(m),
+          },
+        ]}
+      />
+      <RecordDialog
+        open={mode.kind !== "none"}
+        title={dialogTitle}
+        onClose={close}
+        testId="record-dialog-class_method"
+      >
         {methodDoc ? (
-          <div className="g-record-editor__inspector" aria-label="method inspector">
-            <h4>
-              {mode.kind === "edit"
-                ? `${String(fullDoc?.class_name ?? mode.row.declared_on_class)}.${mode.row.method_name}`
-                : mode.kind === "create"
-                  ? mode.title
-                  : ""}
-            </h4>
-            {editingInherited ? (
+          <div aria-label="method inspector">
+            {editingInherited && !readOnly ? (
               <p className="g-record-editor__note">
                 Declared on {mode.row.declared_on_class}; changes apply to every class that inherits it. Use
                 “Override here” to change it only for {mode.row.class_name}.
               </p>
             ) : null}
             <SchemaPropertyGrid
-              key={`method:${selectedKey ?? "new"}:${session}`}
+              key={`method:${selectedKey ?? "new"}:${readOnly}:${session}`}
               fields={[]}
               flattenedSchema={mode.kind === "create" ? CLASS_METHOD_CREATE_SCHEMA : CLASS_METHOD_EDIT_SCHEMA}
               catalogResolver={catalogResolver}
               documentClassFqn="Method"
               initialDocument={methodDoc}
-              onSubmit={saveMethod}
+              disabled={readOnly}
+              onSubmit={readOnly ? undefined : saveMethod}
               submitLabel={mode.kind === "create" ? "Create method" : "Save method"}
             />
+            {readOnly && mode.kind === "edit" ? (
+              <button type="button" className="g-host-button" onClick={() => void edit(mode.row)}>
+                Edit
+              </button>
+            ) : null}
             {mode.kind === "edit" && hasParams && defaultsSchema ? (
               <div className="g-action-methods__defaults">
                 <h5>Parameter defaults</h5>
                 <SchemaPropertyGrid
-                  key={`defaults:${selectedKey}:${session}`}
+                  key={`defaults:${selectedKey}:${readOnly}:${session}`}
                   fields={[]}
                   flattenedSchema={defaultsSchema}
                   catalogResolver={catalogResolver}
                   documentClassFqn="Defaults"
                   initialDocument={(fullDoc?.defaults as Record<string, unknown>) ?? {}}
-                  onSubmit={saveDefaults}
+                  disabled={readOnly}
+                  onSubmit={readOnly ? undefined : saveDefaults}
                   submitLabel="Save defaults"
                 />
               </div>
             ) : null}
           </div>
-        ) : null}
-      </div>
-    </section>
+        ) : error ? null : (
+          <p role="status">Loading…</p>
+        )}
+      </RecordDialog>
+    </div>
   );
 }

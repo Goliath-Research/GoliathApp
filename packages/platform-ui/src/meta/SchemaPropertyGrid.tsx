@@ -22,7 +22,8 @@ export type SchemaPropertyGridProps = {
   registry?: HierarchyPresentationRegistry;
   catalogResolver?: MetaCatalogResolver;
   initialDocument?: Record<string, unknown>;
-  onSubmit: (document: Record<string, unknown>) => void | Promise<void>;
+  /** Omit for a read-only view (no submit button; pair with `disabled`). */
+  onSubmit?: (document: Record<string, unknown>) => void | Promise<void>;
   submitLabel?: string;
   disabled?: boolean;
   headerSlot?: ReactNode;

@@ -11,20 +11,21 @@ test.describe("views and dashboards editors", () => {
     const title = `E2E Structured View ${suffix}`;
 
     await page.goto("/app/views/list");
+    await expect(page.getByTestId("record-grid-operator_view")).toBeVisible();
+    await page.getByRole("button", { name: "Add view" }).click();
     await expect(page.getByRole("heading", { name: "View editor" })).toBeVisible();
     await expect(page.locator("textarea")).toHaveCount(0);
 
-    await page.getByRole("button", { name: "New view" }).click();
     await page.getByLabel("Title").fill(title);
     await page.getByLabel("Description").fill("E2E structured editor");
     await page.getByLabel("Row limit").fill("15");
     await page.getByLabel("Chart type").selectOption("bar");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("View saved")).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("button", { name: title })).toBeVisible();
+    await expect(page.getByRole("button", { name: `Edit ${title}` })).toBeAttached();
 
     await page.reload();
-    await page.getByRole("button", { name: title }).click();
+    await page.getByRole("button", { name: `Edit ${title}` }).click();
     await expect(page.getByLabel("Title")).toHaveValue(title);
     await expect(page.getByLabel("Row limit")).toHaveValue("15");
   });
@@ -35,16 +36,17 @@ test.describe("views and dashboards editors", () => {
     const dashTitle = `E2E Dashboard ${suffix}`;
 
     await page.goto("/app/views/list");
-    await page.getByRole("button", { name: "New view" }).click();
+    await page.getByRole("button", { name: "Add view" }).click();
     await page.getByLabel("Title").fill(viewTitle);
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("View saved")).toBeVisible({ timeout: 15_000 });
 
     await page.goto("/app/views/dashboards");
+    await expect(page.getByTestId("record-grid-operator_dashboard")).toBeVisible();
+    await page.getByRole("button", { name: "Add dashboard" }).click();
     await expect(page.getByRole("heading", { name: "Layout canvas" })).toBeVisible();
     await expect(page.locator("textarea")).toHaveCount(0);
 
-    await page.getByRole("button", { name: "New dashboard" }).click();
     await page.getByLabel("Title").fill(dashTitle);
     await page.getByRole("button", { name: "Save dashboard" }).click();
     await expect(page.getByText("Dashboard saved")).toBeVisible({ timeout: 15_000 });
@@ -57,7 +59,7 @@ test.describe("views and dashboards editors", () => {
     await expect(page.getByText("Dashboard saved")).toBeVisible({ timeout: 15_000 });
 
     await page.reload();
-    await page.getByRole("button", { name: new RegExp(dashTitle) }).click();
+    await page.getByRole("button", { name: `Edit ${dashTitle}` }).click();
     await expect(page.getByLabel("Widget title")).toHaveCount(1);
   });
 });

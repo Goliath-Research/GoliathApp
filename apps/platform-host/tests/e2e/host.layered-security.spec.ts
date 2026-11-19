@@ -8,7 +8,8 @@ test.describe("layered security (CI postgres)", () => {
 
   test("users admin workspace loads", async ({ page }) => {
     await page.goto("/app/admin/users");
-    await expect(page.getByRole("heading", { name: "Users" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Users", exact: true })).toBeVisible();
+    await page.getByTestId("record-grid-user-add").click();
     await expect(page.getByRole("heading", { name: "Create / update user" })).toBeVisible();
   });
 

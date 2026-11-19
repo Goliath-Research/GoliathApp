@@ -9,9 +9,11 @@ test.describe("admin user invite (CI postgres)", () => {
   test("invite form shows success and validation error", async ({ page, request }) => {
     test.setTimeout(90_000);
     await page.goto("/app/admin/users");
-    await expect(page.getByRole("heading", { name: "Invite user" })).toBeVisible();
+    await page.getByTestId("record-grid-user").getByRole("button", { name: "Invite user" }).click();
+    const inviteDialog = page.getByTestId("record-dialog-invite_user");
+    await expect(inviteDialog.getByRole("heading", { name: "Invite user" })).toBeVisible();
 
-    const inviteForm = page.locator("form").filter({ hasText: "Invite user" });
+    const inviteForm = inviteDialog.locator("form");
     await inviteForm.getByLabel("Email").fill(`pending-${Date.now()}@test.example`);
     await inviteForm.getByRole("button", { name: "Record invitation" }).click();
     await expect(page.locator("p.g-admin-error")).toContainText(/role/i);

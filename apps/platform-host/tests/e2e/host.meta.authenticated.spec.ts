@@ -132,6 +132,7 @@ test.describe("authenticated meta (CI postgres)", () => {
 
   test("SchemaPropertyGrid renders required NavNode fields", async ({ page, request }) => {
     await page.goto("/app/meta?class=portal%2FNavNode");
+    await page.getByTestId("meta-instance-list-add").click();
     await expect(page.locator(".g-schema-property-grid")).toBeVisible();
     const fieldsRes = await request.get("/api/meta/classes/portal%2FNavNode/fields");
     const { fields } = (await fieldsRes.json()) as {
@@ -150,6 +151,8 @@ test.describe("authenticated meta (CI postgres)", () => {
   test("meta workbench has no JSON textarea", async ({ page }) => {
     await page.goto("/app/meta?class=portal%2FNavNode");
     await expect(page.getByTestId("meta-instance-workbench")).toBeVisible();
+    await page.getByTestId("meta-instance-list-add").click();
+    await expect(page.getByTestId("meta-instance-dialog")).toBeVisible();
     await expect(page.locator(".g-meta-workbench textarea")).toHaveCount(0);
     await expect(page.locator(".g-schema-property-grid textarea")).toHaveCount(0);
   });
@@ -164,12 +167,12 @@ test.describe("authenticated meta (CI postgres)", () => {
 
     await page.goto("/app/meta?class=portal%2FNavNode");
     await expect(page.getByTestId(`meta-instance-row-${objId}`)).toBeVisible({ timeout: 15_000 });
-    await page.getByTestId(`meta-instance-row-${objId}`).click();
+    await page.getByTestId(`meta-instance-row-${objId}`).getByRole("button", { name: /^Edit / }).click();
     const caption = page.getByTestId("pi-row-Caption").locator("input");
     await expect(caption).toHaveValue("ListPick", { timeout: 15_000 });
     await caption.fill("ListPickEdited");
     await expect(caption).toHaveValue("ListPickEdited");
-    const workbench = page.getByTestId("meta-instance-workbench");
+    const workbench = page.getByTestId("meta-instance-dialog");
     await expect(workbench.getByRole("button", { name: "Save changes" })).toBeEnabled();
     const patchPromise = page.waitForResponse(
       (r) => r.request().method() === "PATCH" && r.url().includes(`/api/meta/objects/${objId}`),
