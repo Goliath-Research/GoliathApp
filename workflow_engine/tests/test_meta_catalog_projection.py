@@ -58,7 +58,7 @@ def test_register_builds_typed_fields_from_columns(editor_env: dict[str, str]) -
     rows = _psql(
         f"""SELECT f."Name" || ':' || t.name || ':' || f."Required"
             FROM "Meta"."Fields" f JOIN "Meta"."Classes" c ON c."ID" = f."ClassID" JOIN wf.data_type t ON t.id = f."TypeID"
-            WHERE c."Name" = '{k['tag']}/Thing' ORDER BY f."Name" """,
+            WHERE c."Name" = '{k['tag']}/Thing' ORDER BY f."Name" COLLATE "C" """,
         env,
     ).splitlines()
     assert rows == [

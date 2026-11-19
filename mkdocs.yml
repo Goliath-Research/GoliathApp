@@ -52,6 +52,7 @@ nav:
   - Portal nav (Meta Tree): nav-tree-meta.md
   - Deploy NavTree Meta bridge: deploy-nav-tree-migration.md
   - Meta model (design): meta-model.md
+  - Meta catalogs: meta-catalogs.md
   - Semantic layer: semantic-layer.md
   - Semantic extensions: semantic-extensions.md
   - Inventory module: inventory-module.md
