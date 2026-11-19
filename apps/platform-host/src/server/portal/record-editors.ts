@@ -63,7 +63,7 @@ export async function listRecords(token: string, entity: RecordEditorEntity): Pr
     case "domain_program":
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_domain_programs($1, false)");
     case "cluster":
-      return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_clusters($1)");
+      return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_clusters_with_usage($1)");
     case "worker_enrollment":
       return portalSessionCall(token, "SELECT * FROM portal.sp_session_list_worker_enrollment_states($1)");
     case "event_subscription":
@@ -229,6 +229,9 @@ export async function runRecordAction(
     const rows = await listRecords(token, "worker_enrollment");
     const row = rows.find((r) => `${r.cluster_key}/${r.external_worker_key}` === key);
     if (!row) throw new RecordEditorInputError("enrollment not found");
+    if (row.status !== "ENROLLED") {
+      throw new RecordEditorInputError("only an enrolled worker's desired state can be changed");
+    }
     const workerId = Number(row.enrolled_worker_id);
     if (!Number.isFinite(workerId) || workerId <= 0) {
       throw new RecordEditorInputError("this enrollment has no enrolled worker yet");

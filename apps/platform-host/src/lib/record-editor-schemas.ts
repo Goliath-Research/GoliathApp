@@ -34,7 +34,7 @@ export type RecordEditorDefinition = {
 /** Enrollment rows carry the enrolled worker (sp_session_list_worker_enrollment_states). */
 function hasWorker(row: Record<string, unknown>): boolean {
   const id = Number(row.enrolled_worker_id);
-  return Number.isFinite(id) && id > 0;
+  return row.status === "ENROLLED" && Number.isFinite(id) && id > 0;
 }
 
 const str = (description?: string, extra: Record<string, unknown> = {}) => ({
@@ -207,12 +207,12 @@ export const RECORD_EDITORS: Record<string, RecordEditorDefinition> = {
         action: "retire",
         label: "Retire",
         visible: (row) => row.status !== "DISABLED",
-        confirm: "Retire this cluster? It is kept, marked DISABLED, and accepts no new enrollments.",
+        confirm: "Retire this cluster? It is kept and marked DISABLED; workers can no longer enroll in it.",
       },
       {
         action: "delete",
         label: "Delete",
-        visible: (row) => Number(row.worker_count ?? 0) === 0,
+        visible: (row) => Number(row.worker_count ?? 0) === 0 && Number(row.enrollment_count ?? 0) === 0,
         confirm: "Delete this cluster? Only a cluster with no workers or enrollments can be deleted.",
       },
     ],

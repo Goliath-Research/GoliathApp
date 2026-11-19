@@ -170,7 +170,7 @@ def test_functions_executable_by_portal(editor_env: dict[str, str]) -> None:
             'sp_session_get_cluster', 'sp_session_save_cluster', 'sp_session_save_worker_enrollment',
             'sp_session_revoke_worker_enrollment', 'sp_session_get_event_subscription',
             'sp_session_save_event_subscription', 'sp_session_list_worker_enrollment_states',
-            'sp_session_set_worker_desired_state', 'sp_session_retire_cluster', 'sp_session_delete_cluster',
+            'sp_session_set_worker_desired_state', 'sp_session_retire_cluster', 'sp_session_list_clusters_with_usage', 'sp_session_delete_cluster',
             'sp_session_delete_worker_enrollment', 'sp_session_retire_event_subscription',
             'sp_session_delete_event_subscription')
           AND NOT has_function_privilege('goliath_portal', p.oid, 'EXECUTE')
@@ -529,6 +529,19 @@ def test_worker_desired_state_and_enrollment_lifecycle(
         _psql(f"SELECT portal.sp_session_delete_cluster({_lit(author_token)}, {_lit(key)})", env)
     assert _psql(f"SELECT portal.sp_session_retire_cluster({_lit(author_token)}, {_lit(key)})", env) == "DISABLED"
     assert _psql(f"SELECT status FROM wf.cluster WHERE cluster_key = {_lit(key)}", env) == "DISABLED"
+    with pytest.raises(RuntimeError, match="retired"):
+        _psql(
+            f"""SELECT portal.sp_session_save_worker_enrollment({_lit(author_token)}, {_lit({
+                "cluster_key": key, "public_ip": "192.0.2.22", "external_worker_key": "w3",
+            })}::jsonb)""",
+            env,
+        )
+    usage = _psql(
+        f"""SELECT worker_count || '/' || enrollment_count
+            FROM portal.sp_session_list_clusters_with_usage({_lit(author_token)}) WHERE cluster_key = {_lit(key)}""",
+        env,
+    )
+    assert usage == "1/1"
 
     empty = f"empty-cluster-{uuid.uuid4().hex[:6]}"
     _psql(

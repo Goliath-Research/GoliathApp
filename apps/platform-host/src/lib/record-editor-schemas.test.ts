@@ -59,6 +59,7 @@ describe("record editor schemas", () => {
     expect(visible({ status: "ENROLLED", enrolled_worker_id: 4, desired_state: "DRAINING" })).toContain(
       "activate_worker",
     );
+    expect(visible({ status: "REVOKED", enrolled_worker_id: 4, desired_state: "ACTIVE" })).toEqual(["delete"]);
     for (const def of Object.values(RECORD_EDITORS)) {
       for (const a of def.rowActions ?? []) {
         if (["delete", "retire", "revoke", "drain_worker", "stop_worker"].includes(a.action)) {
@@ -71,7 +72,8 @@ describe("record editor schemas", () => {
   it("deletes clusters only when empty and retires active subscriptions", () => {
     const cluster = RECORD_EDITORS.cluster.rowActions ?? [];
     expect(cluster.find((a) => a.action === "delete")?.visible({ worker_count: 2 })).toBe(false);
-    expect(cluster.find((a) => a.action === "delete")?.visible({ worker_count: 0 })).toBe(true);
+    expect(cluster.find((a) => a.action === "delete")?.visible({ worker_count: 0, enrollment_count: 1 })).toBe(false);
+    expect(cluster.find((a) => a.action === "delete")?.visible({ worker_count: 0, enrollment_count: 0 })).toBe(true);
     const sub = RECORD_EDITORS.event_subscription.rowActions ?? [];
     expect(sub.find((a) => a.action === "retire")?.visible({ enabled: false })).toBe(false);
   });

@@ -791,6 +791,12 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS400', 'cluster_key, public_ip and external_worker_key are required');
   END IF;
   IF EXISTS (
+    SELECT 1 FROM wf.cluster c
+    WHERE c.cluster_key = portal.fn_doc_text(v_doc, 'cluster_key') AND c.status = 'DISABLED'
+  ) THEN
+    PERFORM portal.fn_semantic_raise('GS409', 'cluster is retired; it accepts no new or changed enrollments');
+  END IF;
+  IF EXISTS (
     SELECT 1
     FROM wf.worker_enrollment e
     JOIN wf.cluster c ON c.id = e.cluster_id
@@ -1008,6 +1014,38 @@ BEGIN
   JOIN wf.cluster c ON c.id = e.cluster_id
   LEFT JOIN wf.worker w ON w.id = e.enrolled_worker_id
   ORDER BY c.cluster_key, e.external_worker_key;
+END;
+$$;
+
+/* Clusters with their worker and enrollment counts (Delete is offered only for unused clusters). */
+CREATE OR REPLACE FUNCTION portal.sp_session_list_clusters_with_usage(p_session_token text)
+RETURNS TABLE (
+  cluster_id bigint,
+  cluster_key text,
+  name text,
+  provider text,
+  status text,
+  shared_storage_uri text,
+  worker_mount_path text,
+  worker_count integer,
+  enrollment_count integer
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, wf, pg_temp
+AS $$
+BEGIN
+  PERFORM portal.fn_session_require_any_nav(
+    p_session_token, ARRAY['/app/workflows/workers', '/app/operations/worker-fleet']
+  );
+  RETURN QUERY
+  SELECT c.id, c.cluster_key, c.name, c.provider, c.status::text, c.shared_storage_uri,
+         c.worker_mount_path,
+         (SELECT count(*)::int FROM wf.worker w WHERE w.cluster_id = c.id),
+         (SELECT count(*)::int FROM wf.worker_enrollment e WHERE e.cluster_id = c.id)
+  FROM wf.cluster c
+  ORDER BY c.name;
 END;
 $$;
 
