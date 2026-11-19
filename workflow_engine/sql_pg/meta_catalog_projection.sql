@@ -170,6 +170,9 @@ BEGIN
     RAISE EXCEPTION 'parent class % is missing', p_parent_class;
   END IF;
 
+  -- One view rebuild per registration (or per batch, see sp_catalog_refresh_views), not one per
+  -- class or field insert.
+  PERFORM set_config('goliath.meta_defer_view_refresh', 'on', true);
   v_table := 'Catalog' || replace(initcap(replace(replace(p_kind, '.', ' '), '_', ' ')), ' ', '');
   SELECT cl."ID" INTO v_class FROM "Meta"."Classes" cl WHERE cl."Name" = p_class_name;
   IF v_class IS NULL THEN
@@ -180,8 +183,6 @@ BEGIN
     v_changed := true;
   END IF;
 
-  -- One view rebuild per registration (or per batch, see sp_catalog_refresh_views), not one per field.
-  PERFORM set_config('goliath.meta_defer_view_refresh', 'on', true);
   SELECT t.id INTO v_label_type FROM wf.data_type t WHERE t.name = 'platform/catalog/Text' AND t.version = '1.0';
   INSERT INTO "Meta"."Fields" ("ClassID", "Name", "TypeID", "Required", "Description")
   SELECT v_class, 'Label', v_label_type, true, 'Display label'

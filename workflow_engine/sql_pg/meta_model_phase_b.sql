@@ -422,6 +422,10 @@ BEGIN
   IF p_class_id IS NULL THEN
     RETURN;
   END IF;
+  -- Bulk registrations (catalog kinds) defer view rebuilds and rebuild once at the end.
+  IF COALESCE(current_setting('goliath.meta_defer_view_refresh', true), '') = 'on' THEN
+    RETURN;
+  END IF;
 
   WITH RECURSIVE up AS (
     SELECT c."ID", c."ParentID"
