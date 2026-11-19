@@ -198,8 +198,9 @@ recorded in `portal.record_editor_audit`.
 
 ## Editing workflow graphs and inspecting runs
 
-**Definitions** and **Steps** list every workflow version. **Edit** opens the version graph in the property
-grid (Definitions: root node, nodes, edges and bindings; Steps: nodes and edges only). Saving
+**Definitions** and **Steps** list every workflow version. **Edit** opens the version graph as a read-only
+canvas (laid out top to bottom from the root; nodes show their type and action or condition, edges their
+branch) above the property grid (Definitions: root node, nodes, edges and bindings; Steps: nodes and edges only). Saving
 never changes the version you opened: it creates a **new inactive version** of the same workflow (next
 minor version). Node input templates are carried over by node key. Use **Activate** to make a version the
 one new runs use; event subscriptions keep pointing at the version they reference, so repoint them in
