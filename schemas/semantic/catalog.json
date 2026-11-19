@@ -35,6 +35,7 @@
       "meta_class_id": null,
       "meta_class_name": null,
       "namespace": "core",
+      "owner_class_name": null,
       "row_schema": {
         "properties": {
           "active": {
@@ -107,6 +108,7 @@
       "meta_class_id": null,
       "meta_class_name": null,
       "namespace": "inv",
+      "owner_class_name": null,
       "row_schema": {
         "properties": {
           "active": {
@@ -201,6 +203,7 @@
       "meta_class_id": null,
       "meta_class_name": null,
       "namespace": "inv",
+      "owner_class_name": null,
       "row_schema": {
         "properties": {
           "ordered_at_utc": {
@@ -287,12 +290,13 @@
       ],
       "catalog_type_name": null,
       "code": "stock_lot",
-      "content_hash": "6157112d042f5c11ed53e63a8513f8fbcd08bfc876fe8877138b32425482bdbb",
+      "content_hash": "ed19adefede279b3fcca362f713db744146a8629b545439f77ac9ee420b5a5ee",
       "description": "On-hand inventory lot in a bin.",
       "display_name": "Stock lot",
       "meta_class_id": null,
       "meta_class_name": null,
       "namespace": "inv",
+      "owner_class_name": "platform/Lot",
       "row_schema": {
         "properties": {
           "bin_code": {
@@ -394,6 +398,7 @@
       "meta_class_id": null,
       "meta_class_name": null,
       "namespace": "inv",
+      "owner_class_name": null,
       "row_schema": {
         "properties": {
           "active": {

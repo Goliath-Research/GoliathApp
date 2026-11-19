@@ -333,3 +333,19 @@ GoliathApp ships the registry, runner, export pipeline, core organization reques
 ### Exograph dispatcher
 
 `runSemanticRequest` is implemented in Deno (`exo/src/semantic.ts`) by calling `portal.sp_run_semantic_request` through the `postgres` npm client, forwarding the JWT `session_token`. If that path is unavailable in a given runtime, use unmanaged Postgres types over security-barrier views filtered by session context (documented in `exo/README.md`).
+
+## Entities mapped to Meta classes
+
+`portal.semantic_entity.meta_class_id` names the Meta class an entity's rows are instances of. Two things depend on it:
+
+- **Action ownership:** the entity's actions are methods on that class (see [actions](actions.md)).
+- **Access:** running the entity's requests requires Meta class read access in the active scope.
+
+An entity spec sets the class in one of two ways:
+
+- `meta_class_name`: the rows are stored as Meta objects. Row types come from the class.
+- `owner_class_name`: the rows keep their own `storage_relation` and generated row type. For example, `inv.stock_lot` is owned by `platform/Lot`.
+
+When an entity becomes mapped, nobody may lose access. `seed_semantic_catalog.py` therefore calls `"Meta".sp_grant_semantic_entity_class_read(<namespace>)` in the same transaction as the mapping. That call grants class read (`portal.sp_upsert_class_role_access`) to every role that can run one of the entity's requests today, in each scope where the role is granted. It never overrides a deny.
+
+The seed then checks `portal.fn_semantic_entity_class_read_gaps(<namespace>)` and fails if any active user would lose access. Child apps call the same two functions from their own seeds.

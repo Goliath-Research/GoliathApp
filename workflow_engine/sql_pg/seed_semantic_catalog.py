@@ -33,6 +33,18 @@ def _connect():
     )
 
 
+def _meta_class_id(cur, entity) -> int | None:
+    """meta_class_id, else the ID of meta_class_name or owner_class_name (None if not seeded yet)."""
+    if entity.meta_class_id is not None:
+        return entity.meta_class_id
+    name = entity.meta_class_name or getattr(entity, "owner_class_name", None)
+    if not name:
+        return None
+    cur.execute('SELECT "ID" FROM "Meta"."Classes" WHERE "Name" = %s', (name,))
+    row = cur.fetchone()
+    return int(row[0]) if row is not None else None
+
+
 def seed(conn) -> int:
     count = 0
     entity_ids: dict[str, int] = {}
@@ -52,6 +64,7 @@ def seed(conn) -> int:
                     "schema_version": entity.schema_version,
                     "meta_class_id": entity.meta_class_id,
                     "meta_class_name": entity.meta_class_name,
+                    **({"owner_class_name": entity.owner_class_name} if entity.owner_class_name else {}),
                     "row_schema": row_schema,
                     "attributes": [a.__dict__ for a in entity.attributes],
                 }
@@ -74,7 +87,7 @@ def seed(conn) -> int:
                     entity.schema_version,
                     entity_hash,
                     storage,
-                    entity.meta_class_id,
+                    _meta_class_id(cur, entity),
                 ),
             )
             cur.execute(
@@ -146,8 +159,23 @@ def seed(conn) -> int:
                 ),
             )
             count += 1
+        grant_entity_class_read(cur, sorted({e.namespace for e in SEMANTIC_CATALOG}))
     conn.commit()
     return count
+
+
+def grant_entity_class_read(cur, namespaces: list[str]) -> None:
+    """Keep access for roles that run these entities' requests (same transaction as the mapping)."""
+    cur.execute("SELECT to_regprocedure('\"Meta\".sp_grant_semantic_entity_class_read(text)') IS NOT NULL")
+    row = cur.fetchone()
+    if not (row and row[0]):
+        return
+    for ns in namespaces:
+        cur.execute('SELECT * FROM "Meta".sp_grant_semantic_entity_class_read(%s)', (ns,))
+        cur.execute("SELECT count(*) FROM portal.fn_semantic_entity_class_read_gaps(%s)", (ns,))
+        gaps = cur.fetchone()
+        if gaps and int(gaps[0]) > 0:
+            raise RuntimeError(f"{ns}: {gaps[0]} user/scope/request combinations would lose access")
 
 
 def main() -> int:

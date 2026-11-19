@@ -101,6 +101,7 @@ jobs:
             workflow_engine/tests/test_portal_admin_config_editors.py \
             workflow_engine/tests/test_domain_program_compile.py \
             workflow_engine/tests/test_action_method_derivation.py \
+            workflow_engine/tests/test_semantic_entity_class_access.py \
             workflow_engine/tests/test_platform_nav_seed.py \
             workflow_engine/tests/test_portal_session_model_authoring.py \
             workflow_engine/tests/test_portal_layered_security.py \

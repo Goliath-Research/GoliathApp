@@ -31,6 +31,10 @@ class SemanticEntitySpec:
     meta_class_id: Optional[int] = None
     meta_class_name: Optional[str] = None
     attributes: Sequence[SemanticAttributeSpec] = ()
+    # Meta class the rows are instances of, when they are not stored as Meta objects. It sets
+    # portal.semantic_entity.meta_class_id (action ownership and class read checks) and leaves
+    # storage_relation and the generated row types unchanged. meta_class_name implies Meta storage.
+    owner_class_name: Optional[str] = None
 
 
 @dataclass(frozen=True)
