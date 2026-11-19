@@ -19,6 +19,8 @@ export type PortalWorkspaceKind =
   | "operator_dashboards"
   | "record_editor"
   | "workflow_graph"
+  | "route_index"
+  | "extension_help"
   | "placeholder";
 
 export type PortalWorkspaceSpec = {
@@ -80,20 +82,21 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
     description: "Instance documents for the selected class (SchemaPropertyGrid).",
   },
   "/app/meta/fields": {
-    kind: "meta_workbench",
+    kind: "meta_class_catalog",
     title: "Fields",
-    metaClass: META_ROOT_DEFAULT,
-    description: "Field schema on platform and semantic classes.",
+    description: "Pick a class to see and edit its fields (inherited fields come from ancestors).",
   },
   "/app/meta/relations": {
-    kind: "meta_workbench",
+    kind: "meta_class_catalog",
     title: "Relations",
-    metaClass: META_ROOT_DEFAULT,
+    description: "Pick a class to see its relations to other classes.",
   },
   "/app/meta/methods": {
-    kind: "meta_workbench",
+    kind: "record_editor",
     title: "Methods",
-    metaClass: META_ROOT_DEFAULT,
+    description:
+      "Class methods grouped by class, with inheritance and overrides. Methods are the workflow actions; parameters are typed by catalog data types.",
+    recordEntities: ["class_method"],
   },
   "/app/meta/data-types": {
     kind: "platform_query",
@@ -234,17 +237,21 @@ const PATH_SPECS: Record<string, PortalWorkspaceSpec> = {
 
 const PARENT_FALLBACK: Record<string, PortalWorkspaceSpec> = {
   "/app/admin": {
-    kind: "placeholder",
+    kind: "route_index",
     title: "Administration",
-    description: "Choose Users, Organizations, Roles, or another admin leaf in the navigation tree.",
+    description: "Users, organizations, roles, permissions, scopes, invitations, and navigation.",
   },
   "/app/workflows": {
-    kind: "placeholder",
+    kind: "route_index",
     title: "Workflows",
-    description: "Choose Definitions, Runs, Actions, or another workflow leaf.",
+    description: "Definitions, steps, actions, domain programs, runs, workers, and event subscriptions.",
   },
-  "/app/config": { kind: "placeholder", title: "Configuration" },
-  "/app/operations": { kind: "placeholder", title: "Operations" },
+  "/app/config": { kind: "route_index", title: "Configuration", description: "Sites and pipeline profiles." },
+  "/app/operations": {
+    kind: "route_index",
+    title: "Operations",
+    description: "Events, schedules, and the worker fleet.",
+  },
   "/app/views": {
     kind: "operator_views",
     title: "Views and dashboards",
@@ -260,7 +267,7 @@ const PARENT_FALLBACK: Record<string, PortalWorkspaceSpec> = {
     title: "Dashboards",
     description: "Create dashboards and arrange saved views.",
   },
-  "/app/inv": { kind: "placeholder", title: "Inventory" },
+  "/app/inv": { kind: "route_index", title: "Inventory", description: "Items, lots, purchase orders, and suppliers." },
   "/app/inv/stock": {
     kind: "placeholder",
     title: "Stock operations",
@@ -294,11 +301,30 @@ export function resolvePortalWorkspace(
     };
   }
   const segment = path.split("/").filter(Boolean).pop() ?? "Workspace";
+  // The panel shows the node's children when it has any; otherwise it explains how a child
+  // app attaches a screen to this path without host code.
   return {
-    kind: "placeholder",
+    kind: "extension_help",
     title: segment.replace(/-/g, " "),
-    description: `No platform host screen is registered for ${path} yet.`,
   };
+}
+
+export type NavIndexRow = {
+  nodeId: number;
+  parentId: number | null;
+  caption: string;
+  seq: number;
+  nodePath: string | null;
+};
+
+/** Direct children of the NavTree node at `path`, in menu order (only nodes with a path). */
+export function navChildrenOf(rows: NavIndexRow[], path: string): NavIndexRow[] {
+  const normalized = path.replace(/\/+$/, "") || "/app";
+  const parent = rows.find((r) => r.nodePath === normalized);
+  if (!parent) return [];
+  return rows
+    .filter((r) => r.parentId === parent.nodeId && r.nodePath)
+    .sort((a, b) => a.seq - b.seq || a.caption.localeCompare(b.caption));
 }
 
 export function nodePathFromUrlPathname(pathname: string): string {
