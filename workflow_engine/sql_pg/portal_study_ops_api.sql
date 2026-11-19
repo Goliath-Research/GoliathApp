@@ -12,50 +12,35 @@ ALTER TABLE wf.node_execution
 
 CREATE SCHEMA IF NOT EXISTS portal;
 
+/*
+  Generic credential redaction for operator reads: every object key that names a credential
+  (portal.fn_is_secret_key: credential, password, secret, token, api/access/private key,
+  connection string, authorization) is removed at any depth. No application key names.
+*/
 CREATE OR REPLACE FUNCTION portal.fn_redact_json_credentials(p_payload jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 IMMUTABLE
 AS $$
-DECLARE
-  v jsonb := p_payload;
 BEGIN
-  IF v IS NULL THEN
+  IF p_payload IS NULL THEN
     RETURN NULL;
   END IF;
-
-  v := v - 'credentials';
-  IF jsonb_typeof(v->'fastqSource') = 'object' THEN
-    v := v #- '{fastqSource,credentials}';
-  END IF;
-  IF jsonb_typeof(v->'fastqStorage') = 'object' THEN
-    v := v #- '{fastqStorage,credentials}';
-  END IF;
-  IF jsonb_typeof(v->'sampleDestination') = 'object' THEN
-    v := v #- '{sampleDestination,credentials}';
-  END IF;
-  IF jsonb_typeof(v->'sampleStorage') = 'object' THEN
-    v := v #- '{sampleStorage,credentials}';
-  END IF;
-  IF jsonb_typeof(v->'h5Destination') = 'object' THEN
-    v := v #- '{h5Destination,credentials}';
-  END IF;
-  IF jsonb_typeof(v->'h5Storage') = 'object' THEN
-    v := v #- '{h5Storage,credentials}';
-  END IF;
-
-  IF jsonb_typeof(v->'samples') = 'array' THEN
-    v := jsonb_set(
-      v,
-      '{samples}',
-      COALESCE((
-        SELECT jsonb_agg(portal.fn_redact_json_credentials(elem))
-        FROM jsonb_array_elements(v->'samples') elem
-      ), '[]'::jsonb)
-    );
-  END IF;
-
-  RETURN v;
+  CASE jsonb_typeof(p_payload)
+    WHEN 'object' THEN
+      RETURN COALESCE((
+        SELECT jsonb_object_agg(e.key, portal.fn_redact_json_credentials(e.value))
+        FROM jsonb_each(p_payload) e
+        WHERE NOT portal.fn_is_secret_key(e.key)
+      ), '{}'::jsonb);
+    WHEN 'array' THEN
+      RETURN COALESCE((
+        SELECT jsonb_agg(portal.fn_redact_json_credentials(e.value) ORDER BY e.ord)
+        FROM jsonb_array_elements(p_payload) WITH ORDINALITY e(value, ord)
+      ), '[]'::jsonb);
+    ELSE
+      RETURN p_payload;
+  END CASE;
 END;
 $$;
 
