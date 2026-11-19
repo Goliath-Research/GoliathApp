@@ -7,17 +7,18 @@
 BEGIN;
 
 SELECT "Meta".sp_catalog_register_kind('semantic.namespace', 'platform/semantic/Namespace', 'platform/Entity',
-  'portal.semantic_namespace', ARRAY['code'], ARRAY['code']);
+  'portal.semantic_namespace', ARRAY['code'], ARRAY['code'], p_refresh_views => false);
 SELECT "Meta".sp_catalog_register_kind('semantic.entity', 'platform/semantic/Entity', 'platform/Entity',
-  'portal.semantic_entity', ARRAY['id'], ARRAY['namespace', 'code']);
+  'portal.semantic_entity', ARRAY['id'], ARRAY['namespace', 'code'], p_refresh_views => false);
 SELECT "Meta".sp_catalog_register_kind('semantic.attribute', 'platform/semantic/Attribute', 'platform/Entity',
-  'portal.semantic_attribute', ARRAY['id'], ARRAY['code']);
+  'portal.semantic_attribute', ARRAY['id'], ARRAY['code'], p_refresh_views => false);
 SELECT "Meta".sp_catalog_register_kind('semantic.request', 'platform/semantic/Request', 'platform/Entity',
-  'portal.semantic_request', ARRAY['id'], ARRAY['request_code', 'version']);
+  'portal.semantic_request', ARRAY['id'], ARRAY['request_code', 'version'], p_refresh_views => false);
 SELECT "Meta".sp_catalog_register_kind('semantic.action_binding', 'platform/semantic/ActionBinding', 'platform/Entity',
-  'portal.semantic_action_binding', ARRAY['workflow_action_id', 'entity_id'], ARRAY['workflow_action_id', 'entity_id']);
+  'portal.semantic_action_binding', ARRAY['workflow_action_id', 'entity_id'], ARRAY['workflow_action_id', 'entity_id'], p_refresh_views => false);
 SELECT "Meta".sp_catalog_register_kind('semantic.nav_binding', 'platform/semantic/NavBinding', 'platform/Entity',
-  'portal.semantic_nav_binding', ARRAY['id'], ARRAY['nav_tree_id']);
+  'portal.semantic_nav_binding', ARRAY['id'], ARRAY['nav_tree_id'], p_refresh_views => false);
+SELECT "Meta".sp_catalog_refresh_views();
 
 SELECT m.* FROM unnest(ARRAY[
   'semantic.namespace', 'semantic.entity', 'semantic.attribute',

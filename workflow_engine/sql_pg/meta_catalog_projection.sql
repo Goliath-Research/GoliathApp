@@ -41,8 +41,10 @@ CREATE TABLE IF NOT EXISTS "Meta".catalog_kind (
   key_columns text[] NOT NULL,
   label_columns text[] NOT NULL,
   owner_app text NOT NULL DEFAULT 'goliath_app',
-  migrated_at_utc timestamptz
+  migrated_at_utc timestamptz,
+  views_stale boolean NOT NULL DEFAULT false
 );
+ALTER TABLE "Meta".catalog_kind ADD COLUMN IF NOT EXISTS views_stale boolean NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS "Meta".catalog_row (
   kind text NOT NULL REFERENCES "Meta".catalog_kind (kind) ON DELETE CASCADE,
@@ -120,6 +122,8 @@ STABLE
 SET search_path = pg_catalog, pg_temp
 AS $$ SELECT COALESCE(current_setting('goliath.catalog_sync', true), '') $$;
 
+DROP FUNCTION IF EXISTS "Meta".sp_catalog_register_kind(text, text, text, regclass, text[], text[], text);
+
 /*
   Register (or refresh) a catalog kind: the class (under p_parent_class), one field per column,
   the published class type, its view, and the table trigger. Idempotent; new columns become fields.
@@ -131,7 +135,8 @@ CREATE OR REPLACE FUNCTION "Meta".sp_catalog_register_kind(
   p_relation regclass,
   p_key_columns text[],
   p_label_columns text[],
-  p_owner_app text DEFAULT 'goliath_app'
+  p_owner_app text DEFAULT 'goliath_app',
+  p_refresh_views boolean DEFAULT true
 )
 RETURNS integer
 LANGUAGE plpgsql
@@ -143,6 +148,8 @@ DECLARE
   v_parent int;
   v_label_type bigint;
   v_table text;
+  v_changed boolean := false;
+  v_n int;
   c record;
 BEGIN
   IF p_key_columns IS NULL OR cardinality(p_key_columns) = 0 THEN
@@ -169,13 +176,18 @@ BEGIN
     INSERT INTO "Meta"."Classes" ("Name", "ParentID", "TableName")
     VALUES (p_class_name, v_parent, v_table)
     RETURNING "ID" INTO v_class;
+    PERFORM "Meta".sp_backfill_all_class_hierarchies();
+    v_changed := true;
   END IF;
-  PERFORM "Meta".sp_backfill_all_class_hierarchies();
 
+  -- One view rebuild per registration (or per batch, see sp_catalog_refresh_views), not one per field.
+  PERFORM set_config('goliath.meta_defer_view_refresh', 'on', true);
   SELECT t.id INTO v_label_type FROM wf.data_type t WHERE t.name = 'platform/catalog/Text' AND t.version = '1.0';
   INSERT INTO "Meta"."Fields" ("ClassID", "Name", "TypeID", "Required", "Description")
   SELECT v_class, 'Label', v_label_type, true, 'Display label'
   WHERE NOT EXISTS (SELECT 1 FROM "Meta"."Fields" f WHERE f."ClassID" = v_class AND f."Name" = 'Label');
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  v_changed := v_changed OR v_n > 0;
 
   FOR c IN SELECT * FROM "Meta".fn_catalog_columns(p_relation) LOOP
     INSERT INTO "Meta"."Fields" ("ClassID", "Name", "TypeID", "Required", "Description")
@@ -183,7 +195,10 @@ BEGIN
     FROM wf.data_type t
     WHERE t.name = c.type_name AND t.version = '1.0'
       AND NOT EXISTS (SELECT 1 FROM "Meta"."Fields" f WHERE f."ClassID" = v_class AND f."Name" = c.name);
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    v_changed := v_changed OR v_n > 0;
   END LOOP;
+  PERFORM set_config('goliath.meta_defer_view_refresh', '', true);
 
   INSERT INTO "Meta".catalog_kind (kind, class_id, relation, key_columns, label_columns, owner_app)
   VALUES (p_kind, v_class, p_relation, p_key_columns, p_label_columns, p_owner_app)
@@ -194,8 +209,17 @@ BEGIN
     label_columns = EXCLUDED.label_columns,
     owner_app = EXCLUDED.owner_app;
 
-  PERFORM "Meta".sp_meta_publish_class_type(v_class, false);
-  PERFORM "Meta".sp_class_regenerate_views(v_class);
+  -- Regenerating views rebuilds the whole class tree's views: only on change.
+  IF v_changed
+     OR (SELECT cl."TypeID" FROM "Meta"."Classes" cl WHERE cl."ID" = v_class) IS NULL
+     OR to_regclass(format('"Meta".%I', "Meta".fn_class_view_name(v_class))) IS NULL THEN
+    PERFORM "Meta".sp_meta_publish_class_type(v_class, false);
+    IF p_refresh_views THEN
+      PERFORM "Meta".sp_class_regenerate_views(v_class);
+    ELSE
+      UPDATE "Meta".catalog_kind k SET views_stale = true WHERE k.kind = p_kind;
+    END IF;
+  END IF;
 
   EXECUTE format('DROP TRIGGER IF EXISTS "TR_MetaCatalog_Capture" ON %s', p_relation);
   EXECUTE format(
@@ -204,6 +228,27 @@ BEGIN
     p_relation, p_kind
   );
   RETURN v_class;
+END;
+$$;
+
+-- After registering kinds with p_refresh_views => false: one view rebuild for all of them.
+CREATE OR REPLACE FUNCTION "Meta".sp_catalog_refresh_views()
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $$
+DECLARE
+  v_class int;
+  v_n int;
+BEGIN
+  SELECT count(*), min(k.class_id) INTO v_n, v_class FROM "Meta".catalog_kind k WHERE k.views_stale;
+  IF v_n > 0 THEN
+    -- sp_class_regenerate_views rebuilds the whole tree under the class's root.
+    PERFORM "Meta".sp_class_regenerate_views(v_class);
+    UPDATE "Meta".catalog_kind k SET views_stale = false WHERE k.views_stale;
+  END IF;
+  RETURN v_n;
 END;
 $$;
 
@@ -527,7 +572,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION "Meta".sp_catalog_register_kind(text, text, text, regclass, text[], text[], text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION "Meta".sp_catalog_register_kind(text, text, text, regclass, text[], text[], text, boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION "Meta".sp_catalog_refresh_views() FROM PUBLIC;
 REVOKE ALL ON FUNCTION "Meta".sp_catalog_migrate(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION "Meta".sp_catalog_project_all(text) FROM PUBLIC;
 

@@ -537,7 +537,8 @@ BEGIN
     v_class_id := NULL;
   END IF;
 
-  IF v_class_id IS NOT NULL THEN
+  -- Bulk registrations (catalog kinds) set goliath.meta_defer_view_refresh and regenerate once.
+  IF v_class_id IS NOT NULL AND COALESCE(current_setting('goliath.meta_defer_view_refresh', true), '') <> 'on' THEN
     PERFORM "Meta".sp_class_regenerate_views(v_class_id);
   END IF;
 

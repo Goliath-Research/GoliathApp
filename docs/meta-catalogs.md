@@ -15,6 +15,8 @@ Generic: `workflow_engine/sql_pg/meta_catalog_projection.sql`. Kinds: `semantic_
 | `"Meta".fn_catalog_drift(kind)` | Lists rows where the table and Meta disagree (`missing_object`, `missing_row`, `differs`). Values are compared as typed rows. |
 | `"Meta".sp_catalog_project_all(kind)` | Repair: rewrites the table from Meta, so Meta wins. |
 
+Registering many kinds at once (`p_refresh_views => false`, then `"Meta".sp_catalog_refresh_views()`) rebuilds the class views once. Field inserts made inside a registration don't trigger a per-field rebuild (`goliath.meta_defer_view_refresh`), which keeps locks low on production.
+
 All catalog functions run with a fixed `search_path` and UTC, so the documents do not depend on the caller's session (for example, `regtype` values are always schema-qualified). The triggers are `SECURITY DEFINER`, so roles that write catalog tables today (seeds, `goliath_portal` session procedures) need no new grants.
 
 ## Semantic catalog
