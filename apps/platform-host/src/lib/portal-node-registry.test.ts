@@ -13,8 +13,10 @@ describe("resolvePortalWorkspace", () => {
     expect(resolvePortalWorkspace("/app/views/dashboards").kind).toBe("operator_dashboards");
   });
 
-  it("maps admin organizations to semantic list", () => {
-    expect(resolvePortalWorkspace("/app/admin/organizations").semanticRequest).toBe("core.list_organizations");
+  it("maps admin organizations and config documents to record editors", () => {
+    expect(resolvePortalWorkspace("/app/admin/organizations").recordEntities).toEqual(["organization"]);
+    expect(resolvePortalWorkspace("/app/config/site").recordEntities).toEqual(["cfg_site"]);
+    expect(resolvePortalWorkspace("/app/config/pipeline-profiles").recordEntities).toEqual(["cfg_pipeline_profile"]);
   });
 
   it("maps semantic and navigation admin to authoring workspaces", () => {
