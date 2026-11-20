@@ -6,6 +6,8 @@
 
 `enrich_instance_context` in `workflow_engine/domain/workflow_context.py` documents the merge order, highest first: instance, then procedure, then profile or mode, then analyte, then site. The function rebuilds `actionConfig` in that order so a procedure value of JSON null can clear a profile key.
 
+Published site documents are loaded with `portal.fn_published_site_document` (by `site_id`, or the published `default` site). The function is generic: it returns `document_json` and does not interpret keys. When it returns null, callers may fall back to the work-root site manifest.
+
 That enrichment imports an optional external profile-path package (project load, site manifest, modality gate, sample-arm layout). Those modules are not in this repository. The local engine calls `finalize_instance_context` and, on `ImportError`, `FileNotFoundError`, or `ValueError`, logs the failure and runs with the context it already has. `goliath-workflow-run --compile-only` does not enrich.
 
 `seed_pipeline_scope_flags` itself has no external profile-path import. Tests in `workflow_engine/tests/test_pipeline_scope_flags.py` call it directly.

@@ -165,7 +165,8 @@ def test_functions_executable_by_portal(editor_env: dict[str, str]) -> None:
           AND p.proname IN (
             'sp_session_cfg_document_list', 'sp_session_cfg_document_get', 'sp_session_cfg_document_type',
             'sp_session_cfg_document_save', 'sp_session_cfg_document_action',
-            'sp_session_org_list', 'sp_session_org_save')
+            'sp_session_org_list', 'sp_session_org_save',
+            'fn_published_site_document')
           AND NOT has_function_privilege('goliath_portal', p.oid, 'EXECUTE')
         """,
         editor_env,
@@ -287,3 +288,50 @@ def test_org_list_and_god_only_save(editor_env: dict[str, str], author_token: st
             f"SELECT portal.sp_session_org_save({_lit(author_token)}, NULL, {_lit({'name': 'NewOrgX'})}::jsonb)",
             env,
         )
+
+def test_published_site_document_resolves_by_id_and_default(editor_env: dict[str, str]) -> None:
+    """portal.fn_published_site_document returns published documents only."""
+    env = editor_env
+    suffix = uuid.uuid4().hex[:8]
+    other = f"other_{suffix}"
+    # Isolated documents; clean up published rows we insert.
+    default_id = _psql(
+        f"""INSERT INTO cfg.site (name, version, status, content_hash, document_json)
+            VALUES ('default', 'test-{suffix}', 'published', 'h1',
+                    {_lit({"marker": "default-"+suffix})}::jsonb)
+            RETURNING id""",
+        env,
+    )
+    other_id = _psql(
+        f"""INSERT INTO cfg.site (name, version, status, content_hash, document_json)
+            VALUES ({_lit(other)}, '1', 'published', 'h2',
+                    {_lit({"marker": "other-"+suffix})}::jsonb)
+            RETURNING id""",
+        env,
+    )
+    draft_id = _psql(
+        f"""INSERT INTO cfg.site (name, version, status, content_hash, document_json)
+            VALUES ({_lit("draft_"+suffix)}, '1', 'draft', 'h3',
+                    {_lit({"marker": "draft-"+suffix})}::jsonb)
+            RETURNING id""",
+        env,
+    )
+    try:
+        by_default = json.loads(_psql(f"SELECT portal.fn_published_site_document({default_id})", env) or "null")
+        assert by_default["marker"] == f"default-{suffix}"
+        by_other = json.loads(_psql(f"SELECT portal.fn_published_site_document({other_id})", env) or "null")
+        assert by_other["marker"] == f"other-{suffix}"
+        # Prefer the published row named 'default' when no id is given. Other
+        # published 'default' rows may already exist; the function still returns
+        # some published document named default, or the latest published site.
+        defaulted = json.loads(_psql("SELECT portal.fn_published_site_document(NULL)", env) or "null")
+        assert isinstance(defaulted, dict)
+        # A draft must not be resolved by id.
+        draft = _psql(f"SELECT portal.fn_published_site_document({draft_id}) IS NULL", env)
+        assert draft == "t"
+        missing = _psql("SELECT portal.fn_published_site_document(0) IS NULL", env)
+        assert missing == "t"
+    finally:
+        _psql(f"DELETE FROM cfg.site WHERE id IN ({default_id}, {other_id}, {draft_id})", env)
+
+

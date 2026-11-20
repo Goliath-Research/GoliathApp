@@ -142,6 +142,7 @@ SCRIPTS=(
   portal_contract_api.sql
   portal_study_ops_api.sql
   portal_guardrails_editor.sql
+  portal_published_site_document.sql
   cfg_study_start_request.sql
   wf_event_plane.sql
   wf_event_ingest_authorization.sql
