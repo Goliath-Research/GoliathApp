@@ -293,31 +293,32 @@ def test_published_site_document_resolves_by_id_and_default(editor_env: dict[str
     """portal.fn_published_site_document returns published documents only."""
     env = editor_env
     suffix = uuid.uuid4().hex[:8]
-    default_name = f"default"
     other = f"other_{suffix}"
     # Isolated documents; clean up published rows we insert.
     default_id = _psql(
         f"""INSERT INTO cfg.site (name, version, status, content_hash, document_json)
             VALUES ('default', 'test-{suffix}', 'published', 'h1',
-                    {json.dumps({"marker": "default-"+suffix})}::jsonb)
+                    {_lit({"marker": "default-"+suffix})}::jsonb)
             RETURNING id""",
         env,
     )
     other_id = _psql(
         f"""INSERT INTO cfg.site (name, version, status, content_hash, document_json)
             VALUES ({_lit(other)}, '1', 'published', 'h2',
-                    {json.dumps({"marker": "other-"+suffix})}::jsonb)
+                    {_lit({"marker": "other-"+suffix})}::jsonb)
             RETURNING id""",
         env,
     )
     draft_id = _psql(
         f"""INSERT INTO cfg.site (name, version, status, content_hash, document_json)
             VALUES ({_lit("draft_"+suffix)}, '1', 'draft', 'h3',
-                    {json.dumps({"marker": "draft-"+suffix})}::jsonb)
+                    {_lit({"marker": "draft-"+suffix})}::jsonb)
             RETURNING id""",
         env,
     )
     try:
+        by_default = json.loads(_psql(f"SELECT portal.fn_published_site_document({default_id})", env) or "null")
+        assert by_default["marker"] == f"default-{suffix}"
         by_other = json.loads(_psql(f"SELECT portal.fn_published_site_document({other_id})", env) or "null")
         assert by_other["marker"] == f"other-{suffix}"
         # Prefer the published row named 'default' when no id is given. Other
