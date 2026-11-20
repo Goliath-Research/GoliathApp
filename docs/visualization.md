@@ -43,13 +43,13 @@ Validate overrides with `diagnoseUiManifest` from `@goliath/client` in CI. Edito
 
 | Phase | Scope | Status |
 |-------|--------|--------|
-| **P0** | Workspace, `@goliath/ui` icons/badges/tokens, fixture demo, tests, consumer pack verify | **Implemented (this PR)** |
-| **P1** | BFF + `portal.sp_session_*` + scoped nav + OIDC methods | **Merged** |
-| **P2** | Meta hierarchy browser + read APIs + flattened-schema editor slice | **In portal PR** |
-| **P3** | Workflow designer/monitor (DomainPrograms, defs, runs) | **Current product** — versioned graph editing, actions as class methods, domain programs, runs inspector; canvas, step pickers, and domain-program views are being completed (inherited by every child app) |
-| **P4** | Semantic + admin screens (`sp_run_semantic_request`, RBAC admin procs) | **Current product** — registration and admin screens shipped; full create/edit/retire on the property grid is being completed (inherited by every child app) |
-| **P5** | Views/dashboards — define views, arrange dashboards (semantic + Meta) | **In portal PR** |
-| **P6** | Two-child adoption (e.g. portal + one greenfield app on shared packages) | Pending |
+| **P0** | Workspace, `@goliath/ui` icons/badges/tokens, fixture demo, tests, consumer pack verify | **Current product** |
+| **P1** | BFF + `portal.sp_session_*` + scoped nav + OIDC methods | **Current product** |
+| **P2** | Meta hierarchy browser, typed property grid, record grids (Add / View / Edit), generic tree editor | **Current product** — editors are driven by Meta schemas; no JSON typing; inherited by every child app |
+| **P3** | Workflow designer/monitor (DomainPrograms, defs, runs) | **Current product** — versioned graph editor, class-method action parameters, domain-program compile and publish, run inspector; inherited by every child app |
+| **P4** | Semantic + admin + config screens | **Current product** — property-grid create/edit/retire, typed config documents (child-registered types), organizations, roles |
+| **P5** | Views/dashboards — define views, arrange dashboards (semantic + Meta) | **Current product** |
+| **P6** | Multi-child adoption on the shared platform host | **In progress** — [multi-product platform host](deploy/multi-product-platform-host.md); live hosts are listed at [www.goliathresearch.com/apps/](https://www.goliathresearch.com/apps/) |
 | **Docs** | **End-user operator portal guide (required deliverable)** | [operator-portal-guide.md](operator-portal-guide.md) |
 
 ## Seeds and apply order

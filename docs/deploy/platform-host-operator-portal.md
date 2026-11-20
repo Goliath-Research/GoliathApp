@@ -1,6 +1,6 @@
 # Platform host operator portal (plan)
 
-This page tracks the **signed-in operator portal** for `apps/platform-host` and lists **required deliverables**, including end-user documentation. Implementation status refers to the GoliathApp repository on `main` plus open work in PRs (for example operator chrome, Meta hierarchy, views/dashboards).
+This page tracks the **signed-in operator portal** for `apps/platform-host` and lists **required deliverables**, including end-user documentation. Implementation status below reflects GoliathApp `main`. The live platform host is [https://app.goliathresearch.com](https://app.goliathresearch.com). The current operator surface is documented in the [Operator portal guide](../operator-portal-guide.md).
 
 ## Goals
 
@@ -31,11 +31,11 @@ This page tracks the **signed-in operator portal** for `apps/platform-host` and 
 |-------|--------|--------|
 | P0 | Packages, fixture, icons | Done — [visualization.md](../visualization.md) |
 | P1 | BFF, session, OIDC | Done |
-| P2 | Meta hierarchy browser + editors | In portal PR |
-| P3 | Workflow designer / monitor depth | Current product: versioned graph editor, class-method actions, domain programs, run inspector; canvas and pickers in progress |
-| P4 | Semantic + admin screens | Current product: registration and admin editors; full property-grid create/edit/retire in progress |
-| P5 | Views/dashboards | **Define + arrange** in portal PR; widget layout refinements follow |
-| P6 | Multi-child adoption | In progress — [multi-product platform host](multi-product-platform-host.md) |
+| P2 | Meta hierarchy browser + editors | **Current product** — typed property grid, record grids, tree editor; no JSON typing |
+| P3 | Workflow designer / monitor depth | **Current product** — versioned graph editor, class-method actions, domain-program compile and publish, run inspector |
+| P4 | Semantic + admin screens | **Current product** — property-grid create/edit/retire; typed config documents |
+| P5 | Views/dashboards | **Current product** — define views and arrange dashboards |
+| P6 | Multi-child adoption | In progress — [multi-product platform host](multi-product-platform-host.md); live hosts at [www.goliathresearch.com/apps/](https://www.goliathresearch.com/apps/) |
 
 Updating [visualization.md](../visualization.md) and this plan together is mandatory when portal scope changes.
 

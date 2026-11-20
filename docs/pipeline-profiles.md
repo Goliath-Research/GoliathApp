@@ -1,6 +1,21 @@
 # Pipeline profiles
 
-`workflow_engine/domain/pipeline_profiles.py` turns a pipeline profile into scope flags that workflow `IF` nodes read. The database stores profile documents in `cfg.pipeline_profile` (`cfg_registry_tables.sql`). The Python module merges a profile dict into an instance context. It does not write SQL by itself.
+Pipeline profiles and procedures are application documents stored in `cfg.pipeline_profile` and `cfg.assay_procedure`. GoliathApp is generic: it does not seed science flags or interpret an application's keys.
+
+`workflow_engine/domain/pipeline_profiles.py` applies only generic rules unless a descendant application registers a `goliath.application_profiles` entry point (see `workflow_engine/domain/application_extension.py`). Without a hook, a profile or procedure contributes its `actionConfig` and the scalar keys the instance does not already set, and **no scope flags** are seeded. When the hook defines any of the functions below, the platform delegates to it:
+
+| Hook | Purpose |
+|------|---------|
+| `seed_pipeline_scope_flags(context, *, action_config)` | Scope flags for `IF` nodes (modality, modes, presets) |
+| `apply_pipeline_profile(context, profile, *, action_config)` / `apply_pipeline_procedure(context, procedure)` | Profile / procedure merge rules |
+| `validate_procedure_analyte(context)`, `context_modality(context)` | Application checks |
+| `PIPELINE_FLAG_DEFAULTS` | Flag names and defaults |
+| `enrich_instance_context(context)` or `enrich_project_context(context, project_path)` | Project-derived context keys |
+| `load_profile` / `load_procedure` | Resolve a name or path to a document |
+
+Named presets, modality aliases, and science flags live in the application's hook, not in this repository. Each descendant application documents its own flags.
+
+Programs that need extra context variables in the root scope declare them with `scopeDefaults` (the compiler only adds `projectPath` itself). See [Workflow compiler](workflow-compiler.md).
 
 ## Precedence
 
@@ -8,47 +23,18 @@
 
 Published site documents are loaded with `portal.fn_published_site_document` (by `site_id`, or the published `default` site). The function is generic: it returns `document_json` and does not interpret keys. When it returns null, callers may fall back to the work-root site manifest.
 
+Child applications register the catalog data type of each config kind with `cfg.sp_register_kind_document_type`. Operators then edit Site settings and Pipeline profiles field by field in the generic typed grid. Kinds with no registered type are view-only. GoliathApp does not ship a free-form JSON editor. See [Operator portal guide](operator-portal-guide.md).
+
 That enrichment imports an optional external profile-path package (project load, site manifest, modality gate, sample-arm layout). Those modules are not in this repository. The local engine calls `finalize_instance_context` and, on `ImportError`, `FileNotFoundError`, or `ValueError`, logs the failure and runs with the context it already has. `goliath-workflow-run --compile-only` does not enrich.
 
-`seed_pipeline_scope_flags` itself has no external profile-path import. Tests in `workflow_engine/tests/test_pipeline_scope_flags.py` call it directly.
+`seed_pipeline_scope_flags` itself has no flags on a platform-only install. Tests in `workflow_engine/tests/test_pipeline_scope_flags.py` call it directly.
 
-## Flags
+## Generic merge
 
-`seed_pipeline_scope_flags` writes booleans and a few strings onto the context, including `runDmpSelection`, `runGeneFeaturecuts`, `runBiomarkerFilter`, `runGeneFeatureSelect`, `runProgressionAnalysis`, the `stability*Enabled` flags, `usePangenome`, `useWgbsPangenome`, `useEpiGbs`, `useEmseqTargeted`, `skipDemultiplex`, `deleteFastqs` (default true when the sample-prep config is silent), `libraryProtocol`, and `alignmentMode`.
+`apply_pipeline_profile` and `apply_pipeline_procedure` deep-merge `actionConfig` when no application hook is installed. The instance overlay wins, and a JSON null deletes the key. Scalar keys already present on the instance are left unchanged. Structural keys (`pipelineProfile`, `actionConfig`, `step_config_overrides`, `catalog`) are not copied as plain scope values.
 
-`libraryProtocol` defaults to `wgbs_linear` when unset, and normalizes aliases (`wgbs`, `pangenome`, `epi_gbs`, `emseq`, and others). `alignmentMode` defaults from that protocol: `wgbs_pangenome` becomes `pangenome_wgbs`; other protocols become `linear`.
-
-`PROFILE_PRESETS` in the same module supplies boolean overlays for named profiles (`legacy_dual`, `discovery_interpretation`, `full_biomarker_gene_fc`, `structural_features`, `staged_ovr_mc`, and others). Explicit keys already on the context win over the preset.
-
-## Modality
-
-`regulatory.primary_modality` chooses which pack flags are written. Tokens normalize through `_MODALITY_ALIASES`:
-
-| Canonical | Accepted tokens |
-|-----------|-----------------|
-| bisulfite sequencing | `bisulfite`, `wgbs`, `dna_bisulfite`, and legacy bisulfite aliases in code |
-| RNA-seq | `rnaseq`, `rna_seq`, `rna`, `transcriptome` |
-| mass-spec protein | `mass_spec`, `proteome`, `protein`, and legacy protein-modality aliases in code |
-
-An unknown token is kept as cleaned text and does not receive RNA or mass-spec protein defaults.
-
-| Modality | Scope keys |
-|----------|------------|
-| RNA-seq | Sets `quantMode` (default `star`) and `useKallisto`. Drops mass-spec keys `ingestMode`, `usePanel`, `useDda`, `useRescore`. |
-| mass-spec protein | Sets `ingestMode` (default `dia`), `usePanel`, `useDda`, and `useRescore`. Drops `quantMode` and `useKallisto`. |
-| bisulfite sequencing | Drops the RNA keys and the mass-spec keys. |
-| Absent | Does not invent those keys. Values already present stay. |
-
-The modality is read from the context. The function does not infer it from the profile name or from `primary_analyte`.
+`cfg` kind `pipeline_profile` is one of the file-store kinds. `goliath-cfg` can upsert and materialize a profile document. Procedure packs use kind `assay_procedure`.
 
 ## Loading a named profile
 
-`load_profile` imports optional `profile_paths` helpers from the external package when installed. A filesystem path that exists is read as JSON. A name is resolved by that package to a profile file. Mode overlays are `profiles/modes/<id>.mode.json`, searched under `workflow_engine/domain/profiles/` and directories returned by that package. `GOLIATH_PROFILE_DIR` (and legacy profile-dir env vars) are honored inside the external package. This repository has no `workflow_engine/domain/profiles/` directory.
-
-If resolution raises `FileNotFoundError` and the name is a key of `PROFILE_PRESETS`, `load_profile` returns `{pipelineProfile, ...preset}`. Otherwise it raises `FileNotFoundError`.
-
-`_PROFILE_ALIASES` and `_SAMD_RESEARCH_MODES` map older names (`mc_dmp`, `buffy_mc_gene_fc`, and others) onto `samd_research` plus a mode id (`dmp_raw`, `dmp_fc`, `gene_enricher`, `gene_fc`, `dual_fc`). `load_samd_research_with_mode` merges `samd_research` with that overlay. Those JSON files are product content. `_DEPRECATED_PROFILE_NAMES` is the set `cfg_status_for_catalog` can treat as retired when a catalog document is present.
-
-`apply_pipeline_profile` deep-merges `actionConfig`. The instance overlay wins, and a JSON null deletes the key. `apply_pipeline_procedure` fills procedure fields only when the instance does not already have them, then merges procedure `actionConfig` underneath the instance.
-
-`cfg` kind `pipeline_profile` is one of the file-store kinds. `goliath-cfg` can upsert and materialize a profile document. Procedure packs use kind `assay_procedure`.
+`load_profile` and `load_procedure` are provided by the application hook (or, without one, by `application_extension`: a filesystem path that exists is read as JSON; a bare name is unknown). Mode overlays, profile directories, and deprecated name maps are application content.

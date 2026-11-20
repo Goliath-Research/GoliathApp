@@ -21,6 +21,7 @@ A DomainProgram is JSON:
 | `phases` | Each phase is a sequence, or a `foreach` whose steps are the `BODY`. |
 | `body` | Statement list: action, assign, if, switch, while, repeat, for/foreach, parallel, wait. |
 | `on` | Event triggers (`event`, `mode`, optional `filter`) copied to `event_triggers`. Modes are `start_instance`, `signal_wait`, and `start_or_signal`. |
+| `scopeDefaults` | Names of extra root-scope variables the program needs. The compiler always adds `projectPath`, then each declared name (valid identifiers only). It does not invent application names. |
 
 Step objects:
 
@@ -57,4 +58,12 @@ goliath-cfg verify-workflow --program workflow_engine/tests/fixtures/sample_prep
 
 The CLI default program path is `workflow_engine/domain/fixtures/sample_prep.program.json`, which is not in this tree. Pass `--program`. `--check-db` compares compiled ACTION nodes to the active `wf.workflow_version` using the gateway connection. `--site` and `--procedure` are optional files; the CLI's built-in procedure path is also absent from this tree, and a missing file is skipped.
 
-`goliath-cfg publish-program` compiles the `domain_program` document from the file store and writes `<work>/goliath/env/compiled/<name>.compiled.json`. Database deploy of that spec imports `ops.workflow_deploy`, which is not in this tree.
+## Server-side compile and publish
+
+The operator portal compiles and publishes a draft DomainProgram on the server. **Compile and publish** (`/app/workflows/domain-programs`) runs `workflow_engine/domain/compile_service.py` (`python3 -m domain.compile_service`). The host sends the program document plus the action compile profiles from `wf.action_compile_profile` (seeded by the app that owns each action). The service is generic: it knows no application; everything application-specific arrives in that input. A program that uses an action with no compile profile is refused with a message naming the action.
+
+A successful compile creates a new **inactive** workflow version and publishes the program linked to it. Activate the version on **Workflow definitions**. Nothing is deleted. See [Operator portal guide](operator-portal-guide.md#editing-and-compiling-domain-programs).
+
+## File-store compile
+
+`goliath-cfg publish-program` compiles the `domain_program` document from the file store and writes `<work>/goliath/env/compiled/<name>.compiled.json`. That path is for offline or work-root workflows. The portal compile service above is the database-backed path operators use on a running platform host.

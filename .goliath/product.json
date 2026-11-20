@@ -37,6 +37,26 @@
     {
       "title": "Semantic read layer",
       "description": "Portal registry tables and portal.sp_run_semantic_request expose customer-facing entities and saved queries. The goliath_portal role, goliath_app.portal.PortalClient, and optional Exograph GraphQL/MCP (goliath-exo) call stored procedures only."
+    },
+    {
+      "title": "Generic operator editors",
+      "description": "The signed-in platform host at app.goliathresearch.com presents Meta-driven record grids (Add, View, Edit), a typed property grid, and a generic tree editor. Operators never type JSON. Child applications seed classes, data, and programs and inherit the same editors."
+    },
+    {
+      "title": "Typed config documents and site parameters",
+      "description": "A child application registers the catalog data type of its site and pipeline-profile documents. The generic inspector edits them field by field. portal.fn_published_site_document returns a published site document for workers without interpreting keys."
+    },
+    {
+      "title": "Workflow designer and server-side compile",
+      "description": "Operators edit versioned workflow graphs and DomainProgram steps in the portal. Compile and publish runs the platform's generic compiler on the server and creates an inactive workflow version."
+    },
+    {
+      "title": "Actions as class methods",
+      "description": "Every action is a method on exactly one owning Meta class. The platform derives typed parameters from the action's input schema and checks that each catalog action has one owner."
+    },
+    {
+      "title": "Catalogs as Meta classes",
+      "description": "Thirty-eight semantic, workflow, and cfg catalog kinds are projected as Meta classes. Meta is authoritative; the tables stay as the indexed read surface. A verifier checks that the two sides agree."
     }
   ],
   "links": {
