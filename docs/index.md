@@ -6,9 +6,11 @@ Specialized applications extend it with their own actions, profiles, and worker 
 
 ## Start here
 
-**Operators (signed-in portal at `/app`):**
+**Operators (signed-in portal):**
 
-- [Operator portal guide](operator-portal-guide.md) — two starting paths (extend in place vs duplicate as your base), class hierarchy, views, dashboards, and clean-baseline rules
+The live GoliathApp platform host is [https://app.goliathresearch.com](https://app.goliathresearch.com) (signed-in routes under `/app`). Child application hosts that are live, including [https://omics.goliathresearch.com](https://omics.goliathresearch.com), are listed on the company site at [https://www.goliathresearch.com/apps/](https://www.goliathresearch.com/apps/).
+
+- [Operator portal guide](operator-portal-guide.md) — two starting paths (extend in place vs duplicate as your base), generic grids and tree editor, typed config documents, workflow designer, and domain-program compile/publish
 
 **Engineers (adopters):**
 
@@ -30,7 +32,7 @@ Specialized applications extend it with their own actions, profiles, and worker 
 - [Semantic layer](semantic-layer.md) — portal registry, runner, and Python client
 - [Semantic extensions](semantic-extensions.md) — namespaces, overrides, and auth for descendant apps
 - [Deployment](deployment.md) — `goliath-exo` PostgreSQL + Exograph/MCP target
-- [Pipeline profiles](pipeline-profiles.md) — scope flags for workflow branches
+- [Pipeline profiles](pipeline-profiles.md) — generic profile hook, site documents, and merge precedence
 - [Schema apply](schema-apply.md) — ordered, re-runnable `sql_pg` apply
 - [Repository layout](workspace-index.md) — directories in this tree
 

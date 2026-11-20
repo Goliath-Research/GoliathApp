@@ -4,7 +4,7 @@
 
 It keeps application behavior in a database: a Meta object model (see [docs/meta-model.md](docs/meta-model.md)), RBAC, portal SQL, a workflow engine, and user-defined actions. A REST gateway enrolls distributed workers that carry out the actions. This repository ships the engine, the compiler, and the claim client.
 
-**Documentation for adopters:** the full site lives under `docs/` and publishes to <https://goliath-research.github.io/GoliathApp/>. Start with [docs/adopter-guide.md](docs/adopter-guide.md) (building a descendant application), [docs/architecture.md](docs/architecture.md) (diagrams and layers), and [docs/feature-catalog.md](docs/feature-catalog.md) (capability map with links).
+**Documentation:** the full site lives under `docs/` and publishes to <https://goliath-research.github.io/GoliathApp/>. The live operator portal is <https://app.goliathresearch.com>. Start with [docs/operator-portal-guide.md](docs/operator-portal-guide.md) (signed-in portal), [docs/adopter-guide.md](docs/adopter-guide.md) (building a descendant application), [docs/architecture.md](docs/architecture.md) (diagrams and layers), and [docs/feature-catalog.md](docs/feature-catalog.md) (capability map with links).
 
 Repository layout: [docs/workspace-index.md](docs/workspace-index.md). A catalog site can read [`.goliath/product.json`](.goliath/product.json) at build time.
 
@@ -16,7 +16,9 @@ Repository layout: [docs/workspace-index.md](docs/workspace-index.md). A catalog
 | DomainProgram compiler | [docs/workflow-compiler.md](docs/workflow-compiler.md) |
 | Database workflow engine | [docs/workflow-engine.md](docs/workflow-engine.md) |
 | User-defined actions | [docs/actions.md](docs/actions.md) |
+| Operator portal (end users) | [docs/operator-portal-guide.md](docs/operator-portal-guide.md) |
 | Worker enrollment and dispatch | [docs/workers.md](docs/workers.md) |
+| Catalogs as Meta classes | [docs/meta-catalogs.md](docs/meta-catalogs.md) |
 | RBAC | [docs/rbac.md](docs/rbac.md) |
 | Pipeline profiles | [docs/pipeline-profiles.md](docs/pipeline-profiles.md) |
 | Schema apply (`sql_pg`) | [docs/schema-apply.md](docs/schema-apply.md) |

@@ -2,6 +2,9 @@
 
 Workers never open the database. They call the REST gateway defined in `contracts/openapi.yaml` and implemented in `workflow_engine/rest/gateway.py`. The client in this repository is `goliath_worker.WorkflowRestClient`.
 
+Clusters and workers live in GoliathApp's `wf` schema (`wf.cluster`, `wf.worker`, enrollment, session, and token tables). Child applications do not own these tables. In the Meta model, the only classes related to `platform/Site` are Cluster and Worker; a child-app class such as a lab or organization must not subclass or relate to Site. Operators edit clusters and workers on the portal **Workers and clusters** grid.
+
+
 Default base URL is `GOLIATH_API_BASE`, or `http://localhost:8080/v1`.
 
 ## Enrollment

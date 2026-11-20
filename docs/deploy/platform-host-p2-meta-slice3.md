@@ -1,5 +1,7 @@
 # Platform host — P2 Meta slice 3 (SchemaPropertyGrid + authenticated E2E)
 
+This page records a historical implementation slice. The current operator surface is the generic typed grid, record grids, and tree editor (no free-form JSON typing). See [Operator portal guide](../operator-portal-guide.md).
+
 ## Governing principle (Meta class hierarchy)
 
 The **Meta class hierarchy** is the foundation of schema-driven editing in GoliathApp — not a generic JSON Schema renderer with class lookups bolted on.

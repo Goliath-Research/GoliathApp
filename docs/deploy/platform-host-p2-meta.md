@@ -1,5 +1,7 @@
 # Platform host — P2 Meta hierarchy (slice 2)
 
+This page records a historical implementation slice. The current operator surface is the generic typed grid, record grids, and tree editor (no free-form JSON typing). See [Operator portal guide](../operator-portal-guide.md).
+
 Stacked on slice 1. **Catalog reads** stay global; **instance data** is scope-bound on the server.
 
 ## Tenancy model (code-only DDL in `portal_session_meta_api.sql`)

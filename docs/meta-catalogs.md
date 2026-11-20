@@ -40,7 +40,7 @@ The classes are `platform/*`, so only God Architect edits them in the generic ed
 
 ## Workflow and cfg catalogs
 
-Registered under `platform/Entity` as `platform/wf/*` and `platform/cfg/*`. Not migrated: runtime tables (instances, node executions, leases, events, workers, start requests), `cfg.credential` (secrets), `wf.data_type` (the Meta type registry itself) and `wf.cluster`.
+There are **38 catalog kinds** in total: the 6 semantic kinds above plus the workflow and cfg kinds in the table below (14 `wf.*` and 18 `cfg.*`). Registered under `platform/Entity` as `platform/wf/*` and `platform/cfg/*`. Not migrated: runtime tables (instances, node executions, leases, events, workers, start requests), `cfg.credential` (secrets), `wf.data_type` (the Meta type registry itself) and `wf.cluster`.
 
 `cfg.portal_auth_defaults` holds only integer session and worker timeout keys (`portal_session_idle_seconds`, `portal_session_absolute_seconds`, `worker_heartbeat_seconds`, `worker_session_miss_factor`, `worker_session_max_failed_attempts`). It has no secrets.
 
