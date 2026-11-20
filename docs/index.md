@@ -8,7 +8,7 @@ Specialized applications extend it with their own actions, profiles, and worker 
 
 **Operators (signed-in portal):**
 
-The live GoliathApp platform host is [https://app.goliathresearch.com](https://app.goliathresearch.com) (signed-in routes under `/app`). Child application hosts that are live, including [https://omics.goliathresearch.com](https://omics.goliathresearch.com), are listed on the company site at [https://www.goliathresearch.com/apps/](https://www.goliathresearch.com/apps/).
+The live GoliathApp platform host is [https://app.goliathresearch.com](https://app.goliathresearch.com) (signed-in routes under `/app`). Live application hosts for descendant products are listed on the company site at [https://www.goliathresearch.com/apps/](https://www.goliathresearch.com/apps/).
 
 - [Operator portal guide](operator-portal-guide.md) — two starting paths (extend in place vs duplicate as your base), generic grids and tree editor, typed config documents, workflow designer, and domain-program compile/publish
 

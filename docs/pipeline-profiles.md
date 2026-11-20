@@ -13,7 +13,7 @@ Pipeline profiles and procedures are application documents stored in `cfg.pipeli
 | `enrich_instance_context(context)` or `enrich_project_context(context, project_path)` | Project-derived context keys |
 | `load_profile` / `load_procedure` | Resolve a name or path to a document |
 
-Named presets, modality aliases, and science flags live in the application's hook, not in this repository. GoliathOmics documents its flags in [its config registry](https://goliath-research.github.io/GoliathOmics/usage/19-config-registry/) and [sample-prep usage](https://goliath-research.github.io/GoliathOmics/usage/03-sample-prep-and-qc/).
+Named presets, modality aliases, and science flags live in the application's hook, not in this repository. Each descendant application documents its own flags.
 
 Programs that need extra context variables in the root scope declare them with `scopeDefaults` (the compiler only adds `projectPath` itself). See [Workflow compiler](workflow-compiler.md).
 

@@ -1,6 +1,6 @@
 # Operator portal guide (end users)
 
-This guide is for **operators and application owners** who sign in to the GoliathApp **platform host** at [https://app.goliathresearch.com](https://app.goliathresearch.com) (routes under `/app`). Child applications that share this host, such as GoliathOmics at [https://omics.goliathresearch.com](https://omics.goliathresearch.com), are listed on the company site at [https://www.goliathresearch.com/apps/](https://www.goliathresearch.com/apps/). It explains how to grow your application using the signed-in portal, and how that relates to the two supported **starting paths** for any GoliathApp-based product.
+This guide is for **operators and application owners** who sign in to the GoliathApp **platform host** at [https://app.goliathresearch.com](https://app.goliathresearch.com) (routes under `/app`). Live application hosts for descendant products that share this host are listed on the company site at [https://www.goliathresearch.com/apps/](https://www.goliathresearch.com/apps/). It explains how to grow your application using the signed-in portal, and how that relates to the two supported **starting paths** for any GoliathApp-based product.
 
 Engineers implementing SQL, workers, and packaging should still read the [Adopter guide](adopter-guide.md). This page is written for people who work in the UI: classes, entities, views, and dashboards.
 
