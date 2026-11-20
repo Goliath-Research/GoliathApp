@@ -28,7 +28,7 @@ export default defineConfig({
       : []),
     {
       name: "chromium-unauth",
-      testMatch: /host\.smoke\.spec\.ts/,
+      testMatch: /host\.(smoke|workflow-graph-contrast)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
   ],

@@ -21,13 +21,21 @@ export type WorkflowGraphCanvasProps = {
   onChange?: (next: Record<string, unknown>) => void;
   selectedNodeKey?: string | null;
   onSelectNode?: (key: string | null) => void;
+  /** When false, the canvas uses the inactive-version node chrome (dashed border). */
+  versionActive?: boolean;
 };
 
 /**
  * Canvas of a workflow version graph. Read-only unless `onChange` is given; edits change the
  * draft only — saving creates a new inactive version.
  */
-export function WorkflowGraphCanvas({ spec, onChange, selectedNodeKey, onSelectNode }: WorkflowGraphCanvasProps) {
+export function WorkflowGraphCanvas({
+  spec,
+  onChange,
+  selectedNodeKey,
+  onSelectNode,
+  versionActive,
+}: WorkflowGraphCanvasProps) {
   const editable = onChange != null;
   const graph = useMemo(() => layoutWorkflowGraph(spec), [spec]);
   const nodes: Node[] = useMemo(
@@ -45,7 +53,15 @@ export function WorkflowGraphCanvas({ spec, onChange, selectedNodeKey, onSelectN
             </div>
           ),
         },
-        className: `g-graph-node g-graph-node--${n.nodeType.toLowerCase()}${n.isRoot ? " g-graph-node--root" : ""}`,
+        className: [
+          "g-graph-node",
+          `g-graph-node--${n.nodeType.toLowerCase()}`,
+          n.isRoot ? "g-graph-node--root" : "",
+          n.isEnd ? "g-graph-node--end" : "",
+          n.isError ? "g-graph-node--error" : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
         style: { width: NODE_WIDTH, minHeight: NODE_HEIGHT },
         draggable: false,
         connectable: editable,
@@ -90,11 +106,19 @@ export function WorkflowGraphCanvas({ spec, onChange, selectedNodeKey, onSelectN
   return (
     <>
       <div
-        className="g-graph-canvas"
+        className={
+          versionActive === false
+            ? "g-graph-canvas g-graph-canvas--inactive"
+            : versionActive === true
+              ? "g-graph-canvas g-graph-canvas--active"
+              : "g-graph-canvas"
+        }
         aria-label={editable ? "workflow graph (editable)" : "workflow graph (read-only)"}
         data-testid="workflow-graph-canvas"
+        data-version-active={versionActive == null ? undefined : String(versionActive)}
       >
         <ReactFlow
+          colorMode="light"
           nodes={nodes}
           edges={edges}
           nodesDraggable={false}

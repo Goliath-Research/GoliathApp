@@ -14,6 +14,8 @@ export type CanvasNode = {
   nodeType: string;
   detail?: string;
   isRoot: boolean;
+  isEnd: boolean;
+  isError: boolean;
   x: number;
   y: number;
 };
@@ -103,6 +105,7 @@ export function layoutWorkflowGraph(spec: Record<string, unknown> | null | undef
     edges.push({ id: `e${i}:${source}->${target}`, source, target, label: edgeLabel(e) });
   }
   layout(g);
+  const outgoing = new Set(edges.map((e) => e.source));
   const nodes: CanvasNode[] = [];
   const seen = new Set<string>();
   for (const n of nodeRows) {
@@ -110,12 +113,16 @@ export function layoutWorkflowGraph(spec: Record<string, unknown> | null | undef
     if (!key || seen.has(key)) continue;
     seen.add(key);
     const pos = g.node(key);
+    const nodeType = str(n.node_type).toUpperCase() || "NODE";
+    const detail = nodeDetail(n);
     nodes.push({
       id: key,
       label: key,
-      nodeType: str(n.node_type).toUpperCase() || "NODE",
-      detail: nodeDetail(n),
+      nodeType,
+      detail,
       isRoot: key === root,
+      isEnd: !outgoing.has(key),
+      isError: nodeType === "ACTION" && !detail,
       // dagre gives centres; the canvas positions by top-left corner.
       x: (pos?.x ?? 0) - NODE_WIDTH / 2,
       y: (pos?.y ?? 0) - NODE_HEIGHT / 2,
