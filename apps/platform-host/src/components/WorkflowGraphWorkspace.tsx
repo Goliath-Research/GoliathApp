@@ -441,6 +441,7 @@ export function WorkflowGraphWorkspace({ mode }: { mode: GraphEditorMode }) {
               onChange={readOnly ? undefined : applyDraft}
               selectedNodeKey={selectedNode}
               onSelectNode={setSelectedNode}
+              versionActive={selected.is_active}
             />
             {!readOnly ? (
               <p className="g-record-editor__note">

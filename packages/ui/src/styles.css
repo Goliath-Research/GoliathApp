@@ -8,6 +8,16 @@
   --g-accent: #0f766e;
   --g-badge-gap: 0.5rem;
   --g-font: system-ui, sans-serif;
+  /* Workflow designer nodes keep a light fill and dark captions in every
+     color scheme so labels stay readable on the white node. These do not
+     flip under prefers-color-scheme. */
+  --g-graph-node-bg: #ffffff;
+  --g-graph-node-fg: #1c1917;
+  --g-graph-node-fg-muted: #57534e;
+  --g-graph-node-border: #d6d3d1;
+  --g-graph-node-accent: #0f766e;
+  --g-graph-node-error: #b00020;
+  --g-graph-node-ring: var(--g-accent);
 }
 
 @media (prefers-color-scheme: dark) {

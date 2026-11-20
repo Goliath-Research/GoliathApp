@@ -971,13 +971,97 @@
 .g-record-editor__table tr.is-selected, .g-action-methods__list li.is-selected { background: var(--g-selected, rgba(80, 120, 220, 0.12)); }
 .g-record-editor__row-actions { display: flex; gap: 0.3rem; }
 .g-record-editor__inspector { border: 1px solid var(--g-border, #ddd); border-radius: 6px; padding: 0.75rem; }
-.g-graph-canvas { height: 420px; border: 1px solid var(--g-border, #ddd); border-radius: 6px; margin-bottom: 0.75rem; }
-.g-graph-node { font-size: 0.8rem; text-align: left; }
-.g-graph-node--root { border-width: 2px; }
-.g-graph-node__label { display: flex; flex-direction: column; gap: 0.1rem; overflow: hidden; }
-.g-graph-node__label strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.g-graph-node__type { font-size: 0.7rem; opacity: 0.7; letter-spacing: 0.03em; }
-.g-graph-node__detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.g-graph-canvas { height: 420px; border: 1px solid var(--g-border, #ddd); border-radius: 6px; margin-bottom: 0.75rem; padding: 6px; box-sizing: border-box; }
+
+/* Pin React Flow nodes to graph-node tokens so captions stay dark on a white
+   fill in every node state and color scheme (including .react-flow.dark). */
+.g-graph-canvas .react-flow,
+.g-graph-canvas .react-flow.light,
+.g-graph-canvas .react-flow.dark {
+  --xy-node-color: var(--g-graph-node-fg);
+  --xy-node-background-color: var(--g-graph-node-bg);
+  --xy-node-border: 1px solid var(--g-graph-node-border);
+  --xy-node-boxshadow-hover: 0 0 0 1px var(--g-graph-node-ring);
+  --xy-node-boxshadow-selected: 0 0 0 2px var(--g-graph-node-ring);
+  --xy-edge-label-color: var(--g-graph-node-fg);
+  --xy-edge-label-background-color: var(--g-graph-node-bg);
+  --xy-handle-background-color: var(--g-graph-node-ring);
+  --xy-handle-border-color: var(--g-graph-node-bg);
+  --xy-edge-stroke-selected: var(--g-graph-node-ring);
+}
+
+.g-graph-canvas .react-flow__node,
+.g-graph-canvas .react-flow__node-default,
+.g-graph-canvas .react-flow__node-input,
+.g-graph-canvas .react-flow__node-output,
+.g-graph-canvas .react-flow__node-group,
+.g-graph-canvas .react-flow__node.selectable:hover,
+.g-graph-canvas .react-flow__node.selectable.is-hover,
+.g-graph-canvas .react-flow__node.selectable.selected,
+.g-graph-canvas .react-flow__node.selectable:focus,
+.g-graph-canvas .react-flow__node.selectable:focus-visible,
+.g-graph-canvas .react-flow__node-default.selectable:hover,
+.g-graph-canvas .react-flow__node-default.selectable.is-hover,
+.g-graph-canvas .react-flow__node-default.selectable.selected,
+.g-graph-canvas .react-flow__node-default.selectable:focus,
+.g-graph-canvas .react-flow__node-default.selectable:focus-visible {
+  background-color: var(--g-graph-node-bg);
+  color: var(--g-graph-node-fg);
+  border-color: var(--g-graph-node-border);
+}
+
+.g-graph-canvas .react-flow__node.selectable.selected,
+.g-graph-canvas .react-flow__node.selectable:focus,
+.g-graph-canvas .react-flow__node.selectable:focus-visible,
+.g-graph-canvas .react-flow__node-default.selectable.selected,
+.g-graph-canvas .react-flow__node-default.selectable:focus,
+.g-graph-canvas .react-flow__node-default.selectable:focus-visible {
+  box-shadow: 0 0 0 2px var(--g-graph-node-ring);
+  outline: 2px solid var(--g-graph-node-ring);
+  outline-offset: 1px;
+}
+
+.g-graph-canvas .react-flow__node.selectable:hover:not(.selected),
+.g-graph-canvas .react-flow__node.selectable.is-hover:not(.selected) {
+  box-shadow: 0 0 0 1px var(--g-graph-node-ring);
+}
+
+.g-graph-node {
+  font-size: 0.8rem;
+  text-align: left;
+  color: var(--g-graph-node-fg);
+  background-color: var(--g-graph-node-bg);
+  border: 1px solid var(--g-graph-node-border);
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+.g-graph-node--root { border-width: 2px; border-color: var(--g-graph-node-accent); }
+.g-graph-node--end { border-width: 2px; }
+.g-graph-node--error { border-color: var(--g-graph-node-error); }
+.g-graph-node--error .g-graph-node__type { color: var(--g-graph-node-error); }
+.g-graph-canvas--inactive .g-graph-node { border-style: dashed; }
+.g-graph-node__label { display: flex; flex-direction: column; gap: 0.1rem; overflow: hidden; color: var(--g-graph-node-fg); }
+.g-graph-node__label strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--g-graph-node-accent);
+}
+.g-graph-node__type { font-size: 0.7rem; color: var(--g-graph-node-fg-muted); letter-spacing: 0.03em; }
+.g-graph-node__detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--g-graph-node-fg); }
+.g-graph-node .g-badge,
+.g-graph-node .g-icon { color: var(--g-graph-node-accent); }
+.g-graph-node .g-badge {
+  background: var(--g-graph-node-bg);
+  border: 1px solid var(--g-graph-node-border);
+}
+.g-graph-canvas .react-flow__edge-text { fill: var(--g-graph-node-fg); }
+.g-graph-canvas .react-flow__edge-textbg { fill: var(--g-graph-node-bg); }
+.g-graph-canvas .react-flow__edge-label,
+.g-graph-canvas .react-flow__edgelabel-renderer {
+  color: var(--g-graph-node-fg);
+  background: var(--g-graph-node-bg);
+}
 .g-record-editor__error { color: var(--g-danger, #b00020); }
 .g-record-editor__note { font-size: 0.9em; opacity: 0.85; }
 .g-action-methods__list ul { list-style: none; margin: 0.25rem 0 0.75rem; padding-left: 1rem; }
