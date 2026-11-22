@@ -1,6 +1,10 @@
 name: PR
 
 # Runs on every pull_request sync against main.
+#
+# PostgreSQL matrix: 18 matches production (Neon) and is required. 19 is a
+# non-blocking forward-compatibility signal (continue-on-error); promote it to
+# required by flipping `experimental` to false once it has been green for a while.
 on:
   pull_request:
     branches:
@@ -11,10 +15,20 @@ on:
 
 jobs:
   pr:
+    name: ${{ matrix.postgres == '18' && 'pr' || format('pr (PostgreSQL {0}, non-blocking)', matrix.postgres) }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - postgres: "18"
+            experimental: false
+          - postgres: "19"
+            experimental: true
     services:
       postgres:
-        image: postgres:17
+        image: postgres:${{ matrix.postgres }}
         env:
           POSTGRES_PASSWORD: goliath_ci
           POSTGRES_DB: goliathapp_schema_test
@@ -39,7 +53,17 @@ jobs:
           python-version: "3.12"
 
       - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+        run: bash scripts/ci/install_postgresql_client.sh "${{ matrix.postgres }}"
+
+      - name: Report PostgreSQL server version and pg_jsonschema availability
+        run: bash scripts/ci/report_postgres_capabilities.sh
+        env:
+          EXPECTED_PG_MAJOR: ${{ matrix.postgres }}
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: goliath_ci
+          PGDATABASE: goliathapp_schema_test
 
       - name: Install contract and test dependencies
         run: python -m pip install -U pip pyyaml pytest httpx
@@ -172,10 +196,20 @@ jobs:
         run: python3 scripts/validate_mermaid_docs.py
 
   frontend:
+    name: ${{ matrix.postgres == '18' && 'frontend' || format('frontend (PostgreSQL {0}, non-blocking)', matrix.postgres) }}
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - postgres: "18"
+            experimental: false
+          - postgres: "19"
+            experimental: true
     services:
       postgres:
-        image: postgres:17
+        image: postgres:${{ matrix.postgres }}
         env:
           POSTGRES_PASSWORD: goliath_ci
           POSTGRES_DB: goliathapp_schema_test
@@ -199,7 +233,17 @@ jobs:
           python-version: "3.12"
 
       - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+        run: bash scripts/ci/install_postgresql_client.sh "${{ matrix.postgres }}"
+
+      - name: Report PostgreSQL server version and pg_jsonschema availability
+        run: bash scripts/ci/report_postgres_capabilities.sh
+        env:
+          EXPECTED_PG_MAJOR: ${{ matrix.postgres }}
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: goliath_ci
+          PGDATABASE: goliathapp_schema_test
 
       - name: Install frontend dependencies
         run: npm ci
@@ -245,6 +289,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: platform-host-e2e-screenshots
+          name: platform-host-e2e-screenshots-pg${{ matrix.postgres }}
           path: playwright-artifacts/
           if-no-files-found: ignore
