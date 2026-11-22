@@ -6,7 +6,7 @@ An application that ships this engine applies the list once per release, to the 
 
 ## What the script runs
 
-`apply_schema.sh` requires `psql` (PostgreSQL 15+; 17+ is what `00_schema.sql` recommends for SQL/JSON). Set standard libpq variables before running:
+`apply_schema.sh` requires `psql` (PostgreSQL 15+; 17+ is what `00_schema.sql` recommends for SQL/JSON). CI applies the schema on PostgreSQL 18 (matches production on Neon; required) and 19 (non-blocking forward-compatibility check). Set standard libpq variables before running:
 
 | Variable | Role |
 |----------|------|
