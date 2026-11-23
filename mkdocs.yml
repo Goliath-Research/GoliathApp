@@ -33,6 +33,7 @@ nav:
       - God Architect role: platform-god-architect.md
       - Platform self-model plan: platform-self-model.md
       - Layered security model: platform-layered-security.md
+      - History and audit: history-and-audit.md
       - Architecture: architecture.md
       - Platform visualization (UI): visualization.md
       - Feature catalog: feature-catalog.md

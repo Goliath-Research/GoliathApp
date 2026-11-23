@@ -148,6 +148,7 @@ SCRIPTS=(
   wf_event_ingest_authorization.sql
   wf_worker_wake_hints.sql
   wf_cfg_catalog_meta.sql
+  platform_history_ledger.sql
   database_gateway_roles.sql
 )
 
