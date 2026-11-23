@@ -581,8 +581,7 @@ BEGIN
     r.required_permission
   FROM portal.semantic_request r
   INNER JOIN portal.semantic_entity e ON e.id = r.entity_id
-  WHERE r.required_permission IS NULL
-     OR portal.fn_semantic_session_has_permission(v_user_id, r.required_permission)
+  WHERE portal.fn_semantic_session_has_permission(v_user_id, r.required_permission)
   ORDER BY r.namespace, r.request_code, r.version;
 END;
 $$;

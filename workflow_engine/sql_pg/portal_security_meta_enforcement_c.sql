@@ -898,8 +898,8 @@ SECURITY DEFINER
 SET search_path = portal, pg_temp
 AS $$
   SELECT
-    p_permission IS NULL
-    OR (
+    NULLIF(btrim(p_permission), '') IS NOT NULL
+    AND (
       portal.fn_session_active_role_id(p_session_id) IS NOT NULL
       AND portal.fn_session_role_grant_valid(
         p_user_id,

@@ -510,7 +510,7 @@
         "type": "object"
       },
       "request_code": "core.filter_organizations",
-      "required_permission": null,
+      "required_permission": "core.organization.read",
       "result_schema": {
         "properties": {
           "active": {
@@ -581,7 +581,7 @@
         "type": "object"
       },
       "request_code": "core.list_organizations",
-      "required_permission": null,
+      "required_permission": "core.organization.read",
       "result_schema": {
         "properties": {
           "active": {
@@ -730,7 +730,7 @@
         "type": "object"
       },
       "request_code": "inv.item.list",
-      "required_permission": null,
+      "required_permission": "inv.read",
       "result_schema": {
         "properties": {
           "active": {
@@ -838,7 +838,7 @@
         "type": "object"
       },
       "request_code": "inv.purchase_order.list",
-      "required_permission": null,
+      "required_permission": "inv.read",
       "result_schema": {
         "properties": {
           "ordered_at_utc": {
@@ -937,7 +937,7 @@
         "type": "object"
       },
       "request_code": "inv.stock_lot.by_item",
-      "required_permission": null,
+      "required_permission": "inv.read",
       "result_schema": {
         "properties": {
           "bin_code": {
@@ -1052,7 +1052,7 @@
         "type": "object"
       },
       "request_code": "inv.supplier_item.list",
-      "required_permission": null,
+      "required_permission": "inv.read",
       "result_schema": {
         "properties": {
           "active": {

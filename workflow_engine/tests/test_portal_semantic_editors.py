@@ -111,6 +111,7 @@ def test_semantic_namespace_entity_attribute_request_lifecycle(
     base = {
         "request_code": code, "namespace": ns, "entity_id": entity_id, "target_kind": "function",
         "row_type": "core_organization_row", "max_rows": 100, "params": params,
+        "required_permission": "meta.object.read",
     }
     # Target must be a real function with the runner signature; no SQL text is accepted.
     for bad in ("portal.no_such_fn", "pg_catalog.pg_sleep", "portal.fn_semantic_core_list_organizations; drop table x"):

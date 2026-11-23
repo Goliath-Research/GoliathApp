@@ -32,6 +32,8 @@ ORGANIZATION_ENTITY = SemanticEntitySpec(
     ),
 )
 
+CORE_ORGANIZATION_READ_PERMISSION = "core.organization.read"
+
 SEMANTIC_CATALOG: list[SemanticEntitySpec] = [ORGANIZATION_ENTITY, *INV_ENTITIES]
 
 SEMANTIC_REQUESTS: list[SemanticRequestSpec] = [
@@ -44,6 +46,7 @@ SEMANTIC_REQUESTS: list[SemanticRequestSpec] = [
         target_name="portal.fn_semantic_core_list_organizations",
         params_model=ListOrganizationsParams,
         result_row_model=OrganizationRow,
+        required_permission=CORE_ORGANIZATION_READ_PERMISSION,
     ),
     SemanticRequestSpec(
         request_code="core.filter_organizations",
@@ -57,6 +60,7 @@ SEMANTIC_REQUESTS: list[SemanticRequestSpec] = [
         filter_template=FilterTemplate(
             all_of=[Predicate(attribute="name", op=FilterOp.STARTS_WITH, param="name")]
         ),
+        required_permission=CORE_ORGANIZATION_READ_PERMISSION,
     ),
     SemanticRequestSpec(
         request_code="core.restricted_probe",

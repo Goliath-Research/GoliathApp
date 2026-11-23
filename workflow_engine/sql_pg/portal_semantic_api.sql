@@ -36,8 +36,8 @@ SECURITY DEFINER
 SET search_path = portal, "RBAC", pg_temp
 AS $$
   SELECT
-    p_permission IS NULL
-    OR EXISTS (
+    NULLIF(btrim(p_permission), '') IS NOT NULL
+    AND EXISTS (
       SELECT 1
       FROM "RBAC"."UserRoleGrants" g
       INNER JOIN "RBAC"."Role_Permissions" rp ON rp."RoleID" = g."RoleID"

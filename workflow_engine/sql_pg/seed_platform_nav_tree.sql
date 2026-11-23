@@ -73,6 +73,8 @@ BEGIN
       'inv.stock.receive',
       'inv.stock.adjust',
       'inv.stock.issue',
+      'inv.read',
+      'core.organization.read',
       'workflow.validation.plan',
       'semantic.restricted.probe'
     ]
@@ -101,6 +103,8 @@ BEGIN
       'inv.stock.receive',
       'inv.stock.adjust',
       'inv.stock.issue',
+      'inv.read',
+      'core.organization.read',
       'workflow.validation.plan'
     ]::text[])
   LOOP

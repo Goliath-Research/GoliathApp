@@ -36,9 +36,9 @@ Filter templates use the v1 compiler (`portal.fn_semantic_compile_filter` intern
 
 ## Authorization
 
-Every `portal.semantic_request` row may set `required_permission`. At runtime `portal.sp_run_semantic_request` checks `portal.fn_semantic_session_has_permission` against `"RBAC"."UserRoleGrants"` and `"RBAC"."Role_Permissions"`.
+Every `portal.semantic_request` row must set `required_permission`. At runtime `portal.sp_run_semantic_request` checks it with `portal.fn_session_has_permission` against the session's selected role in its active scope. A request registered without a permission is denied (`GS403`) to everyone and is left out of the catalog. Platform requests use `core.organization.read` (`core.*`) and `inv.read` (`inv.*`); the schema grants both to `organization_admin` when it first creates them.
 
-Organization-scoped reads additionally enforce membership through `portal.fn_semantic_user_organization_ids` inside core list/filter functions. A user cannot pass another tenant's `organization_id` even when the request is otherwise allowed.
+When the params carry `organization_id`, the runner requires it to be the organization of the session's active scope and passes that organization to the target; any other value is denied (`GS403`). Organization-scoped reads additionally enforce membership through `portal.fn_semantic_user_organization_ids` inside core list/filter functions. A user cannot pass another tenant's `organization_id` even when the request is otherwise allowed.
 
 Sensitive reads should **always** enforce scope in SQL. GraphQL or MCP façades must not skip these checks.
 

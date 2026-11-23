@@ -16,7 +16,7 @@ GoliathApp ships an **optional**, domain-neutral inventory and purchasing module
 | Purchasing | `inv.purchase_order`, `inv.purchase_order_line`, `inv.receipt` |
 | Costing | Moving average default (`inv.item.avg_unit_cost`); optional standard cost per item (`costing_method = standard`). **FIFO lot costing is not implemented**; add only when a buyer requires it. |
 
-Semantic namespace **`inv`** registers entities such as `inv.item`, `inv.purchase_order`, `inv.stock_lot`, and `inv.supplier_item` with read requests (`inv.item.list`, etc.) via `portal.sp_run_semantic_request`.
+Semantic namespace **`inv`** registers entities such as `inv.item`, `inv.purchase_order`, `inv.stock_lot`, and `inv.supplier_item` with read requests (`inv.item.list`, etc.) via `portal.sp_run_semantic_request`. Each read requires the `inv.read` permission on the session's selected role, and its `organization_id` must be the organization of the session's active scope.
 
 Core write **`ActionSpec`** rows (entry point `goliath.action_catalogs` / `inv`):
 
