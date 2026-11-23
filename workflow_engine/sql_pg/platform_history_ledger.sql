@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS portal.ledger_registry (
   ledger_name text PRIMARY KEY,
   table_regclass regclass NOT NULL,
   description text NOT NULL DEFAULT '',
-  registered_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  registered_at_utc timestamptz NOT NULL DEFAULT now()
 );
 
 -- Natural-key columns of ledgers written with INSERT … ON CONFLICT DO NOTHING (for example
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS portal.ledger_head (
   ledger_name text PRIMARY KEY REFERENCES portal.ledger_registry (ledger_name),
   last_seq bigint NOT NULL DEFAULT 0,
   last_hash bytea NULL,
-  updated_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  updated_at_utc timestamptz NOT NULL DEFAULT now()
 );
 
 -- Rows a purge removed: the chain links through these.
@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS portal.ledger_tombstone (
   row_hash bytea NOT NULL,
   purge_id bigint NULL,
   purged_txid bigint NOT NULL,
-  purged_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  purged_at_utc timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT "PK_portal_ledger_tombstone" PRIMARY KEY (ledger_name, ledger_seq)
 );
 
@@ -53,9 +53,16 @@ CREATE TABLE IF NOT EXISTS portal.ledger_purge_authorization (
   txid bigint NOT NULL,
   ledger_name text NOT NULL REFERENCES portal.ledger_registry (ledger_name),
   purge_id bigint NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT "PK_portal_ledger_purge_authorization" PRIMARY KEY (txid, ledger_name)
 );
+
+-- These columns are timestamptz, so they default to now() (an absolute instant). Re-applying
+-- corrects defaults created by an earlier revision of this file.
+ALTER TABLE portal.ledger_registry ALTER COLUMN registered_at_utc SET DEFAULT now();
+ALTER TABLE portal.ledger_head ALTER COLUMN updated_at_utc SET DEFAULT now();
+ALTER TABLE portal.ledger_tombstone ALTER COLUMN purged_at_utc SET DEFAULT now();
+ALTER TABLE portal.ledger_purge_authorization ALTER COLUMN created_at_utc SET DEFAULT now();
 
 REVOKE ALL ON portal.ledger_registry, portal.ledger_head, portal.ledger_tombstone,
   portal.ledger_purge_authorization FROM PUBLIC;
@@ -128,7 +135,7 @@ BEGIN
   UPDATE portal.ledger_head
   SET last_seq = NEW.ledger_seq,
       last_hash = NEW.row_hash,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = now()
   WHERE ledger_name = v_name;
   RETURN NEW;
 END;
@@ -331,7 +338,7 @@ STABLE
 SECURITY DEFINER
 SET search_path = portal, pg_temp
 AS $$
-  SELECT r.ledger_name, COALESCE(h.last_seq, 0), encode(h.last_hash, 'hex'), (now() AT TIME ZONE 'utc')
+  SELECT r.ledger_name, COALESCE(h.last_seq, 0), encode(h.last_hash, 'hex'), now()
   FROM portal.ledger_registry r
   LEFT JOIN portal.ledger_head h ON h.ledger_name = r.ledger_name
   ORDER BY r.ledger_name;
