@@ -49,6 +49,38 @@ BEGIN
 END;
 $$;
 
+/*
+  User directory of one scope: members of the scope's organization, the owner of an
+  independent-user scope, and users holding an active role grant in the scope.
+  Not SECURITY DEFINER: goliath_portal holds EXECUTE on every portal function, so this
+  must only read tables when called from a session-gated definer that passes the
+  session's own active scope.
+*/
+CREATE OR REPLACE FUNCTION portal.fn_scope_directory_user_ids(p_scope_id integer)
+RETURNS TABLE (user_id integer)
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT m."UserID"
+  FROM "RBAC"."Scopes" s
+  INNER JOIN portal."OrganizationMembers" m ON m."OrganizationID" = s."OrganizationID"
+  WHERE s."ScopeID" = p_scope_id
+  UNION
+  SELECT s."OwnerUserID"
+  FROM "RBAC"."Scopes" s
+  WHERE s."ScopeID" = p_scope_id
+    AND s."OwnerUserID" IS NOT NULL
+  UNION
+  SELECT (gov."Data"->>'LegacyUserId')::int
+  FROM "Meta"."Classes" c
+  INNER JOIN "Meta"."ObjValues" gov ON gov."ClassID" = c."ID"
+  WHERE c."Name" = 'platform/RoleGrant'
+    AND COALESCE(gov."Data"->>'GrantType', 'SCOPED') <> 'GLOBAL'
+    AND gov."Data"->>'LegacyScopeId' = p_scope_id::text
+    AND COALESCE((gov."Data"->>'Active')::boolean, false)
+    AND NULLIF(btrim(gov."Data"->>'RevokedAtUtc'), '') IS NULL;
+$$;
+
 CREATE OR REPLACE FUNCTION portal.sp_session_list_users(
   p_session_token text,
   p_include_inactive boolean DEFAULT false
@@ -64,7 +96,10 @@ STABLE
 SECURITY DEFINER
 SET search_path = portal, "RBAC", pg_temp
 AS $$
+DECLARE
+  v_ctx record;
 BEGIN
+  SELECT * INTO v_ctx FROM portal.fn_session_operator_require(p_session_token) LIMIT 1;
   IF NOT EXISTS (
     SELECT 1
     FROM portal.sp_session_operator_nav_tree(p_session_token) nt
@@ -72,7 +107,13 @@ BEGIN
   ) THEN
     PERFORM portal.fn_semantic_raise('GS403', 'operator nav entitlement denied');
   END IF;
-  RETURN QUERY SELECT * FROM portal.sp_list_users(p_include_inactive);
+  RETURN QUERY
+  SELECT lu.user_id, lu.full_name, lu.email, lu.active
+  FROM portal.sp_list_users(p_include_inactive) lu
+  WHERE lu.user_id IN (
+    SELECT d.user_id FROM portal.fn_scope_directory_user_ids(v_ctx.active_scope_id) d
+  )
+  ORDER BY lu.full_name, lu.email;
 END;
 $$;
 
@@ -167,9 +208,14 @@ STABLE
 SECURITY DEFINER
 SET search_path = portal, "RBAC", "Onboarding", pg_temp
 AS $$
+DECLARE
+  v_ctx record;
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token, '/app/admin/invitations');
-  RETURN QUERY SELECT * FROM portal.sp_list_invitations(p_scope_id, p_status);
+  SELECT * INTO v_ctx FROM portal.fn_session_operator_require(p_session_token, '/app/admin/invitations') LIMIT 1;
+  IF p_scope_id IS NOT NULL AND p_scope_id IS DISTINCT FROM v_ctx.active_scope_id THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'invitation scope is outside the active scope');
+  END IF;
+  RETURN QUERY SELECT * FROM portal.sp_list_invitations(v_ctx.active_scope_id, p_status);
 END;
 $$;
 

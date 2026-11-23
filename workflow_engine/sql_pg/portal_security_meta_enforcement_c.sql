@@ -481,6 +481,9 @@ BEGIN
     (SELECT pp.provider_name FROM primary_provider pp)::text
   FROM "Meta"."ObjValues" uov
   WHERE uov."ClassID" = v_user_class
+    AND (uov."Data"->>'LegacyUserId')::int IN (
+      SELECT d.user_id FROM portal.fn_scope_directory_user_ids(v_ctx.active_scope_id) d
+    )
   ORDER BY 1;
 END;
 $$;

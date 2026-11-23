@@ -479,6 +479,9 @@ BEGIN
     END::text AS sign_in_status,
     (SELECT pp.provider_name FROM primary_provider pp)::text AS identity_provider_name
   FROM "RBAC"."Users" u
+  WHERE u."ID" IN (
+    SELECT d.user_id FROM portal.fn_scope_directory_user_ids(v_ctx.active_scope_id) d
+  )
   ORDER BY u."ID";
 END;
 $$;
