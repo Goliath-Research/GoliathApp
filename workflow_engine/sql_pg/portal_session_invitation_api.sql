@@ -512,6 +512,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM "RBAC"."Roles" r WHERE r."ID" = p_default_role_id) THEN
     PERFORM portal.fn_semantic_raise('GS404', 'role not found');
   END IF;
+  PERFORM portal.fn_role_assert_assignable_in_scope(p_default_role_id, v_ctx.active_scope_id);
 
   SELECT a.is_allowed INTO v_role_ok
   FROM "Contract".spcontractvalidaterolegrant(v_ctx.active_scope_id, p_default_role_id, now()) a

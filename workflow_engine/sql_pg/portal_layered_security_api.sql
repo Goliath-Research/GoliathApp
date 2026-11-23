@@ -514,3 +514,25 @@ BEGIN
   RETURN false;
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION portal.fn_role_assert_assignable_in_scope(
+  p_role_id integer,
+  p_scope_id integer
+)
+RETURNS void
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, pg_temp
+AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM portal.tenant_role_owner o
+    WHERE o.role_id = p_role_id
+      AND o.owner_scope_id IS DISTINCT FROM p_scope_id
+  ) THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'role belongs to another organization');
+  END IF;
+END;
+$$;

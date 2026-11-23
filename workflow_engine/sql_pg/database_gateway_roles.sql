@@ -100,6 +100,10 @@ END $$;
 
 REVOKE EXECUTE ON FUNCTION portal.sp_platform_god_architect_class_acl_sync() FROM PUBLIC, goliath_portal;
 
+-- Role writers without a session: sessions use sp_session_create_role / sp_session_set_role_permission.
+REVOKE EXECUTE ON FUNCTION portal.sp_create_role(text, boolean) FROM PUBLIC, goliath_portal;
+REVOKE EXECUTE ON FUNCTION portal.sp_set_role_permission(integer, text, boolean) FROM PUBLIC, goliath_portal;
+
 REVOKE ALL ON ALL TABLES IN SCHEMA inv FROM PUBLIC, goliath_portal;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA inv FROM PUBLIC, goliath_portal;
 

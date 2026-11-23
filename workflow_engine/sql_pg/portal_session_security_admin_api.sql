@@ -100,6 +100,7 @@ DECLARE
   v_ctx record;
 BEGIN
   SELECT * INTO v_ctx FROM portal.fn_session_security_admin_require(p_session_token, '/app/admin/users') LIMIT 1;
+  PERFORM portal.fn_role_assert_assignable_in_scope(p_role_id, v_ctx.active_scope_id);
   RETURN QUERY
   SELECT g.inserted, g.grant_id
   FROM portal.sp_grant_user_role(p_target_user_id, p_role_id, 'SCOPED', v_ctx.active_scope_id, NULL) g;
@@ -147,9 +148,36 @@ AS $$
 DECLARE
   v_ctx record;
   v_rid int;
+  v_owner_scope int;
+  v_name text := btrim(p_name);
 BEGIN
   SELECT * INTO v_ctx FROM portal.fn_session_security_admin_require(p_session_token, '/app/admin/roles') LIMIT 1;
-  v_rid := portal.sp_create_role(p_name, false);
+  IF v_name IS NULL OR v_name = '' THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'role name required');
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(hashtext('portal.role_name'), hashtext(v_name));
+
+  SELECT r."ID", o.owner_scope_id
+  INTO v_rid, v_owner_scope
+  FROM "RBAC"."Roles" r
+  LEFT JOIN portal.tenant_role_owner o ON o.role_id = r."ID"
+  WHERE r."Name" = v_name
+  ORDER BY r."ID"
+  LIMIT 1;
+
+  IF v_rid IS NOT NULL THEN
+    IF v_owner_scope IS DISTINCT FROM v_ctx.active_scope_id THEN
+      PERFORM portal.fn_semantic_raise('GS409', 'role name already exists');
+    END IF;
+  ELSE
+    INSERT INTO "RBAC"."Roles" ("Name", "BypassScope")
+    VALUES (v_name, false)
+    RETURNING "ID" INTO v_rid;
+    INSERT INTO portal.tenant_role_owner (role_id, owner_scope_id, created_by_user_id)
+    VALUES (v_rid, v_ctx.active_scope_id, v_ctx.user_id);
+  END IF;
+
   PERFORM portal.fn_session_security_admin_audit(
     v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'role.create',
     jsonb_build_object('name', p_name, 'role_id', v_rid)
@@ -171,15 +199,78 @@ SET search_path = portal, "RBAC", public, pg_temp
 AS $$
 DECLARE
   v_ctx record;
-  v_ok boolean;
+  v_role_id int;
+  v_owner_scope int;
+  v_perm_id int;
+  v_perm_name text;
+  v_granted boolean := COALESCE(p_granted, false);
+  v_is_god boolean;
 BEGIN
   SELECT * INTO v_ctx FROM portal.fn_session_security_admin_require(p_session_token, '/app/admin/roles') LIMIT 1;
-  v_ok := portal.sp_set_role_permission(p_role_id, p_permission_name, p_granted);
+
+  -- Lock the role row so the ownership read below is the one the write acts on.
+  SELECT r."ID" INTO v_role_id
+  FROM "RBAC"."Roles" r
+  WHERE r."ID" = p_role_id
+  FOR SHARE;
+  IF v_role_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'role not found');
+  END IF;
+  SELECT o.owner_scope_id INTO v_owner_scope
+  FROM portal.tenant_role_owner o
+  WHERE o.role_id = v_role_id;
+
+  SELECT p."ID", p."Name"::text INTO v_perm_id, v_perm_name
+  FROM "RBAC"."Permissions" p
+  WHERE p."Name" = btrim(p_permission_name)
+  ORDER BY p."ID"
+  LIMIT 1;
+  IF v_perm_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS404', 'permission not found');
+  END IF;
+
+  v_is_god := portal.fn_session_is_god_architect_role(portal.fn_session_active_role_id(v_ctx.session_id))
+    AND portal.fn_session_has_permission(
+      v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'platform.model.architect'
+    );
+
+  IF NOT v_is_god THEN
+    IF v_owner_scope IS NULL THEN
+      PERFORM portal.fn_semantic_raise('GS403', 'built-in role permissions require God Architect');
+    END IF;
+    IF v_owner_scope IS DISTINCT FROM v_ctx.active_scope_id THEN
+      PERFORM portal.fn_semantic_raise('GS403', 'role belongs to another organization');
+    END IF;
+    IF v_perm_name = 'platform.model.architect' AND v_granted THEN
+      PERFORM portal.fn_semantic_raise('GS403', 'platform.model.architect cannot be granted to a tenant role');
+    END IF;
+    IF v_granted AND NOT portal.fn_session_has_permission(
+      v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, v_perm_name
+    ) THEN
+      PERFORM portal.fn_semantic_raise('GS403', 'cannot grant a permission the active role does not hold');
+    END IF;
+  END IF;
+
+  IF v_granted THEN
+    INSERT INTO "RBAC"."Role_Permissions" ("RoleID", "PermissionID")
+    VALUES (v_role_id, v_perm_id)
+    ON CONFLICT DO NOTHING;
+  ELSE
+    DELETE FROM "RBAC"."Role_Permissions" rp
+    WHERE rp."RoleID" = v_role_id AND rp."PermissionID" = v_perm_id;
+  END IF;
+
   PERFORM portal.fn_session_security_admin_audit(
     v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'role.set_permission',
-    jsonb_build_object('role_id', p_role_id, 'permission', p_permission_name, 'granted', p_granted)
+    jsonb_build_object(
+      'role_id', v_role_id,
+      'permission', v_perm_name,
+      'granted', v_granted,
+      'owner_scope_id', v_owner_scope,
+      'god_architect', v_is_god
+    )
   );
-  RETURN QUERY SELECT v_ok;
+  RETURN QUERY SELECT v_granted;
 END;
 $$;
 
@@ -198,6 +289,7 @@ DECLARE
   v_id bigint;
 BEGIN
   SELECT * INTO v_ctx FROM portal.fn_session_security_admin_require(p_session_token, '/app/admin/users') LIMIT 1;
+  PERFORM portal.fn_role_assert_assignable_in_scope(p_default_role_id, v_ctx.active_scope_id);
   SELECT i.invitation_id INTO v_id
   FROM portal.sp_create_invitation(
     v_ctx.active_scope_id,

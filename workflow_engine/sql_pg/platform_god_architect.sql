@@ -858,6 +858,7 @@ BEGIN
   END IF;
 
   SELECT * INTO v_ctx FROM portal.fn_session_model_author_require(p_session_token, '/app/admin/navigation') LIMIT 1;
+  PERFORM portal.fn_role_assert_assignable_in_scope(p_role_id, v_ctx.active_scope_id);
 
   RETURN QUERY
   SELECT g.inserted, g.grant_id

@@ -83,6 +83,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS "UX_MetaObjectAccess_User"
   ON portal."MetaObjectAccess" ("ScopeID", "ObjID", "UserID", "Action")
   WHERE "UserID" IS NOT NULL;
 
+-- Roles are global. A role with a row here was created by a tenant security admin and belongs to
+-- that scope; a role without one is built-in and only an active God Architect may edit it.
+CREATE TABLE IF NOT EXISTS portal.tenant_role_owner (
+  role_id integer PRIMARY KEY REFERENCES "RBAC"."Roles" ("ID") ON DELETE CASCADE,
+  owner_scope_id integer NOT NULL REFERENCES "RBAC"."Scopes" ("ScopeID"),
+  created_by_user_id integer NOT NULL,
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
+);
+
 CREATE TABLE IF NOT EXISTS portal.security_admin_audit (
   audit_id bigserial PRIMARY KEY,
   session_id integer NOT NULL,
