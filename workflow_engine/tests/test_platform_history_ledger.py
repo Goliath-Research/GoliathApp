@@ -238,3 +238,13 @@ def test_duplicate_event_does_not_consume_a_sequence_number(ledger_db: str) -> N
         )[0]
         assert count == 1
         assert _problems(conn, "wf.event") == []
+
+
+def test_ledger_functions_are_not_executable_by_portal_role(ledger_db: str) -> None:
+    with psycopg.connect(ledger_db, autocommit=True) as conn:
+        rows = conn.execute(
+            "SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+            "WHERE n.nspname = 'portal' AND p.proname LIKE '%%ledger%%' "
+            "AND has_function_privilege('goliath_portal', p.oid, 'EXECUTE')"
+        ).fetchall()
+        assert rows == []
