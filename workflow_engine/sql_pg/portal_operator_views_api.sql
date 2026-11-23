@@ -387,6 +387,10 @@ BEGIN
 END;
 $$;
 
+-- Pre-visibility overload (before #80): unused by the host, ambiguous with the current signature
+-- for 8-argument calls, and it stamped UTC wall-clock values. Upgrade-safe drop.
+DROP FUNCTION IF EXISTS portal.sp_session_upsert_operator_view(text, bigint, text, text, text, text, text, jsonb);
+
 CREATE OR REPLACE FUNCTION portal.sp_session_upsert_operator_view(
   p_session_token text,
   p_view_id bigint DEFAULT NULL,
@@ -658,6 +662,9 @@ BEGIN
   RETURN QUERY SELECT v_n > 0;
 END;
 $$;
+
+-- Pre-layout/visibility overload (before #80); see sp_session_upsert_operator_view above.
+DROP FUNCTION IF EXISTS portal.sp_session_upsert_operator_dashboard(text, bigint, text, text);
 
 CREATE OR REPLACE FUNCTION portal.sp_session_upsert_operator_dashboard(
   p_session_token text,

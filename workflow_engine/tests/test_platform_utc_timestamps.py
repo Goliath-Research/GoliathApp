@@ -208,3 +208,29 @@ def test_migration_fixes_legacy_wall_clock_defaults(utc_db: str) -> None:
             assert drift <= TOLERANCE_SECONDS
         finally:
             conn.execute(sql.SQL("DROP TABLE IF EXISTS wf.{}").format(sql.Identifier(table)))
+
+
+def test_legacy_operator_view_overloads_are_dropped_on_upgrade(utc_db: str) -> None:
+    """Databases from before #80 kept 8- and 4-argument overloads that stamped UTC wall clocks."""
+    env = _env()
+    with psycopg.connect(utc_db, autocommit=True) as conn:
+        conn.execute(
+            "CREATE OR REPLACE FUNCTION portal.sp_session_upsert_operator_view("
+            "text, bigint, text, text, text, text, text, jsonb) RETURNS bigint LANGUAGE sql AS 'SELECT 1::bigint'"
+        )
+        conn.execute(
+            "CREATE OR REPLACE FUNCTION portal.sp_session_upsert_operator_dashboard("
+            "text, bigint, text, text) RETURNS bigint LANGUAGE sql AS 'SELECT 1::bigint'"
+        )
+        subprocess.run(
+            ["psql", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(SQL_PG / "portal_operator_views_api.sql")],
+            env=env,
+            check=True,
+            capture_output=True,
+        )
+        rows = conn.execute(
+            "SELECT p.proname, p.pronargs FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
+            "WHERE n.nspname = 'portal' AND p.proname IN "
+            "('sp_session_upsert_operator_view', 'sp_session_upsert_operator_dashboard') ORDER BY 1"
+        ).fetchall()
+    assert rows == [("sp_session_upsert_operator_dashboard", 6), ("sp_session_upsert_operator_view", 9)]
