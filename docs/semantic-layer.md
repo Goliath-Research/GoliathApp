@@ -301,7 +301,7 @@ See [Platform](platform.md) for current schemas and [RBAC](rbac.md) for portal i
 
 ## Python portal client
 
-`goliath_app.portal.PortalClient` connects as the `goliath_portal` role and calls stored procedures only (no table `SELECT`). Connection settings use `GOLIATH_PORTAL_DB` or libpq variables with `GOLIATH_PORTAL_USER` defaulting to `goliath_portal` (`goliath_app/portal/connection.py`).
+`goliath_app.portal.PortalClient` connects as the `goliath_portal` role and calls stored procedures only (no table `SELECT`). Connection settings use `GOLIATH_PORTAL_DB` or libpq variables with `GOLIATH_PORTAL_USER` defaulting to `goliath_portal` (`goliath_app/portal/connection.py`). The connection must verify the server certificate: `sslmode` defaults to `verify-full`, and any setting other than `verify-full` or `verify-ca` raises `UnverifiedDatabaseTlsError` before connecting.
 
 | Method | Procedure |
 |--------|-----------|

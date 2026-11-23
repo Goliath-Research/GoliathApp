@@ -12,7 +12,7 @@ export PGPORT=5432
 export PGDATABASE=goliath
 export PGUSER=postgres
 export PGPASSWORD=...
-export PGSSLMODE=prefer
+export PGSSLROOTCERT=/path/to/ca.pem   # PGSSLMODE defaults to verify-full
 
 ./workflow_engine/sql_pg/apply_schema.sh
 ```
