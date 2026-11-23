@@ -72,8 +72,34 @@ def apply_schema_scripts(dsn: str) -> None:
         psql(dsn, ["-f", str(SQL_PG / name)])
 
 
+def ensure_test_run_retention(dsn: str, workflow_name: str) -> None:
+    """Test databases only: a zero-day platform/RetentionPolicy so runs of one test workflow can be purged."""
+    psql_query(
+        dsn,
+        f"""
+        SELECT "Meta".sp_obj_insert(
+          (SELECT "ID" FROM "Meta"."Classes" WHERE "Name" = 'platform/RetentionPolicy'),
+          jsonb_build_object(
+            'Label', 'Test retention for {workflow_name}',
+            'RecordKind', 'wf.run',
+            'WorkflowName', '{workflow_name}',
+            'RetentionDays', 0,
+            'LegalHold', false
+          )
+        )
+        WHERE NOT EXISTS (
+          SELECT 1 FROM "Meta"."Objs" o
+          JOIN "Meta"."Classes" c ON c."ID" = o."ClassID"
+          WHERE c."Name" = 'platform/RetentionPolicy'
+            AND "Meta".fn_merged_obj_document(o."ID") ->> 'WorkflowName' = '{workflow_name}'
+        );
+        """,
+    )
+
+
 def seed_minimal_workflow(dsn: str) -> tuple[int, int, str]:
     """Returns (version_id, worker_id, identity_token)."""
+    ensure_test_run_retention(dsn, "ParityFlow")
     if psql_query(dsn, "SELECT 1 FROM wf.workflow_def WHERE name = 'ParityFlow' LIMIT 1;"):
         psql_query(dsn, "SELECT * FROM wf.sp_delete_workflow_def(NULL, 'ParityFlow', true);")
     psql_query(dsn, "INSERT INTO wf.workflow_def (name) VALUES ('ParityFlow');")

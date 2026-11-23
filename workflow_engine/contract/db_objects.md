@@ -175,7 +175,7 @@ FOREACH continuation is dispatched through `wf.wf_foreach_route_continue`, which
 
 | Object | Purpose |
 |--------|---------|
-| `wf.sp_delete_workflow_def` | Remove definition (+ optional instances) |
+| `wf.sp_delete_workflow_def` | Remove definition (+ optional instances, through the retention purge `wf.sp_purge_run_history`) |
 
 ### 5. Domain (optional, Azure SQL today)
 

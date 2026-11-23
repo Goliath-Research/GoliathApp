@@ -10,7 +10,7 @@ This page is built up by a stack of pull requests:
 |-------|--------------|--------|
 | **H1 — Ledger core** | Append-only, hash-chained ledgers for every platform audit table and the event plane; verification and checkpoints | Sections 1–4 |
 | **H2 — Meta object history** | `"Meta"."ObjValuesHistory"`: every object value, object lifecycle, instance link and scope change, attributed; point-in-time reads | Section 5 |
-| H3 — Run history and retention | Workflow run history ledger, no cascading deletes of runs, `platform/RetentionPolicy` purges with tombstones | Follow-up PR |
+| **H3 — Run history and retention** | `wf.run_history` ledger of run transitions and worker leases; runs cannot be deleted except by a `platform/RetentionPolicy` purge that leaves tombstones and a purge record | Section 6 |
 | H4 — Electronic signatures | `platform/ElectronicSignature`: signer, meaning, time and content hash bound to a record | Follow-up PR |
 
 ## 1. Ledgers
@@ -147,3 +147,65 @@ transaction.
 | `"Meta".fn_merged_obj_document_as_of(obj_id, at_utc)` | Owner-only: the merged document at a point in time, the historical counterpart of `"Meta".fn_merged_obj_document` |
 
 The owner-only functions are not executable by application roles because they bypass tenant checks.
+
+## 6. Workflow run history and retention
+
+`wf.workflow_instance`, `wf.node_execution` and `wf.task_lease` are runtime state: workers update them
+constantly and a lease row exists only while a task is held. The run record is kept separately in the
+ledger `wf.run_history`:
+
+| Change kind | Written when |
+|-------------|--------------|
+| `instance.create`, `instance.status` | An instance is created or changes status |
+| `node.create`, `node.status` | A node execution is created or changes status. Finished statuses also keep the output, result and error codes, and the worker that completed it |
+| `lease.acquire`, `lease.transfer`, `lease.release` | A worker takes, hands over or gives back a task. Heartbeats are not recorded |
+| `run.purge` | A run was removed under a retention policy (see below) |
+| `instance.baseline`, `node.baseline` | Runs that existed when run history was installed |
+
+**Runs are not deleted.** Deleting or truncating `wf.workflow_instance` or `wf.node_execution` is
+refused. `wf.sp_delete_workflow_def(..., p_delete_instances => true)` no longer cascades: it removes the
+definition's runs through the retention purge, and fails without changing anything if any run may not
+be purged.
+
+**Retention policies are Meta objects.** `platform/RetentionPolicy` is a platform class, so only God
+Architect can create or change policies:
+
+| Field | Meaning |
+|-------|---------|
+| `Label` | Display label |
+| `RecordKind` | What the policy governs; `wf.run` is workflow runs |
+| `WorkflowName` | Optional: limit the policy to one workflow definition |
+| `RetentionDays` | Days a finished run is kept before it may be purged |
+| `LegalHold` | When true, nothing the policy governs may be purged |
+
+Its method `PurgeExpiredRuns` is implemented by
+`wf.sp_purge_run_history(workflow_instance_ids, reason, require_all)`. For each run:
+
+1. With no matching policy the run is kept forever.
+2. A policy naming the workflow decides over general ones; among equals the longest retention wins.
+3. A legal hold on any matching policy blocks the purge.
+4. A run that is not finished is kept, unless the deciding policy has zero retention days.
+5. A finished run is purged once `RetentionDays` have passed since it completed.
+
+`wf.fn_run_purge_blockers(instance_id)` explains why a run cannot be purged yet. A purge deletes the
+runtime rows and the run's history rows. Every removed history row leaves a tombstone, so the chain
+still verifies. A new `run.purge` entry records the policy, how many node executions and history rows
+were removed, the reason and the actor.
+
+```mermaid
+flowchart LR
+  A[PurgeExpiredRuns] --> B{matching policy?}
+  B -- no --> K[keep forever]
+  B -- yes --> C{legal hold?}
+  C -- yes --> K2[keep]
+  C -- no --> D{retention passed?}
+  D -- no --> K3[keep]
+  D -- yes --> E[delete runtime rows and history rows]
+  E --> F[tombstones keep the chain verifiable]
+  E --> G[append run.purge entry]
+```
+
+Run history is written in the same transaction as each status change and serializes writers on the
+ledger head, which is the price of a gap-free chain. Test databases that recreate fixtures create an
+explicit zero-day policy for their own test workflow; production has no policy until one is created
+deliberately.

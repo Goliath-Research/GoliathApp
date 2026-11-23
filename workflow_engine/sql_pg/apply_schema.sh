@@ -150,6 +150,7 @@ SCRIPTS=(
   wf_cfg_catalog_meta.sql
   platform_history_ledger.sql
   meta_objvalues_history.sql
+  wf_run_history_retention.sql
   database_gateway_roles.sql
 )
 
