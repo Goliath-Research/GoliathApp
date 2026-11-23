@@ -149,6 +149,7 @@ SCRIPTS=(
   wf_worker_wake_hints.sql
   wf_cfg_catalog_meta.sql
   platform_history_ledger.sql
+  meta_objvalues_history.sql
   database_gateway_roles.sql
 )
 
