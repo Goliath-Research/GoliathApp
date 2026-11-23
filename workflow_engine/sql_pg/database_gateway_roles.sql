@@ -97,6 +97,8 @@ BEGIN
   END LOOP;
 END $$;
 
+REVOKE EXECUTE ON FUNCTION portal.sp_platform_god_architect_class_acl_sync() FROM PUBLIC, goliath_portal;
+
 REVOKE ALL ON ALL TABLES IN SCHEMA inv FROM PUBLIC, goliath_portal;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA inv FROM PUBLIC, goliath_portal;
 

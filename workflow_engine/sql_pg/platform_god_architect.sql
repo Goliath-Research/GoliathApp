@@ -536,7 +536,16 @@ $grant_god$;
 SELECT portal.sp_security_meta_refresh_cache();
 SELECT portal.sp_sync_god_architect_operator_entitlements();
 
-DO $god_acl$
+/*
+  God Architect owns every platform class except security data classes; organization admins may
+  not create, update or delete them. Re-run after adding platform classes in later scripts.
+*/
+CREATE OR REPLACE FUNCTION portal.sp_platform_god_architect_class_acl_sync()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, "Meta", "RBAC", pg_temp
+AS $god_acl$
 DECLARE
   v_scope int;
   v_god_role int;
@@ -575,8 +584,10 @@ BEGIN
       DO UPDATE SET "Effect" = 'deny';
     END IF;
   END LOOP;
-END
+END;
 $god_acl$;
+
+SELECT portal.sp_platform_god_architect_class_acl_sync();
 
 CREATE OR REPLACE FUNCTION portal.sp_session_meta_class_create(
   p_session_token text,

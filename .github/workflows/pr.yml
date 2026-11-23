@@ -155,6 +155,7 @@ jobs:
             workflow_engine/tests/test_meta_model_tree.py \
             workflow_engine/tests/test_platform_history_ledger.py \
             workflow_engine/tests/test_meta_objvalues_history.py \
+            workflow_engine/tests/test_wf_run_history_retention.py \
             -q
         env:
           POSTGRES_HOST: localhost
