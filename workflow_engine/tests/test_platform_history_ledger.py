@@ -248,3 +248,10 @@ def test_ledger_functions_are_not_executable_by_portal_role(ledger_db: str) -> N
             "AND has_function_privilege('goliath_portal', p.oid, 'EXECUTE')"
         ).fetchall()
         assert rows == []
+
+
+def test_checkpoint_time_is_absolute_in_any_session_timezone(ledger_db: str) -> None:
+    with psycopg.connect(ledger_db, autocommit=True) as conn:
+        conn.execute("SET TIME ZONE 'America/New_York'")
+        skew = _one(conn, "SELECT max(abs(extract(epoch FROM taken_at_utc - now()))) FROM portal.fn_ledger_checkpoint()")[0]
+        assert skew is not None and float(skew) < 60
