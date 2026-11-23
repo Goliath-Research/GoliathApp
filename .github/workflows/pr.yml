@@ -12,6 +12,10 @@ on:
       # Stacked frontend PRs (P1 on P0 host) run the same checks before host merges to main.
       - cursor/platform-ui-host-3b72
       - cursor/platform-ui-p1-auth-3b72
+      # Stacked history PRs (H2 on H1, H3 on H2, H4 on H3).
+      - cursor/history-h1-ledger-core
+      - cursor/history-h2-meta-objvalues-history
+      - cursor/history-h3-run-history-retention
 
 jobs:
   pr:
@@ -149,6 +153,7 @@ jobs:
             workflow_engine/tests/test_device_adapter_protocol_integration.py \
             workflow_engine/tests/test_pg_schema_schedule_wiring.py \
             workflow_engine/tests/test_meta_model_tree.py \
+            workflow_engine/tests/test_platform_history_ledger.py \
             -q
         env:
           POSTGRES_HOST: localhost
