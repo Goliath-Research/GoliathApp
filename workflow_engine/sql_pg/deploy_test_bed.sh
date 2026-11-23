@@ -2,7 +2,7 @@
 # Deploy wf test-bed seeds + run a smoke simulation (PostgreSQL).
 #
 # Usage (after apply_schema.sh or a local sql_pg core deploy):
-#   export PGHOST=localhost PGDATABASE=goliath PGUSER=postgres PGPASSWORD=... PGSSLMODE=prefer
+#   export PGHOST=localhost PGDATABASE=goliath PGUSER=postgres PGPASSWORD=... PGSSLROOTCERT=/path/to/ca.pem
 #   ./deploy_test_bed.sh
 #   ./deploy_test_bed.sh --run TwoGroupTestFlow
 #   ./deploy_test_bed.sh --run McTwoGroupTestFlow
@@ -15,7 +15,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export PGPORT="${PGPORT:-5432}"
 : "${PGDATABASE:?Set PGDATABASE}"
 : "${PGUSER:?Set PGUSER}"
-export PGSSLMODE="${PGSSLMODE:-prefer}"
+export PGSSLMODE="${PGSSLMODE:-verify-full}"
+case "$PGSSLMODE" in
+  verify-full|verify-ca) ;;
+  *) echo "PGSSLMODE=$PGSSLMODE does not verify the server certificate; use verify-full or verify-ca (set PGSSLROOTCERT)." >&2; exit 1 ;;
+esac
 
 if [[ -z "${PGPASSWORD:-}" && -z "${PGPASSFILE:-}" ]]; then
   echo "Set PGPASSWORD or PGPASSFILE for database authentication." >&2

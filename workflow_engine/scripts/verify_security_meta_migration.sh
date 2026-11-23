@@ -6,7 +6,11 @@ set -euo pipefail
 export PGPORT="${PGPORT:-5432}"
 : "${PGDATABASE:?Set PGDATABASE}"
 : "${PGUSER:?Set PGUSER}"
-export PGSSLMODE="${PGSSLMODE:-prefer}"
+export PGSSLMODE="${PGSSLMODE:-verify-full}"
+case "$PGSSLMODE" in
+  verify-full|verify-ca) ;;
+  *) echo "PGSSLMODE=$PGSSLMODE does not verify the server certificate; use verify-full or verify-ca (set PGSSLROOTCERT)." >&2; exit 1 ;;
+esac
 
 psql -v ON_ERROR_STOP=1 -c "
   SELECT check_name, ok, detail
