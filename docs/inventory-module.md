@@ -34,6 +34,9 @@ Child apps override or wrap these actions (same `action_name` + `overrides`) to 
 2. Seed semantics: `python3 workflow_engine/sql_pg/seed_semantic_catalog.py`.
 3. Seed actions: `python3 workflow_engine/sql_pg/seed_action_catalog.py --use-db` (without `--use-db` the script only prints the catalog — see [database-population.md](database-population.md)).
 4. Grant RBAC permissions (`inv.stock.*`) to storekeeper roles in the child app.
+5. Give the `goliath_inv` login (created by `database_gateway_roles.sql`) a password or other authentication, and make the database server certificate verifiable by workers that run stock actions.
+
+The stock action handlers (`goliath_app/inv/db.py`) connect with `sslmode=verify-full`; `PGSSLMODE` cannot lower it. Point `PGSSLROOTCERT` at the CA that signed the server certificate, or set it to `system` for a publicly trusted certificate. The user is `PGUSER`, then `POSTGRES_USER`, then `goliath_inv`. The handlers refuse to connect as `postgres` and close any session whose role is a superuser.
 
 Child application repositories register **`mfg.*` / app namespaces** that alias or extend `inv.*` entities; they do not fork the `inv` tables.
 
