@@ -424,6 +424,10 @@ BEGIN
     $q$ INTO v_orgs USING v_uid;
   END IF;
 
+  -- Transaction-local actor attribution for history ledgers (docs/history-and-audit.md).
+  PERFORM set_config('goliath.actor_user_id', v_uid::text, true);
+  PERFORM set_config('goliath.actor_session_id', v_sid::text, true);
+
   RETURN QUERY
   SELECT
     v_sid,

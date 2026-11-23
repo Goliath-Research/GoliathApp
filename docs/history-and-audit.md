@@ -8,8 +8,8 @@ This page is built up by a stack of pull requests:
 
 | Slice | What it adds | Status |
 |-------|--------------|--------|
-| **H1 — Ledger core** | Append-only, hash-chained ledgers for every platform audit table and the event plane; verification and checkpoints | This page, sections 1–4 |
-| H2 — Meta object history | `"Meta"."ObjValuesHistory"`: every object value, object lifecycle and instance link change, attributed | Follow-up PR |
+| **H1 — Ledger core** | Append-only, hash-chained ledgers for every platform audit table and the event plane; verification and checkpoints | Sections 1–4 |
+| **H2 — Meta object history** | `"Meta"."ObjValuesHistory"`: every object value, object lifecycle, instance link and scope change, attributed; point-in-time reads | Section 5 |
 | H3 — Run history and retention | Workflow run history ledger, no cascading deletes of runs, `platform/RetentionPolicy` purges with tombstones | Follow-up PR |
 | H4 — Electronic signatures | `platform/ElectronicSignature`: signer, meaning, time and content hash bound to a record | Follow-up PR |
 
@@ -102,3 +102,48 @@ retention lock) and compare later checkpoints against it.
 SELECT * FROM portal.fn_ledger_verify_all();   -- expect no rows
 SELECT * FROM portal.fn_ledger_checkpoint();   -- export and keep
 ```
+
+## 5. Meta object history
+
+Every change to a Meta object is written to `"Meta"."ObjValuesHistory"`, for **every class**. History
+is not opt-in: `HasHistory` on `"Meta"."Classes"` is kept for legacy parity and no longer decides
+anything. The table is the ledger `meta.obj_values_history`, so it is append-only and hash-chained like
+the audit tables, and it has no foreign keys: history outlives the objects it describes.
+
+| Change kind | Written when |
+|-------------|--------------|
+| `object.create`, `object.delete`, `object.reclass` | A row of `"Meta"."Objs"` is inserted, deleted, or changes class |
+| `values.insert`, `values.update`, `values.delete` | A class level of `"Meta"."ObjValues"` changes. `DataBefore` and `DataAfter` hold the level's values. An update that changes nothing writes nothing |
+| `link.create`, `link.update`, `link.delete` | An instance link (`"Meta"."Links"` with `ObjID1` set) changes. Class-level link definitions are not object history |
+| `object.scope`, `object.unscope` | The object's tenant scope (`portal."ScopedMetaObjects"`) is set or removed |
+| `object.baseline`, `values.baseline`, `link.baseline`, `scope.baseline` | The state that existed when history was first installed |
+
+```mermaid
+sequenceDiagram
+  participant P as Portal session API
+  participant R as fn_session_resolve
+  participant M as Meta.ObjValues / Objs / Links
+  participant H as Meta.ObjValuesHistory
+  P->>R: resolve token
+  R-->>P: session, user (also set as transaction-local actor)
+  P->>M: insert / update / delete
+  M->>H: AFTER trigger writes the change with actor, txid, hash chain
+```
+
+**Attribution.** `portal.fn_session_resolve` stores the resolved user and session in the
+transaction-local settings `goliath.actor_user_id` and `goliath.actor_session_id`; history rows copy
+them into `ActorUserID` and `ActorSessionID`. Every row also has `DbRole` (the database role that made
+the change) and `txid`, which joins to the audit ledgers written in the same transaction. Changes made
+outside a portal session (apply scripts, maintenance) have no actor user and are identified by role and
+transaction.
+
+**Reading history.**
+
+| Function | Use |
+|----------|-----|
+| `portal.sp_session_meta_obj_history(token, obj_id)` | Session API. A live object needs the same read rights as `sp_session_meta_obj_get`; a deleted object's history is readable in the scope it last belonged to, with `meta.object.read` there |
+| `"Meta".fn_obj_history(obj_id)` | Owner-only: every change of the object, oldest first |
+| `"Meta".fn_obj_values_as_of(obj_id, at_utc)` | Owner-only: each class level's values at a point in time |
+| `"Meta".fn_merged_obj_document_as_of(obj_id, at_utc)` | Owner-only: the merged document at a point in time, the historical counterpart of `"Meta".fn_merged_obj_document` |
+
+The owner-only functions are not executable by application roles because they bypass tenant checks.
