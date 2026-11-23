@@ -333,6 +333,13 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Electronically signed runs are kept (platform_electronic_signatures.sql).
+  IF to_regprocedure('portal.fn_signature_exists_for_target(text,text)') IS NOT NULL
+     AND portal.fn_signature_exists_for_target('wf.instance', p_workflow_instance_id::text) THEN
+    RETURN QUERY SELECT 'electronically signed'::text, NULL::integer;
+    RETURN;
+  END IF;
+
   SELECT * INTO v_ret FROM wf.fn_run_retention(p_workflow_instance_id);
   IF v_ret.policy_obj_id IS NULL THEN
     RETURN QUERY SELECT 'no retention policy: runs are kept forever'::text, NULL::integer;

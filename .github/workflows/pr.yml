@@ -16,6 +16,7 @@ on:
       - cursor/history-h1-ledger-core
       - cursor/history-h2-meta-objvalues-history
       - cursor/history-h3-run-history-retention
+      - cursor/history-h4-electronic-signatures
 
 jobs:
   pr:
@@ -156,6 +157,7 @@ jobs:
             workflow_engine/tests/test_platform_history_ledger.py \
             workflow_engine/tests/test_meta_objvalues_history.py \
             workflow_engine/tests/test_wf_run_history_retention.py \
+            workflow_engine/tests/test_platform_electronic_signatures.py \
             -q
         env:
           POSTGRES_HOST: localhost
