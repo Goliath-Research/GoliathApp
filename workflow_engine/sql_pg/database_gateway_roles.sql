@@ -80,7 +80,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- History ledger internals (docs/history-and-audit.md): administered by the schema owner only.
+-- History ledger and signature internals (docs/history-and-audit.md): schema owner only; sessions use sp_session_*.
 DO $$
 DECLARE
   v_sig regprocedure;
@@ -91,7 +91,8 @@ BEGIN
     INNER JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'portal'
       AND p.prokind = 'f'
-      AND (p.proname LIKE 'fn\_ledger\_%' OR p.proname LIKE 'sp\_ledger\_%')
+      AND (p.proname LIKE 'fn\_ledger\_%' OR p.proname LIKE 'sp\_ledger\_%'
+           OR p.proname LIKE 'fn\_signature\_%')
   LOOP
     EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, goliath_portal', v_sig);
   END LOOP;

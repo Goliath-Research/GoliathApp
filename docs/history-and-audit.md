@@ -11,7 +11,7 @@ This page is built up by a stack of pull requests:
 | **H1 — Ledger core** | Append-only, hash-chained ledgers for every platform audit table and the event plane; verification and checkpoints | Sections 1–4 |
 | **H2 — Meta object history** | `"Meta"."ObjValuesHistory"`: every object value, object lifecycle, instance link and scope change, attributed; point-in-time reads | Section 5 |
 | **H3 — Run history and retention** | `wf.run_history` ledger of run transitions and worker leases; runs cannot be deleted except by a `platform/RetentionPolicy` purge that leaves tombstones and a purge record | Section 6 |
-| H4 — Electronic signatures | `platform/ElectronicSignature`: signer, meaning, time and content hash bound to a record | Follow-up PR |
+| **H4 — Electronic signatures** | `platform/ElectronicSignature`: signer, meaning, time and content hash bound to a record; re-authentication; signed records kept | Section 7 |
 
 ## 1. Ledgers
 
@@ -209,3 +209,53 @@ Run history is written in the same transaction as each status change and seriali
 ledger head, which is the price of a gap-free chain. Test databases that recreate fixtures create an
 explicit zero-day policy for their own test workflow; production has no policy until one is created
 deliberately.
+
+## 7. Electronic signatures
+
+An electronic signature binds a person, a meaning and a moment to the exact content of one record.
+Signatures are Meta objects of the platform class `platform/ElectronicSignature`, so they are also in
+`"Meta"."ObjValuesHistory"` and its hash chain.
+
+| Class | Purpose |
+|-------|---------|
+| `platform/SignatureMeaning` | What a signature may mean: `Label` (shown with the signature), `Meaning` (stable code), `Description`. The platform seeds none; God Architect creates the meanings an installation uses |
+| `platform/ElectronicSignature` | One signature: target (`TargetKind`, `TargetKey`), meaning code and label, signer id, full name and email at signing time, `SignedAtUtc`, `ContentSha256`, optional `Comment`, `SessionID` |
+
+**Signing.** `portal.sp_session_sign(token, target_kind, target_key, meaning, comment)`:
+
+| Target kind | Target key | The signer must be able to |
+|-------------|------------|----------------------------|
+| `meta.object` | Meta object id | Read the object in the active scope (`meta.object.read` and object read rights) |
+| `wf.instance` | Workflow run id | Open workflow runs (`/app/workflows/runs`) |
+
+The session must have signed in within `portal_signature_reauth_seconds` (portal auth setting, default
+300 seconds), so the portal asks the user to sign in again before signing. The signature is scoped to
+the signer's active scope. A signature cannot itself be signed.
+
+**Content hash.** `ContentSha256` is the SHA-256 of a canonical JSON rendering of the target, built with
+timestamps in UTC:
+
+- for a Meta object: id, class and merged document;
+- for a run: id, workflow, version, status, completion time, and each node execution's status, attempt,
+  result code and output.
+
+**Verification.** `portal.sp_session_signatures(token, target_kind, target_key)` lists a record's
+signatures with a status:
+
+| Status | Meaning |
+|--------|---------|
+| `valid` | The record still has exactly the content that was signed |
+| `content_changed` | The record changed after signing. What was signed is still in the record's history |
+| `target_missing` | The record no longer exists |
+
+**What a signature prevents.**
+
+- Signatures cannot be changed or deleted.
+- A signed Meta object cannot be deleted.
+- A signed run is never purged: `wf.fn_run_purge_blockers` reports `electronically signed`.
+
+The content and verification internals (`portal.fn_signature_*`) are executable only by the schema
+owner. Sessions use the `sp_session_*` functions.
+
+**Follow-up.** The portal screens for signing (with the re-authentication prompt) and for showing
+signatures on a record are not part of this change; the session API above is what they call.
