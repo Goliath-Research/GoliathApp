@@ -5,12 +5,37 @@ from __future__ import annotations
 import copy
 import csv
 import io
+import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
+from .safe_paths import open_dir, safe_segment, write_file_at
 from .store import ConfigRecord, ConfigStore
 
 ROLE_TO_ARM = {"control": "controls", "disease": "diseases"}
+DEFAULT_LIST_FILENAME = "samples.csv"
+
+
+def study_work_id(rec: ConfigRecord) -> str:
+    """Directory name under ``projects/`` for a study record (one safe segment)."""
+    study_id = (
+        rec.extra.get("studyId")
+        or rec.document.get("study_id")
+        or rec.document.get("studyId")
+        or rec.name
+    )
+    return safe_segment(study_id, what="studyId")
+
+
+def project_filename(rec: ConfigRecord) -> str:
+    return f"project_{safe_segment(rec.name, what='study name')}.json"
+
+
+def group_list_filename(group: Dict[str, Any]) -> str:
+    return safe_segment(
+        group.get("listFilename") or DEFAULT_LIST_FILENAME, what="listFilename"
+    )
 
 
 def resolve_processing_key(
@@ -57,6 +82,7 @@ def set_study_group(
 ) -> Dict[str, Any]:
     if role not in ROLE_TO_ARM:
         raise ValueError("role must be 'control' or 'disease'")
+    safe_segment(list_filename, what="listFilename")
     rec = store.get("study", study_name, version=version, include_secret=True)
     if rec is None:
         raise KeyError(f"study/{study_name} not found")
@@ -188,6 +214,7 @@ def sync_document_sample_paths(
         filename = g.get("listFilename") or g.get("list_filename")
         if not filename:
             continue
+        filename = safe_segment(filename, what="listFilename")
         sample_path = f"{data_dir.rstrip('/')}/{filename}"
         by_arm[role].append(
             {
@@ -232,14 +259,21 @@ def sync_document_sample_paths(
     return doc
 
 
-def write_group_csv(path: Path, sample_keys: Sequence[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+def _group_csv_bytes(sample_keys: Sequence[str]) -> bytes:
     buf = io.StringIO()
     writer = csv.writer(buf)
     writer.writerow(["sample"])
     for key in sorted(sample_keys):
         writer.writerow([key])
-    path.write_text(buf.getvalue(), encoding="utf-8")
+    return buf.getvalue().encode("utf-8")
+
+
+def write_group_csv(path: Path, sample_keys: Sequence[str]) -> None:
+    fd = open_dir(path.parent)
+    try:
+        write_file_at(fd, path.name, _group_csv_bytes(sample_keys))
+    finally:
+        os.close(fd)
 
 
 def materialize_study_membership(
@@ -251,38 +285,47 @@ def materialize_study_membership(
     """
     For published studies with ``extra.studyGroups``, write CSVs under
     ``/work/projects/<studyId>/data/`` and sync ``document_json`` sample_paths.
+
+    ``projects`` lists the project JSON written for each study record.
     """
     work_root = Path(work_root)
     written: List[str] = []
+    projects: List[Dict[str, Any]] = []
     studies = store.list("study", published_only=True)
     if study_name:
         studies = [s for s in studies if s.name == study_name]
 
+    # Validate every name before touching the work tree.
+    plans = []
     for rec in studies:
         groups = _groups_extra(rec)
-        study_id = (
-            rec.extra.get("studyId")
-            or rec.document.get("study_id")
-            or rec.document.get("studyId")
-            or rec.name
+        plans.append(
+            (
+                rec,
+                study_work_id(rec),
+                project_filename(rec),
+                groups,
+                [group_list_filename(g) for g in groups],
+            )
         )
-        data_dir = work_root / "projects" / str(study_id) / "data"
-        data_dir_str = str(data_dir)
-        data_dir.mkdir(parents=True, exist_ok=True)
 
-        if groups:
-            for g in groups:
-                filename = g.get("listFilename") or "samples.csv"
+    for rec, study_id, project_name, groups, filenames in plans:
+        data_dir = work_root / "projects" / study_id / "data"
+        data_fd = open_dir(work_root, ["projects", study_id, "data"])
+        try:
+            for g, filename in zip(groups, filenames):
                 keys = [
                     str(m["processingSampleKey"])
                     for m in (g.get("members") or [])
                     if m.get("processingSampleKey")
                 ]
-                csv_path = data_dir / filename
-                write_group_csv(csv_path, keys)
-                written.append(str(csv_path))
+                write_file_at(data_fd, filename, _group_csv_bytes(keys))
+                written.append(str(data_dir / filename))
+        finally:
+            os.close(data_fd)
 
-            synced = sync_document_sample_paths(rec.document, groups, data_dir=data_dir_str)
+        if groups:
+            synced = sync_document_sample_paths(rec.document, groups, data_dir=str(data_dir))
             store.upsert(
                 "study",
                 rec.name,
@@ -295,17 +338,28 @@ def materialize_study_membership(
         else:
             doc_to_write = rec.document
 
-        cfg_dir = work_root / "projects" / str(study_id) / "configs"
-        cfg_dir.mkdir(parents=True, exist_ok=True)
-        out = cfg_dir / f"project_{rec.name}.json"
-        out.write_text(
-            __import__("json").dumps(doc_to_write, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        cfg_fd = open_dir(work_root, ["projects", study_id, "configs"])
+        try:
+            write_file_at(
+                cfg_fd,
+                project_name,
+                (json.dumps(doc_to_write, indent=2, sort_keys=True) + "\n").encode("utf-8"),
+            )
+        finally:
+            os.close(cfg_fd)
+        out = work_root / "projects" / study_id / "configs" / project_name
         written.append(str(out))
+        projects.append(
+            {
+                "name": rec.name,
+                "version": rec.version,
+                "studyId": study_id,
+                "projectPath": str(out),
+            }
+        )
 
-    return {"written": written}
+    return {"written": written, "projects": projects}
 
 
 def study_data_dir(work_root: Path | str, study_id: str) -> Path:
-    return Path(work_root) / "projects" / study_id / "data"
+    return Path(work_root) / "projects" / safe_segment(study_id, what="studyId") / "data"
