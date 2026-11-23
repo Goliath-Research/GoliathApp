@@ -80,6 +80,23 @@ BEGIN
   END LOOP;
 END $$;
 
+-- History ledger internals (docs/history-and-audit.md): administered by the schema owner only.
+DO $$
+DECLARE
+  v_sig regprocedure;
+BEGIN
+  FOR v_sig IN
+    SELECT p.oid::regprocedure
+    FROM pg_proc p
+    INNER JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'portal'
+      AND p.prokind = 'f'
+      AND (p.proname LIKE 'fn\_ledger\_%' OR p.proname LIKE 'sp\_ledger\_%')
+  LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, goliath_portal', v_sig);
+  END LOOP;
+END $$;
+
 REVOKE ALL ON ALL TABLES IN SCHEMA inv FROM PUBLIC, goliath_portal;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA inv FROM PUBLIC, goliath_portal;
 
