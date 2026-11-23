@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { oidcCallbackUrl, oidcRedirectUri, requestOrigin } from "./request-origin";
+import {
+  allowlistedOriginFromRequest,
+  oidcCallbackUrl,
+  oidcRedirectUri,
+  requestOrigin,
+} from "./request-origin";
 
 describe("requestOrigin", () => {
   it("prefers forwarded host and proto", () => {
@@ -22,7 +27,8 @@ describe("requestOrigin", () => {
     const request = new Request("http://internal/api/auth/oidc/entra/callback?code=1", {
       headers: { "x-forwarded-host": "app.example.com:443", "x-forwarded-proto": "https" },
     });
-    expect(startUri).toBe(oidcCallbackUrl(request, "entra").href.split("?")[0]);
+    const callbackOrigin = allowlistedOriginFromRequest(request, ["https://app.example.com"]);
+    expect(startUri).toBe(oidcCallbackUrl(request, callbackOrigin, "entra").href.split("?")[0]);
   });
 
   it("builds public OIDC callback URL for token exchange", () => {
@@ -30,7 +36,8 @@ describe("requestOrigin", () => {
       "http://internal:3000/api/auth/oidc/entra/callback?code=abc&state=xyz",
       { headers: { "x-forwarded-host": "app.example.com", "x-forwarded-proto": "https" } },
     );
-    const url = oidcCallbackUrl(request, "entra");
+    const origin = allowlistedOriginFromRequest(request, ["https://app.example.com"]);
+    const url = oidcCallbackUrl(request, origin, "entra");
     expect(url.href).toBe("https://app.example.com/api/auth/oidc/entra/callback?code=abc&state=xyz");
   });
 });

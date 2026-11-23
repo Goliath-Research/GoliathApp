@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { getAuthProvider } from "@/server/auth/registry";
+import { getAuthProvider, listAllowedRedirectOrigins } from "@/server/auth/registry";
 import { exchangeOidcCallback } from "@/server/auth/oidc";
 import {
   clearOidcTransactionCookie,
@@ -12,23 +12,24 @@ import {
   PortalSessionDeniedError,
 } from "@/server/portal/bridge";
 import { buildSessionSetCookie } from "@/server/session/cookies";
-import { oidcCallbackUrl, requestOriginFromRequest } from "@/server/http/request-origin";
+import { allowlistedOriginFromRequest, oidcCallbackUrl } from "@/server/http/request-origin";
 
 export async function GET(
   request: Request,
   context: { params: Promise<{ providerId: string }> },
 ) {
   const { providerId } = await context.params;
-  const origin = requestOriginFromRequest(request);
   const cfg = getAuthProvider(providerId);
   if (!cfg || cfg.method !== "oidc_authorization_code") {
+    const origin = allowlistedOriginFromRequest(request, listAllowedRedirectOrigins());
     return NextResponse.redirect(new URL("/login?error=provider", origin));
   }
+  const origin = allowlistedOriginFromRequest(request, cfg.allowedOrigins ?? []);
   if (!isPortalBridgeConfigured()) {
     return NextResponse.redirect(new URL("/login?error=bridge", origin));
   }
 
-  const url = oidcCallbackUrl(request, providerId);
+  const url = oidcCallbackUrl(request, origin, providerId);
   const hdrs = await headers();
   const tx = parseOidcTransactionCookie(hdrs.get("cookie"));
   if (!tx || tx.providerId !== providerId) {

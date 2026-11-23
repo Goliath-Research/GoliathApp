@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { listPublicAuthProviders } from "@/server/auth/registry";
-import { requestOriginFromRequest } from "@/server/http/request-origin";
+import { listAllowedRedirectOrigins, listPublicAuthProviders } from "@/server/auth/registry";
+import { allowlistedOriginFromRequest } from "@/server/http/request-origin";
 
 export async function GET(request: Request) {
-  const origin = requestOriginFromRequest(request);
+  const origin = allowlistedOriginFromRequest(request, listAllowedRedirectOrigins());
   return NextResponse.json({
     providers: listPublicAuthProviders(origin),
     supportedMethods: {
