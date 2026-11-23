@@ -358,9 +358,13 @@ BEGIN
     RETURN;
   END IF;
 
-  v_ref := COALESCE(
-    v_wi.completed_at_utc, v_wi.started_at_utc,
-    (SELECT min(h.recorded_at_utc) FROM wf.run_history h WHERE h.workflow_instance_id = v_wi.id)
+  -- Age reference: the earliest of the run's completion/start time and its last recorded transition.
+  -- run_history.recorded_at_utc is now(), an absolute instant. The engine writes its *_at_utc columns
+  -- as UTC wall-clock values, which a session in a time zone west of UTC stores hours in the future;
+  -- taking LEAST keeps such a run purgeable on time instead of hours late. (LEAST ignores NULLs.)
+  v_ref := LEAST(
+    (SELECT max(h.recorded_at_utc) FROM wf.run_history h WHERE h.workflow_instance_id = v_wi.id),
+    v_wi.completed_at_utc, v_wi.started_at_utc
   );
   IF v_ref IS NOT NULL AND v_ref > now() - make_interval(days => v_ret.retention_days) THEN
     RETURN QUERY SELECT format('retention period of %s days has not passed', v_ret.retention_days),

@@ -290,3 +290,15 @@ def test_retention_policy_is_a_god_architect_meta_class_with_purge_method(run_db
         assert _one(
             conn, "SELECT has_function_privilege('goliath_portal', 'wf.sp_purge_run_history(bigint[],text,boolean)', 'EXECUTE')"
         )[0] is False
+
+
+def test_zero_day_purge_works_in_a_session_west_of_utc(run_db: str) -> None:
+    with psycopg.connect(run_db, autocommit=True) as conn:
+        conn.execute("SET TIME ZONE 'America/New_York'")
+        name, version_id, node_id = _workflow(conn)
+        _policy(conn, name, 0)
+        inst, _ = _run(conn, version_id, node_id)
+        # The engine writes UTC wall-clock values; in this session they land five hours in the future.
+        conn.execute("UPDATE wf.workflow_instance SET started_at_utc = (now() AT TIME ZONE 'utc') WHERE id = %s", (inst,))
+        purged, reason = _purge(conn, inst)
+        assert purged, reason
