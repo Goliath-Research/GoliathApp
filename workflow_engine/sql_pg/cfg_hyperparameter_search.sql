@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS cfg.hyperparameter_search_run (
   objective_json jsonb NOT NULL DEFAULT '{}'::jsonb,
   status text NOT NULL DEFAULT 'created',
   created_by text NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
-  updated_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
+  updated_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT ck_cfg_hsr_status CHECK (status IN (
     'created', 'running', 'completed', 'failed', 'cancelled'
   ))
@@ -46,8 +46,8 @@ CREATE TABLE IF NOT EXISTS cfg.hyperparameter_trial (
   objective double precision NULL,
   feasible boolean NULL,
   result_json jsonb NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
-  updated_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
+  updated_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT uq_cfg_ht_search_index UNIQUE (search_id, trial_index)
 );
 
@@ -129,7 +129,7 @@ BEGIN
     workflow_instance_id = EXCLUDED.workflow_instance_id,
     execution_scope_key = EXCLUDED.execution_scope_key,
     status = 'started',
-    updated_at_utc = (now() AT TIME ZONE 'utc');
+    updated_at_utc = (now());
 END;
 $$;
 
@@ -148,7 +148,7 @@ BEGIN
       feasible = p_feasible,
       result_json = p_result_json,
       status = 'scored',
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE search_id = p_search_id AND trial_index = p_trial_index;
 END;
 $$;
@@ -162,7 +162,7 @@ AS $$
 BEGIN
   UPDATE cfg.hyperparameter_search_run
   SET status = p_status,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE id = p_search_id;
 END;
 $$;
@@ -325,7 +325,7 @@ BEGIN
 
   UPDATE cfg.hyperparameter_trial
   SET result_json = COALESCE(result_json, '{}'::jsonb) || jsonb_build_object('promoted', true),
-      updated_at_utc = now() AT TIME ZONE 'utc'
+      updated_at_utc = now()
   WHERE search_id = p_search_id AND trial_index = p_trial_index;
 
   RETURN QUERY SELECT p_search_id, p_trial_index, v_study, v_merged;

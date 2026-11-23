@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS cfg.study_start_request (
   claimed_at_utc         timestamptz NULL,
   lease_expires_at_utc   timestamptz NULL,
   created_by             text NULL,
-  created_at_utc         timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
-  updated_at_utc         timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc         timestamptz NOT NULL DEFAULT (now()),
+  updated_at_utc         timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT ck_ssr_stage CHECK (stage IN ('sample_prep', 'study_validation')),
   CONSTRAINT ck_ssr_status CHECK (status IN ('draft', 'queued', 'running', 'succeeded', 'failed'))
 );
@@ -447,7 +447,7 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
   v_id bigint;
-  v_now timestamptz := (now() AT TIME ZONE 'utc');
+  v_now timestamptz := (now());
   v_lease int := coalesce(p_lease_seconds, 600);
 BEGIN
   IF nullif(btrim(p_claimed_by), '') IS NULL THEN
@@ -570,7 +570,7 @@ BEGIN
       workflow_instance_id = p_workflow_instance_id,
       error_message = NULL,
       lease_expires_at_utc = NULL,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE id = p_request_id AND status = 'running';
 
   IF NOT FOUND THEN
@@ -618,7 +618,7 @@ BEGIN
   SET status = 'failed',
       error_message = left(coalesce(p_error_message, 'failed'), 4000),
       lease_expires_at_utc = NULL,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE id = p_request_id AND status IN ('queued', 'running');
 
   IF NOT FOUND THEN

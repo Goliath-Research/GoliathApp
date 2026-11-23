@@ -296,7 +296,7 @@ BEGIN
 
   IF v_user_id IS NOT NULL THEN
     UPDATE "RBAC"."ExternalIdentities"
-    SET "LastLoginAtUtc" = now() AT TIME ZONE 'utc'
+    SET "LastLoginAtUtc" = now()
     WHERE "ProviderID" = v_provider_id AND "Subject" = p_subject AND "UserID" = v_user_id;
   END IF;
 

@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS inv.item (
   standard_unit_cost numeric(18, 6) NULL,
   avg_unit_cost numeric(18, 6) NOT NULL DEFAULT 0,
   active boolean NOT NULL DEFAULT true,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT uq_inv_item_org_number UNIQUE (organization_id, item_number)
 );
 
@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS inv.stock_lot (
   serial_number text NULL,
   qty_on_hand numeric(18, 6) NOT NULL DEFAULT 0 CHECK (qty_on_hand >= 0),
   unit_cost numeric(18, 6) NOT NULL DEFAULT 0,
-  received_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  received_at_utc timestamptz NOT NULL DEFAULT (now()),
   expires_on date NULL
 );
 
@@ -173,7 +173,7 @@ CREATE TABLE IF NOT EXISTS inv.stock_move (
   ref_type text NULL,
   ref_id text NULL,
   reason_code text NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   created_by_user_id integer NULL
 );
 
@@ -190,7 +190,7 @@ CREATE TABLE IF NOT EXISTS inv.stock_reservation (
   ref_id text NOT NULL,
   status text NOT NULL DEFAULT 'open'
     CHECK (status IN ('open', 'fulfilled', 'cancelled')),
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE TABLE IF NOT EXISTS inv.stock_adjustment (
@@ -200,7 +200,7 @@ CREATE TABLE IF NOT EXISTS inv.stock_adjustment (
   stock_lot_id integer NULL REFERENCES inv.stock_lot (stock_lot_id),
   qty_delta numeric(18, 6) NOT NULL CHECK (qty_delta <> 0),
   reason_code text NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   created_by_user_id integer NULL
 );
 
@@ -210,7 +210,7 @@ CREATE TABLE IF NOT EXISTS inv.cycle_count (
   location_id integer NOT NULL REFERENCES inv.location (location_id),
   status text NOT NULL DEFAULT 'open'
     CHECK (status IN ('open', 'posted', 'cancelled')),
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   posted_at_utc timestamptz NULL
 );
 
@@ -248,7 +248,7 @@ CREATE TABLE IF NOT EXISTS inv.purchase_order (
   status text NOT NULL DEFAULT 'draft'
     CHECK (status IN ('draft', 'submitted', 'partial', 'closed', 'cancelled')),
   ordered_at_utc timestamptz NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT uq_inv_po_org_number UNIQUE (organization_id, po_number)
 );
 
@@ -270,13 +270,13 @@ CREATE TABLE IF NOT EXISTS inv.receipt (
   po_line_id integer NOT NULL REFERENCES inv.purchase_order_line (po_line_id),
   stock_lot_id integer NOT NULL REFERENCES inv.stock_lot (stock_lot_id),
   qty_received numeric(18, 6) NOT NULL CHECK (qty_received > 0),
-  received_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  received_at_utc timestamptz NOT NULL DEFAULT (now()),
   received_by_user_id integer NULL
 );
 
 CREATE TABLE IF NOT EXISTS inv.item_cost_snapshot (
   item_id integer NOT NULL REFERENCES inv.item (item_id) ON DELETE CASCADE,
-  captured_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  captured_at_utc timestamptz NOT NULL DEFAULT (now()),
   avg_unit_cost numeric(18, 6) NOT NULL,
   qty_on_hand numeric(18, 6) NOT NULL,
   PRIMARY KEY (item_id, captured_at_utc)

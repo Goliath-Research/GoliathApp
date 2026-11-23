@@ -85,7 +85,7 @@ def _signer(env: dict[str, str], name: str) -> Signer:
         )
     psql(
         f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc")
-            VALUES ({user_id}, {role_id}, 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc')"""
+            VALUES ({user_id}, {role_id}, 'SCOPED', {scope_id}, true, now())"""
     )
     grant_role_nav_tree(psql, role_id, scope_id)
     token = open_session_token(psql, user_id, scope_id=scope_id, role_id=role_id)

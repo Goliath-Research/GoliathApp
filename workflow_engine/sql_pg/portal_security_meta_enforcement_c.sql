@@ -738,7 +738,7 @@ BEGIN
       "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc"
     )
     VALUES (
-      p_user_id, v_role_id, 'SCOPED', v_scope_id, true, now() AT TIME ZONE 'utc'
+      p_user_id, v_role_id, 'SCOPED', v_scope_id, true, now()
     )
     RETURNING "ID" INTO v_grant_id;
   END IF;

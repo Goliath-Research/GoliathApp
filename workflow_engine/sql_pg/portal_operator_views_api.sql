@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS portal.operator_view (
   meta_class_name text NULL,
   params_json jsonb NOT NULL DEFAULT '{}'::jsonb,
   visibility text NOT NULL DEFAULT 'scope',
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
-  updated_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
+  updated_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT ck_operator_view_source CHECK (
     semantic_request_code IS NOT NULL OR meta_class_name IS NOT NULL
   )
@@ -48,8 +48,8 @@ CREATE TABLE IF NOT EXISTS portal.operator_dashboard (
   description text NOT NULL DEFAULT '',
   layout_json jsonb NOT NULL DEFAULT '{}'::jsonb,
   visibility text NOT NULL DEFAULT 'scope',
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
-  updated_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
+  updated_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 ALTER TABLE portal.operator_dashboard
@@ -430,7 +430,7 @@ BEGIN
       meta_class_name = NULLIF(btrim(p_meta_class_name), ''),
       params_json = COALESCE(p_params_json, '{}'::jsonb),
       visibility = COALESCE(NULLIF(btrim(p_visibility), ''), v.visibility),
-      updated_at_utc = now() AT TIME ZONE 'utc'
+      updated_at_utc = now()
     WHERE v.id = p_view_id
       AND v.scope_id = v_sess.active_scope_id
       AND (
@@ -693,7 +693,7 @@ BEGIN
       description = COALESCE(p_description, ''),
       layout_json = COALESCE(p_layout_json, d.layout_json),
       visibility = COALESCE(NULLIF(btrim(p_visibility), ''), d.visibility),
-      updated_at_utc = now() AT TIME ZONE 'utc'
+      updated_at_utc = now()
     WHERE d.id = p_dashboard_id
       AND d.scope_id = v_sess.active_scope_id
       AND (
@@ -820,7 +820,7 @@ BEGIN
   END LOOP;
 
   UPDATE portal.operator_dashboard d
-  SET updated_at_utc = now() AT TIME ZONE 'utc'
+  SET updated_at_utc = now()
   WHERE d.id = p_dashboard_id;
 
   RETURN QUERY SELECT v_count;

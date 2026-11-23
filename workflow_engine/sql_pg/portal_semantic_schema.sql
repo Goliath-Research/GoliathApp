@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS portal.semantic_namespace (
   code text PRIMARY KEY,
   display_name text NOT NULL,
   owner_app text NOT NULL DEFAULT 'goliath_app',
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE TABLE IF NOT EXISTS portal.semantic_entity (
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS portal.semantic_entity (
   schema_id text NOT NULL,
   schema_version text NOT NULL DEFAULT '1',
   content_hash text NOT NULL DEFAULT '',
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT uq_semantic_entity_ns_code UNIQUE (namespace, code)
 );
 
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS portal.semantic_attribute (
   json_type text NOT NULL CHECK (json_type IN ('string', 'integer', 'number', 'boolean')),
   role text NOT NULL CHECK (role IN ('list', 'detail', 'filter', 'key')),
   filterable_ops text[] NOT NULL DEFAULT '{}',
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT uq_semantic_attribute_entity_code UNIQUE (entity_id, code)
 );
 
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS portal.semantic_request (
   content_hash text NOT NULL DEFAULT '',
   required_permission text NULL,
   max_rows integer NOT NULL DEFAULT 500,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT uq_semantic_request_code_version UNIQUE (request_code, version)
 );
 
@@ -96,7 +96,7 @@ $$;
 CREATE TABLE IF NOT EXISTS portal.semantic_action_binding (
   workflow_action_id bigint NOT NULL REFERENCES wf.workflow_action (id) ON DELETE CASCADE,
   entity_id integer NOT NULL REFERENCES portal.semantic_entity (id) ON DELETE CASCADE,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   PRIMARY KEY (workflow_action_id, entity_id)
 );
 
@@ -106,7 +106,7 @@ CREATE TABLE IF NOT EXISTS portal.semantic_nav_binding (
   request_id integer NULL REFERENCES portal.semantic_request (id) ON DELETE CASCADE,
   nav_tree_id integer NOT NULL,
   permission_code text NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT ck_semantic_nav_binding_target CHECK (
     entity_id IS NOT NULL OR request_id IS NOT NULL
   )

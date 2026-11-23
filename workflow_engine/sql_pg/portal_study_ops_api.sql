@@ -181,7 +181,7 @@ BEGIN
   UPDATE cfg.study
   SET document_json = v_doc,
       content_hash = encode(digest(v_doc::text, 'sha256'), 'hex'),
-      updated_at_utc = now() AT TIME ZONE 'utc'
+      updated_at_utc = now()
   WHERE id = p_study_row_id;
 
   RETURN QUERY SELECT * FROM portal.sp_get_study_storage(p_study_row_id);
@@ -238,7 +238,7 @@ BEGIN
   UPDATE cfg.study
   SET document_json = v_doc,
       content_hash = encode(digest(v_doc::text, 'sha256'), 'hex'),
-      updated_at_utc = now() AT TIME ZONE 'utc'
+      updated_at_utc = now()
   WHERE id = p_study_row_id;
 
   RETURN QUERY SELECT * FROM portal.sp_get_study_action_config_overlay(p_study_row_id);
@@ -536,7 +536,7 @@ BEGIN
   UPDATE cfg.study
   SET document_json = v_doc,
       content_hash = encode(digest(v_doc::text, 'sha256'), 'hex'),
-      updated_at_utc = now() AT TIME ZONE 'utc'
+      updated_at_utc = now()
   WHERE id = p_study_row_id;
 
   RETURN QUERY SELECT * FROM portal.sp_get_study_guardrails_editor(p_study_row_id);
@@ -585,7 +585,7 @@ DECLARE
   v_period_type text;
   v_period_start timestamptz;
   v_runs int := 0;
-  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_now timestamptz := now();
 BEGIN
   IF p_scope_id IS NOT NULL THEN
     SELECT a.is_allowed, a.contract_id
@@ -862,7 +862,7 @@ BEGIN
       result_code = 4098,
       engine_error_code = 4098,
       engine_error_message = COALESCE(NULLIF(btrim(p_error_message), ''), 'OPERATOR_FAILED'),
-      ended_at_utc = now() AT TIME ZONE 'utc',
+      ended_at_utc = now(),
       stop_requested = false
   WHERE id = p_node_execution_id;
 
@@ -975,7 +975,7 @@ BEGIN
       result_code = 4097,
       engine_error_code = 4097,
       engine_error_message = v_reason,
-      ended_at_utc = now() AT TIME ZONE 'utc',
+      ended_at_utc = now(),
       stop_requested = false
   WHERE workflow_instance_id = p_workflow_instance_id
     AND status IN ('READY', 'PENDING');
@@ -996,7 +996,7 @@ BEGIN
 
   UPDATE wf.workflow_instance
   SET status = 'CANCELLED',
-      completed_at_utc = now() AT TIME ZONE 'utc'
+      completed_at_utc = now()
   WHERE id = p_workflow_instance_id;
 
   CALL wf.wf_repo_upsert_instance_extension(
@@ -1061,7 +1061,7 @@ BEGIN
       result_code = 4098,
       engine_error_code = 4098,
       engine_error_message = v_reason,
-      ended_at_utc = now() AT TIME ZONE 'utc',
+      ended_at_utc = now(),
       stop_requested = false
   WHERE workflow_instance_id = p_workflow_instance_id
     AND status IN ('READY', 'PENDING');
@@ -1082,7 +1082,7 @@ BEGIN
 
   UPDATE wf.workflow_instance
   SET status = 'FAILED',
-      completed_at_utc = now() AT TIME ZONE 'utc'
+      completed_at_utc = now()
   WHERE id = p_workflow_instance_id;
 
   CALL wf.wf_repo_upsert_instance_extension(
@@ -1112,7 +1112,7 @@ SECURITY DEFINER
 SET search_path = wf, pg_temp
 AS $$
 DECLARE
-  v_now timestamptz := (now() AT TIME ZONE 'utc');
+  v_now timestamptz := (now());
   v_rows int;
   v_desired_state text := 'ACTIVE';
   v_command text := 'NONE';

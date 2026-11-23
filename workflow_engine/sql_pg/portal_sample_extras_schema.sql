@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS portal.sample_field_contract (
   /* JSON Schema document — the only schema_json-style column in the DB */
   schema_json jsonb NOT NULL,
   content_hash text NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_portal_sample_field_contract UNIQUE (name, version),
   CONSTRAINT ck_portal_sfc_status CHECK (status IN ('draft', 'published', 'retired'))

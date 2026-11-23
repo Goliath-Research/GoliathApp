@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS portal.god_architect_audit (
   actor_user_id integer NOT NULL,
   action_code text NOT NULL,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 INSERT INTO "RBAC"."Roles" ("Name", "BypassScope")
@@ -266,7 +266,7 @@ BEGIN
       "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc"
     )
     VALUES (
-      p_user_id, v_role_id, 'GLOBAL', NULL, true, now() AT TIME ZONE 'utc'
+      p_user_id, v_role_id, 'GLOBAL', NULL, true, now()
     )
     RETURNING "ID" INTO v_grant_id;
   END IF;

@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS portal."MetaClassRoleAccess" (
   "ClassID" integer NOT NULL,
   "Action" text NOT NULL,
   "Effect" text NOT NULL,
-  "CreatedAtUtc" timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  "CreatedAtUtc" timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT "CK_MetaClassRoleAccess_Action"
     CHECK ("Action" IN ('read', 'create', 'update', 'delete', 'author')),
   CONSTRAINT "CK_MetaClassRoleAccess_Effect"
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS portal."MetaObjectAccess" (
   "UserID" integer,
   "Action" text NOT NULL,
   "Effect" text NOT NULL,
-  "CreatedAtUtc" timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  "CreatedAtUtc" timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT "CK_MetaObjectAccess_Action"
     CHECK ("Action" IN ('read', 'create', 'update', 'delete', 'author')),
   CONSTRAINT "CK_MetaObjectAccess_Effect"
@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS portal.security_admin_audit (
   scope_id integer,
   action_code text NOT NULL,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 COMMIT;

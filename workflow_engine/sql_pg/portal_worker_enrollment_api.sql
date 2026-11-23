@@ -40,7 +40,7 @@ BEGIN
     worker_mount_path = COALESCE(EXCLUDED.worker_mount_path, c.worker_mount_path),
     allowed_source_cidrs = COALESCE(EXCLUDED.allowed_source_cidrs, c.allowed_source_cidrs),
     status = COALESCE(EXCLUDED.status, c.status),
-    updated_at_utc = now() AT TIME ZONE 'utc';
+    updated_at_utc = now();
 
   RETURN QUERY
   SELECT c.id, c.cluster_key, c.name, c.status, c.allowed_source_cidrs, c.shared_storage_uri, c.worker_mount_path
@@ -106,7 +106,7 @@ BEGIN
   ON CONFLICT (cluster_id, external_worker_key) DO UPDATE SET
     public_ip = EXCLUDED.public_ip,
     status = CASE WHEN e.status = 'REVOKED' THEN 'PENDING' ELSE e.status END,
-    updated_at_utc = now() AT TIME ZONE 'utc';
+    updated_at_utc = now();
 
   v_host := split_part(btrim(p_public_ip), '/', 1);
   v_slash32 := v_host || '/32';
@@ -117,7 +117,7 @@ BEGIN
     v_cidrs := v_cidrs || jsonb_build_array(v_slash32);
   END IF;
   UPDATE wf.cluster
-  SET allowed_source_cidrs = v_cidrs, updated_at_utc = now() AT TIME ZONE 'utc'
+  SET allowed_source_cidrs = v_cidrs, updated_at_utc = now()
   WHERE id = v_cluster_id;
 
   RETURN QUERY
@@ -171,7 +171,7 @@ BEGIN
   END IF;
 
   UPDATE wf.worker_enrollment e
-  SET status = 'REVOKED', updated_at_utc = now() AT TIME ZONE 'utc'
+  SET status = 'REVOKED', updated_at_utc = now()
   WHERE e.cluster_id = v_cluster_id AND e.external_worker_key = p_external_worker_key;
 
   IF NOT FOUND THEN

@@ -74,7 +74,7 @@ def _author_role(env: dict[str, str], user_id: int, scope_id: int) -> int:
     )
     _psql(
         f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc")
-            VALUES ({user_id}, {role_id}, 'DIRECT', {scope_id}, true, now() AT TIME ZONE 'utc')""",
+            VALUES ({user_id}, {role_id}, 'DIRECT', {scope_id}, true, now())""",
         env,
     )
     return role_id
@@ -133,7 +133,7 @@ def reader_token(editor_env: dict[str, str]) -> str:
     )
     _psql(
         f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc")
-            VALUES ({user_id}, {role_id}, 'DIRECT', {scope_id}, true, now() AT TIME ZONE 'utc')""",
+            VALUES ({user_id}, {role_id}, 'DIRECT', {scope_id}, true, now())""",
         env,
     )
     grant_role_nav_tree(psql, role_id, scope_id)

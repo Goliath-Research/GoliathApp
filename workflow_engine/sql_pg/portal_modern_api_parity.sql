@@ -488,7 +488,7 @@ CREATE TABLE IF NOT EXISTS cfg.node_config (
   workflow_node_id bigint NOT NULL REFERENCES wf.workflow_node(id) ON DELETE CASCADE,
   config_json jsonb NOT NULL,
   saved_by text NULL,
-  saved_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  saved_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT uq_cfg_node_config_node UNIQUE (workflow_node_id)
 );
 
@@ -533,7 +533,7 @@ BEGIN
   ON CONFLICT (workflow_node_id) DO UPDATE SET
     config_json = EXCLUDED.config_json,
     saved_by = COALESCE(EXCLUDED.saved_by, cfg.node_config.saved_by),
-    saved_at_utc = now() AT TIME ZONE 'utc'
+    saved_at_utc = now()
   RETURNING cfg.node_config.id INTO v_id;
 
   RETURN QUERY
@@ -581,7 +581,7 @@ BEGIN
     UPDATE cfg.domain_program
     SET compiled_workflow_version_id = v_wv_id,
         workflow_def_id = v_wd_id,
-        updated_at_utc = now() AT TIME ZONE 'utc'
+        updated_at_utc = now()
     WHERE id = v_dp_id;
 
     INSERT INTO cfg.program_publish (domain_program_id, workflow_def_id, workflow_version_id, content_hash)
@@ -784,10 +784,10 @@ LANGUAGE sql STABLE AS $$
     ne.workflow_instance_id,
     tl.worker_id,
     tl.lease_expires_at_utc,
-    EXTRACT(EPOCH FROM (now() AT TIME ZONE 'utc' - tl.lease_expires_at_utc)) AS stale_for_seconds
+    EXTRACT(EPOCH FROM (now() - tl.lease_expires_at_utc)) AS stale_for_seconds
   FROM wf.task_lease tl
   JOIN wf.node_execution ne ON ne.id = tl.node_execution_id
-  WHERE tl.lease_expires_at_utc < (now() AT TIME ZONE 'utc') - (p_grace_seconds || ' seconds')::interval
+  WHERE tl.lease_expires_at_utc < (now()) - (p_grace_seconds || ' seconds')::interval
   ORDER BY tl.lease_expires_at_utc;
 $$;
 

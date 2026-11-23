@@ -13,11 +13,11 @@ AS $$
 BEGIN
   IF p_status IN ('COMPLETED','FAILED','CANCELLED') THEN
     UPDATE wf.workflow_instance
-    SET status = p_status, completed_at_utc = coalesce(completed_at_utc, (now() AT TIME ZONE 'utc'))
+    SET status = p_status, completed_at_utc = coalesce(completed_at_utc, (now()))
     WHERE id = p_instance_id;
   ELSIF p_status = 'RUNNING' THEN
     UPDATE wf.workflow_instance
-    SET status = p_status, started_at_utc = coalesce(started_at_utc, (now() AT TIME ZONE 'utc'))
+    SET status = p_status, started_at_utc = coalesce(started_at_utc, (now()))
     WHERE id = p_instance_id;
   ELSE
     UPDATE wf.workflow_instance SET status = p_status WHERE id = p_instance_id;
@@ -125,8 +125,8 @@ BEGIN
   ) VALUES (
     p_workflow_instance_id, p_workflow_node_id, p_status, p_attempt_no,
     p_parent_node_execution_id, p_iteration_no, p_input_json,
-    CASE WHEN p_set_available_now THEN (now() AT TIME ZONE 'utc') ELSE NULL END,
-    CASE WHEN p_set_started_now THEN (now() AT TIME ZONE 'utc') ELSE NULL END
+    CASE WHEN p_set_available_now THEN (now()) ELSE NULL END,
+    CASE WHEN p_set_started_now THEN (now()) ELSE NULL END
   )
   RETURNING wf.node_execution.id;
 END;
@@ -147,7 +147,7 @@ BEGIN
   UPDATE wf.node_execution
   SET status = p_status,
       output_json = p_output_json,
-      ended_at_utc = (now() AT TIME ZONE 'utc'),
+      ended_at_utc = (now()),
       result_code = CASE WHEN p_has_result_code THEN p_result_code ELSE result_code END,
       engine_error_code = CASE WHEN p_engine_error_code <> 0 THEN p_engine_error_code ELSE engine_error_code END,
       engine_error_message = CASE WHEN p_engine_error_code <> 0 THEN p_engine_error_message ELSE engine_error_message END
@@ -247,7 +247,7 @@ BEGIN
   VALUES (p_instance_id, p_extension_key, p_data_json)
   ON CONFLICT (workflow_instance_id, extension_key) DO UPDATE SET
     data_json = EXCLUDED.data_json,
-    updated_at_utc = (now() AT TIME ZONE 'utc');
+    updated_at_utc = (now());
 END;
 $$;
 

@@ -298,7 +298,11 @@ def test_zero_day_purge_works_in_a_session_west_of_utc(run_db: str) -> None:
         name, version_id, node_id = _workflow(conn)
         _policy(conn, name, 0)
         inst, _ = _run(conn, version_id, node_id)
-        # The engine writes UTC wall-clock values; in this session they land five hours in the future.
-        conn.execute("UPDATE wf.workflow_instance SET started_at_utc = (now() AT TIME ZONE 'utc') WHERE id = %s", (inst,))
+        # A pre-fix row written by a non-UTC session holds a UTC wall-clock value read as local time,
+        # five hours in the future here; it must still purge on time.
+        conn.execute(
+            "UPDATE wf.workflow_instance SET started_at_utc = (now() AT TIME ZONE 'utc')::timestamptz WHERE id = %s",
+            (inst,),
+        )
         purged, reason = _purge(conn, inst)
         assert purged, reason

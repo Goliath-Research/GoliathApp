@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS wf.event_ingest_api_key (
   allowed_sources jsonb NOT NULL DEFAULT '["*"]'::jsonb,
   allowed_event_types jsonb NOT NULL DEFAULT '["*"]'::jsonb,
   status varchar(32) NOT NULL DEFAULT 'ACTIVE',
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   CHECK (status IN ('ACTIVE', 'REVOKED'))
 );
 

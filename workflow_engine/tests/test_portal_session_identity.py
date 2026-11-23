@@ -73,7 +73,7 @@ def _seed_oidc_identity(env: dict[str, str], *, issuer: str, subject: str, scope
         _psql(
             f"""
             INSERT INTO "RBAC"."IdentityProviders" ("Name","ProviderType","Issuer","Active","CreatedAtUtc")
-            VALUES ('test-oidc', 'oidc', '{issuer.replace("'", "''")}', true, now() AT TIME ZONE 'utc')
+            VALUES ('test-oidc', 'oidc', '{issuer.replace("'", "''")}', true, now())
             RETURNING "ProviderID"
             """,
             env,
@@ -82,7 +82,7 @@ def _seed_oidc_identity(env: dict[str, str], *, issuer: str, subject: str, scope
     _psql(
         f"""
         INSERT INTO "RBAC"."ScopeIdentityProviders" ("ScopeID","ProviderID","Active","CreatedAtUtc")
-        VALUES ({scope_id}, {provider_id}, true, now() AT TIME ZONE 'utc')
+        VALUES ({scope_id}, {provider_id}, true, now())
         ON CONFLICT DO NOTHING
         """,
         env,
@@ -92,7 +92,7 @@ def _seed_oidc_identity(env: dict[str, str], *, issuer: str, subject: str, scope
         INSERT INTO "RBAC"."ExternalIdentities"
           ("UserID","ProviderID","Subject","EmailSnapshot","Active","CreatedAtUtc","LastLoginAtUtc")
         VALUES ({user_id}, {provider_id}, '{subject.replace("'", "''")}', '{email}', true,
-                now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc')
+                now(), now())
         """,
         env,
     )

@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS cfg.assay_procedure (
   status varchar(32) NOT NULL DEFAULT 'draft',
   content_hash text NOT NULL,
   document_json jsonb NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_assay_procedure_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_assay_procedure_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -538,7 +538,7 @@ BEGIN
   UPDATE cfg.study
   SET document_json = v_doc,
       content_hash = md5(v_doc::text),
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE id = p_study_row_id;
 
   RETURN QUERY SELECT * FROM portal.sp_get_study_process_defaults(p_study_row_id);

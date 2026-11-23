@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS wf.action_compile_profile (
   action_config_key text NULL,
   context_vars text[] NOT NULL DEFAULT '{}',
   domain_effects jsonb NULL,
-  updated_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  updated_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 /* Owner-only: the app that owns an action records how the compiler lowers it. */
@@ -53,7 +53,7 @@ BEGIN
     action_config_key = EXCLUDED.action_config_key,
     context_vars = EXCLUDED.context_vars,
     domain_effects = EXCLUDED.domain_effects,
-    updated_at_utc = now() AT TIME ZONE 'utc';
+    updated_at_utc = now();
 END;
 $$;
 

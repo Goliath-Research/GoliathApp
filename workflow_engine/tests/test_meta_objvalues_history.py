@@ -196,7 +196,7 @@ def test_session_writes_are_attributed_and_history_is_scoped(history_env: dict[s
         )
     psql(
         f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc")
-            VALUES ({user_id}, {role_id}, 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc')"""
+            VALUES ({user_id}, {role_id}, 'SCOPED', {scope_id}, true, now())"""
     )
     grant_role_nav_tree(psql, role_id, scope_id)
     token = open_session_token(psql, user_id, scope_id=scope_id, role_id=role_id)
@@ -232,7 +232,7 @@ def test_session_writes_are_attributed_and_history_is_scoped(history_env: dict[s
         other_scope = int(other_org.split("|")[1])
         psql(
             f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc")
-                VALUES ({other}, {role_id}, 'SCOPED', {other_scope}, true, now() AT TIME ZONE 'utc')"""
+                VALUES ({other}, {role_id}, 'SCOPED', {other_scope}, true, now())"""
         )
         grant_role_nav_tree(psql, role_id, other_scope)
         other_token = open_session_token(psql, other, scope_id=other_scope, role_id=role_id)

@@ -119,7 +119,7 @@ class WorkerSessionAuthIntegrationTests(unittest.TestCase):
             self.dsn,
             f"""
             UPDATE "RBAC"."SessionTokens" st
-            SET "LastRefreshedAtUtc" = (now() AT TIME ZONE 'utc') - interval '1 hour'
+            SET "LastRefreshedAtUtc" = (now()) - interval '1 hour'
             FROM "RBAC"."Sessions" s
             WHERE st."SessionID" = s."ID" AND s."UserID" = (
               SELECT rbac_user_id FROM wf.worker WHERE id = {self.worker_id}

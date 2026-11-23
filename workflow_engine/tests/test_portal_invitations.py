@@ -58,7 +58,7 @@ def _seed_scope_provider(env: dict[str, str], scope_id: int, issuer: str) -> int
             f"""
             INSERT INTO "RBAC"."IdentityProviders" ("Name","ProviderType","Issuer","Active","CreatedAtUtc")
             VALUES ('inv-test-{uuid.uuid4().hex[:6]}', 'oidc', '{issuer.replace("'", "''")}', true,
-                    now() AT TIME ZONE 'utc')
+                    now())
             RETURNING "ProviderID"
             """,
             env,
@@ -67,7 +67,7 @@ def _seed_scope_provider(env: dict[str, str], scope_id: int, issuer: str) -> int
     _psql(
         f"""
         INSERT INTO "RBAC"."ScopeIdentityProviders" ("ScopeID","ProviderID","Active","CreatedAtUtc")
-        VALUES ({scope_id}, {provider_id}, true, now() AT TIME ZONE 'utc')
+        VALUES ({scope_id}, {provider_id}, true, now())
         ON CONFLICT DO NOTHING
         """,
         env,
@@ -91,7 +91,7 @@ def _seed_scope_contract(env: dict[str, str], org_id: int, scope_id: int, role_i
         f"""
         INSERT INTO "Contract"."ContractRolePolicies"
           ("ContractID", "RoleID", "GrantTypeAllowed", "RequiresApproval", "CreatedAtUtc")
-        VALUES ({contract_id}, {role_id}, 'SCOPED', false, now() AT TIME ZONE 'utc')
+        VALUES ({contract_id}, {role_id}, 'SCOPED', false, now())
         ON CONFLICT ("ContractID", "RoleID") DO NOTHING
         """,
         env,
@@ -152,7 +152,7 @@ def _sync_grant_to_meta(env: dict[str, str], grant_id: int | str) -> None:
 def _grant_security_admin(env: dict[str, str], user_id: int, scope_id: int) -> None:
     grant_id = _psql(
         f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID","RoleID","GrantType","ScopeID","Active","GrantedAtUtc")
-            SELECT {user_id}, p."ID", 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc'
+            SELECT {user_id}, p."ID", 'SCOPED', {scope_id}, true, now()
             FROM "RBAC"."Permissions" p WHERE p."Name" = 'platform.security.admin'
             RETURNING "ID" """,
         env,
@@ -326,7 +326,7 @@ def test_user_cannot_link_second_subject_same_provider(invitation_env: dict[str,
         f"""
         INSERT INTO "RBAC"."ExternalIdentities"
           ("UserID","ProviderID","Subject","EmailSnapshot","Active","CreatedAtUtc")
-        VALUES ({user_b}, {provider_id}, 'existing-subject', '{email}', true, now() AT TIME ZONE 'utc')
+        VALUES ({user_b}, {provider_id}, 'existing-subject', '{email}', true, now())
         """,
         env,
     )
@@ -357,7 +357,7 @@ def test_invitation_accept_on_first_sign_in(invitation_env: dict[str, str]) -> N
             SELECT invitation_id FROM portal.sp_create_invitation(
               {scope_id}, '{email}',
               (SELECT sip."ProviderID" FROM "RBAC"."ScopeIdentityProviders" sip WHERE sip."ScopeID" = {scope_id} LIMIT 1),
-              (now() AT TIME ZONE 'utc') + interval '7 days',
+              (now()) + interval '7 days',
               NULL, {role_id}, 'SCOPED', NULL
             )
             """,
@@ -417,7 +417,7 @@ def test_list_users_admin_roles_summary_and_revoke_grant(invitation_env: dict[st
         _psql(
             f"""
             INSERT INTO "RBAC"."UserRoleGrants" ("UserID","RoleID","GrantType","ScopeID","Active","GrantedAtUtc")
-            VALUES ({member_id}, {role_id}, 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc')
+            VALUES ({member_id}, {role_id}, 'SCOPED', {scope_id}, true, now())
             RETURNING "ID"
             """,
             env,

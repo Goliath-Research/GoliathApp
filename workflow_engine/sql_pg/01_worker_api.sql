@@ -95,7 +95,7 @@ SET search_path = wf, pg_temp
 AS $$
 #variable_conflict use_column
 DECLARE
-  v_now timestamptz := (now() AT TIME ZONE 'utc');
+  v_now timestamptz := (now());
   v_lease_end timestamptz := v_now + make_interval(secs => p_max_lease_seconds);
   v_picked bigint;
   v_worker_capabilities jsonb;
@@ -392,7 +392,7 @@ SECURITY DEFINER
 SET search_path = wf, pg_temp
 AS $$
 DECLARE
-  v_now timestamptz := (now() AT TIME ZONE 'utc');
+  v_now timestamptz := (now());
   v_rows int;
   v_desired_state text := 'ACTIVE';
   v_command text := 'NONE';
@@ -442,7 +442,7 @@ SECURITY DEFINER
 SET search_path = wf, pg_temp
 AS $$
 DECLARE
-  v_now timestamptz := (now() AT TIME ZONE 'utc');
+  v_now timestamptz := (now());
 BEGIN
   CALL wf.wf_worker_authenticate(
     p_worker_id, p_session_token, p_identity_token, p_client_ip
@@ -486,7 +486,7 @@ BEGIN
 
   UPDATE wf.workflow_instance
   SET status = 'RUNNING',
-      started_at_utc = (now() AT TIME ZONE 'utc')
+      started_at_utc = (now())
   WHERE id = p_workflow_instance_id;
 
   CALL wf.wf_init_instance_scope_from_context(p_workflow_instance_id);

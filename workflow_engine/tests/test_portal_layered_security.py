@@ -65,7 +65,7 @@ def _scoped_role(env: dict[str, str], user_id: int, scope_id: int, perms: list[s
         )
     _psql(
         f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc")
-            VALUES ({user_id}, {role_id}, 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc')""",
+            VALUES ({user_id}, {role_id}, 'SCOPED', {scope_id}, true, now())""",
         env,
     )
     return role_id
@@ -133,7 +133,7 @@ def test_class_inheritance_and_session_get(layered_env: dict[str, str]) -> None:
     )
     _psql(
         f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc")
-            VALUES ({reader_id}, {restricted_role}, 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc')""",
+            VALUES ({reader_id}, {restricted_role}, 'SCOPED', {scope_id}, true, now())""",
         env,
     )
     _psql(

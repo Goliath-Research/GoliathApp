@@ -210,7 +210,7 @@ def test_session_nav_rejects_expired_token(
     _psql(
         f"""
         UPDATE "RBAC"."SessionTokens" st
-        SET "ExpiresAtUtc" = (now() AT TIME ZONE 'utc') - interval '1 minute'
+        SET "ExpiresAtUtc" = (now()) - interval '1 minute'
         FROM "RBAC"."Sessions" s
         WHERE st."SessionID" = s."ID" AND s."UserID" = {user_id}
         """,
