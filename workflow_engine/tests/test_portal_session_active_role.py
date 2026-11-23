@@ -128,7 +128,7 @@ def test_single_role_auto_selected_and_nav_isolated(
         f"""
         INSERT INTO "RBAC"."UserRoleGrants"
           ("UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc")
-        VALUES ({user_id}, {role_other}, 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc')
+        VALUES ({user_id}, {role_other}, 'SCOPED', {scope_id}, true, now())
         """,
         portal_role_env,
     )

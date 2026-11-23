@@ -259,3 +259,14 @@ owner. Sessions use the `sp_session_*` functions.
 
 **Follow-up.** The portal screens for signing (with the re-authentication prompt) and for showing
 signatures on a record are not part of this change; the session API above is what they call.
+
+## Timestamps are stored as UTC
+
+Every GoliathApp timestamp column (`*_at_utc`, `*AtUtc`) is `timestamptz` and holds an absolute instant,
+whatever the session `TimeZone`. Defaults and writes use `now()`. The older idiom
+`now() AT TIME ZONE 'utc'` produced a UTC *wall-clock* value without a zone, which PostgreSQL read back
+in the session's zone, so any non-UTC session stored instants shifted by its offset. `apply_schema.sh`
+runs `platform_utc_timestamps.sql`, which rewrites those defaults on existing databases, and
+`portal.fn_utc_timestamp_violations()` lists anything that still derives a value that way (it should be
+empty). Formatting a UTC string with `to_char(now() AT TIME ZONE 'utc', ...)` is fine. Rows written
+before the fix by a UTC session, which includes every production write on Neon, are already correct.

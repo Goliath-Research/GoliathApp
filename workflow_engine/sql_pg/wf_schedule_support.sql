@@ -63,8 +63,8 @@ BEGIN
 
   IF v_failed THEN
     UPDATE wf.node_execution SET status = 'FAILED', engine_error_code = v_fc, engine_error_message = v_fm,
-      ended_at_utc = (now() AT TIME ZONE 'utc') WHERE id = v_ne_id;
-    UPDATE wf.workflow_instance SET status = 'FAILED', completed_at_utc = (now() AT TIME ZONE 'utc')
+      ended_at_utc = (now()) WHERE id = v_ne_id;
+    UPDATE wf.workflow_instance SET status = 'FAILED', completed_at_utc = (now())
     WHERE id = p_workflow_instance_id AND status = 'RUNNING';
     RETURN;
   END IF;
@@ -115,15 +115,15 @@ BEGIN
     UPDATE wf.node_execution
     SET status = 'FAILED', engine_error_code = 10021,
         engine_error_message = 'SCHEDULE node has no child action.',
-        ended_at_utc = (now() AT TIME ZONE 'utc')
+        ended_at_utc = (now())
     WHERE id = p_schedule_execution_id;
     UPDATE wf.workflow_instance
-    SET status = 'FAILED', completed_at_utc = (now() AT TIME ZONE 'utc')
+    SET status = 'FAILED', completed_at_utc = (now())
     WHERE id = v_inst AND status = 'RUNNING';
     RETURN;
   END IF;
 
-  v_now := (now() AT TIME ZONE 'utc');
+  v_now := (now());
   IF p_delay_first THEN
     v_avail := v_now + make_interval(secs => v_interval);
   ELSE

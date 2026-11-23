@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS wf.workflow_def (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   name text NOT NULL,
   description text NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE TABLE IF NOT EXISTS wf.workflow_version (
@@ -191,7 +191,7 @@ CREATE TABLE IF NOT EXISTS wf.scope_variable (
   scope_node_execution_id bigint NOT NULL,
   var_name text NOT NULL,
   value_json jsonb NOT NULL,
-  updated_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  updated_at_utc timestamptz NOT NULL DEFAULT (now()),
   PRIMARY KEY (workflow_instance_id, scope_node_execution_id, var_name)
 );
 
@@ -209,7 +209,7 @@ CREATE TABLE IF NOT EXISTS wf.cluster (
   allowed_source_cidrs jsonb NULL,
   entra_client_id text NULL,
   arc_resource_id text NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CHECK (status IN ('ACTIVE','DISABLED'))
 );
@@ -225,7 +225,7 @@ CREATE TABLE IF NOT EXISTS wf.worker (
   -- Operator fleet control (portal.sp_set_worker_desired_state); distinct from enrollment status.
   desired_state varchar(32) NOT NULL DEFAULT 'ACTIVE',
   last_seen_at_utc timestamptz NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CHECK (status IN ('REGISTERED','DISABLED')),
   CHECK (desired_state IN ('ACTIVE','DRAINING','STOPPING'))
@@ -237,7 +237,7 @@ CREATE TABLE IF NOT EXISTS wf.worker_token (
   token_hash bytea NOT NULL,
   status varchar(32) NOT NULL DEFAULT 'ACTIVE',
   expires_at_utc timestamptz NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   CHECK (status IN ('ACTIVE','REVOKED'))
 );
 
@@ -255,8 +255,8 @@ CREATE TABLE IF NOT EXISTS wf.instance_extension (
   workflow_instance_id bigint NOT NULL REFERENCES wf.workflow_instance(id) ON DELETE CASCADE,
   extension_key text NOT NULL,
   data_json jsonb NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
-  updated_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
+  updated_at_utc timestamptz NOT NULL DEFAULT (now()),
   PRIMARY KEY (workflow_instance_id, extension_key)
 );
 

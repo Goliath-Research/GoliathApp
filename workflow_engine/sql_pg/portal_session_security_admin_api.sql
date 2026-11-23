@@ -203,7 +203,7 @@ BEGIN
     v_ctx.active_scope_id,
     p_email,
     NULL,
-    (now() AT TIME ZONE 'utc') + interval '14 days',
+    (now()) + interval '14 days',
     NULL,
     p_default_role_id,
     'SCOPED',

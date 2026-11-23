@@ -257,7 +257,7 @@ BEGIN
     "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc", "ApprovalID"
   )
   VALUES (
-    p_user_id, p_role_id, v_grant, p_scope_id, true, now() AT TIME ZONE 'utc', p_approval_id
+    p_user_id, p_role_id, v_grant, p_scope_id, true, now(), p_approval_id
   )
   RETURNING "ID" INTO v_id;
 
@@ -317,7 +317,7 @@ DECLARE
   v_n bigint;
 BEGIN
   UPDATE "RBAC"."UserRoleGrants"
-  SET "Active" = false, "RevokedAtUtc" = now() AT TIME ZONE 'utc'
+  SET "Active" = false, "RevokedAtUtc" = now()
   WHERE "UserID" = p_user_id AND "RoleID" = p_role_id AND "GrantType" = v_grant
     AND "Active"
     AND (("ScopeID" IS NULL AND p_scope_id IS NULL) OR "ScopeID" = p_scope_id);
@@ -349,7 +349,7 @@ DECLARE v_n bigint;
 BEGIN
   DELETE FROM "RBAC"."Group_Users" WHERE "GroupID" = p_group_id;
   INSERT INTO "RBAC"."Group_Users" ("GroupID", "UserID", "AddedAt")
-  SELECT DISTINCT p_group_id, (j.value)::int, now() AT TIME ZONE 'utc'
+  SELECT DISTINCT p_group_id, (j.value)::int, now()
   FROM jsonb_array_elements_text(COALESCE(p_user_ids, '[]'::jsonb)) j
   WHERE (j.value)::int IS NOT NULL;
   GET DIAGNOSTICS v_n = ROW_COUNT;
@@ -473,7 +473,7 @@ AS $$
 DECLARE v_id bigint;
 BEGIN
   INSERT INTO "Onboarding"."InvitationBatches" ("ScopeID", "CreatedByUserID", "Status", "CreatedAtUtc")
-  VALUES (p_scope_id, p_created_by_user_id, 'OPEN', now() AT TIME ZONE 'utc')
+  VALUES (p_scope_id, p_created_by_user_id, 'OPEN', now())
   RETURNING "BatchID" INTO v_id;
   RETURN QUERY SELECT v_id;
 END;
@@ -510,7 +510,7 @@ BEGIN
   VALUES (
     p_batch_id, p_scope_id, lower(btrim(p_email)), p_expected_provider_id,
     p_expected_domain, p_default_role_id, v_grant, p_expires_at_utc, 'PENDING',
-    now() AT TIME ZONE 'utc'
+    now()
   )
   RETURNING "InvitationID" INTO v_id;
   RETURN QUERY SELECT v_id;
@@ -675,7 +675,7 @@ BEGIN
   UPDATE "RBAC"."BypassScopeApprovals"
   SET "Status" = v_d,
       "ApprovedByUserID" = p_decided_by_user_id,
-      "ApprovedAtUtc" = now() AT TIME ZONE 'utc'
+      "ApprovedAtUtc" = now()
   WHERE "ApprovalID" = p_approval_id;
 
   RETURN QUERY

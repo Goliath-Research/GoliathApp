@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS wf.execution_scope (
   set_key text NOT NULL,
   display_name text NULL,
   config_json jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   UNIQUE (set_key)
 );
 
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS wf.execution_scope_action_entry (
   action_name text NOT NULL,
   run_key text NOT NULL DEFAULT 'default',
   content_key text NOT NULL,
-  recorded_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  recorded_at_utc timestamptz NOT NULL DEFAULT (now()),
   UNIQUE (execution_scope_id, action_name, run_key)
 );
 
@@ -179,7 +179,7 @@ BEGIN
   ON CONFLICT (execution_scope_id, action_name, run_key) DO UPDATE SET
     content_key = EXCLUDED.content_key,
     workflow_instance_id = EXCLUDED.workflow_instance_id,
-    recorded_at_utc = (now() AT TIME ZONE 'utc');
+    recorded_at_utc = (now());
 END;
 $$;
 

@@ -37,8 +37,8 @@ AS $$
 #variable_conflict use_column
 DECLARE
   v_grace int := GREATEST(COALESCE(p_grace_seconds, 0), 0);
-  v_cutoff timestamptz := (now() AT TIME ZONE 'utc') - make_interval(secs => v_grace);
-  v_now timestamptz := (now() AT TIME ZONE 'utc');
+  v_cutoff timestamptz := (now()) - make_interval(secs => v_grace);
+  v_now timestamptz := (now());
 BEGIN
   RETURN QUERY
   WITH expired AS (

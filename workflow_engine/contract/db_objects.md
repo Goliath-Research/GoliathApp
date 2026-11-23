@@ -21,7 +21,7 @@ Repository and worker procs that insert rows **return the new id as a single-col
 
 | Azure SQL | PostgreSQL |
 |-----------|------------|
-| `SYSUTCDATETIME()` | `(now() AT TIME ZONE 'utc')` or `now()` with `timestamptz` |
+| `SYSUTCDATETIME()` | `now()` into a `timestamptz` column (never `now() AT TIME ZONE 'utc'`, which yields a session-zone-dependent value) |
 | `DATETIME2(7)` | `timestamptz` |
 
 ### JSON

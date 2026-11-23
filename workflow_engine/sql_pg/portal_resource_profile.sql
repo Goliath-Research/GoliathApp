@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS portal.resource_profile (
   profile_type text NOT NULL DEFAULT 's3_object_storage',
   profile_json jsonb NOT NULL,
   status varchar(32) NOT NULL DEFAULT 'ACTIVE',
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CHECK (status IN ('ACTIVE','DISABLED'))
 );
@@ -80,7 +80,7 @@ WHERE NOT EXISTS (
 UPDATE portal.resource_profile
 SET profile_json = '{"sampleStorageEndpoint":"goliath-archive","prefixBase":"samples/","scope":"archive"}'::jsonb,
     profile_type = 'cfg_storage_endpoint_ref',
-    updated_at_utc = (now() AT TIME ZONE 'utc')
+    updated_at_utc = (now())
 WHERE profile_key = 'goliath-samples'
   AND profile_json::text LIKE '%REPLACE_WITH_ACCESS_KEY%';
 
@@ -99,6 +99,6 @@ UPDATE cfg.storage_profile
 SET document_json = '{"fastqStorageEndpoint":"goliath-fastq","sampleStorageEndpoint":"goliath-archive"}'::jsonb,
     content_hash = md5('{"fastqStorageEndpoint":"goliath-fastq","sampleStorageEndpoint":"goliath-archive"}'),
     status = 'published',
-    updated_at_utc = (now() AT TIME ZONE 'utc')
+    updated_at_utc = (now())
 WHERE name = 'goliath-samples' AND version = '1'
   AND document_json::text NOT LIKE '%fastqStorageEndpoint%';

@@ -7,9 +7,9 @@ CREATE TABLE IF NOT EXISTS "Contract"."ContractProcessPackEntitlements" (
   "ContractID" integer NOT NULL,
   "Modality" varchar(32) NOT NULL,
   "Enabled" boolean NOT NULL DEFAULT true,
-  "EffectiveFromUtc" timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  "EffectiveFromUtc" timestamptz NOT NULL DEFAULT (now()),
   "EffectiveToUtc" timestamptz NULL,
-  "CreatedAtUtc" timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  "CreatedAtUtc" timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT "PK_Contract_ProcessPackEntitlements" PRIMARY KEY ("ContractID", "Modality"),
   CONSTRAINT "CK_CPPE_Modality" CHECK (
     "Modality" IN ('meth' || 'ylation', 'rnaseq', 'prote' || 'om' || 'ics')
@@ -102,12 +102,12 @@ AS $$
     AND cs."Status" = 'ACTIVE'
     AND c."Status" = 'ACTIVE'
     AND e."Enabled"
-    AND cs."EffectiveFromUtc" <= (now() AT TIME ZONE 'utc')
-    AND (cs."EffectiveToUtc" IS NULL OR cs."EffectiveToUtc" >= (now() AT TIME ZONE 'utc'))
-    AND c."StartDateUtc" <= (now() AT TIME ZONE 'utc')
-    AND (c."EndDateUtc" IS NULL OR c."EndDateUtc" >= (now() AT TIME ZONE 'utc'))
-    AND e."EffectiveFromUtc" <= (now() AT TIME ZONE 'utc')
-    AND (e."EffectiveToUtc" IS NULL OR e."EffectiveToUtc" >= (now() AT TIME ZONE 'utc'));
+    AND cs."EffectiveFromUtc" <= (now())
+    AND (cs."EffectiveToUtc" IS NULL OR cs."EffectiveToUtc" >= (now()))
+    AND c."StartDateUtc" <= (now())
+    AND (c."EndDateUtc" IS NULL OR c."EndDateUtc" >= (now()))
+    AND e."EffectiveFromUtc" <= (now())
+    AND (e."EffectiveToUtc" IS NULL OR e."EffectiveToUtc" >= (now()));
 $$;
 
 CREATE OR REPLACE FUNCTION portal.sp_contract_entitled_modalities(p_scope_id int)
@@ -223,7 +223,7 @@ BEGIN
   IF v_status NOT IN ('DRAFT', 'ACTIVE', 'SUSPENDED', 'EXPIRED', 'TERMINATED') THEN
     RAISE EXCEPTION 'Invalid contract status';
   END IF;
-  v_start := COALESCE(p_start_date_utc, now() AT TIME ZONE 'utc');
+  v_start := COALESCE(p_start_date_utc, now());
 
   SELECT c."ContractID" INTO contract_id
   FROM "Contract"."Contracts" c
@@ -238,7 +238,7 @@ BEGIN
     VALUES (
       p_organization_id, p_name, v_status, v_start, p_end_date_utc,
       p_plan_code, p_billing_cycle, COALESCE(p_auto_renew, false), p_terms_version,
-      now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc'
+      now(), now()
     )
     RETURNING "ContractID" INTO contract_id;
   ELSE
@@ -251,7 +251,7 @@ BEGIN
         "BillingCycle" = p_billing_cycle,
         "AutoRenew" = COALESCE(p_auto_renew, "AutoRenew"),
         "TermsVersion" = p_terms_version,
-        "UpdatedAtUtc" = now() AT TIME ZONE 'utc'
+        "UpdatedAtUtc" = now()
     WHERE "ContractID" = contract_id;
   END IF;
 END;
@@ -414,8 +414,8 @@ BEGIN
     p_contract_id,
     (j->>'scope_id')::int,
     COALESCE(NULLIF(j->>'status', ''), 'ACTIVE'),
-    COALESCE((j->>'activated_at_utc')::timestamptz, now() AT TIME ZONE 'utc'),
-    COALESCE((j->>'effective_from_utc')::timestamptz, now() AT TIME ZONE 'utc'),
+    COALESCE((j->>'activated_at_utc')::timestamptz, now()),
+    COALESCE((j->>'effective_from_utc')::timestamptz, now()),
     NULLIF(j->>'effective_to_utc', '')::timestamptz
   FROM jsonb_array_elements(p_scopes_json) j
   WHERE (j->>'scope_id') IS NOT NULL;
@@ -799,7 +799,7 @@ DECLARE
   v_period_type text;
   v_period_start timestamptz;
   v_runs int := 0;
-  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_now timestamptz := now();
 BEGIN
   IF p_scope_id IS NOT NULL THEN
     SELECT a.is_allowed, a.contract_id

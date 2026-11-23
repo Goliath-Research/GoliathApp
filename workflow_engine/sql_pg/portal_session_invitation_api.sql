@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS portal.external_identity_link_audit (
   email_snapshot text NOT NULL,
   link_kind text NOT NULL,
   invitation_id bigint NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE OR REPLACE FUNCTION portal.fn_auth_snapshot_claims(p_snapshot text)
@@ -217,7 +217,7 @@ BEGIN
     AND i."Email" = v_email
     AND i."ExpectedProviderID" = v_provider_id
     AND i."Status" = 'PENDING'
-    AND i."ExpiresAtUtc" >= (now() AT TIME ZONE 'utc')
+    AND i."ExpiresAtUtc" >= (now())
   ORDER BY i."CreatedAtUtc" DESC
   LIMIT 1;
 
@@ -287,7 +287,7 @@ BEGIN
     ("UserID", "ProviderID", "Subject", "EmailSnapshot", "Active", "CreatedAtUtc", "LastLoginAtUtc")
   VALUES (
     v_user_id, v_provider_id, btrim(p_subject), v_email, true,
-    now() AT TIME ZONE 'utc', now() AT TIME ZONE 'utc'
+    now(), now()
   );
 
   INSERT INTO portal.external_identity_link_audit (
@@ -514,7 +514,7 @@ BEGIN
   END IF;
 
   SELECT a.is_allowed INTO v_role_ok
-  FROM "Contract".spcontractvalidaterolegrant(v_ctx.active_scope_id, p_default_role_id, now() AT TIME ZONE 'utc') a
+  FROM "Contract".spcontractvalidaterolegrant(v_ctx.active_scope_id, p_default_role_id, now()) a
   LIMIT 1;
 
   IF COALESCE(v_role_ok, false) = false THEN
@@ -529,7 +529,7 @@ BEGIN
     WHERE i."ScopeID" = v_ctx.active_scope_id
       AND i."Email" = v_email
       AND i."Status" = 'PENDING'
-      AND i."ExpiresAtUtc" >= (now() AT TIME ZONE 'utc')
+      AND i."ExpiresAtUtc" >= (now())
   ) THEN
     PERFORM portal.fn_semantic_raise('GS409', 'pending invitation already exists for this email');
   END IF;
@@ -539,7 +539,7 @@ BEGIN
     v_ctx.active_scope_id,
     v_email,
     v_provider_id,
-    (now() AT TIME ZONE 'utc') + interval '14 days',
+    (now()) + interval '14 days',
     NULL,
     p_default_role_id,
     'SCOPED',
@@ -699,7 +699,7 @@ BEGIN
 
   UPDATE "RBAC"."UserRoleGrants"
   SET "Active" = false,
-      "RevokedAtUtc" = now() AT TIME ZONE 'utc'
+      "RevokedAtUtc" = now()
   WHERE "ID" = p_grant_id
     AND "Active" = true
     AND "RevokedAtUtc" IS NULL;

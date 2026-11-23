@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS cfg.site_reference_asset (
   site_id bigint NOT NULL REFERENCES cfg.site(id) ON DELETE CASCADE,
   reference_asset_id bigint NOT NULL REFERENCES cfg.reference_asset(id),
   asset_role text NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT uq_cfg_sra_site_role UNIQUE (site_id, asset_role),
   CONSTRAINT uq_cfg_sra_site_asset UNIQUE (site_id, reference_asset_id),
   -- No pangenome_wgbs_bundle: one pangenome_bundle per site. Dual Giraffe+WGBS is a model change.
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS cfg.study_instance_link (
   pipeline_profile_id bigint NULL REFERENCES cfg.pipeline_profile(id),
   site_id bigint NULL REFERENCES cfg.site(id),
   storage_profile_id bigint NULL REFERENCES cfg.storage_profile(id),
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT uq_cfg_sil_instance UNIQUE (workflow_instance_id)
 );
 
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS cfg.program_publish (
   workflow_def_id bigint NOT NULL REFERENCES wf.workflow_def(id),
   workflow_version_id bigint NOT NULL REFERENCES wf.workflow_version(id),
   content_hash text NOT NULL,
-  published_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  published_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT uq_cfg_ppub_program_version UNIQUE (domain_program_id, workflow_version_id)
 );
 

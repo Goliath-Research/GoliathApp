@@ -189,7 +189,7 @@ BEGIN
   UPDATE cfg.site
   SET document_json = v_doc,
       content_hash = cfg._content_hash(v_doc),
-      updated_at_utc = now() AT TIME ZONE 'utc'
+      updated_at_utc = now()
   WHERE id = p_site_row_id;
 
   RETURN QUERY SELECT * FROM portal.sp_get_site_guardrails_editor(p_site_row_id);

@@ -150,7 +150,7 @@ BEGIN
     schema_id = EXCLUDED.schema_id,
     schema_version = EXCLUDED.schema_version,
     content_hash = EXCLUDED.content_hash,
-    updated_at_utc = (now() AT TIME ZONE 'utc');
+    updated_at_utc = (now());
 
   IF p_direction = 'input' AND p_schema_id IS NOT NULL THEN
     UPDATE wf.workflow_action

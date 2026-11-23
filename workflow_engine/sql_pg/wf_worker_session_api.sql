@@ -55,7 +55,7 @@ BEGIN
     INSERT INTO "RBAC"."UserRoleGrants" (
       "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc"
     )
-    VALUES (v_uid, v_role_id, 'DIRECT', NULL, true, now() AT TIME ZONE 'utc');
+    VALUES (v_uid, v_role_id, 'DIRECT', NULL, true, now());
   END IF;
 
   RETURN v_uid;
@@ -68,7 +68,7 @@ SECURITY DEFINER
 SET search_path = wf, "RBAC", cfg, pg_temp
 AS $$
 DECLARE
-  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_now timestamptz := now();
   v_ttl int := wf.fn_worker_session_ttl_seconds();
   rec record;
 BEGIN
@@ -110,7 +110,7 @@ SET search_path = wf, "RBAC", cfg, pg_temp
 AS $$
 DECLARE
   v_hash bytea;
-  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_now timestamptz := now();
   v_ttl int := wf.fn_worker_session_ttl_seconds();
   v_n int;
 BEGIN
@@ -141,7 +141,7 @@ AS $$
 DECLARE
   v_hash_session bytea;
   v_hash_identity bytea;
-  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_now timestamptz := now();
   v_ttl int := wf.fn_worker_session_ttl_seconds();
   v_uid int;
   v_sid int;
@@ -251,7 +251,7 @@ DECLARE
   v_uid int;
   v_session_id int;
   v_token text;
-  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_now timestamptz := now();
   v_ttl int := wf.fn_worker_session_ttl_seconds();
   v_max_fail int := cfg.fn_portal_auth_int('worker_session_max_failed_attempts', 3);
 BEGIN
@@ -362,7 +362,7 @@ AS $$
 DECLARE
   v_hash_session bytea;
   v_hash_identity bytea;
-  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_now timestamptz := now();
   v_ttl int := wf.fn_worker_session_ttl_seconds();
   v_uid int;
   v_sid int;

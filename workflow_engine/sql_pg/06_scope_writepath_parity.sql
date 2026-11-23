@@ -162,7 +162,7 @@ BEGIN
   IF p_result_code < 0 THEN
     UPDATE wf.node_execution
     SET status = 'FAILED', result_code = p_result_code, output_json = p_output_json,
-        ended_at_utc = (now() AT TIME ZONE 'utc'), engine_error_code = p_result_code
+        ended_at_utc = (now()), engine_error_code = p_result_code
     WHERE id = p_action_execution_id;
     DELETE FROM wf.task_lease WHERE node_execution_id = p_action_execution_id;
     -- Nested fail: continue the parent. Root-level ACTION: fail the instance.
@@ -174,7 +174,7 @@ BEGIN
     END IF;
     IF v_parent IS NULL THEN
       UPDATE wf.workflow_instance
-      SET status = 'FAILED', completed_at_utc = (now() AT TIME ZONE 'utc')
+      SET status = 'FAILED', completed_at_utc = (now())
       WHERE id = v_inst AND status = 'RUNNING';
       RETURN;
     END IF;
@@ -184,7 +184,7 @@ BEGIN
 
   UPDATE wf.node_execution
   SET status = 'SUCCEEDED', result_code = p_result_code, output_json = p_output_json,
-      ended_at_utc = (now() AT TIME ZONE 'utc')
+      ended_at_utc = (now())
   WHERE id = p_action_execution_id;
   DELETE FROM wf.task_lease WHERE node_execution_id = p_action_execution_id;
 
@@ -198,7 +198,7 @@ BEGIN
   END IF;
 
   IF v_parent IS NULL THEN
-    UPDATE wf.workflow_instance SET status = 'COMPLETED', completed_at_utc = (now() AT TIME ZONE 'utc') WHERE id = v_inst AND status = 'RUNNING';
+    UPDATE wf.workflow_instance SET status = 'COMPLETED', completed_at_utc = (now()) WHERE id = v_inst AND status = 'RUNNING';
     RETURN;
   END IF;
 
@@ -211,7 +211,7 @@ BEGIN
   ELSIF v_ptype = 'PARALLEL' THEN
     CALL wf.wf_parallel_continue(v_parent);
   ELSIF v_ptype IN ('IF','SWITCH') THEN
-    UPDATE wf.node_execution SET status = 'SUCCEEDED', ended_at_utc = (now() AT TIME ZONE 'utc') WHERE id = v_parent;
+    UPDATE wf.node_execution SET status = 'SUCCEEDED', ended_at_utc = (now()) WHERE id = v_parent;
     CALL wf.wf_engine_on_composite_complete(v_parent);
   ELSIF v_ptype = 'REPEAT' THEN
     CALL wf.wf_repeat_continue(v_parent);
@@ -251,7 +251,7 @@ BEGIN
   END IF;
 
   IF v_cond IS NULL OR v_cond = 0 THEN
-    UPDATE wf.node_execution SET status = 'SUCCEEDED', ended_at_utc = (now() AT TIME ZONE 'utc') WHERE id = p_while_execution_id;
+    UPDATE wf.node_execution SET status = 'SUCCEEDED', ended_at_utc = (now()) WHERE id = p_while_execution_id;
     CALL wf.wf_engine_on_composite_complete(p_while_execution_id);
     RETURN;
   END IF;
@@ -325,7 +325,7 @@ BEGIN
       parent_node_execution_id, iteration_no, available_at_utc
     ) VALUES (
       p_workflow_instance_id, p_workflow_node_id, 'READY', 1,
-      p_parent_node_execution_id, p_iteration_no, (now() AT TIME ZONE 'utc')
+      p_parent_node_execution_id, p_iteration_no, (now())
     ) RETURNING id INTO v_ne_id;
 
     IF p_parent_node_execution_id IS NOT NULL THEN
@@ -352,8 +352,8 @@ BEGIN
 
     IF v_failed THEN
       UPDATE wf.node_execution SET status = 'FAILED', engine_error_code = v_fc, engine_error_message = v_fm,
-        ended_at_utc = (now() AT TIME ZONE 'utc') WHERE id = v_ne_id;
-      UPDATE wf.workflow_instance SET status = 'FAILED', completed_at_utc = (now() AT TIME ZONE 'utc')
+        ended_at_utc = (now()) WHERE id = v_ne_id;
+      UPDATE wf.workflow_instance SET status = 'FAILED', completed_at_utc = (now())
       WHERE id = p_workflow_instance_id;
       RETURN;
     END IF;
@@ -366,7 +366,7 @@ BEGIN
     parent_node_execution_id, iteration_no, started_at_utc, available_at_utc
   ) VALUES (
     p_workflow_instance_id, p_workflow_node_id, 'RUNNING', 1,
-    p_parent_node_execution_id, p_iteration_no, (now() AT TIME ZONE 'utc'), (now() AT TIME ZONE 'utc')
+    p_parent_node_execution_id, p_iteration_no, (now()), (now())
   ) RETURNING id INTO v_pex;
 
   v_scope := coalesce(p_parent_node_execution_id, 0);
@@ -377,7 +377,7 @@ BEGIN
     FROM wf.workflow_edge e WHERE e.parent_node_id = p_workflow_node_id
     ORDER BY e.child_order ASC LIMIT 1;
     IF v_child IS NULL THEN
-      UPDATE wf.node_execution SET status = 'SUCCEEDED', ended_at_utc = (now() AT TIME ZONE 'utc') WHERE id = v_pex;
+      UPDATE wf.node_execution SET status = 'SUCCEEDED', ended_at_utc = (now()) WHERE id = v_pex;
       CALL wf.wf_engine_on_composite_complete(v_pex);
       RETURN;
     END IF;
@@ -409,8 +409,8 @@ BEGIN
     ORDER BY e.child_order ASC LIMIT 1;
     IF v_child IS NULL THEN
       UPDATE wf.node_execution SET status = 'FAILED', engine_error_code = 10003,
-        engine_error_message = 'Missing IF branch.', ended_at_utc = (now() AT TIME ZONE 'utc') WHERE id = v_pex;
-      UPDATE wf.workflow_instance SET status = 'FAILED', completed_at_utc = (now() AT TIME ZONE 'utc') WHERE id = p_workflow_instance_id;
+        engine_error_message = 'Missing IF branch.', ended_at_utc = (now()) WHERE id = v_pex;
+      UPDATE wf.workflow_instance SET status = 'FAILED', completed_at_utc = (now()) WHERE id = p_workflow_instance_id;
       RETURN;
     END IF;
     CALL wf.wf_engine_activate(p_workflow_instance_id, v_child, v_pex, p_iteration_no, NULL, NULL);
@@ -436,8 +436,8 @@ BEGIN
     END IF;
     IF v_child IS NULL THEN
       UPDATE wf.node_execution SET status = 'FAILED', engine_error_code = 10004,
-        engine_error_message = 'Missing SWITCH case.', ended_at_utc = (now() AT TIME ZONE 'utc') WHERE id = v_pex;
-      UPDATE wf.workflow_instance SET status = 'FAILED', completed_at_utc = (now() AT TIME ZONE 'utc') WHERE id = p_workflow_instance_id;
+        engine_error_message = 'Missing SWITCH case.', ended_at_utc = (now()) WHERE id = v_pex;
+      UPDATE wf.workflow_instance SET status = 'FAILED', completed_at_utc = (now()) WHERE id = p_workflow_instance_id;
       RETURN;
     END IF;
     CALL wf.wf_engine_activate(p_workflow_instance_id, v_child, v_pex, p_iteration_no, NULL, NULL);
@@ -452,8 +452,8 @@ BEGIN
     SELECT e.child_node_id INTO v_body FROM wf.workflow_edge e
     WHERE e.parent_node_id = p_workflow_node_id AND e.branch_kind = 'BODY' ORDER BY e.child_order ASC LIMIT 1;
     IF v_body IS NULL THEN
-      UPDATE wf.node_execution SET status = 'FAILED', engine_error_code = 10005, ended_at_utc = (now() AT TIME ZONE 'utc') WHERE id = v_pex;
-      UPDATE wf.workflow_instance SET status = 'FAILED', completed_at_utc = (now() AT TIME ZONE 'utc') WHERE id = p_workflow_instance_id;
+      UPDATE wf.node_execution SET status = 'FAILED', engine_error_code = 10005, ended_at_utc = (now()) WHERE id = v_pex;
+      UPDATE wf.workflow_instance SET status = 'FAILED', completed_at_utc = (now()) WHERE id = p_workflow_instance_id;
       RETURN;
     END IF;
     CALL wf.wf_engine_activate(p_workflow_instance_id, v_body, v_pex, 1, NULL, NULL);
@@ -464,8 +464,8 @@ BEGIN
     SELECT e.child_node_id INTO v_body FROM wf.workflow_edge e
     WHERE e.parent_node_id = p_workflow_node_id AND e.branch_kind = 'BODY' ORDER BY e.child_order ASC LIMIT 1;
     IF v_body IS NULL THEN
-      UPDATE wf.node_execution SET status = 'FAILED', engine_error_code = 10006, ended_at_utc = (now() AT TIME ZONE 'utc') WHERE id = v_pex;
-      UPDATE wf.workflow_instance SET status = 'FAILED', completed_at_utc = (now() AT TIME ZONE 'utc') WHERE id = p_workflow_instance_id;
+      UPDATE wf.node_execution SET status = 'FAILED', engine_error_code = 10006, ended_at_utc = (now()) WHERE id = v_pex;
+      UPDATE wf.workflow_instance SET status = 'FAILED', completed_at_utc = (now()) WHERE id = p_workflow_instance_id;
       RETURN;
     END IF;
     SELECT wn.condition_ref_node_key, wn.condition_var INTO v_cref, v_cvar
@@ -477,7 +477,7 @@ BEGIN
       v_wcond := wf.wf_try_task_result_code(p_workflow_instance_id, v_cref);
     END IF;
     IF v_wcond IS NULL OR v_wcond = 0 THEN
-      UPDATE wf.node_execution SET status = 'SUCCEEDED', ended_at_utc = (now() AT TIME ZONE 'utc') WHERE id = v_pex;
+      UPDATE wf.node_execution SET status = 'SUCCEEDED', ended_at_utc = (now()) WHERE id = v_pex;
       CALL wf.wf_engine_on_composite_complete(v_pex);
       RETURN;
     END IF;

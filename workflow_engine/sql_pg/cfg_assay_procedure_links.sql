@@ -183,7 +183,7 @@ BEGIN
       default_pipeline_profile_id = COALESCE(v_profile_id, ap.default_pipeline_profile_id),
       sample_prep_program_id = COALESCE(v_sp_id, ap.sample_prep_program_id),
       lifecycle_program_id = COALESCE(v_lc_id, ap.lifecycle_program_id),
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE ap.id = v_ap_id;
 
   RETURN QUERY
@@ -486,7 +486,7 @@ BEGIN
         WHEN btrim(p_pipeline_procedure) = '' THEN NULL
         ELSE v_assay_id
       END,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE id = p_study_row_id;
 
   RETURN QUERY SELECT * FROM portal.sp_get_study_process_defaults(p_study_row_id);

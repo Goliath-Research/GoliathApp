@@ -105,7 +105,7 @@ def grant_platform_security_admin(psql: Callable[[str], str], user_id: int, scop
         f"""
         INSERT INTO "RBAC"."UserRoleGrants"
           ("UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc")
-        SELECT {user_id}, {role_id}, 'SCOPED', {scope_id}, true, now() AT TIME ZONE 'utc'
+        SELECT {user_id}, {role_id}, 'SCOPED', {scope_id}, true, now()
         WHERE NOT EXISTS (
           SELECT 1 FROM "RBAC"."UserRoleGrants" g
           WHERE g."UserID" = {user_id}

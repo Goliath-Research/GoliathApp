@@ -187,7 +187,7 @@ def _seed_scope_provider(env: dict[str, str], scope_id: int) -> None:
         _psql(
             f"""
             INSERT INTO "RBAC"."IdentityProviders" ("Name","ProviderType","Issuer","Active","CreatedAtUtc")
-            VALUES ('e2e-oidc', 'oidc', '{issuer.replace("'", "''")}', true, now() AT TIME ZONE 'utc')
+            VALUES ('e2e-oidc', 'oidc', '{issuer.replace("'", "''")}', true, now())
             RETURNING "ProviderID"
             """,
             env,
@@ -196,7 +196,7 @@ def _seed_scope_provider(env: dict[str, str], scope_id: int) -> None:
     _psql(
         f"""
         INSERT INTO "RBAC"."ScopeIdentityProviders" ("ScopeID","ProviderID","Active","CreatedAtUtc")
-        VALUES ({scope_id}, {provider_id}, true, now() AT TIME ZONE 'utc')
+        VALUES ({scope_id}, {provider_id}, true, now())
         ON CONFLICT DO NOTHING
         """,
         env,
@@ -221,7 +221,7 @@ def _seed_scope_contract(env: dict[str, str], org_id: int, scope_id: int, role_i
         f"""
         INSERT INTO "Contract"."ContractRolePolicies"
           ("ContractID", "RoleID", "GrantTypeAllowed", "RequiresApproval", "CreatedAtUtc")
-        VALUES ({contract_id}, {role_id}, 'SCOPED', false, now() AT TIME ZONE 'utc')
+        VALUES ({contract_id}, {role_id}, 'SCOPED', false, now())
         ON CONFLICT ("ContractID", "RoleID") DO NOTHING
         """,
         env,
@@ -276,7 +276,7 @@ def _grant_scoped(env: dict[str, str], user_id: int, scope_id: int) -> int:
         INSERT INTO "RBAC"."UserRoleGrants" (
           "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc"
         )
-        VALUES ({user_id}, {role_id}, 'DIRECT', {scope_id}, true, now() AT TIME ZONE 'utc')
+        VALUES ({user_id}, {role_id}, 'DIRECT', {scope_id}, true, now())
         """,
         env,
     )
@@ -344,7 +344,7 @@ def main() -> int:
         INSERT INTO "RBAC"."UserRoleGrants" (
           "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc"
         )
-        VALUES ({user_b}, {denied_role}, 'SCOPED', {scope_b}, true, now() AT TIME ZONE 'utc')
+        VALUES ({user_b}, {denied_role}, 'SCOPED', {scope_b}, true, now())
         """,
         env,
     )

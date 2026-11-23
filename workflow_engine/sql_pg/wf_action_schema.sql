@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS wf.workflow_action_schema (
   direction varchar(16) NOT NULL CHECK (direction IN ('input', 'output')),
   schema_json jsonb NOT NULL,
   schema_id text NULL,
-  updated_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  updated_at_utc timestamptz NOT NULL DEFAULT (now()),
   PRIMARY KEY (workflow_action_id, direction)
 );
 
@@ -55,7 +55,7 @@ BEGIN
   ON CONFLICT (workflow_action_id, direction) DO UPDATE SET
     schema_json = EXCLUDED.schema_json,
     schema_id = EXCLUDED.schema_id,
-    updated_at_utc = (now() AT TIME ZONE 'utc');
+    updated_at_utc = (now());
 
   IF p_direction = 'input' AND p_schema_id IS NOT NULL THEN
     UPDATE wf.workflow_action

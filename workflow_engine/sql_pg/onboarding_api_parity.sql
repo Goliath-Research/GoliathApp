@@ -38,7 +38,7 @@ RETURNS TABLE(
 )
 LANGUAGE plpgsql AS $$
 DECLARE
-  v_now                  timestamptz := COALESCE(p_utc_now, now() AT TIME ZONE 'utc');
+  v_now                  timestamptz := COALESCE(p_utc_now, now());
   v_normalized_email     text := lower(btrim(p_email));
   v_scope_id             int;
   v_inv_email            text;

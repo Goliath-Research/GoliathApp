@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS cfg.site (
   status varchar(32) NOT NULL DEFAULT 'draft',
   content_hash text NOT NULL,
   document_json jsonb NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_site_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_site_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS cfg.pipeline_profile (
   status varchar(32) NOT NULL DEFAULT 'draft',
   content_hash text NOT NULL,
   document_json jsonb NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_pipeline_profile_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_pipeline_profile_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS cfg.assay_procedure (
   status varchar(32) NOT NULL DEFAULT 'draft',
   content_hash text NOT NULL,
   document_json jsonb NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_assay_procedure_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_assay_procedure_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS cfg.domain_program (
   document_json jsonb NOT NULL,
   compiled_workflow_version_id bigint NULL,
   workflow_def_id bigint NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_domain_program_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_domain_program_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS cfg.study (
   content_hash text NOT NULL,
   document_json jsonb NOT NULL,
   study_id text NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_study_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_study_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS cfg.credential (
   provider text NOT NULL,
   auth_mode text NOT NULL,
   secret_json jsonb NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_credential_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_credential_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS cfg.storage_endpoint (
   location_json jsonb NOT NULL,
   credential_name text NULL,
   credential_id bigint NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_storage_endpoint_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_storage_endpoint_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS cfg.storage_profile (
   status varchar(32) NOT NULL DEFAULT 'draft',
   content_hash text NOT NULL,
   document_json jsonb NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_storage_profile_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_storage_profile_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS cfg.reference_asset (
   document_json jsonb NOT NULL,
   storage_endpoint_id bigint NULL,
   asset_type text NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_reference_asset_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_reference_asset_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS cfg.action_definition (
   document_json jsonb NOT NULL,
   implementation_status varchar(32) NOT NULL DEFAULT 'present',
   workflow_action_id bigint NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_action_definition_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_action_definition_status CHECK (status IN ('draft', 'published', 'retired')),
@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS cfg.enrichment_library_preset (
   status varchar(32) NOT NULL DEFAULT 'draft',
   content_hash text NOT NULL,
   document_json jsonb NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_enrichment_library_preset_name_version UNIQUE (name, version),
   CONSTRAINT ck_cfg_enrichment_library_preset_status CHECK (status IN ('draft', 'published', 'retired'))
@@ -171,7 +171,7 @@ CREATE TABLE IF NOT EXISTS cfg.study_group (
   role varchar(32) NOT NULL,
   label text NOT NULL,
   list_filename text NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_cfg_study_group_role_label UNIQUE (study_row_id, role, label),
   CONSTRAINT ck_cfg_study_group_role CHECK (role IN ('control', 'disease'))
@@ -185,7 +185,7 @@ CREATE TABLE IF NOT EXISTS cfg.study_group_member (
   portal_sample_id int NOT NULL,
   lab_sample_id int NULL,
   processing_sample_key text NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT uq_cfg_sgm_processing_key UNIQUE (study_group_id, processing_sample_key)
 );
 

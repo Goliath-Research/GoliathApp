@@ -158,6 +158,7 @@ jobs:
             workflow_engine/tests/test_meta_objvalues_history.py \
             workflow_engine/tests/test_wf_run_history_retention.py \
             workflow_engine/tests/test_platform_electronic_signatures.py \
+            workflow_engine/tests/test_platform_utc_timestamps.py \
             -q
         env:
           POSTGRES_HOST: localhost

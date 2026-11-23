@@ -49,7 +49,7 @@ AS $$
   WHERE ne.status = 'READY'
     AND wn.node_type = 'ACTION'
     AND wi.status = 'RUNNING'
-    AND (ne.available_at_utc IS NULL OR ne.available_at_utc <= (now() AT TIME ZONE 'utc'))
+    AND (ne.available_at_utc IS NULL OR ne.available_at_utc <= (now()))
     AND (
       NULLIF(btrim(wa.capability), '') IS NOT NULL
       OR NULLIF(btrim(p.program_id), '') IS NOT NULL

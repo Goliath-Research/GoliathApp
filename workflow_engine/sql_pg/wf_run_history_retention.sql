@@ -359,9 +359,9 @@ BEGIN
   END IF;
 
   -- Age reference: the earliest of the run's completion/start time and its last recorded transition.
-  -- run_history.recorded_at_utc is now(), an absolute instant. The engine writes its *_at_utc columns
-  -- as UTC wall-clock values, which a session in a time zone west of UTC stores hours in the future;
-  -- taking LEAST keeps such a run purgeable on time instead of hours late. (LEAST ignores NULLs.)
+  -- Every *_at_utc column is timestamptz written with now(), an absolute instant, so the age is the
+  -- same in any session time zone. (Rows written before the UTC fix by a non-UTC session could sit
+  -- hours in the future; LEAST keeps such a run purgeable on time. LEAST ignores NULLs.)
   v_ref := LEAST(
     (SELECT max(h.recorded_at_utc) FROM wf.run_history h WHERE h.workflow_instance_id = v_wi.id),
     v_wi.completed_at_utc, v_wi.started_at_utc

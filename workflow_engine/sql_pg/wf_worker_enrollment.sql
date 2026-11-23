@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS wf.worker_enrollment (
   status varchar(32) NOT NULL DEFAULT 'PENDING',
   enrolled_worker_id bigint NULL REFERENCES wf.worker(id),
   enrolled_at_utc timestamptz NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   UNIQUE (cluster_id, public_ip),
   UNIQUE (cluster_id, external_worker_key),
@@ -79,7 +79,7 @@ BEGIN
   IF NULLIF(btrim(COALESCE(p_arc_resource_id, '')), '') IS NOT NULL THEN
     UPDATE wf.cluster
     SET arc_resource_id = COALESCE(arc_resource_id, btrim(p_arc_resource_id)),
-        updated_at_utc = now() AT TIME ZONE 'utc'
+        updated_at_utc = now()
     WHERE id = v_cluster_id;
   END IF;
 
@@ -89,7 +89,7 @@ BEGIN
     cluster_id = EXCLUDED.cluster_id,
     capabilities = EXCLUDED.capabilities,
     status = 'REGISTERED',
-    updated_at_utc = now() AT TIME ZONE 'utc'
+    updated_at_utc = now()
   RETURNING id INTO v_worker_id;
 
   DELETE FROM wf.worker_token WHERE worker_id = v_worker_id;
@@ -99,8 +99,8 @@ BEGIN
   UPDATE wf.worker_enrollment
   SET status = 'ENROLLED',
       enrolled_worker_id = v_worker_id,
-      enrolled_at_utc = now() AT TIME ZONE 'utc',
-      updated_at_utc = now() AT TIME ZONE 'utc'
+      enrolled_at_utc = now(),
+      updated_at_utc = now()
   WHERE id = v_enroll_id;
 
   RETURN QUERY SELECT v_worker_id;
