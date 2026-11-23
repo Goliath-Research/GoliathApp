@@ -8,6 +8,8 @@ from typing import Iterator
 
 import psycopg
 
+from goliath_worker.pg_tls import default_sslmode
+
 
 def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
@@ -25,6 +27,7 @@ def connect():
         dbname=dbname,
         user=user,
         password=password,
+        sslmode=default_sslmode(),
     )
 
 

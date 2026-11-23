@@ -16,6 +16,8 @@ from connection import (  # noqa: E402
     resolve_schema_name,
 )
 
+from goliath_worker.pg_tls import UnverifiedDatabaseTlsError  # noqa: E402
+
 _L_DB = "M" + "ETHYLPIPELINE_DB"
 
 
@@ -45,7 +47,7 @@ class ConnectionConfigTests(unittest.TestCase):
         )
         self.assertEqual(
             build_postgres_conninfo(),
-            "postgresql://dba:secret@db.example.com:5433/goliath?sslmode=prefer",
+            "postgresql://dba:secret@db.example.com:5433/goliath?sslmode=verify-full",
         )
 
     def test_postgres_conninfo_honors_pgsslmode(self) -> None:
@@ -57,16 +59,23 @@ class ConnectionConfigTests(unittest.TestCase):
                 "POSTGRES_DB": "goliath",
                 "POSTGRES_USER": "dba",
                 "POSTGRES_PASSWORD": "secret",
-                "PGSSLMODE": "disable",
+                "PGSSLMODE": "verify-ca",
             }
         )
         self.assertEqual(
             build_postgres_conninfo(),
-            "postgresql://dba:secret@db.example.com:5433/goliath?sslmode=disable",
+            "postgresql://dba:secret@db.example.com:5433/goliath?sslmode=verify-ca",
         )
+
+    def test_postgres_conninfo_refuses_unverified_pgsslmode(self) -> None:
+        os.environ.pop(_L_DB, None)
+        os.environ.update({"POSTGRES_HOST": "db.example.com", "PGSSLMODE": "disable"})
+        with self.assertRaises(UnverifiedDatabaseTlsError):
+            build_postgres_conninfo()
 
     def test_postgres_conninfo_prefers_libpq_names(self) -> None:
         os.environ.pop(_L_DB, None)
+        os.environ.pop("PGSSLMODE", None)
         os.environ.update(
             {
                 "PGHOST": "pglib.example.com",
@@ -78,20 +87,28 @@ class ConnectionConfigTests(unittest.TestCase):
         )
         self.assertEqual(
             build_postgres_conninfo(),
-            "postgresql://app:pw@pglib.example.com:5434/goliath?sslmode=prefer",
+            "postgresql://app:pw@pglib.example.com:5434/goliath?sslmode=verify-full",
         )
 
     def test_goliath_database_url_override(self) -> None:
-        os.environ["GOLIATH_DATABASE_URL"] = "postgresql://u:p@host/db"
+        os.environ["GOLIATH_DATABASE_URL"] = "postgresql://u:p@host/db?sslmode=verify-full"
         cfg = resolve_connection_config()
-        self.assertEqual(cfg.connection_string, "postgresql://u:p@host/db")
+        self.assertEqual(cfg.connection_string, "postgresql://u:p@host/db?sslmode=verify-full")
+
+    def test_database_url_override_must_verify(self) -> None:
+        os.environ.pop("PGSSLMODE", None)
+        os.environ["GOLIATH_DATABASE_URL"] = "postgresql://u:p@host/db"
+        self.assertIn("sslmode=verify-full", resolve_connection_config().connection_string)
+        os.environ["GOLIATH_DATABASE_URL"] = "postgresql://u:p@host/db?sslmode=require"
+        with self.assertRaises(UnverifiedDatabaseTlsError):
+            resolve_connection_config()
 
     def test_legacy_db_url_override(self) -> None:
         os.environ.pop("GOLIATH_DATABASE_URL", None)
         os.environ.pop("WF_DATABASE_URL", None)
-        os.environ[_L_DB] = "postgresql://u:p@host/legacy"
+        os.environ[_L_DB] = "postgresql://u:p@host/legacy?sslmode=verify-full"
         cfg = resolve_connection_config()
-        self.assertEqual(cfg.connection_string, "postgresql://u:p@host/legacy")
+        self.assertEqual(cfg.connection_string, "postgresql://u:p@host/legacy?sslmode=verify-full")
 
     def test_managed_identity_flag(self) -> None:
         os.environ["WF_USE_MANAGED_IDENTITY"] = "1"
@@ -113,7 +130,7 @@ class ConnectionConfigTests(unittest.TestCase):
         conn = build_postgres_conninfo(use_managed_identity=True)
         self.assertEqual(
             conn,
-            "postgresql://mi-principal@pg.example.com:5432/goliath?sslmode=prefer",
+            "postgresql://mi-principal@pg.example.com:5432/goliath?sslmode=verify-full",
         )
         self.assertNotIn("ignored", conn)
 

@@ -12,6 +12,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from goliath_worker.pg_tls import default_sslmode, require_verified_tls  # noqa: E402
 from goliath_worker.platform_env import resolve_database_url_override  # noqa: E402
 
 
@@ -45,13 +46,13 @@ def build_postgres_conninfo(*, use_managed_identity: bool = False) -> str:
 
     override = resolve_database_url_override()
     if override:
-        return override
+        return require_verified_tls(override)
 
     host = _env("PGHOST") or _env("POSTGRES_HOST", "localhost")
     port = _env("PGPORT") or _env("POSTGRES_PORT", "5432")
     db = _env("PGDATABASE") or _env("POSTGRES_DB", "goliath")
     user = quote(_env("PGUSER") or _env("POSTGRES_USER", "postgres"), safe="")
-    sslmode = _env("PGSSLMODE", "prefer")
+    sslmode = default_sslmode()
     if use_managed_identity:
         # Password is supplied at connect time via Entra token.
         return f"postgresql://{user}@{host}:{port}/{db}?sslmode={sslmode}"
@@ -69,6 +70,6 @@ def resolve_connection_config(
         conn = build_postgres_conninfo(use_managed_identity=use_mi)
     return GatewayConnectionConfig(
         schema_name=resolve_schema_name(),
-        connection_string=conn,
+        connection_string=require_verified_tls(conn),
         use_managed_identity=use_mi,
     )

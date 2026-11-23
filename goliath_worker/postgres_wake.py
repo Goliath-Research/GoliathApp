@@ -11,6 +11,7 @@ from urllib.parse import quote
 
 import psycopg
 
+from goliath_worker.pg_tls import default_sslmode, require_verified_tls
 from goliath_worker.platform_env import resolve_database_url_override
 from goliath_worker.wake import WorkerWakeMessage, logical_wake_channel_to_pg_notify, pg_notify_payload_json
 
@@ -32,13 +33,13 @@ def postgres_wake_publisher_enabled() -> bool:
 def build_postgres_conninfo(*, use_managed_identity: bool = False) -> str:
     override = resolve_database_url_override()
     if override:
-        return override
+        return require_verified_tls(override)
 
     host = _env("PGHOST") or _env("POSTGRES_HOST", "localhost")
     port = _env("PGPORT") or _env("POSTGRES_PORT", "5432")
     db = _env("PGDATABASE") or _env("POSTGRES_DB", "goliath")
     user = quote(_env("PGUSER") or _env("POSTGRES_USER", "postgres"), safe="")
-    sslmode = _env("PGSSLMODE", "prefer")
+    sslmode = default_sslmode()
     if use_managed_identity:
         return f"postgresql://{user}@{host}:{port}/{db}?sslmode={sslmode}"
     password = quote(_env("PGPASSWORD") or _env("POSTGRES_PASSWORD"), safe="")
@@ -69,7 +70,7 @@ class PostgresWorkerWakePublisher:
         *,
         use_managed_identity: bool = False,
     ) -> None:
-        self._conninfo = conninfo
+        self._conninfo = require_verified_tls(conninfo)
         self._use_managed_identity = use_managed_identity
         self._lock = threading.Lock()
         self._conn: Optional[psycopg.Connection[Any]] = None

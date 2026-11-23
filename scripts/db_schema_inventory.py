@@ -8,7 +8,7 @@ Captures tables, views, routines, and cross-schema FKs for:
 Usage:
   source .venv/bin/activate
 
-  export PGHOST=localhost PGDATABASE=goliath PGUSER=postgres PGPASSWORD='...' PGSSLMODE=prefer
+  export PGHOST=localhost PGDATABASE=goliath PGUSER=postgres PGPASSWORD='...' PGSSLROOTCERT=/path/to/ca.pem
   python scripts/db_schema_inventory.py
 
 Writes JSON + markdown under workflow_engine/contract/.
@@ -65,6 +65,10 @@ class Inventory:
 def _pg_connect():
     import psycopg  # type: ignore
 
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
+    from goliath_worker.pg_tls import default_sslmode
+
     host = os.environ.get("PGHOST") or os.environ.get("POSTGRES_HOST", "")
     port = os.environ.get("PGPORT") or os.environ.get("POSTGRES_PORT", "5432")
     database = (
@@ -74,7 +78,7 @@ def _pg_connect():
     )
     user = os.environ.get("PGUSER") or os.environ.get("POSTGRES_USER", "")
     password = os.environ.get("PGPASSWORD") or os.environ.get("POSTGRES_PASSWORD", "")
-    sslmode = os.environ.get("PGSSLMODE", "prefer")
+    sslmode = default_sslmode()
     if not host or not user:
         raise SystemExit(
             "Set PGHOST/POSTGRES_HOST and PGUSER/POSTGRES_USER "

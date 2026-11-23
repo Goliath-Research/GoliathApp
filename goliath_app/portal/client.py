@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import datetime
 from typing import Generator, Optional, Sequence
 
@@ -11,6 +12,7 @@ import psycopg
 from psycopg.rows import tuple_row
 from pydantic import BaseModel
 
+from goliath_worker.pg_tls import require_verified_tls
 from goliath_app.portal.connection import PortalConnectionConfig, resolve_portal_connection_config
 from goliath_app.portal.errors import PortalSemanticError
 from goliath_app.portal.models import SemanticCatalogEntry, SessionOpenResult
@@ -49,7 +51,7 @@ class PortalClient:
         config: Optional[PortalConnectionConfig] = None,
     ) -> None:
         if config is not None:
-            self._config = config
+            self._config = replace(config, conninfo=require_verified_tls(config.conninfo))
         else:
             self._config = resolve_portal_connection_config(conninfo=conninfo)
 
