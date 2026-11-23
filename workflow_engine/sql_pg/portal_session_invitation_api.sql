@@ -572,24 +572,123 @@ SET search_path = portal, "RBAC", public, pg_temp
 AS $$
 DECLARE
   v_ctx record;
-  v_uid int;
+  v_email text;
+  v_full_name text;
   v_org_id int;
+  v_uid int;
+  v_match_count int;
+  v_current_name text;
+  v_outcome text;
 BEGIN
   SELECT * INTO v_ctx FROM portal.fn_session_security_admin_require(p_session_token, '/app/admin/users') LIMIT 1;
-  SELECT portal.sp_upsert_user(p_email, p_full_name, p_active) INTO v_uid;
+
+  v_email := portal.fn_validate_invitation_email(p_email);
+  IF length(v_email) > 50 THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'email is too long');
+  END IF;
+
+  v_full_name := btrim(p_full_name);
+  IF v_full_name IS NULL OR v_full_name = '' THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'full_name is required');
+  END IF;
+  IF length(v_full_name) > 200 THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'full_name is too long');
+  END IF;
+
+  -- "Active" is a platform-wide sign-in switch; an organization admin must not flip it.
+  IF COALESCE(p_active, 1) <> 1 THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'user administration cannot deactivate accounts');
+  END IF;
 
   SELECT s."OrganizationID" INTO v_org_id
   FROM "RBAC"."Scopes" s
   WHERE s."ScopeID" = v_ctx.active_scope_id
   LIMIT 1;
 
-  IF v_org_id IS NOT NULL THEN
+  IF v_org_id IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS403', 'user administration requires an organization scope');
+  END IF;
+
+  -- "RBAC"."Users".email has no unique index; serialize create-or-bind per normalized email.
+  PERFORM pg_advisory_xact_lock(hashtext('RBAC.Users.email'), hashtext(v_email));
+
+  SELECT count(*)::int, min(m."ID") INTO v_match_count, v_uid
+  FROM (
+    SELECT u."ID"
+    FROM "RBAC"."Users" u
+    WHERE lower(btrim(u.email)) = v_email
+    FOR UPDATE
+  ) m;
+
+  IF v_match_count > 1 THEN
+    PERFORM portal.fn_semantic_raise('GS409', 'email matches more than one existing account');
+  END IF;
+
+  IF v_match_count = 0 THEN
+    INSERT INTO "RBAC"."Users" ("FullName", email, "Active")
+    VALUES (v_full_name, v_email, 1)
+    RETURNING "ID" INTO v_uid;
     PERFORM portal.sp_organization_add_member(v_org_id, v_uid);
+    v_outcome := 'created';
+  ELSE
+    PERFORM 1
+    FROM portal."OrganizationMembers" om
+    WHERE om."OrganizationID" = v_org_id
+      AND om."UserID" = v_uid
+    FOR SHARE;
+
+    IF NOT FOUND THEN
+      PERFORM portal.fn_semantic_raise(
+        'GS409',
+        'email belongs to an existing account outside this organization; invite the user instead'
+      );
+    END IF;
+
+    SELECT u."FullName"::text INTO v_current_name
+    FROM "RBAC"."Users" u
+    WHERE u."ID" = v_uid;
+
+    IF v_current_name = v_full_name THEN
+      v_outcome := 'unchanged';
+    ELSE
+      IF EXISTS (
+        SELECT 1
+        FROM portal."OrganizationMembers" om
+        WHERE om."UserID" = v_uid
+          AND om."OrganizationID" <> v_org_id
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM "RBAC"."UserRoleGrants" g
+        WHERE g."UserID" = v_uid
+          AND g."Active"
+          AND g."RevokedAtUtc" IS NULL
+          AND (
+            g."ScopeID" IS NULL
+            OR NOT EXISTS (
+              SELECT 1
+              FROM "RBAC"."Scopes" s
+              WHERE s."ScopeID" = g."ScopeID"
+                AND s."OrganizationID" = v_org_id
+            )
+          )
+      ) THEN
+        PERFORM portal.fn_semantic_raise(
+          'GS403',
+          'user is also administered outside this organization; their name cannot be changed here'
+        );
+      END IF;
+
+      UPDATE "RBAC"."Users"
+      SET "FullName" = v_full_name
+      WHERE "ID" = v_uid;
+      v_outcome := 'renamed';
+    END IF;
   END IF;
 
   PERFORM portal.fn_session_security_admin_audit(
     v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'user.upsert',
-    jsonb_build_object('email', p_email, 'user_id', v_uid)
+    jsonb_build_object('email', v_email, 'user_id', v_uid, 'outcome', v_outcome)
   );
   RETURN QUERY SELECT v_uid;
 END;
