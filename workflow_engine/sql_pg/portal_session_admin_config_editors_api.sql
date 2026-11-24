@@ -19,7 +19,7 @@
 CREATE TABLE IF NOT EXISTS cfg.kind_document_type (
   kind text PRIMARY KEY,
   type_id bigint NOT NULL REFERENCES wf.data_type (id),
-  updated_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  updated_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 /* Owner-only: an app registers the catalog data type that types its documents of one kind. */
@@ -47,7 +47,7 @@ BEGIN
   END IF;
   INSERT INTO cfg.kind_document_type (kind, type_id)
   VALUES (p_kind, v_type_id)
-  ON CONFLICT (kind) DO UPDATE SET type_id = EXCLUDED.type_id, updated_at_utc = now() AT TIME ZONE 'utc';
+  ON CONFLICT (kind) DO UPDATE SET type_id = EXCLUDED.type_id, updated_at_utc = now();
   RETURN v_type_id;
 END;
 $$;
@@ -265,10 +265,10 @@ BEGIN
     IF v_row.status = 'draft' THEN
       IF p_kind = 'site' THEN
         UPDATE cfg.site s SET document_json = v_doc, content_hash = md5(v_doc::text),
-               updated_at_utc = now() AT TIME ZONE 'utc' WHERE s.id = p_id;
+               updated_at_utc = now() WHERE s.id = p_id;
       ELSE
         UPDATE cfg.pipeline_profile s SET document_json = v_doc, content_hash = md5(v_doc::text),
-               updated_at_utc = now() AT TIME ZONE 'utc' WHERE s.id = p_id;
+               updated_at_utc = now() WHERE s.id = p_id;
       END IF;
       v_id := p_id;
       v_action := 'save_draft';
@@ -332,9 +332,9 @@ BEGIN
     PERFORM portal.fn_semantic_raise('GS409', format('cannot %s a %s version', COALESCE(p_action, ''), v_status));
   END IF;
   IF p_kind = 'site' THEN
-    UPDATE cfg.site s SET status = v_new, updated_at_utc = now() AT TIME ZONE 'utc' WHERE s.id = p_id;
+    UPDATE cfg.site s SET status = v_new, updated_at_utc = now() WHERE s.id = p_id;
   ELSE
-    UPDATE cfg.pipeline_profile s SET status = v_new, updated_at_utc = now() AT TIME ZONE 'utc' WHERE s.id = p_id;
+    UPDATE cfg.pipeline_profile s SET status = v_new, updated_at_utc = now() WHERE s.id = p_id;
   END IF;
   PERFORM portal.fn_record_editor_audit(
     v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'cfg_' || p_kind, p_action, p_id::text,

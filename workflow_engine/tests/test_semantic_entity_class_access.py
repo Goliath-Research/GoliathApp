@@ -24,7 +24,7 @@ def _setup(env: dict[str, str]) -> dict[str, object]:
     )
     _psql(
         f"""INSERT INTO "RBAC"."UserRoleGrants" ("UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc")
-            VALUES ({user_id}, {role_id}, 'DIRECT', {scope_id}, true, now() AT TIME ZONE 'utc')""",
+            VALUES ({user_id}, {role_id}, 'DIRECT', {scope_id}, true, now())""",
         env,
     )
     class_id = int(

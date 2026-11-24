@@ -37,7 +37,7 @@ BEGIN
     )
     OVERRIDING SYSTEM VALUE
     VALUES (
-      1, 'Production Fixture Org', 'organization', v_org_id, true, now() AT TIME ZONE 'utc'
+      1, 'Production Fixture Org', 'organization', v_org_id, true, now()
     );
   ELSE
     SELECT s."OrganizationID" INTO v_org_id FROM "RBAC"."Scopes" s WHERE s."ScopeID" = 1;
@@ -50,17 +50,17 @@ BEGIN
 
   INSERT INTO "RBAC"."IdentityProviders" ("ProviderID", "Name", "ProviderType", "Issuer", "Active", "CreatedAtUtc")
   OVERRIDING SYSTEM VALUE
-  VALUES (1, 'entra-prod-fixture', 'oidc', 'https://login.microsoftonline.com/fixture/v2.0', true, now() AT TIME ZONE 'utc')
+  VALUES (1, 'entra-prod-fixture', 'oidc', 'https://login.microsoftonline.com/fixture/v2.0', true, now())
   ON CONFLICT DO NOTHING;
 
   INSERT INTO "RBAC"."ScopeIdentityProviders" ("ScopeID", "ProviderID", "Active", "CreatedAtUtc")
-  VALUES (v_scope_id, v_provider_id, true, now() AT TIME ZONE 'utc')
+  VALUES (v_scope_id, v_provider_id, true, now())
   ON CONFLICT DO NOTHING;
 
   INSERT INTO "RBAC"."ExternalIdentities" (
     "UserID", "ProviderID", "Subject", "EmailSnapshot", "Active", "CreatedAtUtc"
   )
-  SELECT 1, v_provider_id, 'david-entra-subject-fixture', 'david-prod-fixture@test', true, now() AT TIME ZONE 'utc'
+  SELECT 1, v_provider_id, 'david-entra-subject-fixture', 'david-prod-fixture@test', true, now()
   WHERE NOT EXISTS (
     SELECT 1 FROM "RBAC"."ExternalIdentities" ei
     WHERE ei."UserID" = 1 AND ei."ProviderID" = v_provider_id

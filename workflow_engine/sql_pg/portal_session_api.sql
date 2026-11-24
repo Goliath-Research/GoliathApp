@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS portal.auth_policy (
   namespace text PRIMARY KEY,
   policy_function text NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE OR REPLACE FUNCTION portal.fn_session_policy_idle_seconds()
@@ -49,7 +49,7 @@ BEGIN
   VALUES (btrim(p_namespace), btrim(p_function))
   ON CONFLICT (namespace) DO UPDATE
     SET policy_function = EXCLUDED.policy_function,
-        created_at_utc = now() AT TIME ZONE 'utc';
+        created_at_utc = now();
 END;
 $$;
 
@@ -68,7 +68,7 @@ DECLARE
   v_session_id int;
   v_token text;
   v_hash bytea;
-  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_now timestamptz := now();
   v_idle int := portal.fn_session_policy_idle_seconds();
   v_abs int := portal.fn_session_policy_absolute_seconds();
 BEGIN
@@ -140,7 +140,7 @@ SET search_path = portal, "RBAC", cfg, pg_temp
 AS $$
 DECLARE
   v_hash bytea;
-  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_now timestamptz := now();
   v_idle int := portal.fn_session_policy_idle_seconds();
   v_abs int := portal.fn_session_policy_absolute_seconds();
   v_sid int;
@@ -230,7 +230,7 @@ BEGIN
   END IF;
   v_hash := wf.wf_sha256_text(btrim(p_session_token));
   UPDATE "RBAC"."SessionTokens" st
-  SET "RevokedAtUtc" = now() AT TIME ZONE 'utc'
+  SET "RevokedAtUtc" = now()
   WHERE st."TokenHash" = v_hash AND st."RevokedAtUtc" IS NULL;
   GET DIAGNOSTICS v_n = ROW_COUNT;
   RETURN QUERY SELECT v_n > 0;
@@ -245,7 +245,7 @@ SET search_path = portal, "RBAC", cfg, pg_temp
 AS $$
 DECLARE
   v_hash bytea;
-  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_now timestamptz := now();
   v_idle int := portal.fn_session_policy_idle_seconds();
   v_abs int := portal.fn_session_policy_absolute_seconds();
   v_n int;

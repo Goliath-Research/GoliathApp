@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS portal.record_editor_audit (
   action_code text NOT NULL,
   record_key text NULL,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE INDEX IF NOT EXISTS ix_record_editor_audit_entity
@@ -1103,7 +1103,7 @@ BEGIN
   SELECT * INTO v_ctx
   FROM portal.fn_session_record_editor_require(p_session_token, ARRAY['/app/workflows/workers']) LIMIT 1;
   UPDATE wf.cluster c
-  SET status = 'DISABLED', updated_at_utc = (now() AT TIME ZONE 'utc')
+  SET status = 'DISABLED', updated_at_utc = (now())
   WHERE c.cluster_key = p_cluster_key;
   IF NOT FOUND THEN
     PERFORM portal.fn_semantic_raise('GS404', 'cluster not found');

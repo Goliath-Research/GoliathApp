@@ -41,14 +41,14 @@ CREATE TABLE IF NOT EXISTS wf.event_type (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   name text NOT NULL UNIQUE,
   payload_data_type_id bigint NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE TABLE IF NOT EXISTS wf.event (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   event_type_id bigint NOT NULL REFERENCES wf.event_type(id),
-  occurred_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
-  ingested_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  occurred_at_utc timestamptz NOT NULL DEFAULT (now()),
+  ingested_at_utc timestamptz NOT NULL DEFAULT (now()),
   source text NOT NULL,
   idempotency_key text NOT NULL,
   payload_json jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS wf.event_subscription (
   mode varchar(32) NOT NULL,
   filter_json jsonb NULL,
   enabled boolean NOT NULL DEFAULT true,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   CHECK (mode IN ('start_instance', 'signal_wait', 'start_or_signal'))
 );
 
@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS wf.event_delivery (
   node_execution_id bigint NULL REFERENCES wf.node_execution(id) ON DELETE SET NULL,
   status varchar(32) NOT NULL,
   detail text NULL,
-  delivered_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  delivered_at_utc timestamptz NOT NULL DEFAULT (now()),
   CHECK (status IN ('applied', 'ignored', 'duplicate'))
 );
 
@@ -240,7 +240,7 @@ BEGIN
     SET status = 'SUCCEEDED',
         result_code = 0,
         output_json = COALESCE(p_payload, '{}'::jsonb),
-        ended_at_utc = (now() AT TIME ZONE 'utc')
+        ended_at_utc = (now())
     WHERE id = rec.ne_id AND status = 'READY';
 
     IF NOT FOUND THEN
@@ -343,7 +343,7 @@ BEGIN
     event_type_id, occurred_at_utc, source, idempotency_key, payload_json, correlation_key
   ) VALUES (
     v_type_id,
-    COALESCE(p_occurred_at_utc, now() AT TIME ZONE 'utc'),
+    COALESCE(p_occurred_at_utc, now()),
     v_source,
     v_key,
     v_payload,

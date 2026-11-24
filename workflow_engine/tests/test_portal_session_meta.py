@@ -98,7 +98,7 @@ def _grant_meta_permissions(
         INSERT INTO "RBAC"."UserRoleGrants" (
           "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc"
         )
-        VALUES ({user_id}, {role_id}, '{grant_type}', {scope_sql}, true, now() AT TIME ZONE 'utc')
+        VALUES ({user_id}, {role_id}, '{grant_type}', {scope_sql}, true, now())
         """,
         env,
     )

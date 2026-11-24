@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS portal.god_architect_audit (
   actor_user_id integer NOT NULL,
   action_code text NOT NULL,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 INSERT INTO "RBAC"."Roles" ("Name", "BypassScope")
@@ -266,7 +266,7 @@ BEGIN
       "UserID", "RoleID", "GrantType", "ScopeID", "Active", "GrantedAtUtc"
     )
     VALUES (
-      p_user_id, v_role_id, 'GLOBAL', NULL, true, now() AT TIME ZONE 'utc'
+      p_user_id, v_role_id, 'GLOBAL', NULL, true, now()
     )
     RETURNING "ID" INTO v_grant_id;
   END IF;
@@ -536,7 +536,16 @@ $grant_god$;
 SELECT portal.sp_security_meta_refresh_cache();
 SELECT portal.sp_sync_god_architect_operator_entitlements();
 
-DO $god_acl$
+/*
+  God Architect owns every platform class except security data classes; organization admins may
+  not create, update or delete them. Re-run after adding platform classes in later scripts.
+*/
+CREATE OR REPLACE FUNCTION portal.sp_platform_god_architect_class_acl_sync()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = portal, "Meta", "RBAC", pg_temp
+AS $god_acl$
 DECLARE
   v_scope int;
   v_god_role int;
@@ -575,8 +584,10 @@ BEGIN
       DO UPDATE SET "Effect" = 'deny';
     END IF;
   END LOOP;
-END
+END;
 $god_acl$;
+
+SELECT portal.sp_platform_god_architect_class_acl_sync();
 
 CREATE OR REPLACE FUNCTION portal.sp_session_meta_class_create(
   p_session_token text,

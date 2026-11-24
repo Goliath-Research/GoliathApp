@@ -241,7 +241,7 @@ class DeviceAdapterInheritanceFlowTests(unittest.TestCase):
             self.dsn,
             f"""
             UPDATE wf.node_execution
-            SET available_at_utc = (now() AT TIME ZONE 'utc') - interval '5 seconds'
+            SET available_at_utc = (now()) - interval '5 seconds'
             WHERE workflow_instance_id = {inst} AND status = 'READY';
             """,
         )
@@ -262,7 +262,7 @@ class DeviceAdapterInheritanceFlowTests(unittest.TestCase):
             self.dsn,
             f"""
             UPDATE wf.node_execution
-            SET available_at_utc = (now() AT TIME ZONE 'utc') - interval '1 seconds'
+            SET available_at_utc = (now()) - interval '1 seconds'
             WHERE workflow_instance_id = {inst} AND status = 'READY';
             """,
         )

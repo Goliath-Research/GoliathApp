@@ -14,7 +14,7 @@
 --
 -- Note: wf.sp_delete_workflow_def deletes wf.workflow_version before wf.workflow_node, but
 -- wf.workflow_edge rows reference node ids without ON DELETE CASCADE (00_schema.sql), so a
--- naive delete fails on re-run. Delete edges (and instances) first; then use sp_delete with
+-- naive delete fails on re-run. Purge earlier runs and delete edges first; then use sp_delete with
 -- p_delete_instances = false.
 
 BEGIN;
@@ -33,17 +33,19 @@ BEGIN
     RETURN;
   END IF;
 
-  DELETE FROM wf.loop_state ls
-  WHERE ls.workflow_instance_id IN (
-    SELECT wi.id
-    FROM wf.workflow_instance wi
-    INNER JOIN wf.workflow_version wv ON wv.id = wi.workflow_version_id
-    WHERE wv.workflow_def_id = v_def_id
+  -- Runs are history: remove them through the retention purge. On a disposable database this needs a
+  -- platform/RetentionPolicy object (RecordKind wf.run, WorkflowName DocsBootstrapConstEcho,
+  -- RetentionDays 0, LegalHold false); without one the earlier runs are kept and this re-run stops.
+  PERFORM * FROM wf.sp_purge_run_history(
+    ARRAY(
+      SELECT wi.id
+      FROM wf.workflow_instance wi
+      INNER JOIN wf.workflow_version wv ON wv.id = wi.workflow_version_id
+      WHERE wv.workflow_def_id = v_def_id
+    ),
+    'docs example re-run',
+    true
   );
-
-  DELETE FROM wf.workflow_instance wi
-  USING wf.workflow_version wv
-  WHERE wi.workflow_version_id = wv.id AND wv.workflow_def_id = v_def_id;
 
   DELETE FROM wf.workflow_edge e
   USING wf.workflow_node n

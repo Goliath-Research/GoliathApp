@@ -18,7 +18,7 @@ CREATE OR REPLACE FUNCTION "Contract".spcontractvalidatescopeaccess(
 )
 RETURNS TABLE(is_allowed boolean, contract_id int, reason_code text)
 LANGUAGE plpgsql STABLE AS $$
-DECLARE v_now timestamptz := COALESCE(p_utc_now, now() AT TIME ZONE 'utc');
+DECLARE v_now timestamptz := COALESCE(p_utc_now, now());
 BEGIN
   IF p_scope_id IS NULL OR p_scope_id <= 0 THEN
     RETURN QUERY SELECT false, NULL::int, 'INVALID_SCOPE';
@@ -61,7 +61,7 @@ RETURNS TABLE(
 )
 LANGUAGE plpgsql STABLE AS $$
 DECLARE
-  v_now        timestamptz := COALESCE(p_utc_now, now() AT TIME ZONE 'utc');
+  v_now        timestamptz := COALESCE(p_utc_now, now());
   v_allowed    boolean;
   v_cid        int;
   v_reason     text;
@@ -93,9 +93,9 @@ BEGIN
 
   IF v_max_runs IS NOT NULL AND v_period_type IS NOT NULL THEN
     v_period_start := CASE v_period_type
-      WHEN 'DAY'   THEN date_trunc('day',  v_now AT TIME ZONE 'utc')
-      WHEN 'WEEK'  THEN date_trunc('week', v_now AT TIME ZONE 'utc')
-      WHEN 'MONTH' THEN date_trunc('month',v_now AT TIME ZONE 'utc')
+      WHEN 'DAY'   THEN date_trunc('day',  v_now, 'UTC')
+      WHEN 'WEEK'  THEN date_trunc('week', v_now, 'UTC')
+      WHEN 'MONTH' THEN date_trunc('month',v_now, 'UTC')
     END;
 
     SELECT COALESCE(w."RunsExecuted", 0) INTO v_runs_exec
@@ -130,7 +130,7 @@ RETURNS TABLE(
 )
 LANGUAGE plpgsql AS $$
 DECLARE
-  v_now         timestamptz := COALESCE(p_utc_now, now() AT TIME ZONE 'utc');
+  v_now         timestamptz := COALESCE(p_utc_now, now());
   v_cid         int;
   v_enabled     boolean;
   v_max_runs    int;
@@ -171,11 +171,11 @@ BEGIN
   END IF;
 
   IF v_period_type = 'DAY' THEN
-    v_period_start := date_trunc('day',   v_now AT TIME ZONE 'utc');
+    v_period_start := date_trunc('day',   v_now, 'UTC');
   ELSIF v_period_type = 'WEEK' THEN
-    v_period_start := date_trunc('week',  v_now AT TIME ZONE 'utc');
+    v_period_start := date_trunc('week',  v_now, 'UTC');
   ELSIF v_period_type = 'MONTH' THEN
-    v_period_start := date_trunc('month', v_now AT TIME ZONE 'utc');
+    v_period_start := date_trunc('month', v_now, 'UTC');
   ELSE
     RAISE EXCEPTION 'ValidationError: Unsupported PeriodType: %', v_period_type;
   END IF;
@@ -225,7 +225,7 @@ CREATE OR REPLACE FUNCTION "Contract".spcontractvalidaterolegrant(
 RETURNS TABLE(is_allowed boolean, contract_id int, reason_code text)
 LANGUAGE plpgsql STABLE AS $$
 DECLARE
-  v_now     timestamptz := COALESCE(p_utc_now, now() AT TIME ZONE 'utc');
+  v_now     timestamptz := COALESCE(p_utc_now, now());
   v_allowed boolean;
   v_cid     int;
   v_reason  text;

@@ -80,6 +80,26 @@ BEGIN
   END LOOP;
 END $$;
 
+-- History ledger and signature internals (docs/history-and-audit.md): schema owner only; sessions use sp_session_*.
+DO $$
+DECLARE
+  v_sig regprocedure;
+BEGIN
+  FOR v_sig IN
+    SELECT p.oid::regprocedure
+    FROM pg_proc p
+    INNER JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'portal'
+      AND p.prokind = 'f'
+      AND (p.proname LIKE 'fn\_ledger\_%' OR p.proname LIKE 'sp\_ledger\_%'
+           OR p.proname LIKE 'fn\_signature\_%')
+  LOOP
+    EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC, goliath_portal', v_sig);
+  END LOOP;
+END $$;
+
+REVOKE EXECUTE ON FUNCTION portal.sp_platform_god_architect_class_acl_sync() FROM PUBLIC, goliath_portal;
+
 REVOKE ALL ON ALL TABLES IN SCHEMA inv FROM PUBLIC, goliath_portal;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA inv FROM PUBLIC, goliath_portal;
 

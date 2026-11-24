@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS portal.model_authoring_audit (
   scope_id integer NULL,
   action_code text NOT NULL,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 DO $perm$

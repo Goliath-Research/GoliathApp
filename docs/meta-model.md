@@ -269,7 +269,7 @@ JOIN "Meta"."ObjValues" v ON v."ObjID" = p."ID" AND v."ClassID" = 12;
 
 - A view for class C includes objects of every descendant class (polymorphic select), because the root view filters through `ClassClosure`.
 - `"Meta".sp_class_regenerate_views(class_id)` (re)creates views top-down for the class subtree. It runs **immediately** from `Classes`/`Fields` triggers (Decision D5). The class schema and catalog type (§4.2, §4.5) are regenerated in the same step. Legacy parity names `spclasscreateviewsql` and `spclassadded` call into it; `spclasscreatetablesql` returns a no-op comment (ObjValues replaces per-class tables).
-- History: per-class history DDL is still a stub (`spclasscreatehistorysql`); a unified `"Meta"."ObjValuesHistory"` table is **not** implemented yet (§11). `HasHistory` on `"Meta"."Classes"` is unchanged; legacy typed-table history paths still apply where ObjValues is not used.
+- History: every class's objects are recorded in the unified `"Meta"."ObjValuesHistory"` ledger (see [History and audit](history-and-audit.md), section 5). `HasHistory` on `"Meta"."Classes"` is a legacy flag; `spclasscreatehistorysql` returns a comment because no per-class history DDL is needed.
 
 ## 6. Trees
 
@@ -328,7 +328,6 @@ pgTAP (Neon) plus pytest in this repository:
 | `Meta.sp_invoke` | Method dispatch after parameter validation |
 | `VClassMethodsResolved` | Nearest-wins view for methods (fields already have `VClassFieldsResolved`) |
 | Field/method override narrowing triggers | Rules in §2.1–§2.3; not all enforcement triggers are present |
-| `ObjValuesHistory` | Replace per-class history DDL; unify with `HasHistory` |
 | Hot-field generated columns | `IsHot` → STORED columns + partial indexes on `ObjValues` |
 | TreeRef integrity on field values | Validate `meta/TreeRef` in ObjValues when used as field types |
 | Bulk typed-table → ObjValues migration | Operational tooling for existing class tables |

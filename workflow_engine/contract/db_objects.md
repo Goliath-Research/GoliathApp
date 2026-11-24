@@ -21,7 +21,7 @@ Repository and worker procs that insert rows **return the new id as a single-col
 
 | Azure SQL | PostgreSQL |
 |-----------|------------|
-| `SYSUTCDATETIME()` | `(now() AT TIME ZONE 'utc')` or `now()` with `timestamptz` |
+| `SYSUTCDATETIME()` | `now()` into a `timestamptz` column (never `now() AT TIME ZONE 'utc'`, which yields a session-zone-dependent value) |
 | `DATETIME2(7)` | `timestamptz` |
 
 ### JSON
@@ -175,7 +175,7 @@ FOREACH continuation is dispatched through `wf.wf_foreach_route_continue`, which
 
 | Object | Purpose |
 |--------|---------|
-| `wf.sp_delete_workflow_def` | Remove definition (+ optional instances) |
+| `wf.sp_delete_workflow_def` | Remove definition (+ optional instances, through the retention purge `wf.sp_purge_run_history`) |
 
 ### 5. Domain (optional, Azure SQL today)
 

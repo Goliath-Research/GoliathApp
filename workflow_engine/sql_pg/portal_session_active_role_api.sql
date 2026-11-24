@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS portal.session_active_role_audit (
   prior_role_id integer,
   role_id integer,
   action text NOT NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc')
+  created_at_utc timestamptz NOT NULL DEFAULT (now())
 );
 
 CREATE INDEX IF NOT EXISTS "IX_portal_session_active_role_audit_session"
@@ -356,7 +356,7 @@ SET search_path = portal, "RBAC", cfg, pg_temp
 AS $$
 DECLARE
   v_hash bytea;
-  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_now timestamptz := now();
   v_idle int := portal.fn_session_policy_idle_seconds();
   v_abs int := portal.fn_session_policy_absolute_seconds();
   v_sid int;
@@ -423,6 +423,10 @@ BEGIN
       WHERE uo."UserID" = $1
     $q$ INTO v_orgs USING v_uid;
   END IF;
+
+  -- Transaction-local actor attribution for history ledgers (docs/history-and-audit.md).
+  PERFORM set_config('goliath.actor_user_id', v_uid::text, true);
+  PERFORM set_config('goliath.actor_session_id', v_sid::text, true);
 
   RETURN QUERY
   SELECT
@@ -888,7 +892,7 @@ DECLARE
   v_session_id int;
   v_token text;
   v_hash bytea;
-  v_now timestamptz := now() AT TIME ZONE 'utc';
+  v_now timestamptz := now();
   v_idle int := portal.fn_session_policy_idle_seconds();
   v_abs int := portal.fn_session_policy_absolute_seconds();
 BEGIN

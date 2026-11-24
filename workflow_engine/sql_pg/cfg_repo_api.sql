@@ -71,7 +71,7 @@ BEGIN
       status = EXCLUDED.status,
       content_hash = EXCLUDED.content_hash,
       document_json = EXCLUDED.document_json,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
     RETURNING cfg.site.id INTO v_id;
   ELSIF p_kind = 'pipeline_profile' THEN
     INSERT INTO cfg.pipeline_profile(name, version, status, content_hash, document_json)
@@ -80,7 +80,7 @@ BEGIN
       status = EXCLUDED.status,
       content_hash = EXCLUDED.content_hash,
       document_json = EXCLUDED.document_json,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
     RETURNING cfg.pipeline_profile.id INTO v_id;
   ELSIF p_kind = 'assay_procedure' THEN
     INSERT INTO cfg.assay_procedure(name, version, status, content_hash, document_json)
@@ -89,7 +89,7 @@ BEGIN
       status = EXCLUDED.status,
       content_hash = EXCLUDED.content_hash,
       document_json = EXCLUDED.document_json,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
     RETURNING cfg.assay_procedure.id INTO v_id;
   ELSIF p_kind = 'analyte' THEN
     INSERT INTO cfg.analyte(name, version, status, content_hash, document_json)
@@ -98,7 +98,7 @@ BEGIN
       status = EXCLUDED.status,
       content_hash = EXCLUDED.content_hash,
       document_json = EXCLUDED.document_json,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
     RETURNING cfg.analyte.id INTO v_id;
   ELSIF p_kind = 'domain_program' THEN
     INSERT INTO cfg.domain_program(name, version, status, content_hash, document_json)
@@ -107,7 +107,7 @@ BEGIN
       status = EXCLUDED.status,
       content_hash = EXCLUDED.content_hash,
       document_json = EXCLUDED.document_json,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
     RETURNING cfg.domain_program.id INTO v_id;
   ELSIF p_kind = 'study' THEN
     INSERT INTO cfg.study(name, version, status, content_hash, document_json, study_id)
@@ -117,7 +117,7 @@ BEGIN
       content_hash = EXCLUDED.content_hash,
       document_json = EXCLUDED.document_json,
       study_id = COALESCE(EXCLUDED.study_id, cfg.study.study_id),
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
     RETURNING cfg.study.id INTO v_id;
   ELSIF p_kind = 'credential' THEN
     INSERT INTO cfg.credential(name, version, status, content_hash, provider, auth_mode, secret_json)
@@ -128,7 +128,7 @@ BEGIN
       provider = EXCLUDED.provider,
       auth_mode = EXCLUDED.auth_mode,
       secret_json = EXCLUDED.secret_json,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
     RETURNING cfg.credential.id INTO v_id;
   ELSIF p_kind = 'storage_endpoint' THEN
     INSERT INTO cfg.storage_endpoint(name, version, status, content_hash, provider, location_json, credential_name)
@@ -139,7 +139,7 @@ BEGIN
       provider = EXCLUDED.provider,
       location_json = EXCLUDED.location_json,
       credential_name = COALESCE(EXCLUDED.credential_name, cfg.storage_endpoint.credential_name),
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
     RETURNING cfg.storage_endpoint.id INTO v_id;
   ELSIF p_kind = 'storage_profile' THEN
     INSERT INTO cfg.storage_profile(name, version, status, content_hash, document_json)
@@ -148,7 +148,7 @@ BEGIN
       status = EXCLUDED.status,
       content_hash = EXCLUDED.content_hash,
       document_json = EXCLUDED.document_json,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
     RETURNING cfg.storage_profile.id INTO v_id;
   ELSIF p_kind = 'reference_asset' THEN
     INSERT INTO cfg.reference_asset(name, version, status, content_hash, document_json)
@@ -157,7 +157,7 @@ BEGIN
       status = EXCLUDED.status,
       content_hash = EXCLUDED.content_hash,
       document_json = EXCLUDED.document_json,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
     RETURNING cfg.reference_asset.id INTO v_id;
   ELSIF p_kind = 'action_definition' THEN
     RAISE EXCEPTION 'cfg.action_definition retired; seed wf via seed_action_catalog / goliath-cfg sync-actions';
@@ -168,7 +168,7 @@ BEGIN
       status = EXCLUDED.status,
       content_hash = EXCLUDED.content_hash,
       document_json = EXCLUDED.document_json,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
     RETURNING cfg.enrichment_library_preset.id INTO v_id;
   ELSE
     RAISE EXCEPTION 'unknown cfg kind: %', p_kind;
@@ -383,39 +383,39 @@ AS $$
 DECLARE v_id bigint;
 BEGIN
   IF p_kind = 'site' THEN
-    UPDATE cfg.site SET status = 'published', updated_at_utc = (now() AT TIME ZONE 'utc')
+    UPDATE cfg.site SET status = 'published', updated_at_utc = (now())
     WHERE name = p_name AND version = p_version RETURNING cfg.site.id INTO v_id;
   ELSIF p_kind = 'pipeline_profile' THEN
-    UPDATE cfg.pipeline_profile SET status = 'published', updated_at_utc = (now() AT TIME ZONE 'utc')
+    UPDATE cfg.pipeline_profile SET status = 'published', updated_at_utc = (now())
     WHERE name = p_name AND version = p_version RETURNING cfg.pipeline_profile.id INTO v_id;
   ELSIF p_kind = 'assay_procedure' THEN
-    UPDATE cfg.assay_procedure SET status = 'published', updated_at_utc = (now() AT TIME ZONE 'utc')
+    UPDATE cfg.assay_procedure SET status = 'published', updated_at_utc = (now())
     WHERE name = p_name AND version = p_version RETURNING cfg.assay_procedure.id INTO v_id;
   ELSIF p_kind = 'analyte' THEN
-    UPDATE cfg.analyte SET status = 'published', updated_at_utc = (now() AT TIME ZONE 'utc')
+    UPDATE cfg.analyte SET status = 'published', updated_at_utc = (now())
     WHERE name = p_name AND version = p_version RETURNING cfg.analyte.id INTO v_id;
   ELSIF p_kind = 'domain_program' THEN
-    UPDATE cfg.domain_program SET status = 'published', updated_at_utc = (now() AT TIME ZONE 'utc')
+    UPDATE cfg.domain_program SET status = 'published', updated_at_utc = (now())
     WHERE name = p_name AND version = p_version RETURNING cfg.domain_program.id INTO v_id;
   ELSIF p_kind = 'study' THEN
-    UPDATE cfg.study SET status = 'published', updated_at_utc = (now() AT TIME ZONE 'utc')
+    UPDATE cfg.study SET status = 'published', updated_at_utc = (now())
     WHERE name = p_name AND version = p_version RETURNING cfg.study.id INTO v_id;
   ELSIF p_kind = 'credential' THEN
-    UPDATE cfg.credential SET status = 'published', updated_at_utc = (now() AT TIME ZONE 'utc')
+    UPDATE cfg.credential SET status = 'published', updated_at_utc = (now())
     WHERE name = p_name AND version = p_version RETURNING cfg.credential.id INTO v_id;
   ELSIF p_kind = 'storage_endpoint' THEN
-    UPDATE cfg.storage_endpoint SET status = 'published', updated_at_utc = (now() AT TIME ZONE 'utc')
+    UPDATE cfg.storage_endpoint SET status = 'published', updated_at_utc = (now())
     WHERE name = p_name AND version = p_version RETURNING cfg.storage_endpoint.id INTO v_id;
   ELSIF p_kind = 'storage_profile' THEN
-    UPDATE cfg.storage_profile SET status = 'published', updated_at_utc = (now() AT TIME ZONE 'utc')
+    UPDATE cfg.storage_profile SET status = 'published', updated_at_utc = (now())
     WHERE name = p_name AND version = p_version RETURNING cfg.storage_profile.id INTO v_id;
   ELSIF p_kind = 'reference_asset' THEN
-    UPDATE cfg.reference_asset SET status = 'published', updated_at_utc = (now() AT TIME ZONE 'utc')
+    UPDATE cfg.reference_asset SET status = 'published', updated_at_utc = (now())
     WHERE name = p_name AND version = p_version RETURNING cfg.reference_asset.id INTO v_id;
   ELSIF p_kind = 'action_definition' THEN
     RAISE EXCEPTION 'cfg.action_definition retired; use wf.workflow_action';
   ELSIF p_kind = 'enrichment_library_preset' THEN
-    UPDATE cfg.enrichment_library_preset SET status = 'published', updated_at_utc = (now() AT TIME ZONE 'utc')
+    UPDATE cfg.enrichment_library_preset SET status = 'published', updated_at_utc = (now())
     WHERE name = p_name AND version = p_version RETURNING cfg.enrichment_library_preset.id INTO v_id;
   ELSE
     RAISE EXCEPTION 'unknown cfg kind: %', p_kind;
@@ -468,7 +468,7 @@ BEGIN
   UPDATE cfg.domain_program
   SET compiled_workflow_version_id = p_workflow_version_id,
       workflow_def_id = v_def_id,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE name = p_name AND version = p_version
   RETURNING cfg.domain_program.id, cfg.domain_program.content_hash INTO v_id, v_hash;
 
@@ -600,7 +600,7 @@ BEGIN
   UPDATE cfg.reference_asset ra
   SET storage_endpoint_id = COALESCE(p_storage_endpoint_id, ra.storage_endpoint_id),
       asset_type = COALESCE(p_asset_type, ra.asset_type),
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE ra.name = p_asset_name AND ra.version = p_version
   RETURNING ra.id, ra.storage_endpoint_id, ra.asset_type INTO v_id, v_se, v_at;
   IF v_id IS NULL THEN
@@ -726,7 +726,7 @@ BEGIN
   VALUES (p_study_row_id, p_role, p_label, p_list_filename)
   ON CONFLICT (study_row_id, role, label) DO UPDATE SET
     list_filename = EXCLUDED.list_filename,
-    updated_at_utc = (now() AT TIME ZONE 'utc')
+    updated_at_utc = (now())
   RETURNING cfg.study_group.id INTO v_id;
   RETURN QUERY
   SELECT g.id, g.study_row_id, g.role::text, g.label, g.list_filename
@@ -793,7 +793,7 @@ BEGIN
     ) VALUES (p_study_group_id, v_portal, v_lab, v_resolved);
   END LOOP;
 
-  UPDATE cfg.study_group SET updated_at_utc = (now() AT TIME ZONE 'utc')
+  UPDATE cfg.study_group SET updated_at_utc = (now())
   WHERE id = p_study_group_id;
 
   RETURN QUERY
@@ -934,7 +934,7 @@ BEGIN
   UPDATE cfg.study
   SET document_json = v_doc,
       content_hash = md5(v_doc::text),
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE id = p_study_row_id;
 
   RETURN QUERY

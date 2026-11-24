@@ -98,7 +98,7 @@ $$;
 CREATE TABLE IF NOT EXISTS portal."ScopedMetaObjects" (
   "ObjID" integer NOT NULL,
   "ScopeID" integer NOT NULL,
-  "CreatedAtUtc" timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  "CreatedAtUtc" timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT "PK_portal_ScopedMetaObjects" PRIMARY KEY ("ObjID"),
   CONSTRAINT "FK_portal_ScopedMetaObjects_Obj" FOREIGN KEY ("ObjID")
     REFERENCES "Meta"."Objs" ("ID") ON DELETE CASCADE,

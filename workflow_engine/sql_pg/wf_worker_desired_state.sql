@@ -45,7 +45,7 @@ BEGIN
   IF p_worker_id IS NOT NULL THEN
     UPDATE wf.worker w
     SET desired_state = v_state,
-        updated_at_utc = (now() AT TIME ZONE 'utc')
+        updated_at_utc = (now())
     WHERE w.id = p_worker_id
       AND (p_cluster_id IS NULL OR w.cluster_id = p_cluster_id);
     GET DIAGNOSTICS v_rows = ROW_COUNT;
@@ -62,7 +62,7 @@ BEGIN
 
   UPDATE wf.worker w
   SET desired_state = v_state,
-      updated_at_utc = (now() AT TIME ZONE 'utc')
+      updated_at_utc = (now())
   WHERE w.cluster_id = p_cluster_id;
   GET DIAGNOSTICS v_rows = ROW_COUNT;
 

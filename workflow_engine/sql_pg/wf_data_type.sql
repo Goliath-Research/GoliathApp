@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS wf.data_type (
   element_type_id bigint NULL REFERENCES wf.data_type (id),
   content_hash text NULL,
   schema_json jsonb NULL,
-  created_at_utc timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  created_at_utc timestamptz NOT NULL DEFAULT (now()),
   updated_at_utc timestamptz NULL,
   CONSTRAINT uq_wf_data_type_name_version UNIQUE (name, version),
   CONSTRAINT ck_wf_data_type_status CHECK (status IN ('draft', 'published', 'retired')),
@@ -132,7 +132,7 @@ BEGIN
     element_type_id = COALESCE(EXCLUDED.element_type_id, dt.element_type_id),
     content_hash = COALESCE(EXCLUDED.content_hash, dt.content_hash),
     schema_json = COALESCE(EXCLUDED.schema_json, dt.schema_json),
-    updated_at_utc = (now() AT TIME ZONE 'utc')
+    updated_at_utc = (now())
   RETURNING dt.id INTO v_id;
 
   RETURN QUERY

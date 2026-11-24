@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS "RBAC"."SessionTokens" (
   "ExpiresAtUtc" timestamptz NOT NULL,
   "RevokedAtUtc" timestamptz NULL,
   "LastRefreshedAtUtc" timestamptz NOT NULL,
-  "CreatedAtUtc" timestamptz NOT NULL DEFAULT (now() AT TIME ZONE 'utc'),
+  "CreatedAtUtc" timestamptz NOT NULL DEFAULT (now()),
   CONSTRAINT "PK_RBAC_SessionTokens" PRIMARY KEY ("SessionID")
 );
 
