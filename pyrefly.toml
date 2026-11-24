@@ -10,7 +10,7 @@ project-includes = [
   "workflow_engine/goliath_app",
 ]
 
-# CI and local development run on 3.12. The package allows >=3.10,<3.15.
+# CI and local development run on 3.12. The package allows >=3.10,<3.16.
 python-version = "3.12"
 
 # rest, local, cfg, domain, and contract are importable from workflow_engine/

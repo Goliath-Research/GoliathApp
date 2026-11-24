@@ -22,6 +22,7 @@ packages/*/*.tgz
 **/*.tsbuildinfo
 exo/src/*.deno.lock
 __pycache__/
+.venv/
 
 # Local wheel builds
 workflow_engine/build/
