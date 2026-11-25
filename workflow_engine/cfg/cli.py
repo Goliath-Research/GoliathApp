@@ -398,6 +398,12 @@ def _cmd_materialize_study_lists(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_render_mermaid(args: argparse.Namespace) -> int:
+    from domain.mermaid import run_cli
+
+    return run_cli(args)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="goliath-cfg", description="Configuration registry CLI")
     p.add_argument(
@@ -604,6 +610,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--work-root", default="/work")
     s.add_argument("--study", default=None, help="Limit to one study name")
     s.set_defaults(func=_cmd_materialize_study_lists)
+
+    from domain.mermaid import add_cli_arguments as add_mermaid_cli_arguments
+
+    s = sub.add_parser(
+        "render-mermaid",
+        help="Render DomainProgram JSON fixtures as Mermaid flowcharts or Markdown catalogs",
+    )
+    add_mermaid_cli_arguments(s)
+    s.set_defaults(func=_cmd_render_mermaid)
 
     return p
 

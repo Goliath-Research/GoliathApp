@@ -67,3 +67,47 @@ A successful compile creates a new **inactive** workflow version and publishes t
 ## File-store compile
 
 `goliath-cfg publish-program` compiles the `domain_program` document from the file store and writes `<work>/goliath/env/compiled/<name>.compiled.json`. That path is for offline or work-root workflows. The portal compile service above is the database-backed path operators use on a running platform host.
+
+## Rendering Mermaid diagrams
+
+`workflow_engine/domain/mermaid.py` (`python3 -m domain.mermaid` or `goliath-cfg render-mermaid`) renders any DomainProgram JSON document or fixture directory into deterministic Mermaid 9.4.3 / 10+ flowcharts. Descendant applications and course repositories can use it to keep workflow documentation in sync with `*.program.json` sources.
+
+```bash
+# Render one program to stdout (or -o diagram.mmd)
+goliath-cfg render-mermaid --program workflow_engine/tests/fixtures/sample_prep.program.json
+
+# Generate Markdown catalog pages for a directory of fixtures
+goliath-cfg render-mermaid \
+  --fixtures-dir workflow_engine/domain/fixtures \
+  --docs-dir docs/workflows \
+  --categories-json docs/workflows/categories.json \
+  --product-name "MyApp"
+
+# Verify committed Markdown pages have not drifted (CI)
+goliath-cfg render-mermaid \
+  --fixtures-dir workflow_engine/domain/fixtures \
+  --docs-dir docs/workflows \
+  --check
+
+# Export standalone .mmd files for external embeds or lessons
+goliath-cfg render-mermaid \
+  --fixtures-dir workflow_engine/domain/fixtures \
+  --emit-mmd-dir /tmp/domain-program-mmd
+```
+
+Example output for the neutral platform fixture (`workflow_engine/tests/fixtures/sample_prep.program.json`, `WorkflowCompilerFixture`):
+
+```mermaid
+flowchart TD
+  n1(["Start"])
+  n2["demo.echo<br/>out: ready"]
+  subgraph sg_1 ["FOREACH (parallel): sample in samples"]
+    n3["demo.touch"]
+  end
+  n4(["End"])
+  n1 --> n2
+  n2 --> n3
+  n3 --> n4
+  classDef terminal fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b
+  class n1,n4 terminal
+```
