@@ -61,30 +61,7 @@ AS $$
   VALUES (p_session_id, p_actor_user_id, p_scope_id, p_action, COALESCE(p_payload, '{}'::jsonb));
 $$;
 
-CREATE OR REPLACE FUNCTION portal.sp_session_upsert_user(
-  p_session_token text,
-  p_email text,
-  p_full_name text,
-  p_active int DEFAULT 1
-)
-RETURNS TABLE (user_id int)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = portal, "RBAC", public, pg_temp
-AS $$
-DECLARE
-  v_ctx record;
-  v_uid int;
-BEGIN
-  SELECT * INTO v_ctx FROM portal.fn_session_security_admin_require(p_session_token, '/app/admin/users') LIMIT 1;
-  SELECT portal.sp_upsert_user(p_email, p_full_name, p_active) INTO v_uid;
-  PERFORM portal.fn_session_security_admin_audit(
-    v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id, 'user.upsert',
-    jsonb_build_object('email', p_email, 'user_id', v_uid)
-  );
-  RETURN QUERY SELECT v_uid;
-END;
-$$;
+-- portal.sp_session_upsert_user is defined in portal_session_invitation_api.sql.
 
 CREATE OR REPLACE FUNCTION portal.sp_session_grant_user_role_admin(
   p_session_token text,
