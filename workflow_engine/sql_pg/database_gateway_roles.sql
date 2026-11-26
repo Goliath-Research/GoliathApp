@@ -118,5 +118,20 @@ BEGIN
   END LOOP;
 END $$;
 
+-- Inventory action handlers (goliath_app/inv/db.py) log in as goliath_inv: stock procedures only.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'goliath_inv') THEN
+    CREATE ROLE goliath_inv LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+  END IF;
+END $$;
+
+GRANT USAGE ON SCHEMA inv TO goliath_inv;
+GRANT EXECUTE ON FUNCTION inv.sp_stock_receive(integer, integer, integer, integer, numeric, text, numeric)
+  TO goliath_inv;
+GRANT EXECUTE ON FUNCTION inv.sp_stock_adjust(integer, integer, integer, numeric, text) TO goliath_inv;
+GRANT EXECUTE ON FUNCTION inv.sp_stock_issue_stub(integer, integer, integer, numeric, text, text)
+  TO goliath_inv;
+
 GRANT SELECT ON portal.mv_security_effective_grants TO goliath_portal;
 GRANT SELECT ON portal.external_identity_link_audit TO goliath_portal;

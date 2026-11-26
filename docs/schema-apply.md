@@ -33,7 +33,7 @@ The authoritative order is the `SCRIPTS` array in `apply_schema.sh`. Grouped as 
 4. Graph and admin: `wf_apply_validation_plan.sql`, `wf_execution_scope.sql`, `04_admin.sql`, `wf_repo_create_workflow_graph.sql`, `wf_sql_collection_bindings.sql`, `portal_workflow_api.sql`, `wf_drop_platform_sample_storage.sql`.
 5. Meta, RBAC, contract, onboarding, portal shell: `meta_schema.sql`, `meta_model_phase_a.sql` … `meta_model_phase_d.sql`, `meta_model_phase_e.sql` (after `meta_api_parity.sql`), `meta_model_semantic.sql` (after `portal_semantic_api.sql`), …
 6. Config and portal: `cfg_schema.sql`, … `portal_rbac_api.sql`, `portal_session_api.sql`, `portal_session_nav_api.sql` (drops prior overloads via `portal._drop_if_proc` before widening `sp_session_operator_nav_tree`), `portal_session_identity_api.sql`, `portal_nav_meta.sql`, `portal_session_meta_api.sql`, `portal_session_platform_api.sql`, `portal_operator_views_api.sql`, `portal_semantic_schema.sql`, …
-7. Gateway roles: `database_gateway_roles.sql` creates `goliath_portal` and `goliath_gateway`, grants execute on `portal.sp_*` to the portal role, and revokes semantic compiler internals from direct callers.
+7. Gateway roles: `database_gateway_roles.sql` creates `goliath_portal`, `goliath_gateway`, and `goliath_inv`, grants execute on `portal.sp_*` to the portal role and on `inv.sp_stock_receive`, `inv.sp_stock_adjust`, and `inv.sp_stock_issue_stub` to the inventory role, and revokes semantic compiler internals from direct callers.
 
 After apply, seed the core semantic catalog once per environment:
 
