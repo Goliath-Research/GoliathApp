@@ -4,8 +4,8 @@
   Once portal.semantic_entity.meta_class_id is set, running the entity's requests also requires
   Meta class read access in the active scope. "Meta".sp_grant_semantic_entity_class_read(namespace)
   grants that read access (portal.sp_upsert_class_role_access, effect allow) to every role that can
-  run one of the entity's requests today: the request has no required permission, the role holds it,
-  or the role bypasses scope. It grants in each active scope where the role is granted (every
+  run one of the entity's requests today: the role holds the request's required permission, or the
+  role bypasses scope. A request without a required permission is runnable by nobody. It grants in each active scope where the role is granted (every
   active scope for a bypass role). It never overrides an explicit deny and never removes access.
 
   portal.fn_semantic_entity_class_read_gaps(namespace) lists the active (user, scope, request)
@@ -25,9 +25,9 @@ AS $$
   JOIN "RBAC"."Scopes" s ON s."Active"
   WHERE e.meta_class_id IS NOT NULL
     AND (p_namespace IS NULL OR e.namespace = p_namespace)
+    AND NULLIF(btrim(r.required_permission), '') IS NOT NULL
     AND (
-      r.required_permission IS NULL
-      OR COALESCE(ro."BypassScope", false)
+      COALESCE(ro."BypassScope", false)
       OR EXISTS (
         SELECT 1 FROM "RBAC"."Role_Permissions" rp JOIN "RBAC"."Permissions" p ON p."ID" = rp."PermissionID"
         WHERE rp."RoleID" = ro."ID" AND p."Name" = r.required_permission

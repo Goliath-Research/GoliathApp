@@ -61,7 +61,8 @@ BEGIN
           'fn_semantic_property_json_type',
           'fn_semantic_property_allows_null',
           'fn_semantic_user_organization_ids',
-          'fn_semantic_raise'
+          'fn_semantic_raise',
+          'sp_semantic_seed_read_permission'
         ]
       )
   LOOP

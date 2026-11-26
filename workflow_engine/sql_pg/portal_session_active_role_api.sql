@@ -95,8 +95,8 @@ SECURITY DEFINER
 SET search_path = portal, "RBAC", pg_temp
 AS $$
   SELECT
-    p_permission IS NULL
-    OR (
+    NULLIF(btrim(p_permission), '') IS NOT NULL
+    AND (
       portal.fn_session_active_role_id(p_session_id) IS NOT NULL
       AND portal.fn_session_role_grant_valid(
         p_user_id,
@@ -1376,6 +1376,8 @@ DECLARE
   v_req portal.semantic_request%ROWTYPE;
   v_limit integer;
   v_entity portal.semantic_entity%ROWTYPE;
+  v_params jsonb := COALESCE(p_params, '{}'::jsonb);
+  v_scope_org_id integer;
 BEGIN
   SELECT *
   INTO v_sess
@@ -1409,16 +1411,41 @@ BEGIN
     );
   END IF;
 
-  IF NOT portal.fn_session_has_permission(
-    v_sess.session_id, v_sess.user_id, v_sess.active_scope_id, v_req.required_permission
-  ) THEN
+  -- A request registered without a permission is not runnable by anyone.
+  IF NULLIF(btrim(v_req.required_permission), '') IS NULL
+     OR NOT portal.fn_session_has_permission(
+       v_sess.session_id, v_sess.user_id, v_sess.active_scope_id, v_req.required_permission
+     ) THEN
     PERFORM portal.fn_semantic_raise('GS403', 'permission denied');
   END IF;
 
-  PERFORM portal.fn_semantic_validate_params(p_request_code, v_req.params_schema, COALESCE(p_params, '{}'::jsonb));
+  IF jsonb_typeof(v_params) <> 'object' THEN
+    PERFORM portal.fn_semantic_raise('GS400', format('params must be an object for %s', p_request_code));
+  END IF;
+
+  PERFORM portal.fn_semantic_validate_params(p_request_code, v_req.params_schema, v_params);
+
+  -- The permission above holds in the active scope only, so organization_id is bound to the
+  -- active scope's organization and the target receives that id, never the caller's value.
+  IF v_params ? 'organization_id' AND v_params->'organization_id' <> 'null'::jsonb THEN
+    SELECT s."OrganizationID"
+    INTO v_scope_org_id
+    FROM "RBAC"."Scopes" s
+    WHERE s."ScopeID" = v_sess.active_scope_id
+      AND s."ScopeType" = 'organization'
+      AND COALESCE(s."Active", true);
+
+    IF v_scope_org_id IS NULL
+       OR jsonb_typeof(v_params->'organization_id') <> 'number'
+       OR (v_params->>'organization_id')::numeric <> v_scope_org_id THEN
+      PERFORM portal.fn_semantic_raise('GS403', 'organization scope denied');
+    END IF;
+
+    v_params := jsonb_set(v_params, '{organization_id}', to_jsonb(v_scope_org_id));
+  END IF;
 
   v_limit := LEAST(
-    COALESCE((p_params->>'limit')::integer, v_req.max_rows),
+    COALESCE((v_params->>'limit')::integer, v_req.max_rows),
     v_req.max_rows,
     portal.fn_semantic_max_rows()
   );
@@ -1452,7 +1479,7 @@ BEGIN
       'SELECT to_jsonb(r) FROM %s($1, $2, $3) r',
       v_req.target_name
     )
-    USING v_sess.user_id, COALESCE(p_params, '{}'::jsonb), v_limit;
+    USING v_sess.user_id, v_params, v_limit;
     RETURN;
   END IF;
 
@@ -1466,7 +1493,7 @@ BEGIN
       SELECT to_jsonb(r)
       FROM portal.fn_semantic_core_filter_organizations(
         v_sess.user_id,
-        COALESCE(p_params, '{}'::jsonb),
+        v_params,
         v_limit,
         v_req.entity_id,
         COALESCE(p_filter, v_req.filter_template, '{}'::jsonb)
@@ -1587,10 +1614,8 @@ BEGIN
   FROM portal.semantic_request r
   INNER JOIN portal.semantic_entity e ON e.id = r.entity_id
   WHERE r.status = 'ACTIVE'
-    AND (r.required_permission IS NULL
-     OR portal.fn_session_has_permission(
-       v_sess.session_id, v_sess.user_id, v_sess.active_scope_id, r.required_permission
-     )
+    AND portal.fn_session_has_permission(
+      v_sess.session_id, v_sess.user_id, v_sess.active_scope_id, r.required_permission
     )
   ORDER BY r.namespace, r.request_code, r.version;
 END;
@@ -1630,10 +1655,9 @@ BEGIN
     r.required_permission
   FROM portal.semantic_request r
   INNER JOIN portal.semantic_entity e ON e.id = r.entity_id
-  WHERE r.required_permission IS NULL
-     OR portal.fn_session_has_permission(
-       v_session_id, v_user_id, v_scope_id, r.required_permission
-     )
+  WHERE portal.fn_session_has_permission(
+    v_session_id, v_user_id, v_scope_id, r.required_permission
+  )
   ORDER BY r.namespace, r.request_code, r.version;
 END;
 $$;

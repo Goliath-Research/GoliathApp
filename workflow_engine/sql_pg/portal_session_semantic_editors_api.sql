@@ -1008,7 +1008,10 @@ BEGIN
     v_result_schema := portal.fn_semantic_row_type_schema(v_row_type);
   END IF;
 
-  IF v_perm IS NOT NULL AND NOT EXISTS (
+  IF v_perm IS NULL THEN
+    PERFORM portal.fn_semantic_raise('GS400', 'pick a required permission (requests without one cannot run)');
+  END IF;
+  IF NOT EXISTS (
     SELECT 1 FROM portal.security_role_permission_cache c WHERE c.permission_name = v_perm
   ) THEN
     PERFORM portal.fn_semantic_raise('GS400', format('permission %s is not granted to any role', v_perm));

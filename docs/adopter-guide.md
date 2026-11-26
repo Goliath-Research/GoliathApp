@@ -185,10 +185,11 @@ acme_demo_list_orgs = SemanticRequestSpec(
     target_name="portal.fn_semantic_core_list_organizations",
     params_model=ListOrganizationsParams,
     result_row_model=OrganizationRow,
+    required_permission="core.organization.read",
 )
 ```
 
-(Source: `goliath_app/semantic/catalog.py`.)
+(Source: `goliath_app/semantic/catalog.py`.) A request without `required_permission` is denied to everyone.
 
 ### NavTree registration (SQL)
 

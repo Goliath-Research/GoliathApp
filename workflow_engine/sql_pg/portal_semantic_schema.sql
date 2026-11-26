@@ -135,3 +135,52 @@ VALUES
 ON CONFLICT (code) DO UPDATE
   SET display_name = EXCLUDED.display_name,
       owner_app = EXCLUDED.owner_app;
+
+-- Creates a semantic read permission; organization_admin receives it only when it is first
+-- created, so a later revocation survives re-applying the schema.
+CREATE OR REPLACE FUNCTION portal.sp_semantic_seed_read_permission(p_permission text)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = portal, "RBAC", pg_temp
+AS $$
+DECLARE
+  v_anchor record;
+  v_perm_id integer;
+  v_role_id integer;
+BEGIN
+  IF EXISTS (SELECT 1 FROM "RBAC"."Permissions" p WHERE p."Name" = p_permission) THEN
+    RETURN;
+  END IF;
+
+  SELECT p."ObjID", p."OperationID"
+  INTO v_anchor
+  FROM "RBAC"."Permissions" p
+  WHERE p."Name" = 'meta.object.read'
+  ORDER BY p."ID"
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RAISE NOTICE 'permission % not seeded — meta.object.read anchor missing', p_permission;
+    RETURN;
+  END IF;
+
+  INSERT INTO "RBAC"."Permissions" ("Name", "ObjID", "OperationID")
+  VALUES (p_permission, v_anchor."ObjID", v_anchor."OperationID")
+  RETURNING "ID" INTO v_perm_id;
+
+  SELECT r."ID" INTO v_role_id
+  FROM "RBAC"."Roles" r
+  WHERE r."Name" = 'organization_admin'
+  LIMIT 1;
+
+  IF v_role_id IS NOT NULL THEN
+    INSERT INTO "RBAC"."Role_Permissions" ("RoleID", "PermissionID")
+    VALUES (v_role_id, v_perm_id)
+    ON CONFLICT DO NOTHING;
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION portal.sp_semantic_seed_read_permission(text) FROM PUBLIC;
+
+SELECT portal.sp_semantic_seed_read_permission('core.organization.read');

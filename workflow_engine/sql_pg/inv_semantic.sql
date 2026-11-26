@@ -6,6 +6,8 @@ ON CONFLICT (code) DO UPDATE
   SET display_name = EXCLUDED.display_name,
       owner_app = EXCLUDED.owner_app;
 
+SELECT portal.sp_semantic_seed_read_permission('inv.read');
+
 CREATE OR REPLACE VIEW inv.v_item AS
 SELECT
   i.item_id,

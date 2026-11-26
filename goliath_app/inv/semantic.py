@@ -119,6 +119,8 @@ INV_ENTITIES: list[SemanticEntitySpec] = [
     SUPPLIER_ITEM_ENTITY,
 ]
 
+INV_READ_PERMISSION = "inv.read"
+
 INV_REQUESTS: list[SemanticRequestSpec] = [
     SemanticRequestSpec(
         request_code="inv.item.list",
@@ -129,6 +131,7 @@ INV_REQUESTS: list[SemanticRequestSpec] = [
         target_name="inv.fn_semantic_list_items",
         params_model=ListItemsParams,
         result_row_model=ItemRow,
+        required_permission=INV_READ_PERMISSION,
     ),
     SemanticRequestSpec(
         request_code="inv.purchase_order.list",
@@ -139,6 +142,7 @@ INV_REQUESTS: list[SemanticRequestSpec] = [
         target_name="inv.fn_semantic_list_purchase_orders",
         params_model=ListPurchaseOrdersParams,
         result_row_model=PurchaseOrderRow,
+        required_permission=INV_READ_PERMISSION,
     ),
     SemanticRequestSpec(
         request_code="inv.stock_lot.by_item",
@@ -149,6 +153,7 @@ INV_REQUESTS: list[SemanticRequestSpec] = [
         target_name="inv.fn_semantic_stock_lots_by_item",
         params_model=StockLotsByItemParams,
         result_row_model=StockLotRow,
+        required_permission=INV_READ_PERMISSION,
     ),
     SemanticRequestSpec(
         request_code="inv.supplier_item.list",
@@ -159,5 +164,6 @@ INV_REQUESTS: list[SemanticRequestSpec] = [
         target_name="inv.fn_semantic_list_supplier_items",
         params_model=ListSupplierItemsParams,
         result_row_model=SupplierItemRow,
+        required_permission=INV_READ_PERMISSION,
     ),
 ]
