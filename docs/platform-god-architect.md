@@ -25,6 +25,7 @@ Sessions remain **single active role**. David (or any grantee) must **select God
 - **Security instance data** (`platform/User`, `platform/RoleGrant`, `platform/Invitation`, `platform/ExternalIdentity`, `platform/Organization`) stays under **`platform.security.admin`** and org-scoped admin UIs — ordinary object data, not schema authoring.
 - **Session writes**: `sp_session_meta_class_create`, field upsert on `platform/*`, `sp_session_nav_register_node`, platform-namespace semantic registration, and granting `god_architect` require an active God Architect role + `platform.model.architect`.
 - **Grants of God Architect**: only God Architect may assign or revoke; revokes cannot remove the **last** active global grant (enforced in session revoke paths).
+- **Bootstrap grant**: `portal.sp_security_meta_grant_god_architect_to_user` runs with the caller's rights (`SECURITY INVOKER`) and only the schema owner may execute it. `PUBLIC`, `goliath_portal`, and `goliath_gateway` are revoked in `platform_god_architect.sql` and `database_gateway_roles.sql`. Sessions grant God Architect through `portal.sp_session_grant_user_role_scoped`.
 - **Audit**: `portal.god_architect_audit` records platform catalog mutations and god_architect grant changes.
 
 ## Production verification

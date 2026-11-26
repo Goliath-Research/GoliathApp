@@ -232,10 +232,15 @@ BEGIN
 END;
 $$;
 
+/*
+  Bootstrap only: no session or approval check, so it runs with the caller's own rights and is
+  executable by the schema owner alone. Sessions grant god_architect via
+  portal.sp_session_grant_user_role_scoped, which requires an existing God Architect session.
+*/
 CREATE OR REPLACE FUNCTION portal.sp_security_meta_grant_god_architect_to_user(p_user_id integer)
 RETURNS bigint
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 SET search_path = portal, "Meta", "RBAC", pg_temp
 AS $$
 DECLARE
@@ -278,6 +283,22 @@ BEGIN
   RETURN v_grant_id;
 END;
 $$;
+
+REVOKE EXECUTE ON FUNCTION portal.sp_security_meta_grant_god_architect_to_user(integer) FROM PUBLIC;
+DO $revoke_god_grant$
+DECLARE
+  v_role text;
+BEGIN
+  FOREACH v_role IN ARRAY ARRAY['goliath_portal', 'goliath_gateway'] LOOP
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_role) THEN
+      EXECUTE format(
+        'REVOKE EXECUTE ON FUNCTION portal.sp_security_meta_grant_god_architect_to_user(integer) FROM %I',
+        v_role
+      );
+    END IF;
+  END LOOP;
+END
+$revoke_god_grant$;
 
 CREATE OR REPLACE FUNCTION portal.sp_sync_god_architect_operator_entitlements()
 RETURNS void

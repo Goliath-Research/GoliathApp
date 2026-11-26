@@ -99,6 +99,8 @@ BEGIN
 END $$;
 
 REVOKE EXECUTE ON FUNCTION portal.sp_platform_god_architect_class_acl_sync() FROM PUBLIC, goliath_portal;
+REVOKE EXECUTE ON FUNCTION portal.sp_security_meta_grant_god_architect_to_user(integer)
+  FROM PUBLIC, goliath_portal, goliath_gateway;
 
 REVOKE ALL ON ALL TABLES IN SCHEMA inv FROM PUBLIC, goliath_portal;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA inv FROM PUBLIC, goliath_portal;
