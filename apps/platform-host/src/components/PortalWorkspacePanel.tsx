@@ -31,7 +31,8 @@ import {
   portalSessionSecurity,
 } from "@/server/portal/bridge";
 import { cookies, headers } from "next/headers";
-import { requestOriginFromHeaderStore } from "@/server/http/request-origin";
+import { allowlistedOriginFromHeaderStore } from "@/server/http/request-origin";
+import { listAllowedRedirectOrigins } from "@/server/auth/registry";
 import { navChildrenOf, type PortalWorkspaceSpec } from "@/lib/portal-node-registry";
 import { PLATFORM_QUERY_SQL } from "@/lib/portal-platform-queries";
 import { SESSION_COOKIE_NAME } from "@/server/session/cookies";
@@ -193,7 +194,11 @@ export async function PortalWorkspacePanel({
 
     if (spec.kind === "admin_users") {
       const hdrs = await headers();
-      const origin = requestOriginFromHeaderStore((name) => hdrs.get(name), "http://localhost:3400");
+      const origin = allowlistedOriginFromHeaderStore(
+        (name) => hdrs.get(name),
+        listAllowedRedirectOrigins(),
+        "http://localhost:3400",
+      );
       const adminPayload = (await portalSessionSecurity(token, "list_users_admin", {})) as {
         users?: Record<string, unknown>[];
       };

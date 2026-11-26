@@ -67,6 +67,11 @@ export function getAuthProvider(providerId: string): AuthProviderConfig | null {
   return listAuthProviderConfigs().find((p) => p.providerId === providerId) ?? null;
 }
 
+/** Union of every provider's allowedOrigins: the public origins this host serves sign-in on. */
+export function listAllowedRedirectOrigins(): string[] {
+  return listAuthProviderConfigs().flatMap((p) => p.allowedOrigins ?? []);
+}
+
 export function listPublicAuthProviders(origin: string): PublicAuthProvider[] {
   return listAuthProviderConfigs().map((p) => ({
     providerId: p.providerId,

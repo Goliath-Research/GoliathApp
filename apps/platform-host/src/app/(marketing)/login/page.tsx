@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ObjectBadge } from "@goliath/ui";
-import { listPublicAuthProviders } from "@/server/auth/registry";
+import { listAllowedRedirectOrigins, listPublicAuthProviders } from "@/server/auth/registry";
 import { headers } from "next/headers";
-import { requestOriginFromHeaderStore } from "@/server/http/request-origin";
+import { allowlistedOriginFromHeaderStore } from "@/server/http/request-origin";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,11 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const hdrs = await headers();
-  const origin = requestOriginFromHeaderStore((name) => hdrs.get(name), "http://localhost:3400");
+  const origin = allowlistedOriginFromHeaderStore(
+    (name) => hdrs.get(name),
+    listAllowedRedirectOrigins(),
+    "http://localhost:3400",
+  );
   const providers = listPublicAuthProviders(origin);
 
   return (
