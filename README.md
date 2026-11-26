@@ -58,7 +58,7 @@ PostgreSQL objects are applied by [`workflow_engine/sql_pg/apply_schema.sh`](wor
 
 ## Type checking
 
-[Pyrefly](https://pyrefly.org) checks `workflow_engine/`, `scripts/`, and `goliath_worker/` as Python 3.12, which is the version CI runs.
+[Pyrefly](https://pyrefly.org) checks `workflow_engine/`, `scripts/`, and `goliath_worker/` as Python 3.14, which is the version CI runs.
 
 ```bash
 python -m pip install -e "workflow_engine/[dev]"
