@@ -121,6 +121,11 @@ BEGIN
 END;
 $$;
 
+/*
+  The session's active scope only. With p_include_inactive, a session acting as
+  organization_admin in that scope also sees the inactive scopes of the same
+  organization. God Architect sees every scope.
+*/
 CREATE OR REPLACE FUNCTION portal.sp_session_list_scopes(
   p_session_token text,
   p_include_inactive boolean DEFAULT false
@@ -138,9 +143,59 @@ STABLE
 SECURITY DEFINER
 SET search_path = portal, "RBAC", pg_temp
 AS $$
+DECLARE
+  v_ctx record;
+  v_role_id integer;
+  v_org_id integer;
+  v_org_admin boolean := false;
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token, '/app/admin/scopes');
-  RETURN QUERY SELECT * FROM portal.sp_list_scopes(p_include_inactive);
+  SELECT *
+  INTO v_ctx
+  FROM portal.fn_session_operator_require(p_session_token, '/app/admin/scopes')
+  LIMIT 1;
+
+  IF portal.fn_session_is_god_architect(v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id) THEN
+    RETURN QUERY SELECT * FROM portal.sp_list_scopes(p_include_inactive);
+    RETURN;
+  END IF;
+
+  IF COALESCE(p_include_inactive, false) THEN
+    SELECT s."OrganizationID"
+    INTO v_org_id
+    FROM "RBAC"."Scopes" s
+    WHERE s."ScopeID" = v_ctx.active_scope_id
+      AND s."ScopeType" = 'organization';
+
+    v_role_id := portal.fn_session_active_role_id(v_ctx.session_id);
+    v_org_admin := v_org_id IS NOT NULL
+      AND v_role_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM "RBAC"."Roles" r
+        WHERE r."ID" = v_role_id AND r."Name" = 'organization_admin'
+      )
+      AND portal.fn_session_role_grant_valid(v_ctx.user_id, v_ctx.active_scope_id, v_role_id);
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    s."ScopeID",
+    s."ScopeType"::text,
+    s."Name"::text,
+    s."OrganizationID",
+    s."OwnerUserID",
+    s."Active"
+  FROM "RBAC"."Scopes" s
+  WHERE (
+      s."ScopeID" = v_ctx.active_scope_id
+      AND (COALESCE(p_include_inactive, false) OR s."Active")
+    )
+    OR (
+      v_org_admin
+      AND s."ScopeType" = 'organization'
+      AND s."OrganizationID" = v_org_id
+      AND NOT s."Active"
+    )
+  ORDER BY s."Name";
 END;
 $$;
 

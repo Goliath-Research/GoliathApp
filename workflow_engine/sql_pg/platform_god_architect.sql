@@ -104,6 +104,27 @@ BEGIN
 END;
 $$;
 
+-- Non-raising form of fn_session_assert_god_architect for an already resolved session.
+CREATE OR REPLACE FUNCTION portal.fn_session_is_god_architect(
+  p_session_id integer,
+  p_user_id integer,
+  p_active_scope_id integer
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = portal, "RBAC", pg_temp
+AS $$
+  SELECT COALESCE(
+    portal.fn_session_is_god_architect_role(portal.fn_session_active_role_id(p_session_id))
+      AND portal.fn_session_has_permission(
+        p_session_id, p_user_id, p_active_scope_id, 'platform.model.architect'
+      ),
+    false
+  );
+$$;
+
 CREATE OR REPLACE FUNCTION portal.fn_session_god_architect_audit(
   p_session_id int,
   p_user_id int,

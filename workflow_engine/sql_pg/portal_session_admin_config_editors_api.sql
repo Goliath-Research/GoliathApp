@@ -344,6 +344,7 @@ BEGIN
 END;
 $$;
 
+/* The active scope's organization only; God Architect sees every organization. */
 CREATE OR REPLACE FUNCTION portal.sp_session_org_list(p_session_token text)
 RETURNS TABLE (
   organization_id integer,
@@ -358,14 +359,32 @@ STABLE
 SECURITY DEFINER
 SET search_path = portal, "RBAC", pg_temp
 AS $$
+DECLARE
+  v_ctx record;
+  v_all boolean;
+  v_org_id integer;
 BEGIN
-  PERFORM portal.fn_session_require_any_nav(p_session_token, ARRAY['/app/admin/organizations']);
+  SELECT *
+  INTO v_ctx
+  FROM portal.fn_session_operator_require(p_session_token, '/app/admin/organizations')
+  LIMIT 1;
+
+  v_all := portal.fn_session_is_god_architect(v_ctx.session_id, v_ctx.user_id, v_ctx.active_scope_id);
+  IF NOT v_all THEN
+    SELECT s."OrganizationID"
+    INTO v_org_id
+    FROM "RBAC"."Scopes" s
+    WHERE s."ScopeID" = v_ctx.active_scope_id
+      AND s."ScopeType" = 'organization';
+  END IF;
+
   RETURN QUERY
   SELECT o."ID", o."Name"::text, o."Active", o."CreatedAtUtc",
          (SELECT count(*)::int FROM portal."OrganizationMembers" m WHERE m."OrganizationID" = o."ID"),
          (SELECT min(s."ScopeID")::int FROM "RBAC"."Scopes" s
            WHERE s."OrganizationID" = o."ID" AND s."ScopeType" = 'organization')
   FROM portal."Organizations" o
+  WHERE v_all OR o."ID" = v_org_id
   ORDER BY o."Name", o."ID";
 END;
 $$;
