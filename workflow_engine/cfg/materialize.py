@@ -15,12 +15,20 @@ if str(_REPO_ROOT) not in sys.path:
 
 from goliath_worker.platform_env import resolve_site_manifest  # noqa: E402
 
+from .safe_paths import ensure_dir_under, safe_segment, write_under
 from .store import ConfigStore
 
 
+def _json_bytes(doc: Any) -> bytes:
+    return (json.dumps(doc, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+
 def _write_json(path: Path, doc: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    write_under(path.parent, [], path.name, _json_bytes(doc))
+
+
+def _named(rec: Any, suffix: str) -> str:
+    return f"{safe_segment(rec.name, what=f'{rec.kind} name')}{suffix}"
 
 
 def materialize_paths(
@@ -82,47 +90,49 @@ def materialize_store(
 
     if "pipeline_profile" in selected:
         for rec in store.list("pipeline_profile", published_only=True):
-            out = paths["profiles"] / f"{rec.name}.profile.json"
+            out = paths["profiles"] / _named(rec, ".profile.json")
             _write_json(out, rec.document)
             written.append(f"pipeline_profile:{rec.name}@{rec.version}->{out}")
 
     if "assay_procedure" in selected:
         for rec in store.list("assay_procedure", published_only=True):
-            out = paths["procedures"] / f"{rec.name}.procedure.json"
+            out = paths["procedures"] / _named(rec, ".procedure.json")
             _write_json(out, rec.document)
             written.append(f"assay_procedure:{rec.name}@{rec.version}->{out}")
 
     if "analyte" in selected:
         for rec in store.list("analyte", published_only=True):
-            out = paths["analytes"] / f"{rec.name}.analyte.json"
+            out = paths["analytes"] / _named(rec, ".analyte.json")
             _write_json(out, rec.document)
             written.append(f"analyte:{rec.name}@{rec.version}->{out}")
 
     if "domain_program" in selected:
         for rec in store.list("domain_program", published_only=True):
-            out = paths["programs"] / f"{rec.name}.program.json"
+            out = paths["programs"] / _named(rec, ".program.json")
             _write_json(out, rec.document)
             written.append(f"domain_program:{rec.name}@{rec.version}->{out}")
 
     if "study" in selected:
-        from .study_membership import materialize_study_membership
+        from .study_membership import (
+            materialize_study_membership,
+            project_filename,
+            study_work_id,
+        )
 
         # Membership CSVs + synced sample_paths (when extra.studyGroups present)
         mem = materialize_study_membership(store, work_root)
         for path in mem.get("written") or []:
             written.append(f"study_membership:{path}")
 
-        for rec in store.list("study", published_only=True):
-            study_id = (
-                rec.extra.get("studyId")
-                or rec.document.get("study_id")
-                or rec.document.get("studyId")
-                or rec.name
+        studies = [
+            (rec, study_work_id(rec), project_filename(rec))
+            for rec in store.list("study", published_only=True)
+        ]
+        for rec, study_id, project_name in studies:
+            out = write_under(
+                work_root, ["projects", study_id, "configs"], project_name, _json_bytes(rec.document)
             )
-            cfg_dir = paths["projects"] / str(study_id) / "configs"
-            out = cfg_dir / f"project_{rec.name}.json"
-            _write_json(out, rec.document)
-            (paths["projects"] / str(study_id) / "data").mkdir(parents=True, exist_ok=True)
+            ensure_dir_under(work_root, ["projects", study_id, "data"])
             written.append(f"study:{rec.name}@{rec.version}->{out}")
 
     if "storage_endpoint" in selected:
@@ -136,22 +146,24 @@ def materialize_store(
                 "credentialName": rec.extra.get("credentialName")
                 or rec.document.get("credentialName"),
             }
-            out = paths["storage_endpoints"] / f"{rec.name}.json"
+            out = paths["storage_endpoints"] / _named(rec, ".json")
             _write_json(out, meta)
             written.append(f"storage_endpoint:{rec.name}@{rec.version}->{out}")
 
     if "storage_profile" in selected:
         for rec in store.list("storage_profile", published_only=True):
-            out = paths["storage_profiles"] / f"{rec.name}.json"
+            out = paths["storage_profiles"] / _named(rec, ".json")
             _write_json(out, rec.document)
             written.append(f"storage_profile:{rec.name}@{rec.version}->{out}")
 
     if "reference_asset" in selected:
         for rec in store.list("reference_asset", published_only=True):
-            out = paths["reference_assets"] / f"{rec.name}@{rec.version}.json"
+            out = paths["reference_assets"] / _named(
+                rec, f"@{safe_segment(rec.version, what='reference_asset version')}.json"
+            )
             _write_json(out, rec.document)
             # Convenience alias for the published version (last write wins if multiple)
-            alias = paths["reference_assets"] / f"{rec.name}.json"
+            alias = paths["reference_assets"] / _named(rec, ".json")
             _write_json(alias, rec.document)
             written.append(f"reference_asset:{rec.name}@{rec.version}->{out}")
 
@@ -159,7 +171,7 @@ def materialize_store(
         presets = store.list("enrichment_library_preset", published_only=True)
         combined: Dict[str, Any] = {}
         for rec in presets:
-            out = paths["enrichment_library_presets"] / f"{rec.name}.json"
+            out = paths["enrichment_library_presets"] / _named(rec, ".json")
             _write_json(out, rec.document)
             combined[rec.name] = rec.document.get("libraries")
             written.append(f"enrichment_library_preset:{rec.name}@{rec.version}->{out}")

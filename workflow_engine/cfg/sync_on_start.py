@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional
@@ -13,6 +14,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from goliath_worker import platform_env  # noqa: E402
 
+from .safe_paths import open_dir, safe_segment, write_file_at
 from .store import FileConfigStore
 from .study_membership import materialize_study_membership
 
@@ -61,13 +63,31 @@ def resolve_study_row_id(context: Mapping[str, Any]) -> Optional[int]:
     return None
 
 
-def _write_csv_from_keys(path: Path, sample_keys: str | None) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+def _csv_bytes_from_keys(sample_keys: str | None) -> bytes:
     keys = []
     if sample_keys:
         keys = [k.strip() for k in str(sample_keys).splitlines() if k.strip()]
     lines = ["sample"] + sorted(keys)
-    path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+    return ("\n".join(lines) + ("\n" if lines else "")).encode("utf-8")
+
+
+def _split_db_csv_path(
+    csv_path: str, work_root: Path, list_filename: Any
+) -> tuple[str, str]:
+    """Return (studyId, filename) for ``<work_root>/projects/<studyId>/data/<filename>``."""
+    prefix = str(work_root).rstrip("/") + "/projects/"
+    if not csv_path.startswith(prefix):
+        raise ValueError(f"db csv_path is not under {prefix}: {csv_path!r}")
+    parts = csv_path[len(prefix) :].split("/")
+    if len(parts) != 3 or parts[1] != "data":
+        raise ValueError(f"db csv_path is not <studyId>/data/<file>: {csv_path!r}")
+    study_id = safe_segment(parts[0], what="studyId")
+    filename = safe_segment(parts[2], what="listFilename")
+    if list_filename is not None and str(list_filename) != filename:
+        raise ValueError(
+            f"db csv_path {csv_path!r} does not end in list_filename {list_filename!r}"
+        )
+    return study_id, filename
 
 
 def _sync_from_db(
@@ -91,17 +111,39 @@ def _sync_from_db(
     else:
         raise RuntimeError("unsupported db object for study work sync")
 
+    planned: list[tuple[str, bytes]] = []
+    bound_study_id: Optional[str] = None
     for row in rows:
         if isinstance(row, Mapping):
             csv_path = row.get("csv_path") or row.get("csvPath")
             sample_keys = row.get("sample_keys") or row.get("sampleKeys")
+            list_filename = row.get("list_filename") or row.get("listFilename")
         else:
             # tuple-like: study_group_id, role, label, list_filename, csv_path, sample_keys
+            list_filename = row[3] if len(row) > 3 else None
             csv_path = row[4] if len(row) > 4 else None
             sample_keys = row[5] if len(row) > 5 else None
-        if csv_path:
-            _write_csv_from_keys(Path(str(csv_path)), sample_keys)
-            written.append(str(csv_path))
+        if not csv_path:
+            continue
+        study_id, filename = _split_db_csv_path(str(csv_path), work_root, list_filename)
+        if bound_study_id is None:
+            bound_study_id = study_id
+        elif study_id != bound_study_id:
+            raise ValueError(
+                f"db rows for study row {study_row_id} name more than one studyId: "
+                f"{bound_study_id!r}, {study_id!r}"
+            )
+        planned.append((filename, _csv_bytes_from_keys(sample_keys)))
+
+    if bound_study_id is not None:
+        data_dir = work_root / "projects" / bound_study_id / "data"
+        data_fd = open_dir(work_root, ["projects", bound_study_id, "data"])
+        try:
+            for filename, data in planned:
+                write_file_at(data_fd, filename, data)
+                written.append(str(data_dir / filename))
+        finally:
+            os.close(data_fd)
     return {"source": "db", "studyRowId": study_row_id, "written": written}
 
 
@@ -150,18 +192,17 @@ def ensure_study_work_synced(
                 )
                 sync_meta["source"] = "file_store"
                 sync_meta["written"].extend(result.get("written") or [])
-                # Prefer freshly synced project path for the run when we know studyId.
-                study_id = (
-                    rec.extra.get("studyId")
-                    or rec.document.get("study_id")
-                    or rec.document.get("studyId")
-                    or rec.name
+                # Use the project JSON this sync wrote, not a path re-derived from the store.
+                synced_project = next(
+                    (
+                        p["projectPath"]
+                        for p in result.get("projects") or []
+                        if p.get("name") == rec.name and p.get("version") == rec.version
+                    ),
+                    None,
                 )
-                synced_project = (
-                    root / "projects" / str(study_id) / "configs" / f"project_{rec.name}.json"
-                )
-                if synced_project.is_file():
-                    out["projectPath"] = str(synced_project)
+                if synced_project:
+                    out["projectPath"] = synced_project
                     # Reload document after membership sync
                     refreshed = store_obj.get("study", name, published_only=True)
                     if refreshed is not None:

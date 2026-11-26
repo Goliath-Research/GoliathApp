@@ -101,7 +101,9 @@ def _cmd_upsert(args: argparse.Namespace) -> int:
         extra["credentialName"] = args.credential_name
         extra["provider"] = args.provider or doc.get("type") or "unknown"
     if args.kind == "study" and args.study_id:
-        extra["studyId"] = args.study_id
+        from cfg.safe_paths import safe_segment
+
+        extra["studyId"] = safe_segment(args.study_id, what="studyId")
     name = args.name or doc_name or Path(args.file).stem
     rec = store.upsert(
         args.kind,
