@@ -19,6 +19,7 @@ from goliath_app.semantic.meta_bridge import (
     meta_class_schema_id,
     meta_class_storage_relation,
 )
+from goliath_worker.pg_tls import default_sslmode
 
 
 def _connect():
@@ -30,6 +31,7 @@ def _connect():
         dbname=os.environ["PGDATABASE"],
         user=os.environ["PGUSER"],
         password=os.environ.get("PGPASSWORD"),
+        sslmode=default_sslmode(),
     )
 
 

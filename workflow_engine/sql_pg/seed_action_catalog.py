@@ -16,6 +16,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from goliath_app.actions.registry import load_action_catalog
 from goliath_app.actions.schema_export import export_action_schemas
+from goliath_worker.pg_tls import default_sslmode
 
 
 def _connect():
@@ -27,6 +28,7 @@ def _connect():
         dbname=os.environ["PGDATABASE"],
         user=os.environ["PGUSER"],
         password=os.environ.get("PGPASSWORD"),
+        sslmode=default_sslmode(),
     )
 
 

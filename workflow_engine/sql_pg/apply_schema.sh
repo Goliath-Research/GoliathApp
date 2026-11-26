@@ -11,7 +11,7 @@
 #   export PGDATABASE=goliath
 #   export PGUSER=postgres
 #   export PGPASSWORD='...'
-#   export PGSSLMODE=prefer
+#   export PGSSLROOTCERT=/path/to/ca.pem   # PGSSLMODE defaults to verify-full
 #   ./apply_schema.sh
 
 set -euo pipefail
@@ -23,7 +23,11 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 export PGPORT="${PGPORT:-5432}"
 : "${PGDATABASE:?Set PGDATABASE (libpq database name)}"
 : "${PGUSER:?Set PGUSER (libpq user)}"
-export PGSSLMODE="${PGSSLMODE:-prefer}"
+export PGSSLMODE="${PGSSLMODE:-verify-full}"
+case "$PGSSLMODE" in
+  verify-full|verify-ca) ;;
+  *) echo "PGSSLMODE=$PGSSLMODE does not verify the server certificate; use verify-full or verify-ca (set PGSSLROOTCERT)." >&2; exit 1 ;;
+esac
 
 if [[ -z "${PGPASSWORD:-}" && -z "${PGPASSFILE:-}" ]]; then
   echo "Set PGPASSWORD or PGPASSFILE for database authentication." >&2

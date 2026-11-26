@@ -60,6 +60,15 @@ jobs:
       - name: Install PostgreSQL client
         run: bash scripts/ci/install_postgresql_client.sh "${{ matrix.postgres }}"
 
+      - name: Enable TLS on the PostgreSQL service (clients use verify-full)
+        run: bash scripts/ci/enable_postgres_tls.sh "${{ job.services.postgres.id }}"
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: goliath_ci
+          PGDATABASE: goliathapp_schema_test
+
       - name: Report PostgreSQL server version and pg_jsonschema availability
         run: bash scripts/ci/report_postgres_capabilities.sh
         env:
@@ -245,6 +254,15 @@ jobs:
 
       - name: Install PostgreSQL client
         run: bash scripts/ci/install_postgresql_client.sh "${{ matrix.postgres }}"
+
+      - name: Enable TLS on the PostgreSQL service (clients use verify-full)
+        run: bash scripts/ci/enable_postgres_tls.sh "${{ job.services.postgres.id }}"
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: goliath_ci
+          PGDATABASE: goliathapp_schema_test
 
       - name: Report PostgreSQL server version and pg_jsonschema availability
         run: bash scripts/ci/report_postgres_capabilities.sh

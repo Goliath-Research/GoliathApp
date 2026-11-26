@@ -65,7 +65,7 @@ export PGHOST=localhost
 export PGPORT=5432
 export PGDATABASE=goliath_docs_test
 export PGUSER=postgres
-export PGSSLMODE=prefer
+export PGSSLROOTCERT=/path/to/ca.pem   # PGSSLMODE defaults to verify-full
 # export PGPASSWORD='…'   # set in your shell or CI secret store, never in repo
 
 psql -v ON_ERROR_STOP=1 -c "SELECT current_user, version();"

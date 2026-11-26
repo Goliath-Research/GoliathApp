@@ -12,6 +12,8 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
+from goliath_worker.pg_tls import require_verified_tls
+
 from ..azure_auth import get_database_access_token
 from .base import (
     EventIngestForbidden,
@@ -98,6 +100,7 @@ class PostgresGatewayDb(GatewayDbBase):
         max_size: int = 8,
     ) -> None:
         super().__init__(schema_name)
+        conninfo = require_verified_tls(conninfo)
         self._use_managed_identity = use_managed_identity
         if use_managed_identity:
             self._pool: ConnectionPool | _PgPool = _PgPool(

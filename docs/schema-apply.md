@@ -15,7 +15,8 @@ An application that ships this engine applies the list once per release, to the 
 | `PGDATABASE` | Database name (required) |
 | `PGUSER` | Role name (required) |
 | `PGPASSWORD` or `PGPASSFILE` | Authentication |
-| `PGSSLMODE` | TLS mode (default `prefer`) |
+| `PGSSLMODE` | TLS mode: `verify-full` (default) or `verify-ca`; other modes are refused |
+| `PGSSLROOTCERT` | CA bundle that signs the server certificate (or `system`) |
 
 The script checks `current_user` and `version()`, applies each file with `psql -q -v ON_ERROR_STOP=1 -f`, then runs `workflow_engine/contract/validate_contract.py` when `python3` or `.venv/bin/python` is available. It does not set `check_function_bodies`.
 
