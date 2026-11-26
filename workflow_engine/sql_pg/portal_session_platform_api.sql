@@ -167,9 +167,32 @@ STABLE
 SECURITY DEFINER
 SET search_path = portal, "RBAC", "Onboarding", pg_temp
 AS $$
+DECLARE
+  v_scope_id integer;
 BEGIN
-  PERFORM portal.fn_session_operator_require(p_session_token, '/app/admin/invitations');
-  RETURN QUERY SELECT * FROM portal.sp_list_invitations(p_scope_id, p_status);
+  -- p_scope_id is kept for signature compatibility only; rows are always limited
+  -- to the session's active scope so one tenant cannot list another's invitations.
+  SELECT r.active_scope_id INTO v_scope_id
+  FROM portal.fn_session_operator_require(p_session_token, '/app/admin/invitations') r
+  LIMIT 1;
+
+  RETURN QUERY
+  SELECT
+    i."InvitationID",
+    i."BatchID",
+    i."ScopeID",
+    i."Email"::text,
+    i."DefaultRoleID",
+    i."GrantType"::text,
+    i."Status"::text,
+    i."ExpiresAtUtc",
+    i."AcceptedByUserID",
+    i."AcceptedAtUtc",
+    i."CreatedAtUtc"
+  FROM "Onboarding"."Invitations" i
+  WHERE i."ScopeID" = v_scope_id
+    AND (p_status IS NULL OR i."Status" = p_status)
+  ORDER BY i."CreatedAtUtc" DESC;
 END;
 $$;
 
